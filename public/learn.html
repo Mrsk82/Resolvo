@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo — Learning Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0B0F19;--surface:#0F1623;--card:#141B2A;--border:#1E2A3D;
+  --green:#10B981;--indigo:#6366F1;--amber:#F59E0B;--red:#EF4444;--blue:#3B82F6;--purple:#8B5CF6;
+  --white:#F8FAFC;--muted:#94A3B8;--dim:#475569;--r:10px;
+  --sidebar-w:280px;
+}
+body{background:var(--bg);color:var(--white);font-family:'Inter',sans-serif;line-height:1.6;display:flex;min-height:100vh;}
+
+/* ── SIDEBAR ── */
+#sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:100;}
+.sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+.sb-logo a{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.sb-logo svg{flex-shrink:0;}
+.sb-badge{background:var(--green);color:#0B0F19;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:auto;}
+.sb-search{padding:12px 14px;border-bottom:1px solid var(--border);}
+.sb-search input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--white);outline:none;}
+.sb-search input::placeholder{color:var(--dim);}
+.sb-search input:focus{border-color:var(--green);}
+.sb-progress{padding:12px 14px;border-bottom:1px solid var(--border);}
+.progress-bar{background:var(--border);border-radius:4px;height:5px;margin-top:6px;}
+.progress-fill{background:var(--green);height:5px;border-radius:4px;transition:width .4s;}
+.sb-section{padding:10px 0;}
+.sb-section-title{padding:6px 18px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 18px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;text-decoration:none;border-left:3px solid transparent;}
+.sb-item:hover{color:var(--white);background:rgba(255,255,255,.03);}
+.sb-item.active{color:var(--green);background:rgba(16,185,129,.07);border-left-color:var(--green);font-weight:600;}
+.sb-item.done .sb-check{color:var(--green);}
+.sb-check{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;transition:all .2s;}
+.sb-item.done .sb-check{background:var(--green);border-color:var(--green);color:#fff;}
+
+/* ── MAIN ── */
+#main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+.top-bar{position:sticky;top:0;z-index:50;background:rgba(11,15,25,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:58px;display:flex;align-items:center;justify-content:space-between;}
+.top-bar-title{font-size:15px;font-weight:700;color:var(--white);}
+.top-bar-actions{display:flex;gap:10px;align-items:center;}
+.top-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .15s;}
+.top-btn:hover{border-color:var(--green);color:var(--green);}
+.top-btn.primary{background:var(--green);color:#0B0F19;border-color:var(--green);}
+
+/* ── CONTENT ── */
+#content{padding:48px 48px 80px;}
+.module{display:none;}
+.module.active{display:block;}
+
+/* ── HERO ── */
+.learn-hero{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(16,185,129,.08));border:1px solid var(--border);border-radius:16px;padding:40px 44px;margin-bottom:40px;position:relative;overflow:hidden;}
+.learn-hero::before{content:'';position:absolute;right:-60px;top:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(16,185,129,.1),transparent 70%);pointer-events:none;}
+.learn-hero h1{font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:10px;}
+.learn-hero p{font-size:15px;color:var(--muted);max-width:560px;line-height:1.75;}
+.hero-meta{display:flex;gap:20px;margin-top:20px;flex-wrap:wrap;}
+.hero-meta span{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim);}
+
+/* ── SECTION ── */
+.section-block{margin-bottom:40px;}
+.section-title{font-size:22px;font-weight:800;color:var(--white);margin-bottom:6px;display:flex;align-items:center;gap:10px;}
+.section-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.7;}
+
+/* ── STEPS ── */
+.steps{display:flex;flex-direction:column;gap:16px;margin-bottom:24px;}
+.step{display:flex;gap:18px;align-items:flex-start;}
+.step-num{width:32px;height:32px;border-radius:50%;background:var(--green);color:#0B0F19;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+.step-body h4{font-size:14px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.step-body p{font-size:13px;color:var(--muted);line-height:1.65;}
+.step-body code{background:var(--card);border:1px solid var(--border);padding:1px 7px;border-radius:5px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--green);}
+
+/* ── MOCKUP SCREENS ── */
+.mockup{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:20px 0;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+.mockup-bar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:8px;}
+.mockup-dot{width:10px;height:10px;border-radius:50%;}
+.mockup-title{font-size:11px;color:var(--dim);margin-left:8px;font-family:'JetBrains Mono',monospace;}
+.mockup-body{padding:16px;}
+.mock-nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px;overflow-x:auto;}
+.mock-nav-item{padding:8px 16px;font-size:12px;color:var(--dim);border-bottom:2px solid transparent;white-space:nowrap;cursor:default;}
+.mock-nav-item.active{color:var(--green);border-bottom-color:var(--green);font-weight:700;}
+.mock-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:7px;background:var(--card);border:1px solid var(--border);margin-bottom:6px;}
+.mock-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;flex-shrink:0;}
+.mock-badge.critical{background:#EF444420;color:#EF4444;}
+.mock-badge.high{background:#F59E0B20;color:#F59E0B;}
+.mock-badge.medium{background:#3B82F620;color:#3B82F6;}
+.mock-badge.low{background:#10B98120;color:#10B981;}
+.mock-badge.open{background:#6366F120;color:#6366F1;}
+.mock-badge.resolved{background:#10B98120;color:#10B981;}
+.mock-badge.new{background:#8B5CF620;color:#8B5CF6;}
+.mock-stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:center;}
+.mock-stat-n{font-size:24px;font-weight:900;color:var(--green);}
+.mock-stat-l{font-size:11px;color:var(--dim);margin-top:2px;}
+.mock-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+.mock-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.mock-timeline{display:flex;flex-direction:column;gap:0;}
+.mock-tl-item{display:flex;gap:12px;padding-bottom:14px;position:relative;}
+.mock-tl-dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:4px;position:relative;z-index:1;}
+.mock-tl-line{position:absolute;left:4px;top:14px;width:2px;height:100%;background:var(--border);}
+.mock-tl-body{font-size:12px;color:var(--muted);}
+.mock-tl-body strong{color:var(--white);}
+
+/* ── TIP / INFO BOXES ── */
+.tip{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--muted);}
+.tip strong{color:var(--green);}
+.info{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--muted);}
+.info strong{color:var(--indigo);}
+.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--muted);}
+.warn strong{color:var(--amber);}
+
+/* ── FEATURE GRID ── */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:20px 0;}
+.feat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:border-color .2s;}
+.feat-card:hover{border-color:var(--green);}
+.feat-card h4{font-size:14px;font-weight:700;color:var(--white);margin-bottom:6px;}
+.feat-card p{font-size:12px;color:var(--muted);line-height:1.6;}
+.feat-icon{font-size:22px;margin-bottom:10px;display:block;}
+
+/* ── SHORTCUT TABLE ── */
+table.shortcuts{width:100%;border-collapse:collapse;margin:16px 0;}
+table.shortcuts th{padding:8px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);border-bottom:1px solid var(--border);}
+table.shortcuts td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);color:var(--muted);}
+table.shortcuts td:first-child{font-family:'JetBrains Mono',monospace;color:var(--green);font-size:12px;}
+table.shortcuts tr:last-child td{border-bottom:none;}
+
+/* ── NAV ARROWS ── */
+.nav-arrows{display:flex;justify-content:space-between;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);}
+.nav-arrow{display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;text-decoration:none;transition:all .15s;max-width:48%;}
+.nav-arrow:hover{border-color:var(--green);}
+.nav-arrow.next{margin-left:auto;text-align:right;flex-direction:row-reverse;}
+.nav-arrow-label{font-size:11px;color:var(--dim);display:block;}
+.nav-arrow-title{font-size:13px;font-weight:700;color:var(--white);}
+
+/* ── COMPLETE BADGE ── */
+.complete-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--green);color:#0B0F19;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:16px;}
+.complete-btn:hover{opacity:.9;transform:translateY(-1px);}
+.complete-btn.done{background:var(--card);color:var(--green);border:1px solid var(--green);}
+
+/* ── CHEATSHEET ── */
+.cheat-section{margin-bottom:28px;}
+.cheat-section h3{font-size:14px;font-weight:700;color:var(--white);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.cheat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
+.cheat-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted);display:flex;align-items:flex-start;gap:8px;}
+.cheat-item span{color:var(--green);flex-shrink:0;}
+
+/* ── SEARCH HIGHLIGHT ── */
+.search-hidden{display:none!important;}
+mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;padding:0 2px;}
+
+@media(max-width:900px){
+  #sidebar{width:100%;position:relative;height:auto;}
+  #main{margin-left:0;}
+  #content{padding:24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sb-logo">
+    <a href="/">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 50" width="120" height="auto">
+        <rect width="100%" height="100%" rx="5" fill="#0B0F19"/>
+        <g transform="translate(4,-4)">
+          <path d="M 14,18 C 20,18 22,22 27,25" fill="none" stroke="#FF4B4B" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="14" cy="18" r="2" fill="#FF4B4B"/>
+          <path d="M 12,30 L 27,30" fill="none" stroke="#FF4B4B" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5"/>
+          <path d="M 14,42 C 20,42 22,38 27,35" fill="none" stroke="#FF4B4B" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="14" cy="42" r="2" fill="#FF4B4B"/>
+          <defs><linearGradient id="lg-sb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6366F1"/><stop offset="100%" stop-color="#10B981"/></linearGradient></defs>
+          <polygon points="26,30 31,26 36,30 31,34" fill="url(#lg-sb)"/>
+          <path d="M 36,30 L 40,34 L 48,22" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        <text x="62" y="32" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="#FFFFFF">resolv</text>
+        <text x="116" y="32" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="#10B981">o</text>
+      </svg>
+      <span class="sb-badge">Docs</span>
+    </a>
+  </div>
+
+  <div class="sb-search">
+    <input type="text" id="searchInput" placeholder="🔍 Search features..." oninput="searchModules(this.value)">
+  </div>
+
+  <div class="sb-progress">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);">
+      <span>Your Progress</span><span id="progressText">0 / 12</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Getting Started</div>
+    <a class="sb-item active" onclick="showModule('quickstart')" href="#">
+      <div class="sb-check" id="chk-quickstart">✓</div><span>🚀 Quick Start</span>
+    </a>
+    <a class="sb-item" onclick="showModule('dashboard')" href="#">
+      <div class="sb-check" id="chk-dashboard"></div><span>📊 Dashboard</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Issue Tracker</div>
+    <a class="sb-item" onclick="showModule('issues')" href="#">
+      <div class="sb-check" id="chk-issues"></div><span>🎫 Issues & SLA</span>
+    </a>
+    <a class="sb-item" onclick="showModule('kanban')" href="#">
+      <div class="sb-check" id="chk-kanban"></div><span>🗂 Kanban & Sprints</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Email Ticketing</div>
+    <a class="sb-item" onclick="showModule('tickets')" href="#">
+      <div class="sb-check" id="chk-tickets"></div><span>📬 Inbox & Replies</span>
+    </a>
+    <a class="sb-item" onclick="showModule('ticket-power')" href="#">
+      <div class="sb-check" id="chk-ticket-power"></div><span>⚡ Power Features</span>
+    </a>
+    <a class="sb-item" onclick="showModule('ticket-automation')" href="#">
+      <div class="sb-check" id="chk-ticket-automation"></div><span>🤖 Automation</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Reports & Analytics</div>
+    <a class="sb-item" onclick="showModule('reports')" href="#">
+      <div class="sb-check" id="chk-reports"></div><span>📈 Reports Overview</span>
+    </a>
+    <a class="sb-item" onclick="showModule('leaderboard')" href="#">
+      <div class="sb-check" id="chk-leaderboard"></div><span>🏆 Leaderboard & Forecast</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Configuration</div>
+    <a class="sb-item" onclick="showModule('settings')" href="#">
+      <div class="sb-check" id="chk-settings"></div><span>⚙️ Settings Guide</span>
+    </a>
+    <a class="sb-item" onclick="showModule('team')" href="#">
+      <div class="sb-check" id="chk-team"></div><span>🤝 Team & Users</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Reference</div>
+    <a class="sb-item" onclick="showModule('cheatsheet')" href="#">
+      <div class="sb-check" id="chk-cheatsheet"></div><span>📋 Full Feature Cheatsheet</span>
+    </a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="top-bar">
+    <div class="top-bar-title" id="topTitle">🚀 Quick Start</div>
+    <div class="top-bar-actions">
+      <a href="/" class="top-btn">← Back to App</a>
+      <a href="/pitch" class="top-btn" target="_blank">About Resolvo</a>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: QUICK START                        -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module active" id="mod-quickstart">
+      <div class="learn-hero">
+        <h1>Welcome to Resolvo 👋</h1>
+        <p>This Learning Center walks you through every feature of the platform — from creating your first issue to setting up AI-powered email ticketing and reading forecasts. Complete each module to master Resolvo in under an hour.</p>
+        <div class="hero-meta">
+          <span>📚 12 Modules</span>
+          <span>⏱ ~45 min total</span>
+          <span>✅ Track your progress</span>
+          <span>🖥 Works on all screens</span>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🚀 Your First 5 Minutes</div>
+        <div class="section-sub">Follow these steps to go from zero to your first resolved issue.</div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>Log In</h4>
+              <p>Go to <code>/</code> (the app root). Enter your email and password. If you're the platform owner, you'll land on the Owner Dashboard. Brand admins and users land on the main app.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>Explore the Dashboard</h4>
+              <p>The dashboard shows your KPIs — open issues, SLA breaches, critical bugs, and resolution rate. Every number is <strong>clickable</strong> — click any stat to drill down into the exact issues behind it.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>Create Your First Issue</h4>
+              <p>Click <code>+ New Issue</code> in the top-right. Fill in the title, priority (Critical / High / Medium / Low), module, and assign to a developer. SLA timer starts automatically based on priority.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h4>Move It Through the Pipeline</h4>
+              <p>Status flow: <code>Open → Acknowledged → WIP → Testing → Resolved</code>. Update status by clicking the status badge inside any issue. Each change is logged in the Audit Trail.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <h4>Check Reports</h4>
+              <p>Click <strong>Reports</strong> in the left sidebar. See your personal issue report, all issues, user performance, email ticket stats, heatmap, leaderboard, and volume forecast.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#EF4444;"></div>
+            <div class="mockup-dot" style="background:#F59E0B;"></div>
+            <div class="mockup-dot" style="background:#10B981;"></div>
+            <span class="mockup-title">resolvo — Dashboard</span>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-grid">
+              <div class="mock-stat"><div class="mock-stat-n" style="color:#EF4444;">3</div><div class="mock-stat-l">Critical Issues</div></div>
+              <div class="mock-stat"><div class="mock-stat-n">12</div><div class="mock-stat-l">Open Issues</div></div>
+              <div class="mock-stat"><div class="mock-stat-n" style="color:#F59E0B;">2</div><div class="mock-stat-l">SLA Breached</div></div>
+              <div class="mock-stat"><div class="mock-stat-n" style="color:#10B981;">87%</div><div class="mock-stat-l">SLA Compliance</div></div>
+            </div>
+            <div class="mock-row"><div class="mock-badge critical">Critical</div><span style="font-size:13px;color:#F8FAFC;flex:1;">Login page throwing 500 on mobile</span><span style="font-size:11px;color:#EF4444;">SLA: 1h left</span></div>
+            <div class="mock-row"><div class="mock-badge high">High</div><span style="font-size:13px;color:#F8FAFC;flex:1;">Dashboard slow on large datasets</span><span style="font-size:11px;color:#F59E0B;">SLA: 4h left</span></div>
+            <div class="mock-row"><div class="mock-badge medium">Medium</div><span style="font-size:13px;color:#F8FAFC;flex:1;">Export CSV missing columns</span><span style="font-size:11px;color:#10B981;">SLA: 18h left</span></div>
+          </div>
+        </div>
+
+        <div class="tip"><strong>💡 Pro Tip:</strong> Every chart and stat on the dashboard is clickable. Click any number to see the exact list of issues behind it — no need to manually filter.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('quickstart','dashboard')">✓ Mark Complete — Next: Dashboard →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: DASHBOARD                          -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-dashboard">
+      <div class="learn-hero">
+        <h1>📊 Dashboard</h1>
+        <p>Your command center. See everything that matters at a glance — and drill into any number instantly.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span><span>🖱 Interactive charts</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">KPI Cards</div>
+        <div class="section-sub">The top row shows your most critical numbers. Every card is clickable.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><span class="feat-icon">🔴</span><h4>Critical Issues</h4><p>Count of open issues with Critical priority. Click to see exact list filtered by Critical + Open status.</p></div>
+          <div class="feat-card"><span class="feat-icon">⚡</span><h4>SLA Breached</h4><p>Issues that have exceeded their SLA deadline. Click → instant drill-down showing breached issues sorted by how overdue they are.</p></div>
+          <div class="feat-card"><span class="feat-icon">📊</span><h4>SLA Compliance %</h4><p>Percentage of open issues still within SLA. Calculated in real-time — updates every page load.</p></div>
+          <div class="feat-card"><span class="feat-icon">⏱</span><h4>Avg Resolution Time</h4><p>Average hours from Open → Resolved across the last 30 days. Drill down to see fastest and slowest resolved issues.</p></div>
+          <div class="feat-card"><span class="feat-icon">📬</span><h4>New Tickets</h4><p>Email support tickets in "new" status waiting for first response. Click → goes directly to the ticket inbox.</p></div>
+          <div class="feat-card"><span class="feat-icon">👥</span><h4>Active Users</h4><p>Users who have logged in or created issues in the last 7 days.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Charts & Drill-Down</div>
+        <div class="section-sub">Every bar, slice, and number opens a modal with the exact data behind it.</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">→</div>
+            <div class="step-body"><h4>Priority Breakdown Chart</h4><p>Bar chart showing issue count by priority. Click any bar → see those exact issues in a filtered list inside a modal.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">→</div>
+            <div class="step-body"><h4>Module Heatmap</h4><p>Which modules (API, Dashboard, Auth...) have the most open issues. Click any module bar → filtered issue list for that module.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">→</div>
+            <div class="step-body"><h4>Issues Over Time</h4><p>Line chart of issues created vs resolved over 30 days. Shows if your team is keeping up with incoming work.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">→</div>
+            <div class="step-body"><h4>Assignee Workload</h4><p>Who has the most open issues. Click any agent name → see their specific open issues. Great for rebalancing workload.</p></div>
+          </div>
+        </div>
+        <div class="tip"><strong>💡 Drill-Down Modal:</strong> Every drill-down modal has an <strong>"Open in Issues →"</strong> button that takes you to the full Issues page pre-filtered to that exact data set.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('dashboard','issues')">✓ Mark Complete — Next: Issues & SLA →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: ISSUES                             -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-issues">
+      <div class="learn-hero">
+        <h1>🎫 Issues & SLA</h1>
+        <p>The core of Resolvo. Track bugs, feature requests, and tasks with automatic SLA enforcement, assignments, and full audit history.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>📋 50+ fields</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Creating an Issue</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Click "+ New Issue"</h4><p>Top-right button on any page. Opens a full-screen creation modal.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Fill Required Fields</h4><p><code>Title</code> (required), <code>Priority</code> (Critical/High/Medium/Low), <code>Module</code> (API, Dashboard, Auth...), <code>Description</code>. The SLA hours are set automatically from your SLA config.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Assign & Submit</h4><p>Assign to a developer, add environment info, impact, and attachments. Click <strong>Submit Issue</strong>. The assignee receives an email notification instantly.</p></div></div>
+        </div>
+
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#EF4444;"></div><div class="mockup-dot" style="background:#F59E0B;"></div><div class="mockup-dot" style="background:#10B981;"></div>
+            <span class="mockup-title">New Issue</span>
+          </div>
+          <div class="mockup-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div style="background:var(--card);border:1px solid var(--green);border-radius:7px;padding:10px;font-size:12px;color:#10B981;">Title: Login page 500 error on mobile</div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px;font-size:12px;color:var(--muted);">Priority: <span style="color:#EF4444;font-weight:700;">Critical</span></div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px;font-size:12px;color:var(--muted);">Module: Authentication</div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px;font-size:12px;color:var(--muted);">Assign To: dev@company.com</div>
+            </div>
+            <div style="margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px;font-size:11px;color:var(--dim);">⏱ SLA: <strong style="color:#F59E0B;">4 hours</strong> (Critical) · Timer starts now</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Issue Statuses</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4 style="color:#6366F1;">🔵 Open</h4><p>Newly created. Not yet seen by the developer. SLA clock running.</p></div>
+          <div class="feat-card"><h4 style="color:#F59E0B;">🟡 Acknowledged</h4><p>Developer has seen and accepted the issue. Still working on it.</p></div>
+          <div class="feat-card"><h4 style="color:#3B82F6;">🔷 WIP</h4><p>Work in Progress — actively being fixed right now.</p></div>
+          <div class="feat-card"><h4 style="color:#8B5CF6;">🟣 Testing</h4><p>Fix is done, waiting for QA verification before marking resolved.</p></div>
+          <div class="feat-card"><h4 style="color:#10B981;">✅ Resolved</h4><p>Fixed and verified. SLA clock stops. Resolution time recorded.</p></div>
+          <div class="feat-card"><h4 style="color:#F59E0B;">📦 Release Required</h4><p>Fix ready but waiting for a release/deployment to go live.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">SLA — Service Level Agreement</div>
+        <div class="section-sub">Every issue has a countdown clock. When it hits zero, the issue is marked as SLA Breached and appears in red everywhere.</div>
+        <table class="shortcuts">
+          <tr><th>Priority</th><th>Default SLA</th><th>Visual Indicator</th></tr>
+          <tr><td>Critical</td><td>4 hours</td><td>Red countdown, always pinned to top</td></tr>
+          <tr><td>High</td><td>8 hours</td><td>Orange when &lt;20% time left</td></tr>
+          <tr><td>Medium</td><td>24 hours</td><td>Normal until &lt;20% time left</td></tr>
+          <tr><td>Low</td><td>72 hours</td><td>Green, relaxed timeline</td></tr>
+        </table>
+        <div class="tip"><strong>💡 Custom SLA:</strong> Go to Settings → SLA & Workflow to change SLA hours for your brand. The new config applies to all future issues.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Issue Detail Features</div>
+        <div class="feat-grid">
+          <div class="feat-card"><span class="feat-icon">💬</span><h4>Comments & @Mentions</h4><p>Add comments on any issue. Type <code>@email</code> to mention a user — they get an email notification instantly.</p></div>
+          <div class="feat-card"><span class="feat-icon">🔗</span><h4>Dependencies</h4><p>Link issues as "blocked by" or "blocking". The dependency graph shows you what can't start until what is done.</p></div>
+          <div class="feat-card"><span class="feat-icon">⏱</span><h4>Time Logging</h4><p>Log hours worked on an issue. Shows on user performance reports for billing and capacity planning.</p></div>
+          <div class="feat-card"><span class="feat-icon">📋</span><h4>Post-Mortems</h4><p>After resolving a critical issue, add a structured post-mortem: root cause, timeline, prevention steps.</p></div>
+          <div class="feat-card"><span class="feat-icon">👁</span><h4>Watchers</h4><p>Any user can watch an issue to get notified of every update, even if they didn't create it.</p></div>
+          <div class="feat-card"><span class="feat-icon">💰</span><h4>Revenue Impact</h4><p>Tag issues with ₹ revenue at risk. The Revenue Dashboard tracks total exposure vs protected.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('issues','kanban')">✓ Mark Complete — Next: Kanban & Sprints →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: KANBAN                             -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-kanban">
+      <div class="learn-hero">
+        <h1>🗂 Kanban & Sprints</h1>
+        <p>Visual board for your team to drag-and-drop issues through stages. Sprint planning to time-box work into focused 2-week cycles.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span><span>🖱 Drag & Drop</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Kanban Board</div>
+        <div class="section-sub">Navigate to <strong>Kanban</strong> in the left sidebar. Issues are shown as cards across columns matching their status.</div>
+
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#EF4444;"></div><div class="mockup-dot" style="background:#F59E0B;"></div><div class="mockup-dot" style="background:#10B981;"></div>
+            <span class="mockup-title">Kanban Board</span>
+          </div>
+          <div class="mockup-body">
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+              <div>
+                <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:8px;text-transform:uppercase;">Open (4)</div>
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px;color:var(--muted);margin-bottom:5px;">Login 500 error<div style="color:#EF4444;font-size:10px;margin-top:3px;">Critical · 2h left</div></div>
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px;color:var(--muted);">Slow dashboard<div style="color:#F59E0B;font-size:10px;margin-top:3px;">High · 5h left</div></div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:8px;text-transform:uppercase;">Acknowledged (2)</div>
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px;color:var(--muted);">CSV export bug</div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:8px;text-transform:uppercase;">WIP (3)</div>
+                <div style="background:var(--card);border:1px solid #3B82F6;border-radius:6px;padding:8px;font-size:11px;color:var(--muted);">API rate limit fix<div style="color:#3B82F6;font-size:10px;margin-top:3px;">In progress · dev@...</div></div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:8px;text-transform:uppercase;">Testing (1)</div>
+                <div style="background:var(--card);border:1px solid #8B5CF6;border-radius:6px;padding:8px;font-size:11px;color:var(--muted);">Auth token refresh</div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:8px;text-transform:uppercase;">Resolved (8)</div>
+                <div style="background:var(--card);border:1px solid #10B981;border-radius:6px;padding:8px;font-size:11px;color:var(--muted);">DB timeout fix ✓</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tip"><strong>💡 Drag &amp; Drop:</strong> Drag any card to a different column to update its status instantly. The issue's audit trail records the change automatically.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Sprints</div>
+        <div class="section-sub">Navigate to <strong>Sprints</strong> in the sidebar. Group issues into 2-week time-boxed sprints for focused delivery.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create a Sprint</h4><p>Click <strong>New Sprint</strong>. Set sprint name, start date, and end date. Typically 2 weeks.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Add Issues to Sprint</h4><p>From the issue detail or from the sprint board, assign issues to the active sprint. Issues outside sprints are in the backlog.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Track Velocity</h4><p>The sprint board shows story points completed vs planned. At sprint end, all unresolved issues are moved to the next sprint or backlog.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Bulk Actions</div>
+        <div class="section-sub">Select multiple issues with checkboxes and apply actions to all at once.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Bulk Assign</h4><p>Select 10 issues → assign all to one developer in one click. Great for onboarding new team members.</p></div>
+          <div class="feat-card"><h4>Bulk Status Change</h4><p>Select issues → change status to Resolved, WIP, Testing, etc. for all at once.</p></div>
+          <div class="feat-card"><h4>Bulk Priority Update</h4><p>Escalate or de-escalate a group of related issues simultaneously.</p></div>
+          <div class="feat-card"><h4>Bulk Delete</h4><p>Remove multiple test/spam issues at once. Admin-only action.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('kanban','tickets')">✓ Mark Complete — Next: Email Ticketing →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TICKETS                            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-tickets">
+      <div class="learn-hero">
+        <h1>📬 Email Ticketing Inbox</h1>
+        <p>A full Freshdesk-style support inbox built in. Customers email you → tickets appear automatically → you reply from the platform and the reply goes back to their email.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>📧 Full email threading</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Setting Up Email Ticketing</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Go to Settings → Email &amp; Ticketing</h4><p>Admin only. Fill in your Gmail IMAP credentials: email address, app password (not your regular password — generate one in Google Account → Security → App Passwords).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Enable Email Ticketing</h4><p>Toggle <strong>Enabled</strong> ON. Resolvo records the current timestamp — only emails received <em>after</em> this moment will be fetched. Your old inbox is never crawled.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Wait for First Ticket</h4><p>The inbox polls every 5 minutes. Have someone send a test email. It will appear in <strong>Ticket Inbox</strong> in the sidebar within 5 minutes.</p></div></div>
+        </div>
+        <div class="warn"><strong>⚠ App Password Required:</strong> Gmail requires a 16-character App Password for IMAP access, not your normal login. Generate one at: Google Account → Security → 2-Step Verification → App Passwords.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">The Inbox</div>
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#EF4444;"></div><div class="mockup-dot" style="background:#F59E0B;"></div><div class="mockup-dot" style="background:#10B981;"></div>
+            <span class="mockup-title">Ticket Inbox</span>
+          </div>
+          <div class="mockup-body">
+            <div style="display:flex;gap:12px;">
+              <div style="width:140px;flex-shrink:0;">
+                <div style="font-size:11px;font-weight:700;color:#10B981;padding:7px 10px;background:rgba(16,185,129,.08);border-radius:6px;margin-bottom:4px;">All Tickets <span style="background:#EF4444;color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:4px;">3</span></div>
+                <div style="font-size:11px;color:var(--dim);padding:6px 10px;border-radius:6px;">🆕 New (3)</div>
+                <div style="font-size:11px;color:var(--dim);padding:6px 10px;border-radius:6px;">🔵 Open (8)</div>
+                <div style="font-size:11px;color:var(--dim);padding:6px 10px;border-radius:6px;">⏳ Pending (2)</div>
+                <div style="font-size:11px;color:var(--dim);padding:6px 10px;border-radius:6px;">✅ Resolved (24)</div>
+              </div>
+              <div style="flex:1;">
+                <div class="mock-row"><div class="mock-badge new">NEW</div><div style="flex:1;"><div style="font-size:12px;color:#F8FAFC;">Cannot login to my account</div><div style="font-size:11px;color:var(--dim);">rajesh@acme.com · 5 min ago</div></div></div>
+                <div class="mock-row"><div class="mock-badge new">NEW</div><div style="flex:1;"><div style="font-size:12px;color:#F8FAFC;">Invoice download not working</div><div style="font-size:11px;color:var(--dim);">priya@startup.in · 12 min ago</div></div></div>
+                <div class="mock-row"><div class="mock-badge open">OPEN</div><div style="flex:1;"><div style="font-size:12px;color:#F8FAFC;">API returning 403 errors</div><div style="font-size:11px;color:var(--dim);">dev@enterprise.com · 1h ago · 3 messages</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Replying to Tickets</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Open the Ticket</h4><p>Click any ticket row. You see the full conversation thread — customer messages on the left, your replies on the right (like iMessage).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Choose Reply or Internal Note</h4><p><strong>Reply to Customer</strong> — sends an email to the customer. <strong>Internal Note</strong> — visible only to agents, never sent to customer. Notes are shown in yellow.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Type and Send</h4><p>Type your reply. Hit <strong>Send Reply →</strong>. The customer receives it in their email inbox within seconds, with your brand name and ticket reference in the subject.</p></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Update Status</h4><p>Use the status dropdown in the reply box to change ticket status as you reply. Or click the <strong>✓ Resolve</strong> button at the top to mark as resolved and auto-send CSAT.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Raise as Issue:</strong> If a ticket needs engineering work, click <strong>🎫 Raise as Issue</strong>. It creates a linked issue in the main tracker — the ticket and issue stay connected.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('tickets','ticket-power')">✓ Mark Complete — Next: Power Features →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TICKET POWER FEATURES              -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-ticket-power">
+      <div class="learn-hero">
+        <h1>⚡ Ticket Power Features</h1>
+        <p>Advanced tools that make your support inbox faster and smarter — canned responses, CC threading, watchers, parent/child linking, SLA pause, and full audit DNA.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>⚡ 8 features</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚡ Canned Responses — Reply in 2 Seconds</div>
+        <div class="section-sub">Pre-written replies you can insert instantly. Never type the same reply twice.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create Canned Responses</h4><p>Go to Settings → ⚡ Canned Responses. Click <strong>+ New Response</strong>. Add a title (e.g. "Thank You"), a shortcut keyword (e.g. <code>thanks</code>), and the full body text.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Insert with / Shortcut</h4><p>In the reply box of any ticket, type <code>/</code> — a dropdown appears showing all your canned responses. Keep typing to filter: <code>/thanks</code> shows the thank-you response. Press Enter or click to insert.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Or Use the ⚡ Canned Button</h4><p>Click the <strong>⚡ Canned</strong> button below the reply box to browse and search all responses. Click one to insert into the reply box.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Best Practice:</strong> Create canned responses for: acknowledgement, "we're investigating", "this is a known issue", "please send logs", and "issue resolved" messages.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">👥 CC Threading — Loop In Multiple People</div>
+        <div class="section-sub">Add CC recipients to any ticket so every reply also goes to them.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Add a CC</h4><p>In the ticket sidebar, click <strong>+ CC</strong> next to the customer name. Enter the CC email. From now on, every reply you send also goes to the CC address.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Remove a CC</h4><p>CC emails appear as chips in the sidebar. Click the <span style="color:var(--red);">×</span> on any chip to remove that email from the CC list.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">👁 Ticket Watchers — Stay Informed</div>
+        <div class="section-sub">Watch any ticket to get email notifications when it's updated, even if you didn't create it.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Watch a Ticket</h4><p>In the ticket sidebar, find the <strong>Watchers</strong> panel. Click <strong>+ Watch</strong>. You'll now receive email alerts for every reply and status change on this ticket.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Unwatch</h4><p>Click the <strong>👁 Watching</strong> button (shown in green when active) to stop watching.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔗 Parent / Child Ticket Linking</div>
+        <div class="section-sub">One big outage → 20 customers email in. Create a parent ticket for the outage, link all individual tickets as children. When the parent is resolved, all children can be closed at once.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Link a Parent</h4><p>In the <strong>Linked Tickets</strong> panel in the sidebar, click <strong>🔗 Link Parent</strong>. Enter the parent ticket ID (e.g. <code>TKT-AB12CD34</code>).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>View Children</h4><p>Open the parent ticket. The sidebar shows all child tickets linked to it. Click any child ID to navigate to it.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⏸ SLA Pause — Waiting for Customer</div>
+        <div class="section-sub">When you're waiting for the customer to respond, pause the SLA timer so your team isn't penalized for their slow reply.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Pause SLA</h4><p>In the SLA &amp; Escalation panel (ticket sidebar), click <strong>⏸ Pause SLA</strong>. The timer freezes. A yellow banner appears: "SLA Paused — waiting for customer".</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Auto-Resume</h4><p>When you reply to the ticket (as the agent), the SLA automatically resumes. Or manually click <strong>▶ Resume SLA</strong>. The total paused time is added to the SLA deadline.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🧬 Ticket DNA — Full Audit Timeline</div>
+        <div class="section-sub">Every single action on a ticket is recorded with timestamp, user, and details. Perfect for SLA disputes or understanding what happened.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Open Timeline</h4><p>In the SLA &amp; Escalation panel, click the <strong>🧬 DNA</strong> button. A modal opens showing the complete chronological timeline.</p></div></div>
+        </div>
+        <div class="mockup">
+          <div class="mockup-bar"><div class="mockup-dot" style="background:#EF4444;"></div><div class="mockup-dot" style="background:#F59E0B;"></div><div class="mockup-dot" style="background:#10B981;"></div><span class="mockup-title">🧬 Ticket DNA — TKT-AB12CD34</span></div>
+          <div class="mockup-body">
+            <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:8px 12px;font-size:12px;color:#10B981;margin-bottom:12px;">⚡ First Response: 14 minutes</div>
+            <div class="mock-timeline">
+              <div class="mock-tl-item"><div class="mock-tl-dot"></div><div class="mock-tl-line"></div><div class="mock-tl-body"><strong>rajesh@acme.com</strong> created ticket — "Cannot login to my account" · 10:00</div></div>
+              <div class="mock-tl-item"><div class="mock-tl-dot" style="background:#3B82F6;"></div><div class="mock-tl-line"></div><div class="mock-tl-body"><strong>agent@company.com</strong> replied · 10:14 — "Hi Rajesh, we're looking into this..."</div></div>
+              <div class="mock-tl-item"><div class="mock-tl-dot" style="background:#F59E0B;"></div><div class="mock-tl-line"></div><div class="mock-tl-body"><strong>agent@company.com</strong> status changed · 10:15 — new → open</div></div>
+              <div class="mock-tl-item"><div class="mock-tl-dot" style="background:#10B981;"></div><div class="mock-tl-body"><strong>agent@company.com</strong> resolved ticket · 11:02 — CSAT email sent to customer</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">👍 1-Click CSAT</div>
+        <div class="section-sub">When you mark a ticket as <strong>Resolved</strong>, an email automatically goes to the customer with two buttons: 👍 Yes / 👎 No — "Was your issue resolved?"</div>
+        <div class="info"><strong>ℹ How it works:</strong> Customer clicks a button in their email. They land on a simple thank-you page. The ticket's CSAT score updates instantly. You see it in the ticket sidebar and in Reports → Email Ticketing Report.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('ticket-power','ticket-automation')">✓ Mark Complete — Next: Automation →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TICKET AUTOMATION                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-ticket-automation">
+      <div class="learn-hero">
+        <h1>🤖 Ticket Automation</h1>
+        <p>Set it and forget it. Recurring tickets, escalation rules, out-of-office auto-replies, and templates with required fields — Resolvo works for you even when you're away.</p>
+        <div class="hero-meta"><span>⏱ 7 min read</span><span>🔁 5 automation types</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🚨 Escalation Rules (Time Bomb)</div>
+        <div class="section-sub">Go to Settings → 🚨 Escalation Rules. Define rules that trigger when a ticket ages past a threshold.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create a Rule</h4><p>Click <strong>+ New Rule</strong>. Set: Name (e.g. "2h no response"), Trigger After (e.g. 2 hours), Action (Notify by email), and the Notify Email (e.g. your manager's address).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>How It Works</h4><p>Open any ticket. In the SLA &amp; Escalation sidebar panel, Resolvo shows the ticket age and any triggered escalation rules. You can see exactly which rules have fired.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Suggested Rules:</strong> 2h → notify first-line agent · 4h → notify manager · 8h → notify director · 24h → owner alert</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔁 Recurring Tickets</div>
+        <div class="section-sub">Go to Settings → 🔁 Recurring Tickets. Schedule tickets that auto-create on a repeating schedule.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create a Schedule</h4><p>Click <strong>+ New Schedule</strong>. Enter: Subject (e.g. "Weekly Security Scan"), Frequency (Daily / Weekly / Monthly), Priority, and a body with instructions.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Auto-Created Tickets</h4><p>On schedule, Resolvo creates the ticket automatically with tag <code>recurring</code>. It appears in the inbox like any other ticket. The schedule shows the last run time.</p></div></div>
+        </div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Daily</h4><p>Good for: daily backup verification, health check, daily standup tickets</p></div>
+          <div class="feat-card"><h4>Weekly</h4><p>Good for: weekly security scan, performance review, client check-in</p></div>
+          <div class="feat-card"><h4>Monthly</h4><p>Good for: monthly infrastructure audit, billing review, compliance check</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🏖 Out-of-Office Auto Reply</div>
+        <div class="section-sub">Go to Settings → 🏖 Out of Office. Set up automatic replies when your team is unavailable.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Configure OOO</h4><p>Enable the toggle. Set optional start/end dates (leave blank for always-on). Set expected response hours (e.g. 24). Write your auto-reply message.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>When It Fires</h4><p>When a new email arrives and OOO is active, an auto-reply goes to the sender immediately with your message and expected response time. The ticket is still created normally.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📋 Ticket Templates</div>
+        <div class="section-sub">Go to Settings → 📋 Ticket Templates. Define required fields for different ticket types so agents always collect the right information.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create a Template</h4><p>Click <strong>+ New Template</strong>. Name it (e.g. "Bug Report"). Add required fields: <code>Steps to Reproduce, Expected vs Actual, Screenshot URL</code>. Add an initial body with fill-in instructions.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Template Examples</h4><p><strong>Bug Report</strong>: Steps, Expected, Actual, Browser · <strong>Feature Request</strong>: Business justification, Expected behaviour · <strong>Access Request</strong>: User email, Role needed, Approver</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🤖 Auto-Resolve Rules</div>
+        <div class="section-sub">Go to Settings → Email &amp; Ticketing → Auto-Resolve Rules. Automatically close tickets matching certain patterns.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Subject Pattern</h4><p>e.g. tickets with "Out of office" in subject → auto-resolve immediately</p></div>
+          <div class="feat-card"><h4>Sender Pattern</h4><p>e.g. emails from <code>noreply@</code> or <code>mailer-daemon@</code> → auto-resolve</p></div>
+          <div class="feat-card"><h4>Custom Reply</h4><p>Optionally send an auto-reply message before resolving</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('ticket-automation','reports')">✓ Mark Complete — Next: Reports →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: REPORTS                            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-reports">
+      <div class="learn-hero">
+        <h1>📈 Reports & Analytics</h1>
+        <p>Eight report tabs covering everything from individual performance to volume forecasts. Navigate to <strong>Reports</strong> in the left sidebar.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>📊 8 report types</span><span>📤 CSV export</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">The 8 Report Tabs</div>
+        <div class="mock-nav" style="background:var(--card);border-radius:8px;margin-bottom:20px;">
+          <div class="mock-nav-item active">👤 My Issues</div>
+          <div class="mock-nav-item">🎫 All Issues</div>
+          <div class="mock-nav-item">👥 User Performance</div>
+          <div class="mock-nav-item">📬 Email Ticketing</div>
+          <div class="mock-nav-item">🏆 Leaderboard</div>
+          <div class="mock-nav-item">⚡ First Response</div>
+          <div class="mock-nav-item">🗓 Heatmap</div>
+          <div class="mock-nav-item">📈 Forecast</div>
+        </div>
+
+        <div class="feat-grid">
+          <div class="feat-card">
+            <span class="feat-icon">👤</span>
+            <h4>My Issues Report</h4>
+            <p>Personal stats for the logged-in user. Issues raised, resolved, SLA compliance, avg resolution time. Available to all users (non-admin).</p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-icon">🎫</span>
+            <h4>All Issues Report</h4>
+            <p>Admin only. Full issue database with filters: date range, module, priority. Stats: total, open, resolved, SLA compliance, avg MTTR. Export to CSV.</p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-icon">👥</span>
+            <h4>User Performance</h4>
+            <p>Admin only. Per-agent breakdown: issues raised, assigned, resolved, SLA compliance %, avg resolution time, tickets handled. Sortable table.</p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-icon">📬</span>
+            <h4>Email Ticketing Report</h4>
+            <p>Ticket volume, resolution rate, avg response time, top senders, tickets by status, daily bar chart. Date range filter.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🗓 Ticket Heatmap</div>
+        <div class="section-sub">Visual calendar of ticket volume over the last 90 days. Darker cell = more tickets that day.</div>
+        <div class="mockup">
+          <div class="mockup-bar"><div class="mockup-dot" style="background:#EF4444;"></div><div class="mockup-dot" style="background:#F59E0B;"></div><div class="mockup-dot" style="background:#10B981;"></div><span class="mockup-title">Ticket Heatmap — 90 days</span></div>
+          <div class="mockup-body">
+            <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px;">
+              <!-- Simulate heatmap cells -->
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.4);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.85);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:#10B981;"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.65);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.4);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.4);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:#10B981;"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:#10B981;"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.85);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.65);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.4);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.15);"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:#10B981;"></div>
+              <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.85);"></div>
+            </div>
+            <div style="font-size:11px;color:var(--dim);">🔥 Busiest day: Mon Jun 2 — 12 tickets &nbsp;·&nbsp; Total: 187 tickets in 90 days</div>
+          </div>
+        </div>
+        <div class="info"><strong>ℹ Insight:</strong> Look for weekly patterns — if Mondays are always dark, you may need more staffing on Mondays. Post-release spikes show up clearly as sudden dark clusters.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('reports','leaderboard')">✓ Mark Complete — Next: Leaderboard & Forecast →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: LEADERBOARD & FORECAST             -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-leaderboard">
+      <div class="learn-hero">
+        <h1>🏆 Leaderboard, First Response & Forecast</h1>
+        <p>Three data-driven reports that give you visibility into agent performance, response speed, and what next week looks like before it arrives.</p>
+        <div class="hero-meta"><span>⏱ 6 min read</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🏆 Agent Leaderboard</div>
+        <div class="section-sub">Reports → Agent Leaderboard. Weekly gamified ranking of every support agent.</div>
+        <div class="mockup">
+          <div class="mockup-bar"><div class="mockup-dot" style="background:#EF4444;"></div><div class="mockup-dot" style="background:#F59E0B;"></div><div class="mockup-dot" style="background:#10B981;"></div><span class="mockup-title">Agent Leaderboard — This Week</span></div>
+          <div class="mockup-body">
+            <div class="mock-row"><span style="font-size:20px;">🥇</span><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#F8FAFC;">Naaz Ahmed</div><div style="font-size:11px;color:var(--dim);">Support Team</div></div><div style="text-align:center;min-width:50px;"><div style="font-size:20px;font-weight:900;color:#10B981;">14</div><div style="font-size:10px;color:var(--dim);">this week</div></div><div style="text-align:center;min-width:50px;"><span style="color:#10B981;font-size:12px;font-weight:700;">18m</span><div style="font-size:10px;color:var(--dim);">first resp</div></div><div style="text-align:center;min-width:50px;"><span style="color:#10B981;font-size:12px;">96%</span><div style="font-size:10px;color:var(--dim);">CSAT</div></div></div>
+            <div class="mock-row"><span style="font-size:20px;">🥈</span><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#F8FAFC;">Raj Kumar</div><div style="font-size:11px;color:var(--dim);">Support Team</div></div><div style="text-align:center;min-width:50px;"><div style="font-size:20px;font-weight:900;color:#10B981;">11</div><div style="font-size:10px;color:var(--dim);">this week</div></div><div style="text-align:center;min-width:50px;"><span style="color:#F59E0B;font-size:12px;font-weight:700;">45m</span><div style="font-size:10px;color:var(--dim);">first resp</div></div><div style="text-align:center;min-width:50px;"><span style="color:#10B981;font-size:12px;">88%</span><div style="font-size:10px;color:var(--dim);">CSAT</div></div></div>
+          </div>
+        </div>
+        <div class="tip"><strong>💡 Columns explained:</strong> This Week = tickets resolved in last 7 days · First Response = avg minutes to first reply · CSAT = % of "👍 Yes" responses from customers · Open = current unresolved count</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚡ First Response Time Report</div>
+        <div class="section-sub">Reports → First Response. How fast do your agents send the first reply after a ticket arrives?</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Avg First Response</h4><p>Average time across all tickets that have received at least one reply. Green = under 1h, Yellow = 1-4h, Red = over 4h.</p></div>
+          <div class="feat-card"><h4>Median Response</h4><p>Middle value — less affected by outliers. If avg is 2h but median is 20m, one slow ticket is skewing your average.</p></div>
+          <div class="feat-card"><h4>Under 1 Hour</h4><p>Count of tickets where first response was under 60 minutes. This is the gold standard for customer satisfaction.</p></div>
+          <div class="feat-card"><h4>Weekly Trend Chart</h4><p>4-week bar chart showing whether your first response time is improving or getting worse over time.</p></div>
+        </div>
+        <div class="info"><strong>ℹ First Response is tracked automatically</strong> when an agent sends their first reply to a ticket. No setup needed.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📈 Volume Forecast</div>
+        <div class="section-sub">Reports → Volume Forecast. Predicts next week's ticket count based on 8 weeks of history.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>How the Forecast Works</h4><p>Resolvo calculates your 8-week average, detects the week-over-week trend (increasing / stable / decreasing), and projects next week's expected volume with a 30% trend weight.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Daily Breakdown</h4><p>The forecast is split by day of week using historical weights — Mondays typically get 20% more tickets, weekends 50-60% less. Plan your staffing accordingly.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Use this for:</strong> Scheduling agent shifts · Knowing when to prep canned responses for high-volume days · Planning feature releases away from busy periods.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('leaderboard','settings')">✓ Mark Complete — Next: Settings Guide →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: SETTINGS                           -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-settings">
+      <div class="learn-hero">
+        <h1>⚙️ Settings — Complete Guide</h1>
+        <p>All 12 settings tabs explained. Navigate to Settings in the sidebar (Admin-only access required for most tabs).</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>🔐 Admin only</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🏢 General</div>
+        <table class="shortcuts">
+          <tr><th>Setting</th><th>What It Does</th></tr>
+          <tr><td>App Name</td><td>Changes the platform title shown in the sidebar and emails sent to users</td></tr>
+          <tr><td>Logo URL</td><td>Your company logo shown in the brand sidebar header</td></tr>
+          <tr><td>Support Email</td><td>The "from" address used in outbound system emails</td></tr>
+          <tr><td>Accent Color</td><td>The primary color of your brand's UI — applies to buttons, charts, badges</td></tr>
+          <tr><td>Theme</td><td>Overall color scheme: Midnight (dark), Arctic (light), Forest, Sunset, Ocean, Nova</td></tr>
+        </table>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📬 Email & Ticketing</div>
+        <table class="shortcuts">
+          <tr><th>Setting</th><th>What It Does</th></tr>
+          <tr><td>IMAP Host / Port</td><td>Gmail: <code>imap.gmail.com:993</code></td></tr>
+          <tr><td>Email / App Password</td><td>Your Gmail address + 16-char App Password from Google Account</td></tr>
+          <tr><td>Enabled Toggle</td><td>Turns email polling on/off. When disabled, no new tickets are created from email</td></tr>
+          <tr><td>Triage Label</td><td>Gmail label to watch — only emails with this label become tickets</td></tr>
+          <tr><td>Sender Blocklist</td><td>Comma-separated emails to ignore — auto-populated when you mark tickets as spam</td></tr>
+          <tr><td>Reset Crawl Date</td><td>Moves the "start from" date to right now — useful to start fresh</td></tr>
+          <tr><td>Auto-Resolve Rules</td><td>Rules that auto-close tickets matching subject/sender patterns</td></tr>
+        </table>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⏱ SLA & Workflow</div>
+        <table class="shortcuts">
+          <tr><th>Priority</th><th>Default Hours</th><th>Customizable?</th></tr>
+          <tr><td>Critical</td><td>4h</td><td>✅ Yes</td></tr>
+          <tr><td>High</td><td>8h</td><td>✅ Yes</td></tr>
+          <tr><td>Medium</td><td>24h</td><td>✅ Yes</td></tr>
+          <tr><td>Low</td><td>72h</td><td>✅ Yes</td></tr>
+        </table>
+        <div class="tip"><strong>💡</strong> SLA changes only apply to <em>new</em> issues created after the change. Existing issues keep their original SLA.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚡ Features & Plan</div>
+        <div class="section-sub">Toggle individual features on/off for your brand. Useful for limiting what users see.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Kanban Board</h4><p>Enable/disable the visual kanban drag-drop board</p></div>
+          <div class="feat-card"><h4>AI Features</h4><p>Gemini AI integration — root cause clusters, regression detection</p></div>
+          <div class="feat-card"><h4>Email Ticketing</h4><p>The entire email inbox system</p></div>
+          <div class="feat-card"><h4>Custom Fields</h4><p>Add extra fields to issues beyond the standard ones</p></div>
+          <div class="feat-card"><h4>Time Logging</h4><p>Log hours worked per issue for billing/capacity tracking</p></div>
+          <div class="feat-card"><h4>Peer Review</h4><p>Require a second agent to review before marking resolved</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔗 Integrations</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Gemini AI</h4><p>Paste your Google Gemini API key to enable all AI features — root cause clusters, CSAT analysis, revenue dashboard</p></div>
+          <div class="feat-card"><h4>Slack Webhook</h4><p>Post issue alerts to a Slack channel. Paste your Slack webhook URL</p></div>
+          <div class="feat-card"><h4>External API / Jira</h4><p>Push new issues to Jira, ServiceNow, GitHub, or any REST API automatically</p></div>
+          <div class="feat-card"><h4>Digest Emails</h4><p>Daily or weekly email summary of issue status sent to specified recipients</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('settings','team')">✓ Mark Complete — Next: Team & Users →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TEAM & USERS                       -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-team">
+      <div class="learn-hero">
+        <h1>🤝 Team & Users</h1>
+        <p>Manage who has access, their roles, and what they can do. Settings → Team & Roles.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">User Roles</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>👑 Admin (Major Admin)</h4><p>Full access to everything. Can manage users, settings, email ticketing, reports, and brand configuration. One per brand (your main admin email).</p></div>
+          <div class="feat-card"><h4>👨‍💻 Developer</h4><p>Can create and update issues, comment, log time. Cannot access Settings or Reports. Assigned to issues by Admin.</p></div>
+          <div class="feat-card"><h4>👤 Viewer</h4><p>Read-only access. Can see issues and comments but not create or edit. Good for stakeholders and clients.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Inviting Users</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Settings → Team & Roles → Invite User</h4><p>Click <strong>+ Invite User</strong>. Enter their email, name, and select their role (Developer / Viewer).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>They Receive a Welcome Email</h4><p>Resolvo sends them an email with their login link, temporary password, and instructions to log in and change their password on first login.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>First Login Password Change</h4><p>On first login, users are prompted to change their temporary password. Until they do, <code>firstLogin: true</code> is shown on their profile.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Teams</div>
+        <div class="section-sub">Group users into teams (Frontend, Backend, QA, Support...) for better organisation and assignment.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Create Teams</h4><p>Settings → Team & Roles → scroll to Teams section. Add team name and optional description. Then assign users to teams via their user edit form.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Use Teams in Filters</h4><p>Issues list can be filtered by team. The assignee dropdown shows which team each developer is in.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Security</div>
+        <table class="shortcuts">
+          <tr><th>Feature</th><th>Detail</th></tr>
+          <tr><td>Password Hashing</td><td>bcrypt with cost factor 10 — industry standard</td></tr>
+          <tr><td>Session Duration</td><td>8 hours normal · 30 days with "Remember Me"</td></tr>
+          <tr><td>Rate Limiting</td><td>5 failed login attempts per IP per 15 minutes</td></tr>
+          <tr><td>Data Isolation</td><td>Each brand has its own separate database file — no cross-brand data leakage</td></tr>
+          <tr><td>Audit Trail</td><td>Every action logged with user email, timestamp, and issue ID</td></tr>
+        </table>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('team','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: CHEATSHEET                         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-cheatsheet">
+      <div class="learn-hero">
+        <h1>📋 Full Feature Cheatsheet</h1>
+        <p>Every single feature in Resolvo, one place. Bookmark this page for quick reference.</p>
+        <div class="hero-meta"><span>50+ features</span><span>All modules</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="cheat-section">
+          <h3>🎫 Issue Tracker</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Create / edit issues</div>
+            <div class="cheat-item"><span>✓</span> 5 status stages</div>
+            <div class="cheat-item"><span>✓</span> Auto SLA timers</div>
+            <div class="cheat-item"><span>✓</span> SLA breach alerts</div>
+            <div class="cheat-item"><span>✓</span> Priority levels x4</div>
+            <div class="cheat-item"><span>✓</span> Module tagging</div>
+            <div class="cheat-item"><span>✓</span> Assign to developer</div>
+            <div class="cheat-item"><span>✓</span> @Mention in comments</div>
+            <div class="cheat-item"><span>✓</span> Revenue impact tagging</div>
+            <div class="cheat-item"><span>✓</span> Issue dependencies</div>
+            <div class="cheat-item"><span>✓</span> Time logging</div>
+            <div class="cheat-item"><span>✓</span> Post-mortems</div>
+            <div class="cheat-item"><span>✓</span> Issue watchers</div>
+            <div class="cheat-item"><span>✓</span> Custom fields</div>
+            <div class="cheat-item"><span>✓</span> Bulk actions</div>
+            <div class="cheat-item"><span>✓</span> Issue templates</div>
+            <div class="cheat-item"><span>✓</span> Peer review</div>
+            <div class="cheat-item"><span>✓</span> Full audit trail</div>
+            <div class="cheat-item"><span>✓</span> Duplicate detection</div>
+            <div class="cheat-item"><span>✓</span> Pinned issues</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🗂 Kanban & Sprints</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Drag & drop kanban</div>
+            <div class="cheat-item"><span>✓</span> Sprint creation</div>
+            <div class="cheat-item"><span>✓</span> Sprint backlog</div>
+            <div class="cheat-item"><span>✓</span> Velocity tracking</div>
+            <div class="cheat-item"><span>✓</span> Sprint burndown</div>
+            <div class="cheat-item"><span>✓</span> Saved filters</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>📬 Email Ticketing</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> IMAP email polling</div>
+            <div class="cheat-item"><span>✓</span> Auto ticket creation</div>
+            <div class="cheat-item"><span>✓</span> Reply sends email</div>
+            <div class="cheat-item"><span>✓</span> Internal notes</div>
+            <div class="cheat-item"><span>✓</span> CC threading</div>
+            <div class="cheat-item"><span>✓</span> Canned responses</div>
+            <div class="cheat-item"><span>✓</span> / shortcut insert</div>
+            <div class="cheat-item"><span>✓</span> Ticket watchers</div>
+            <div class="cheat-item"><span>✓</span> Parent/child linking</div>
+            <div class="cheat-item"><span>✓</span> SLA pause & resume</div>
+            <div class="cheat-item"><span>✓</span> Ticket DNA timeline</div>
+            <div class="cheat-item"><span>✓</span> 1-click CSAT on close</div>
+            <div class="cheat-item"><span>✓</span> Spam blocklist</div>
+            <div class="cheat-item"><span>✓</span> Auto-resolve rules</div>
+            <div class="cheat-item"><span>✓</span> Raise ticket to issue</div>
+            <div class="cheat-item"><span>✓</span> Live typing indicator</div>
+            <div class="cheat-item"><span>✓</span> Bulk ticket actions</div>
+            <div class="cheat-item"><span>✓</span> Tag management</div>
+            <div class="cheat-item"><span>✓</span> Priority & assignment</div>
+            <div class="cheat-item"><span>✓</span> First response tracking</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🤖 Automation</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Recurring tickets</div>
+            <div class="cheat-item"><span>✓</span> Escalation rules (time bomb)</div>
+            <div class="cheat-item"><span>✓</span> Out-of-office auto reply</div>
+            <div class="cheat-item"><span>✓</span> Ticket templates</div>
+            <div class="cheat-item"><span>✓</span> Auto-resolve rules</div>
+            <div class="cheat-item"><span>✓</span> Email source routing</div>
+            <div class="cheat-item"><span>✓</span> Digest emails</div>
+            <div class="cheat-item"><span>✓</span> Slack notifications</div>
+            <div class="cheat-item"><span>✓</span> Webhook alerts</div>
+            <div class="cheat-item"><span>✓</span> CSAT auto-send</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>📊 Reports & Analytics</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> My Issues Report</div>
+            <div class="cheat-item"><span>✓</span> All Issues Report</div>
+            <div class="cheat-item"><span>✓</span> User Performance</div>
+            <div class="cheat-item"><span>✓</span> Email Ticketing Report</div>
+            <div class="cheat-item"><span>✓</span> Agent Leaderboard</div>
+            <div class="cheat-item"><span>✓</span> First Response Stats</div>
+            <div class="cheat-item"><span>✓</span> Ticket Heatmap</div>
+            <div class="cheat-item"><span>✓</span> Volume Forecast</div>
+            <div class="cheat-item"><span>✓</span> CSV export</div>
+            <div class="cheat-item"><span>✓</span> Clickable drill-downs</div>
+            <div class="cheat-item"><span>✓</span> Date range filters</div>
+            <div class="cheat-item"><span>✓</span> Revenue dashboard</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🧠 AI Features</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Root cause clusters</div>
+            <div class="cheat-item"><span>✓</span> Regression detection</div>
+            <div class="cheat-item"><span>✓</span> Revenue impact AI</div>
+            <div class="cheat-item"><span>✓</span> CSAT sentiment analysis</div>
+            <div class="cheat-item"><span>✓</span> Customer health score</div>
+            <div class="cheat-item"><span>✓</span> Churn risk prediction</div>
+            <div class="cheat-item"><span>✓</span> Predictive SLA</div>
+            <div class="cheat-item"><span>✓</span> AI query log</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>⚙️ Settings & Configuration</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Brand themes & colors</div>
+            <div class="cheat-item"><span>✓</span> Custom SLA config</div>
+            <div class="cheat-item"><span>✓</span> Feature flag toggles</div>
+            <div class="cheat-item"><span>✓</span> Team management</div>
+            <div class="cheat-item"><span>✓</span> Custom fields</div>
+            <div class="cheat-item"><span>✓</span> Integrations (Jira/Slack)</div>
+            <div class="cheat-item"><span>✓</span> Backup & restore</div>
+            <div class="cheat-item"><span>✓</span> Audit trail</div>
+            <div class="cheat-item"><span>✓</span> User invite & roles</div>
+            <div class="cheat-item"><span>✓</span> Rate limiting</div>
+            <div class="cheat-item"><span>✓</span> bcrypt passwords</div>
+            <div class="cheat-item"><span>✓</span> Session management</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🔑 Keyboard & Quick Actions</h3>
+          <table class="shortcuts">
+            <tr><th>Action</th><th>How</th></tr>
+            <tr><td>/ in reply box</td><td>Opens canned response picker</td></tr>
+            <tr><td>Enter (in reply)</td><td>Submit reply / note</td></tr>
+            <tr><td>Click any dashboard stat</td><td>Drill-down into that data</td></tr>
+            <tr><td>Click kanban card</td><td>Open issue detail</td></tr>
+            <tr><td>Drag kanban card</td><td>Change issue status</td></tr>
+            <tr><td>Checkbox on issue row</td><td>Select for bulk action</td></tr>
+            <tr><td>@email in comment</td><td>Mention & notify that user</td></tr>
+            <tr><td>🧬 DNA button</td><td>Full ticket audit timeline</td></tr>
+          </table>
+        </div>
+
+        <div style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(16,185,129,.1));border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:28px;text-align:center;margin-top:32px;">
+          <div style="font-size:32px;margin-bottom:12px;">🎉</div>
+          <h2 style="font-size:22px;font-weight:900;margin-bottom:8px;">You've completed the Learning Center!</h2>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">You now know every feature in Resolvo. Time to put it to work.</p>
+          <a href="/" style="display:inline-block;background:#10B981;color:#0B0F19;padding:13px 36px;border-radius:10px;font-size:15px;font-weight:800;text-decoration:none;margin-right:10px;">→ Open the App</a>
+          <a href="/pitch" target="_blank" style="display:inline-block;background:var(--card);color:var(--white);padding:13px 36px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--border);">📄 Product Overview</a>
+        </div>
+      </div>
+
+      <button class="complete-btn done" id="finalComplete">✓ All Modules Complete!</button>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','cheatsheet'];
+var TITLES = {
+  quickstart:'🚀 Quick Start',dashboard:'📊 Dashboard',issues:'🎫 Issues & SLA',
+  kanban:'🗂 Kanban & Sprints',tickets:'📬 Email Ticketing',
+  'ticket-power':'⚡ Power Features','ticket-automation':'🤖 Automation',
+  reports:'📈 Reports & Analytics',leaderboard:'🏆 Leaderboard & Forecast',
+  settings:'⚙️ Settings Guide',team:'🤝 Team & Users',cheatsheet:'📋 Full Cheatsheet'
+};
+
+var done = JSON.parse(localStorage.getItem('resolvo_learn_done') || '["quickstart"]');
+var current = localStorage.getItem('resolvo_learn_current') || 'quickstart';
+
+function showModule(id) {
+  document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  var mod = document.getElementById('mod-' + id);
+  if (mod) mod.classList.add('active');
+  var items = document.querySelectorAll('.sb-item');
+  items.forEach(function(item) {
+    if (item.getAttribute('onclick') && item.getAttribute('onclick').includes("'" + id + "'")) {
+      item.classList.add('active');
+    }
+  });
+  document.getElementById('topTitle').textContent = TITLES[id] || id;
+  current = id;
+  localStorage.setItem('resolvo_learn_current', id);
+  window.scrollTo(0, 0);
+  document.getElementById('main').scrollTop = 0;
+}
+
+function markDone(id, nextId) {
+  if (!done.includes(id)) done.push(id);
+  localStorage.setItem('resolvo_learn_done', JSON.stringify(done));
+  updateProgress();
+  var btn = event.target;
+  btn.classList.add('done');
+  btn.textContent = '✓ Completed!';
+  setTimeout(function() { if (nextId) showModule(nextId); }, 400);
+}
+
+function updateProgress() {
+  done.forEach(function(id) {
+    var chk = document.getElementById('chk-' + id);
+    if (chk) { chk.textContent = '✓'; chk.parentElement.classList.add('done'); }
+    var btn = document.querySelector('#mod-' + id + ' .complete-btn');
+    if (btn) { btn.classList.add('done'); btn.textContent = '✓ Completed!'; }
+  });
+  var pct = Math.round((done.length / MODULES.length) * 100);
+  var fill = document.getElementById('progressFill');
+  var text = document.getElementById('progressText');
+  if (fill) fill.style.width = pct + '%';
+  if (text) text.textContent = done.length + ' / ' + MODULES.length;
+}
+
+function searchModules(query) {
+  var q = query.toLowerCase().trim();
+  if (!q) {
+    document.querySelectorAll('.sb-item').forEach(function(i) { i.classList.remove('search-hidden'); });
+    return;
+  }
+  document.querySelectorAll('.sb-item').forEach(function(item) {
+    var text = item.textContent.toLowerCase();
+    item.classList.toggle('search-hidden', !text.includes(q));
+  });
+}
+
+// Init
+updateProgress();
+showModule(current);
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+{
+  "users": [
+    {
+      "id": "USR-A0F93BFA",
+      "email": "ajay.chandran@konnectinsights.com",
+      "name": "Ajay",
+      "team": "Management",
+      "role": "Admin",
+      "skill": "",
+      "slackId": "",
+      "maxTickets": 50,
+      "active": true,
+      "createdDate": "2026-06-04T06:49:19.574Z",
+      "passwordHash": "$2b$10$FMr5ZPEVSvpkgw7PLWa5KeyUwYEnuPqKYyQnocjpZ0.OmWPrqAuYi",
+      "firstLogin": true
+    }
+  ],
+  "issues": [],
+  "comments": [],
+  "activityLog": [],
+  "slaConfig": {
+    "Critical": 4,
+    "High": 8,
+    "Medium": 24,
+    "Low": 72
+  },
+  "settings": {
+    "AUTO_ASSIGN_ENABLED": "false",
+    "DUPLICATE_DETECTION_ENABLED": "true",
+    "MODULES": "API,Dashboard,Reports,Authentication,Database,UI,Integration,Backend,Frontend,DevOps",
+    "APP_NAME": "Ajay Chandran",
+    "GEMINI_API_KEY": "",
+    "SLACK_WEBHOOK_URL": "",
+    "WEBHOOK_ALERT_URL": "",
+    "WEBHOOK_CRITICAL_ONLY": "false",
+    "GOOGLE_CALENDAR_ID": "false"
+  },
+  "sprints": [],
+  "dependencies": [],
+  "customFields": [],
+  "customFieldValues": [],
+  "onCallSchedule": [],
+  "savedFilters": [],
+  "escalationRules": [],
+  "recurringTemplates": [],
+  "commits": [],
+  "peerReviews": [],
+  "emailThreads": [],
+  "inboundRules": [],
+  "aiHistory": [],
+  "tags": [],
+  "coAssignees": [],
+  "votes": [],
+  "timeLogs": [],
+  "watchers": [],
+  "reactions": [],
+  "pinnedIssues": [],
+  "featureFlags": {},
+  "postMortems": [],
+  "auditTrail": [],
+  "announcements": [
+    {
+      "id": "ANN-BA39BC88",
+      "message": "📣 Platform: All Thing Working — Resolving Resolvo",
+      "type": "info",
+      "active": true,
+      "expiresAt": null,
+      "createdBy": "platform",
+      "createdAt": "2026-06-05T17:14:05.573Z"
+    }
+  ],
+  "teams": []
+}

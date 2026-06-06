@@ -1,0 +1,157 @@
+{
+  "users": [
+    {
+      "id": "USR-001",
+      "email": "admin@techtrack.local",
+      "name": "Admin User",
+      "team": "Engineering",
+      "role": "Admin",
+      "skill": "Full Stack",
+      "slackId": "",
+      "maxTickets": 50,
+      "active": true,
+      "createdDate": "2024-01-01T00:00:00.000Z",
+      "passwordHash": "admin123"
+    },
+    {
+      "id": "USR-002",
+      "email": "dev@techtrack.local",
+      "name": "Dev User",
+      "team": "Backend",
+      "role": "Developer",
+      "skill": "Node.js",
+      "slackId": "",
+      "maxTickets": 10,
+      "active": true,
+      "createdDate": "2024-01-01T00:00:00.000Z",
+      "passwordHash": "newpass456"
+    },
+    {
+      "id": "USR-E044011D",
+      "email": "asif@konnectinsights.com",
+      "name": "Asif",
+      "team": "CS",
+      "role": "Admin",
+      "skill": "",
+      "slackId": "",
+      "maxTickets": "10",
+      "active": true,
+      "createdDate": "2026-06-03T09:39:21.706Z",
+      "passwordHash": "Asif"
+    }
+  ],
+  "issues": [
+    {
+      "id": "ISS-0001",
+      "title": "Test",
+      "description": "Test",
+      "module": "Integration",
+      "priority": "Medium",
+      "status": "Closed",
+      "environment": "Production",
+      "raisedBy": "admin@techtrack.local",
+      "assignedTo": "dev@techtrack.local",
+      "createdDate": "2026-06-03T09:51:20.332Z",
+      "startedDate": "",
+      "resolvedDate": "2026-06-03T10:05:54.896Z",
+      "closedDate": "",
+      "impact": "Revenue",
+      "slaHours": 24,
+      "attachmentUrl": "",
+      "sprintId": ""
+    }
+  ],
+  "comments": [
+    {
+      "id": "CMT-2C8EB689",
+      "issueId": "ISS-0001",
+      "userEmail": "admin@techtrack.local",
+      "comment": "@asif",
+      "timestamp": "2026-06-03T10:05:35.476Z"
+    }
+  ],
+  "activityLog": [
+    {
+      "issueId": "ISS-0001",
+      "action": "Issue Created",
+      "user": "admin@techtrack.local",
+      "timestamp": "2026-06-03T09:51:20.333Z"
+    },
+    {
+      "issueId": "ISS-0001",
+      "action": "Comment added",
+      "user": "admin@techtrack.local",
+      "timestamp": "2026-06-03T10:05:35.476Z"
+    },
+    {
+      "issueId": "ISS-0001",
+      "action": "Status changed to Resolved",
+      "user": "admin@techtrack.local",
+      "timestamp": "2026-06-03T10:05:54.897Z"
+    },
+    {
+      "issueId": "ISS-0001",
+      "action": "Status changed to Closed",
+      "user": "admin@techtrack.local",
+      "timestamp": "2026-06-03T10:06:15.159Z"
+    }
+  ],
+  "slaConfig": {
+    "Critical": 4,
+    "High": 8,
+    "Medium": 24,
+    "Low": 72
+  },
+  "settings": {
+    "AUTO_ASSIGN_ENABLED": "false",
+    "DUPLICATE_DETECTION_ENABLED": "true",
+    "MODULES": "API,Dashboard,Reports,Authentication,Database,UI,Integration,Backend,Frontend,DevOps",
+    "SLACK_WEBHOOK_URL": "",
+    "WEBHOOK_ALERT_URL": "",
+    "WEBHOOK_CRITICAL_ONLY": "false",
+    "GOOGLE_CALENDAR_ID": "false",
+    "APP_NAME": "TechTrack",
+    "GEMINI_API_KEY": ""
+  },
+  "sprints": [],
+  "dependencies": [],
+  "customFields": [],
+  "customFieldValues": [],
+  "onCallSchedule": [],
+  "savedFilters": [],
+  "escalationRules": [],
+  "recurringTemplates": [],
+  "commits": [],
+  "peerReviews": [],
+  "emailThreads": [],
+  "inboundRules": [],
+  "aiHistory": [],
+  "tags": [],
+  "coAssignees": [],
+  "votes": [],
+  "timeLogs": [],
+  "watchers": [],
+  "reactions": [],
+  "pinnedIssues": [],
+  "featureFlags": {
+    "KANBAN_ENABLED": true,
+    "SPRINTS_ENABLED": true,
+    "AI_ENABLED": true,
+    "EMAIL_TRIAGE_ENABLED": false,
+    "PEER_REVIEW_ENABLED": true,
+    "ON_CALL_ENABLED": true,
+    "TIME_LOGGING_ENABLED": true,
+    "CUSTOM_FIELDS_ENABLED": true,
+    "RELEASE_NOTES_ENABLED": true,
+    "AUDIT_TRAIL_ENABLED": true,
+    "POSTMORTEM_ENABLED": true,
+    "DEPENDENCY_GRAPH_ENABLED": true,
+    "WATCHERS_ENABLED": true,
+    "REACTIONS_ENABLED": true,
+    "PINNED_ISSUES_ENABLED": true,
+    "FULL_TEXT_SEARCH_ENABLED": true,
+    "TAGS_ENABLED": true
+  },
+  "postMortems": [],
+  "auditTrail": []
+}

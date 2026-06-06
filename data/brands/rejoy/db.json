@@ -1,0 +1,63 @@
+{
+  "users": [
+    {
+      "id": "USR-B4D92374",
+      "email": "rejoy@konnectinsights.com",
+      "name": "rejoy",
+      "team": "Management",
+      "role": "Admin",
+      "skill": "",
+      "slackId": "",
+      "maxTickets": 50,
+      "active": true,
+      "createdDate": "2026-06-04T17:14:15.195Z",
+      "passwordHash": "$2b$10$bJ.7mr6.HCrl4Kr4kI3e5OuHnvLaExrDBRwWsrSRl6Ms/LlK4TmJe",
+      "firstLogin": false
+    }
+  ],
+  "issues": [],
+  "comments": [],
+  "activityLog": [],
+  "slaConfig": {
+    "Critical": 4,
+    "High": 8,
+    "Medium": 24,
+    "Low": 72
+  },
+  "settings": {
+    "AUTO_ASSIGN_ENABLED": "false",
+    "DUPLICATE_DETECTION_ENABLED": "true",
+    "MODULES": "API,Dashboard,Reports,Authentication,Database,UI,Integration,Backend,Frontend,DevOps",
+    "APP_NAME": "Rejoy",
+    "GEMINI_API_KEY": "",
+    "SLACK_WEBHOOK_URL": "",
+    "WEBHOOK_ALERT_URL": "",
+    "WEBHOOK_CRITICAL_ONLY": "false",
+    "GOOGLE_CALENDAR_ID": "false"
+  },
+  "sprints": [],
+  "dependencies": [],
+  "customFields": [],
+  "customFieldValues": [],
+  "onCallSchedule": [],
+  "savedFilters": [],
+  "escalationRules": [],
+  "recurringTemplates": [],
+  "commits": [],
+  "peerReviews": [],
+  "emailThreads": [],
+  "inboundRules": [],
+  "aiHistory": [],
+  "tags": [],
+  "coAssignees": [],
+  "votes": [],
+  "timeLogs": [],
+  "watchers": [],
+  "reactions": [],
+  "pinnedIssues": [],
+  "featureFlags": {},
+  "postMortems": [],
+  "auditTrail": [],
+  "announcements": [],
+  "teams": []
+}
