@@ -2383,7 +2383,27 @@ app.post('/api/call',async(req,res)=>{
         routingRules:config.routingRules||[],
         timeRules:config.timeRules||[]
       };
-      wDB(db);return{success:true};
+      wDB(db);
+      // Auto-distribute existing unassigned tickets when queue is turned ON
+      let autoDistributed=0;
+      if(config.enabled&&!prev.enabled){
+        const unassigned=(db.tickets||[]).filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status))
+          .sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+        for(const t of unassigned){
+          const agent=autoAssignAgent(db,t);
+          if(agent){
+            const idx=(db.tickets||[]).findIndex(x=>x.id===t.id);
+            if(idx>=0){
+              db.tickets[idx].assignedTo=agent;
+              db.tickets[idx].lastActivity=new Date().toISOString();
+              if(db.tickets[idx].status==='new')db.tickets[idx].status='open';
+              autoDistributed++;
+            }
+          }
+        }
+        if(autoDistributed>0){wDB(db);console.log(`[Queue] Auto-distributed ${autoDistributed} tickets on queue enable for ${slug}`);}
+      }
+      return{success:true,autoDistributed};
     },
     // Distribute all existing unassigned tickets to queue agents
     distributeUnassignedTickets:()=>{

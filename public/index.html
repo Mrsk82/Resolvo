@@ -14222,7 +14222,10 @@ const App = {
       '</div>';
     }).join('') +
     '<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;display:flex;flex-direction:column;gap:4px;">'+
-      (r&&r.overflow>0?'<button onclick="App._distributeQueue()" style="width:100%;font-size:10px;font-weight:700;color:#0D0E14;background:#10B981;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;">⚡ Distribute '+r.overflow+' Unassigned</button>':'')+
+      (r&&r.overflow>0?(App.currentUser&&App.currentUser.role==='Admin'
+        ?'<button onclick="App._distributeQueue()" style="width:100%;font-size:10px;font-weight:700;color:#0D0E14;background:#10B981;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;">⚡ Distribute '+r.overflow+' Unassigned</button>'
+        :'<div style="font-size:10px;color:var(--medium);background:var(--medium-dim);border-radius:5px;padding:5px 8px;text-align:center;">⚠ '+r.overflow+' unassigned — ask admin to distribute</div>')
+      :'')+
       '<button onclick="App.navigate(\'settings\',{tab:\'queue-config\'})" style="font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:0;text-align:left;">⚙ Configure Queue →</button>'+
     '</div>';
   },
