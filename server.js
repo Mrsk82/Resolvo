@@ -1400,6 +1400,64 @@ app.post('/api/call',async(req,res)=>{
           `<p>Ticket <strong>${ticket.subject}</strong> was updated to <strong>${status}</strong> by ${su.name||su.email}.</p><a href="${BASE_URL}">View ticket →</a>`,
           `Ticket ${ticketId} is now ${status}`).catch(()=>{});
       });
+
+      // ── QUEUE PULL: When ticket resolved/closed, auto-assign next unassigned ticket ──
+      // This ensures agents always have work — resolving one pulls the next from queue
+      if((status==='resolved'||status==='closed')){
+        const freshDb=rDB();
+        const qcfg=freshDb.queueConfig||{};
+        if(qcfg.enabled&&!qcfg.frozen){
+          // Find oldest unassigned open ticket (sorted by creation date asc = oldest first)
+          const unassigned=(freshDb.tickets||[]).filter(t=>
+            !t.assignedTo&&
+            !['resolved','closed'].includes(t.status)&&
+            t.id!==ticketId
+          ).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+
+          if(unassigned.length>0){
+            // Check if the agent who just resolved still has capacity
+            const resolver=su.email;
+            const resolverUser=(freshDb.users||[]).find(u=>u.email===resolver);
+            const resolverOpen=(freshDb.tickets||[]).filter(t=>
+              t.assignedTo===resolver&&!['resolved','closed'].includes(t.status)
+            ).length;
+            const resolverMax=resolverUser?.maxTickets||10;
+            const resolverStatus=resolverUser?.availabilityStatus||'available';
+
+            let nextAgent=null;
+
+            // Prefer to give the next ticket to the agent who just freed up (if they have capacity)
+            if(resolverStatus!=='away'&&resolverOpen<resolverMax){
+              const inQueue=(qcfg.agents||[]).find(a=>a.email===resolver&&a.inQueue);
+              if(inQueue)nextAgent=resolver;
+            }
+
+            // Otherwise use normal auto-assign routing
+            if(!nextAgent){
+              nextAgent=autoAssignAgent(freshDb,unassigned[0]);
+            }
+
+            if(nextAgent){
+              const nextIdx=(freshDb.tickets||[]).findIndex(t=>t.id===unassigned[0].id);
+              if(nextIdx>=0){
+                freshDb.tickets[nextIdx].assignedTo=nextAgent;
+                freshDb.tickets[nextIdx].lastActivity=new Date().toISOString();
+                freshDb.tickets[nextIdx].status='open'; // Move from new → open
+                freshDb.tickets[nextIdx].timeline=freshDb.tickets[nextIdx].timeline||[];
+                freshDb.tickets[nextIdx].timeline.push({
+                  event:'auto_assigned_from_queue',
+                  by:'system',byName:'Queue System',
+                  at:new Date().toISOString(),
+                  detail:`Auto-assigned to ${nextAgent} after ${ticketId} was resolved`
+                });
+                writeBrandDB(slug,freshDb);
+                console.log(`[Queue] Auto-assigned ${unassigned[0].id} → ${nextAgent} after ${ticketId} resolved`);
+              }
+            }
+          }
+        }
+      }
+
       return{success:true};
     },
     updateTicketPriority:(ticketId,priority)=>{
