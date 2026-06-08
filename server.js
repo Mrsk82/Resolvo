@@ -1347,7 +1347,11 @@ app.post('/api/call',async(req,res)=>{
       let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.lastActivity||b.createdDate)-new Date(a.lastActivity||a.createdDate));
       if(filters){
         // My Queue filter — assigned to current user, not resolved/closed
-        if(filters.status==='mine')tickets=tickets.filter(t=>t.assignedTo===su.email&&!['resolved','closed'].includes(t.status));
+        // Case-insensitive match to handle any email casing differences
+        if(filters.status==='mine'){
+          const myEmail=(su.email||'').toLowerCase().trim();
+          tickets=tickets.filter(t=>(t.assignedTo||'').toLowerCase().trim()===myEmail&&!['resolved','closed'].includes(t.status));
+        }
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);

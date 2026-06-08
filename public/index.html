@@ -14010,13 +14010,12 @@ const App = {
     var [r, cfgR, allR] = await Promise.all([
       self.callAsync('getTickets', { status: self._ticketFilter || 'all' }),
       self.callAsync('getEmailTicketingConfig'),
-      // Always fetch all tickets separately to get accurate counts for sidebar
-      (self._ticketFilter==='mine'||self._ticketFilter==='unassigned')
-        ? self.callAsync('getTickets', {status:'all'})
-        : Promise.resolve(null)
+      // Always fetch all tickets for accurate sidebar counts
+      self.callAsync('getTickets', {status:'all'})
     ]);
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
-    // Use all-tickets counts for sidebar badges (not filtered counts)
+    // Use all-tickets for sidebar badge counts
+    var allTickets = (allR && allR.success) ? allR.tickets : r.tickets;
     if (allR && allR.success) r.counts = allR.counts;
 
     var tickets = r.tickets || [];
@@ -14058,13 +14057,18 @@ const App = {
 
           <!-- MY QUEUE section -->
           <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green,#10B981);">👤 My Queue</div>
-          ${[
-            {k:'mine',       l:'My Tickets',    n:tickets.filter(t=>t.assignedTo===(self.currentUser&&self.currentUser.email)&&!['resolved','closed'].includes(t.status)).length, c:'#10B981'},
-            {k:'unassigned', l:'Unassigned',    n:tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length, c:'#EF4444'},
+          ${(function(){
+            var myEmail = ((self.currentUser&&self.currentUser.email)||'').toLowerCase().trim();
+            var mineCount = allTickets.filter(function(t){return (t.assignedTo||'').toLowerCase().trim()===myEmail&&!['resolved','closed'].includes(t.status);}).length;
+            var unassignedCount = allTickets.filter(function(t){return !t.assignedTo&&!['resolved','closed'].includes(t.status);}).length;
+            return [
+              {k:'mine',       l:'My Tickets',  n:mineCount,       c:'#10B981'},
+              {k:'unassigned', l:'Unassigned',  n:unassignedCount, c:'#EF4444'},
           ].map(s => `<div onclick="App._ticketFilter='${s.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;border-left:3px solid ${self._ticketFilter===s.k?s.c:'transparent'};background:${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'}'">
             <span style="font-size:13px;font-weight:${self._ticketFilter===s.k?700:500};color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
             <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0?s.c+'20':'var(--bg-elevated)'};color:${s.n>0?s.c:'var(--text-dim)'};">${s.n}</span>
-          </div>`).join('')}
+          </div>`).join('');
+          })()}
 
           <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
           <div style="padding:6px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);">Filter by Status</div>
