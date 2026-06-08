@@ -2453,6 +2453,70 @@ app.post('/api/call',async(req,res)=>{
       wDB(db);
       return{success:true,assigned,skipped,total:unassigned.length,message:`${assigned} tickets assigned, ${skipped} skipped (agents at capacity)`};
     },
+    // ── ADMIN QUEUE MANAGEMENT ─────────────────────────────────────────────
+    // Admin changes ANY user's availability status
+    setAgentStatusAdmin:(agentEmail,status)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===agentEmail);
+      if(idx===-1)return{success:false,error:'Agent not found'};
+      const prev=db.users[idx].availabilityStatus||'available';
+      db.users[idx].availabilityStatus=status;
+      db.users[idx].statusUpdatedAt=new Date().toISOString();
+      db.users[idx].statusSetByAdmin=true;
+      // Auto-redistribute if setting to Away
+      let redistributed=0;
+      if(status==='away'&&prev!=='away'&&(db.queueConfig||{}).enabled){
+        const openTickets=(db.tickets||[]).filter(t=>t.assignedTo===agentEmail&&!['resolved','closed'].includes(t.status));
+        openTickets.forEach(t=>{
+          const newAgent=autoAssignAgent(db,t);
+          const tIdx=(db.tickets||[]).findIndex(x=>x.id===t.id);
+          if(tIdx>=0){
+            if(newAgent){
+              db.tickets[tIdx].assignedTo=newAgent;
+              db.tickets[tIdx].timeline=db.tickets[tIdx].timeline||[];
+              db.tickets[tIdx].timeline.push({event:'admin_redistributed',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`${agentEmail} set Away by admin → reassigned to ${newAgent}`});
+              redistributed++;
+            } else {
+              // No agent available — move back to unassigned
+              db.tickets[tIdx].assignedTo='';
+              db.tickets[tIdx].status='new';
+              db.tickets[tIdx].timeline=db.tickets[tIdx].timeline||[];
+              db.tickets[tIdx].timeline.push({event:'returned_to_queue',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`${agentEmail} set Away — returned to unassigned queue`});
+              redistributed++;
+            }
+          }
+        });
+      }
+      wDB(db);return{success:true,status,redistributed};
+    },
+    // Admin moves ALL tickets from an agent back to unassigned queue
+    drainAgentQueue:(agentEmail)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();let drained=0;
+      (db.tickets||[]).forEach((t,i)=>{
+        if(t.assignedTo===agentEmail&&!['resolved','closed'].includes(t.status)){
+          db.tickets[i].assignedTo='';
+          db.tickets[i].status='new';
+          db.tickets[i].lastActivity=new Date().toISOString();
+          db.tickets[i].timeline=db.tickets[i].timeline||[];
+          db.tickets[i].timeline.push({event:'returned_to_queue',by:su.email,byName:'Admin',at:new Date().toISOString(),detail:`Returned to unassigned queue by ${su.email}`});
+          drained++;
+        }
+      });
+      wDB(db);return{success:true,drained};
+    },
+    // Admin moves a single ticket back to unassigned
+    returnTicketToQueue:(ticketId)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].assignedTo='';
+      db.tickets[idx].status='new';
+      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'returned_to_queue',by:su.email,byName:'Admin',at:new Date().toISOString(),detail:'Manually returned to unassigned queue'});
+      wDB(db);return{success:true};
+    },
     // Feature 14: Freeze/unfreeze queue
     freezeQueue:(freeze)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};

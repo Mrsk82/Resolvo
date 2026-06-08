@@ -14381,6 +14381,7 @@ const App = {
                 ${!t.assignedTo||t.assignedTo!==self.currentUser?.email?`<button onclick="App._takeTicket('${t.id}')" style="background:rgba(99,102,241,.15);color:#6366F1;border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">✋ Take</button>`:''}
                 <button onclick="App._showTransferTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Transfer to another agent">↗ Transfer</button>
                 ${self.currentUser&&self.currentUser.role==='Admin'?`<button onclick="App._bumpTicket('${t.id}')" style="background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>`:''}
+                ${self.currentUser&&self.currentUser.role==='Admin'&&t.assignedTo?`<button onclick="App._returnTicketToQueue('${t.id}')" style="background:var(--medium-dim);color:var(--medium);border:1px solid var(--medium)44;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Return to unassigned queue">↩ Unassign</button>`:''}
                 ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-accent);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">🎫 Issue</button>`}
               </div>
             </div>
@@ -15428,24 +15429,63 @@ const App = {
             App._sRow('Depth Warning Threshold','Alert when agent has this many open tickets',
               '<input type="number" id="q_thresh" class="form-input" style="width:70px;" value="'+(qcfg.depthWarningThreshold||5)+'" min="1" max="50">'),
           ])+
-          App._sSection('Agents in Queue',[
-            '<div style="display:flex;flex-direction:column;gap:6px;" id="qAgentList">'+
-            (qcfg.agents||[]).map(function(a){
-              var m = (qmet.metrics||[]).find(function(x){return x.email===a.email;})||{};
-              var cap = m.capacity||0;
+          App._sSection('👥 Agent Management',[
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">Manage agent availability and queue assignments. Drain an agent to return all their open tickets to the unassigned pool.</div>'+
+            '<div style="display:flex;flex-direction:column;gap:8px;" id="qAgentList">'+
+            (qmet.metrics||[]).map(function(a){
+              var cap = a.capacity||0;
               var capColor = cap>=80?'var(--critical)':cap>=50?'var(--medium)':'var(--low)';
-              return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-elevated);border-radius:8px;">'+
-                '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">'+
-                  '<input type="checkbox" data-agent-email="'+App._esc(a.email)+'" '+(a.inQueue?'checked':'')+' style="width:15px;height:15px;">'+
-                  '<div><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(a.name)+'</div>'+
-                  '<div style="font-size:11px;color:var(--text-dim);">'+App._esc(a.email)+'</div></div>'+
-                '</label>'+
-                '<div style="text-align:right;"><div style="font-size:11px;color:'+capColor+';">'+m.openTickets+'/'+(m.maxTickets||10)+' tickets</div>'+
-                '<div style="width:80px;height:4px;background:var(--border);border-radius:2px;margin-top:3px;"><div style="width:'+Math.min(cap,100)+'%;height:4px;background:'+capColor+';border-radius:2px;"></div></div></div>'+
-                '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:'+({'available':'rgba(16,185,129,.12)','busy':'rgba(245,158,11,.12)','away':'rgba(239,68,68,.12)'}[m.status||'available']||'var(--bg-elevated)')+';color:'+({'available':'#10B981','busy':'#F59E0B','away':'#EF4444'}[m.status||'available']||'var(--text-dim)')+';">'+App._esc(m.status||'available')+'</span>'+
+              var statusColors={'available':'#10B981','busy':'#F59E0B','away':'#EF4444'};
+              var sc=statusColors[a.status||'available']||'#10B981';
+              return '<div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">'+
+                // Row 1: agent info + status
+                '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">'+
+                  '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">'+
+                    '<input type="checkbox" data-agent-email="'+App._esc(a.email)+'" '+
+                      ((qcfg.agents||[]).find(function(x){return x.email===a.email&&x.inQueue;})?'checked':'')+
+                      ' style="width:15px;height:15px;" title="Include in queue rotation">'+
+                    '<div>'+
+                      '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(a.name)+'</div>'+
+                      '<div style="font-size:11px;color:var(--text-dim);">'+App._esc(a.email)+' · '+App._esc(a.role||'')+'</div>'+
+                    '</div>'+
+                  '</label>'+
+                  // Capacity bar
+                  '<div style="text-align:center;min-width:70px;">'+
+                    '<div style="font-size:12px;font-weight:700;color:'+capColor+';">'+a.openTickets+'/'+a.maxTickets+'</div>'+
+                    '<div style="width:70px;height:5px;background:var(--border);border-radius:3px;margin-top:3px;"><div style="width:'+Math.min(cap,100)+'%;height:5px;background:'+capColor+';border-radius:3px;"></div></div>'+
+                    '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">capacity</div>'+
+                  '</div>'+
+                '</div>'+
+                // Row 2: admin controls
+                '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+
+                  // Status selector
+                  '<div style="display:flex;gap:4px;">'+
+                    ['available','busy','away'].map(function(s){
+                      var sc2=statusColors[s];
+                      var active=a.status===s;
+                      return '<button onclick="App._adminSetAgentStatus(\''+App._esc(a.email)+'\',\''+s+'\')" '+
+                        'style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;'+
+                        'background:'+(active?sc2+'20':'var(--bg-card)')+';'+
+                        'color:'+(active?sc2:'var(--text-dim)')+';'+
+                        'border:1px solid '+(active?sc2:'var(--border)')+';'+
+                        'transition:all .15s;" title="Set '+s+'">'+
+                        (s==='available'?'🟢':s==='busy'?'🟡':'🔴')+' '+s.charAt(0).toUpperCase()+s.slice(1)+
+                      '</button>';
+                    }).join('')+
+                  '</div>'+
+                  '<div style="margin-left:auto;display:flex;gap:6px;">'+
+                    (a.openTickets>0?
+                      '<button onclick="App._drainAgentQueue(\''+App._esc(a.email)+'\',\''+App._esc(a.name)+'\')" '+
+                      'style="font-size:11px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;'+
+                      'background:var(--medium-dim);color:var(--medium);border:1px solid var(--medium)44;" '+
+                      'title="Return all their tickets to unassigned queue">'+
+                      '↩ Drain Queue ('+a.openTickets+')</button>':
+                      '<span style="font-size:10px;color:var(--low);">✅ Queue empty</span>')+
+                  '</div>'+
+                '</div>'+
               '</div>';
             }).join('')+
-            (!qcfg.agents||!qcfg.agents.length?'<div style="color:var(--text-dim);font-size:12px;padding:12px;">No agents. Add users in Settings → Team.</div>':'')+
+            (!qmet.metrics||!qmet.metrics.length?'<div style="color:var(--text-dim);font-size:12px;padding:12px;">No agents. Add users in Settings → Team.</div>':'')+
             '</div>'
           ])+
           App._sSection('🎯 Routing Rules (Keyword / Domain / Email / Priority)',[
@@ -16010,6 +16050,34 @@ const App = {
     if(r&&r.success){App.showToast('Queue config saved ✅','success');App.renderUnifiedSettings('queue-config');}
     else App.showToast('Failed','error');
   },
+  // Admin sets any agent's status
+  _adminSetAgentStatus: async function(email, status) {
+    var r = await App.callAsync('setAgentStatusAdmin', email, status);
+    if(r&&r.success){
+      var msg = '✅ '+email.split('@')[0]+' → '+status;
+      if(r.redistributed>0) msg += ' · '+r.redistributed+' tickets redistributed';
+      App.showToast(msg, 'success');
+      App.renderUnifiedSettings('queue-config');
+    } else App.showToast('Failed: '+(r?.error||''), 'error');
+  },
+
+  // Admin drains all tickets from an agent back to unassigned
+  _drainAgentQueue: async function(email, name) {
+    if(!confirm('Return all open tickets from '+name+' back to unassigned queue?\n\nThey will be available for redistribution.')) return;
+    var r = await App.callAsync('drainAgentQueue', email);
+    if(r&&r.success){
+      App.showToast('↩ '+r.drained+' tickets returned to unassigned queue', 'success');
+      App.renderUnifiedSettings('queue-config');
+    } else App.showToast('Failed: '+(r?.error||''), 'error');
+  },
+
+  // Admin returns single ticket to queue (in ticket detail)
+  _returnTicketToQueue: async function(ticketId) {
+    var r = await App.callAsync('returnTicketToQueue', ticketId);
+    if(r&&r.success){App.showToast('↩ Returned to unassigned queue','success');App.renderTicketDetail(ticketId);}
+    else App.showToast('Failed','error');
+  },
+
   _distributeQueue: async function() {
     var btn = event?.target;
     if(btn){btn.textContent='Distributing...';btn.disabled=true;}
