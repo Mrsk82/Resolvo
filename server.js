@@ -3134,8 +3134,8 @@ async function createTicketFromEmail(slug, emailData) {
   const ticketTags = [];
   if (isVIP) { ticketTags.push('VIP'); if (isVIP) priority = priority === 'Low' ? 'Medium' : priority; }
 
-  // Round robin auto-assign
-  const assignedTo = config.defaultAssignee || autoAssignAgent(db) || '';
+  // Round robin auto-assign — pass email data for routing rules
+  const assignedTo = config.defaultAssignee || autoAssignAgent(db, {subject:emailData.subject,from:emailData.from,priority}) || '';
 
   const ticket = {
     id: ticketId,
