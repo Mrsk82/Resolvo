@@ -14548,23 +14548,28 @@ const App = {
     var r = await self.callAsync('updateTicketStatus', ticketId, status);
     if (r && r.success) {
       if (status === 'resolved' || status === 'closed') {
-        self.showToast('✅ Resolved! Loading your next ticket...', 'success');
-        // Auto-navigate to My Tickets after short delay so queue can assign next
+        self.showToast('✅ Resolved! Finding your next ticket...', 'success');
+        // Wait 1.5s for server queue-pull to run, then go to My Tickets + open next
         setTimeout(async function() {
           self._ticketFilter = 'mine';
-          await self.renderTicketInbox();
-          // Auto-open first ticket in My Queue if there is one
-          setTimeout(async function() {
-            var r2 = await self.callAsync('getTickets', {status:'mine'});
-            var myTickets = (r2&&r2.tickets)||[];
-            if (myTickets.length > 0) {
-              self.showToast('📬 Next ticket ready — ' + myTickets[0].id, 'info');
-              self.navigate('ticket-detail', {id: myTickets[0].id});
-            } else {
-              self.showToast('✅ Queue is clear — no more tickets assigned to you', 'success');
-            }
-          }, 800);
-        }, 1200);
+          var r2 = await self.callAsync('getTickets', {status:'mine'});
+          var myTickets = ((r2&&r2.tickets)||[]).filter(function(t){
+            return t.id !== ticketId; // exclude the just-resolved one
+          });
+          if (myTickets.length > 0) {
+            self.showToast('📬 Next: ' + myTickets[0].id, 'success');
+            self.navigate('ticket-detail', {id: myTickets[0].id});
+          } else {
+            // No more in My Tickets — go to inbox and show unassigned
+            self._ticketFilter = 'mine';
+            await self.renderTicketInbox();
+            self.showToast('✅ Your queue is clear!', 'success');
+          }
+        }, 1500);
+      } else if (status === 'pending') {
+        // Pending = waiting for customer — keep in view but update status badge
+        self.showToast('⏳ Ticket set to pending', 'success');
+        self.renderTicketDetail(ticketId);
       } else {
         self.showToast('Status: ' + status, 'success');
         self.renderTicketDetail(ticketId);
