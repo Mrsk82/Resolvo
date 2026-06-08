@@ -2270,7 +2270,7 @@ app.post('/api/call',async(req,res)=>{
       const tags=data.tags?data.tags.split(',').map(t=>t.trim()).filter(Boolean):[];
       if(isVIP&&!tags.includes('VIP'))tags.unshift('VIP');
       // Round robin auto-assign if not manually assigned
-      const assignedTo=data.assignedTo||autoAssignAgent(db)||'';
+      const assignedTo=data.assignedTo||autoAssignAgent(db,{subject:data.subject,from:data.customerEmail,priority:data.priority})||'';
       const ticket={
         id,subject:data.subject||'(No subject)',
         from:data.customerEmail||'manual@internal',
@@ -2304,9 +2304,120 @@ app.post('/api/call',async(req,res)=>{
     saveQueueConfig:(config)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();
-      // DB CHANGE: adds db.queueConfig
-      db.queueConfig={enabled:config.enabled||false,mode:config.mode||'roundrobin',lastIndex:db.queueConfig?.lastIndex||0,agents:config.agents||[]};
+      const prev=db.queueConfig||{};
+      db.queueConfig={
+        enabled:config.enabled||false,
+        mode:config.mode||'roundrobin',
+        lastIndex:prev.lastIndex||0,
+        frozen:config.frozen||false,
+        priorityRouting:config.priorityRouting||false,
+        depthWarningThreshold:config.depthWarningThreshold||5,
+        agents:config.agents||[],
+        routingRules:config.routingRules||[],
+        timeRules:config.timeRules||[]
+      };
       wDB(db);return{success:true};
+    },
+    // Feature 14: Freeze/unfreeze queue
+    freezeQueue:(freeze)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.queueConfig=db.queueConfig||{};
+      db.queueConfig.frozen=!!freeze;wDB(db);
+      return{success:true,frozen:!!freeze};
+    },
+    // Feature 12: Take ticket (self-assign)
+    takeTicket:(ticketId)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].assignedTo=su.email;
+      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'taken',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:'Self-assigned via queue'});
+      wDB(db);return{success:true};
+    },
+    // Feature 13: Transfer ticket to another agent
+    transferTicket:(ticketId,toAgent,note)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      const prevAgent=db.tickets[idx].assignedTo||'unassigned';
+      db.tickets[idx].assignedTo=toAgent;
+      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'transferred',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`From ${prevAgent} → ${toAgent}${note?': '+note:''}`});
+      if(note){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:`Transferred to ${toAgent}: ${note}`,timestamp:new Date().toISOString()});}
+      wDB(db);return{success:true};
+    },
+    // Feature 15: Priority bump — move to status 'new' and flag
+    bumpTicketPriority:(ticketId)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].priorityBumped=true;
+      db.tickets[idx].priority='Critical';
+      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'priority_bumped',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:'Manually bumped to Critical'});
+      wDB(db);return{success:true};
+    },
+    // Feature 9: Auto-reassign tickets when agent goes Away
+    reassignAwayTickets:(fromAgent)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const openTickets=(db.tickets||[]).filter(t=>t.assignedTo===fromAgent&&!['resolved','closed'].includes(t.status));
+      let reassigned=0;
+      openTickets.forEach(t=>{
+        const newAgent=autoAssignAgent(db,t);
+        if(newAgent){
+          const idx=(db.tickets||[]).findIndex(x=>x.id===t.id);
+          if(idx>=0){db.tickets[idx].assignedTo=newAgent;db.tickets[idx].lastActivity=new Date().toISOString();reassigned++;}
+        }
+      });
+      wDB(db);return{success:true,reassigned};
+    },
+    // Feature 6 & 16: Queue metrics & performance report
+    getQueueMetrics:()=>{
+      const db=rDB();const now=Date.now();
+      const agents=(db.users||[]).filter(u=>u.active);
+      const cfg=db.queueConfig||{};
+      const depthWarnings=checkQueueDepth(db);
+      const metrics=agents.map(u=>{
+        const assigned=(db.tickets||[]).filter(t=>t.assignedTo===u.email);
+        const open=assigned.filter(t=>!['resolved','closed'].includes(t.status));
+        const resolved=assigned.filter(t=>t.status==='resolved'||t.status==='closed');
+        // Avg wait time = avg time since creation for open unresponded tickets
+        const unresponded=open.filter(t=>!(t.thread||[]).some(m=>m.type==='reply'&&m.from!==t.from));
+        const avgWaitMin=unresponded.length?Math.round(unresponded.reduce((s,t)=>(s+(now-new Date(t.createdDate).getTime())/60000),0)/unresponded.length):0;
+        const frTimes=assigned.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
+        const avgFRT=frTimes.length?Math.round(frTimes.reduce((a,b)=>a+b,0)/frTimes.length):null;
+        const inQueue=!!(cfg.agents||[]).find(a=>a.email===u.email&&a.inQueue);
+        return{
+          email:u.email,name:u.name||u.email,role:u.role,team:u.team||'',
+          status:u.availabilityStatus||'available',
+          openTickets:open.length,maxTickets:u.maxTickets||10,
+          capacity:Math.round((open.length/(u.maxTickets||10))*100),
+          unrespondedTickets:unresponded.length,
+          avgWaitMinutes:avgWaitMin,avgFirstResponseMinutes:avgFRT,
+          resolvedThisWeek:resolved.filter(t=>new Date(t.resolvedDate||t.lastActivity)>new Date(now-7*86400000)).length,
+          inQueue,overThreshold:open.length>=(cfg.depthWarningThreshold||5)
+        };
+      });
+      // Feature 18: Overflow — tickets with no agent and not resolved
+      const overflow=(db.tickets||[]).filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length;
+      return{success:true,metrics,overflow,frozen:cfg.frozen||false,enabled:cfg.enabled||false,
+        totalOpen:(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status)).length,
+        depthWarnings};
+    },
+    // Feature 10: Queue position for a ticket
+    getQueuePosition:(ticketId)=>{
+      const db=rDB();
+      const open=(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))
+        .sort((a,b)=>{
+          const pp={Critical:0,High:1,Medium:2,Low:3};
+          if(pp[a.priority]!==pp[b.priority])return pp[a.priority]-pp[b.priority];
+          return new Date(a.createdDate)-new Date(b.createdDate);
+        });
+      const pos=open.findIndex(t=>t.id===ticketId);
+      return{success:true,position:pos>=0?pos+1:null,total:open.length};
     },
 
     // ── FEATURE 4: AGENT AVAILABILITY STATUS ───────────────────────────────
@@ -2314,9 +2425,28 @@ app.post('/api/call',async(req,res)=>{
     setAgentStatus:(status)=>{
       const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===su.email);
       if(idx===-1)return{success:false,error:'Not found'};
-      db.users[idx].availabilityStatus=status; // 'available'|'busy'|'away'
+      const prevStatus=db.users[idx].availabilityStatus||'available';
+      db.users[idx].availabilityStatus=status;
       db.users[idx].statusUpdatedAt=new Date().toISOString();
-      wDB(db);return{success:true,status};
+      // Feature 9: Auto-reassign when going Away
+      let reassigned=0;
+      if(status==='away'&&prevStatus!=='away'&&(db.queueConfig||{}).enabled){
+        const openTickets=(db.tickets||[]).filter(t=>t.assignedTo===su.email&&!['resolved','closed'].includes(t.status));
+        openTickets.forEach(t=>{
+          const newAgent=autoAssignAgent(db,t);
+          if(newAgent){
+            const tIdx=(db.tickets||[]).findIndex(x=>x.id===t.id);
+            if(tIdx>=0){
+              db.tickets[tIdx].assignedTo=newAgent;
+              db.tickets[tIdx].lastActivity=new Date().toISOString();
+              db.tickets[tIdx].timeline=db.tickets[tIdx].timeline||[];
+              db.tickets[tIdx].timeline.push({event:'auto_reassigned',by:'system',byName:'Queue System',at:new Date().toISOString(),detail:`${su.email} went Away → reassigned to ${newAgent}`});
+              reassigned++;
+            }
+          }
+        });
+      }
+      wDB(db);return{success:true,status,reassigned};
     },
     getAgentStatuses:()=>{
       const db=rDB();
@@ -2808,13 +2938,66 @@ function generateTicketId(slug) {
 }
 
 // ── Create ticket from incoming email ──────────────────────────────────────────
-// ── ROUND ROBIN AUTO-ASSIGN ────────────────────────────────────────────────────
-function autoAssignAgent(db) {
+// ══════════════════════════════════════════════════════════════════════════════
+// QUEUE ENGINE — Smart auto-assignment with routing rules
+// ══════════════════════════════════════════════════════════════════════════════
+function autoAssignAgent(db, ticket) {
   const cfg = db.queueConfig || {};
   if (!cfg.enabled) return null;
+  if (cfg.frozen) return null; // Feature 14: Queue freeze
+
+  const subject = ((ticket&&ticket.subject)||'').toLowerCase();
+  const fromEmail = ((ticket&&ticket.from)||'').toLowerCase();
+  const priority = (ticket&&ticket.priority)||'Medium';
+
+  // Feature 1 & 4: Keyword/skill routing rules — check first
+  const routingRules = (cfg.routingRules || []).filter(r => r.enabled);
+  for (const rule of routingRules) {
+    let matched = false;
+    if (rule.type === 'keyword' && rule.keyword && subject.includes(rule.keyword.toLowerCase())) matched = true;
+    if (rule.type === 'domain' && rule.domain && fromEmail.endsWith('@' + rule.domain.toLowerCase())) matched = true;
+    if (rule.type === 'priority' && rule.priority && priority === rule.priority) matched = true;
+    if (rule.type === 'email' && rule.email && fromEmail === rule.email.toLowerCase()) matched = true;
+    if (matched && rule.assignTo) {
+      const user = (db.users || []).find(u => u.email === rule.assignTo && u.active);
+      if (user && (user.availabilityStatus || 'available') !== 'away') {
+        const openCount = (db.tickets || []).filter(t => t.assignedTo === rule.assignTo && !['resolved','closed'].includes(t.status)).length;
+        if (openCount < (user.maxTickets || 10)) return rule.assignTo;
+      }
+    }
+  }
+
+  // Feature 2: Priority routing — Critical → agent with most capacity
+  if (priority === 'Critical' && cfg.priorityRouting) {
+    const agents = (cfg.agents || []).filter(a => a.inQueue);
+    const ranked = agents.map(a => {
+      const user = (db.users || []).find(u => u.email === a.email);
+      if (!user || !user.active || (user.availabilityStatus || 'available') === 'away') return null;
+      const openCount = (db.tickets || []).filter(t => t.assignedTo === a.email && !['resolved','closed'].includes(t.status)).length;
+      const cap = (user.maxTickets || 10) - openCount;
+      return { email: a.email, cap };
+    }).filter(Boolean).sort((a, b) => b.cap - a.cap);
+    if (ranked.length && ranked[0].cap > 0) return ranked[0].email;
+  }
+
+  // Feature 5: Time-based routing
+  const hour = new Date().getHours();
+  const timeRules = (cfg.timeRules || []).filter(r => r.enabled);
+  for (const rule of timeRules) {
+    const start = parseInt(rule.startHour || 0);
+    const end = parseInt(rule.endHour || 23);
+    if (hour >= start && hour <= end && rule.assignTo) {
+      const user = (db.users || []).find(u => u.email === rule.assignTo && u.active);
+      if (user && (user.availabilityStatus || 'available') !== 'away') {
+        const openCount = (db.tickets || []).filter(t => t.assignedTo === rule.assignTo && !['resolved','closed'].includes(t.status)).length;
+        if (openCount < (user.maxTickets || 10)) return rule.assignTo;
+      }
+    }
+  }
+
+  // Default: Round robin with capacity check
   const agents = (cfg.agents || []).filter(a => a.inQueue);
   if (!agents.length) return null;
-  // Filter by availability and capacity
   const available = agents.filter(a => {
     const user = (db.users || []).find(u => u.email === a.email);
     if (!user || !user.active) return false;
@@ -2824,13 +3007,31 @@ function autoAssignAgent(db) {
     return true;
   });
   if (!available.length) return null;
-  // Round robin — rotate from last index
+  const mode = cfg.mode || 'roundrobin';
+  if (mode === 'leastbusy') {
+    // Feature 8: SLA-aware — assign to agent with most capacity
+    const ranked = available.map(a => {
+      const openCount = (db.tickets || []).filter(t => t.assignedTo === a.email && !['resolved','closed'].includes(t.status)).length;
+      return { email: a.email, openCount };
+    }).sort((a, b) => a.openCount - b.openCount);
+    return ranked[0]?.email || null;
+  }
+  // Round robin
   const lastIdx = cfg.lastIndex || 0;
   const nextIdx = lastIdx % available.length;
   const chosen = available[nextIdx];
-  // Save updated index
   db.queueConfig.lastIndex = (nextIdx + 1) % available.length;
   return chosen.email;
+}
+
+// Feature 7: Queue depth check — returns agents over threshold
+function checkQueueDepth(db) {
+  const cfg = db.queueConfig || {};
+  const threshold = cfg.depthWarningThreshold || 5;
+  return (db.users || []).filter(u => u.active).map(u => {
+    const open = (db.tickets || []).filter(t => t.assignedTo === u.email && !['resolved','closed'].includes(t.status)).length;
+    return { email: u.email, name: u.name, openTickets: open, overThreshold: open >= threshold };
+  }).filter(a => a.overThreshold);
 }
 
 async function createTicketFromEmail(slug, emailData) {

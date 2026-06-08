@@ -14166,23 +14166,34 @@ const App = {
   _loadQueueDashboard: async function() {
     var panel = document.getElementById('queueAgentList');
     if (!panel) return;
-    var r = await App.callAsync('getAgentStatuses');
-    var agents = (r && r.agents) || [];
-    if (!agents.length) { panel.innerHTML = '<div style="font-size:11px;color:var(--text-dim);">No agents</div>'; return; }
+    var r = await App.callAsync('getQueueMetrics');
+    var metrics = (r && r.metrics) || [];
+    var frozen = r && r.frozen;
+    var overflow = (r && r.overflow) || 0;
+    var depthWarnings = (r && r.depthWarnings) || [];
+    if (!metrics.length) { panel.innerHTML = '<div style="font-size:11px;color:var(--text-dim);">No agents</div>'; return; }
     var statusDot = {available:'#10B981', busy:'#F59E0B', away:'#EF4444'};
-    var statusLabel = {available:'Available', busy:'Busy', away:'Away'};
-    panel.innerHTML = agents.slice(0,6).map(function(a){
+    var header = frozen ?
+      '<div style="font-size:10px;font-weight:700;color:#EF4444;background:rgba(239,68,68,.1);padding:4px 8px;border-radius:5px;margin-bottom:6px;">❄ Queue Frozen</div>' :
+      (overflow > 0 ? '<div style="font-size:10px;color:var(--medium);margin-bottom:5px;">⚠ '+overflow+' unassigned</div>' : '');
+    panel.innerHTML = header + metrics.filter(function(a){return a.inQueue;}).slice(0,8).map(function(a){
       var dot = statusDot[a.status]||'#10B981';
-      var cap = Math.round((a.openTickets / (a.maxTickets||10)) * 100);
-      return '<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">'+
+      var cap = a.capacity||0;
+      var capColor = cap>=80?'#EF4444':cap>=50?'#F59E0B':'#10B981';
+      var warn = a.overThreshold ? ' ⚠' : '';
+      return '<div style="display:flex;align-items:center;gap:7px;padding:4px 0;" title="'+App._esc(a.email)+' · '+a.openTickets+'/'+a.maxTickets+' tickets · Avg wait: '+(a.avgWaitMinutes||0)+'min">'+
         '<div style="width:7px;height:7px;border-radius:50%;background:'+dot+';flex-shrink:0;"></div>'+
         '<div style="flex:1;min-width:0;">'+
-          '<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+App._esc(a.name.split(' ')[0])+'</div>'+
-          '<div style="background:var(--border);border-radius:2px;height:3px;margin-top:2px;"><div style="width:'+Math.min(cap,100)+'%;height:3px;background:'+(cap>80?'#EF4444':cap>50?'#F59E0B':'#10B981')+';border-radius:2px;"></div></div>'+
+          '<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+App._esc((a.name||'').split(' ')[0])+warn+'</div>'+
+          '<div style="background:var(--border);border-radius:2px;height:3px;margin-top:2px;"><div style="width:'+Math.min(cap,100)+'%;height:3px;background:'+capColor+';border-radius:2px;"></div></div>'+
         '</div>'+
-        '<span style="font-size:10px;color:var(--text-dim);">'+a.openTickets+'</span>'+
+        '<div style="text-align:right;"><span style="font-size:10px;font-weight:700;color:'+capColor+';">'+a.openTickets+'</span>'+
+        '<span style="font-size:9px;color:var(--text-dim);">/'+a.maxTickets+'</span></div>'+
       '</div>';
-    }).join('');
+    }).join('') +
+    '<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">'+
+      '<button onclick="App.navigate(\'settings\',{tab:\'queue-config\'})" style="font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:0;">⚙ Configure Queue →</button>'+
+    '</div>';
   },
 
   _selectedTickets: new Set(),
@@ -14333,7 +14344,10 @@ const App = {
                 ${t.status!=='resolved'&&t.status!=='closed'?`<button onclick="App._ticketStatusAction('${t.id}','resolved')" style="background:var(--low-dim);color:var(--low);border:1px solid var(--low)44;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve</button>`:''}
                 ${t.status==='resolved'?`<button onclick="App._ticketStatusAction('${t.id}','closed')" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">Close</button>`:''}
                 ${t.status==='resolved'||t.status==='closed'?`<button onclick="App._ticketStatusAction('${t.id}','open')" style="background:var(--bg-elevated);color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">Reopen</button>`:''}
-                ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-accent);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">🎫 Raise as Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">🎫 View Issue</button>`}
+                ${!t.assignedTo?`<button onclick="App._takeTicket('${t.id}')" style="background:rgba(99,102,241,.15);color:#6366F1;border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">✋ Take</button>`:''}
+                <button onclick="App._showTransferTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Transfer to another agent">↗ Transfer</button>
+                <button onclick="App._bumpTicket('${t.id}')" style="background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>
+                ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-accent);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">🎫 Issue</button>`}
               </div>
             </div>
           </div>
@@ -14500,6 +14514,47 @@ const App = {
     var r = await self.callAsync('updateTicketStatus', ticketId, status);
     if (r && r.success) { self.showToast('Status: ' + status, 'success'); self.renderTicketDetail(ticketId); }
     else self.showToast('Failed', 'error');
+  },
+
+  // Feature 12: Take ticket (self-assign)
+  _takeTicket: async function(ticketId) {
+    var r = await App.callAsync('takeTicket', ticketId);
+    if(r&&r.success){App.showToast('✋ Ticket taken — assigned to you','success');App.renderTicketDetail(ticketId);}
+    else App.showToast('Failed: '+(r?.error||''),'error');
+  },
+
+  // Feature 13: Transfer ticket
+  _showTransferTicket: async function(ticketId) {
+    var usersR = await App.callAsync('getUsers', true);
+    var users = (usersR&&usersR.users)||[];
+    var agentOptions = users.map(function(u){return '<option value="'+App._esc(u.email)+'">'+App._esc(u.name||u.email)+'</option>';}).join('');
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:400px">'+
+      '<div class="modal-header"><span class="modal-title">↗ Transfer Ticket</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label class="form-label">Transfer To</label><select id="tr_agent" class="form-select">'+agentOptions+'</select></div>'+
+        '<div><label class="form-label">Note (optional)</label><input id="tr_note" class="form-input" placeholder="Reason for transfer..."></div>'+
+      '</div>'+
+      '<div class="modal-footer">'+
+        '<button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+        '<button class="btn-primary" onclick="App._doTransferTicket(\''+ticketId+'\')">Transfer →</button>'+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _doTransferTicket: async function(ticketId) {
+    var toAgent = document.getElementById('tr_agent')?.value;
+    var note = document.getElementById('tr_note')?.value?.trim()||'';
+    if(!toAgent){App.showToast('Select an agent','warning');return;}
+    var r = await App.callAsync('transferTicket', ticketId, toAgent, note);
+    if(r&&r.success){App.showToast('↗ Ticket transferred','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderTicketDetail(ticketId);}
+    else App.showToast('Failed','error');
+  },
+
+  // Feature 15: Priority bump
+  _bumpTicket: async function(ticketId) {
+    if(!confirm('Bump this ticket to Critical priority?'))return;
+    var r = await App.callAsync('bumpTicketPriority', ticketId);
+    if(r&&r.success){App.showToast('🚨 Bumped to Critical','success');App.renderTicketDetail(ticketId);}
+    else App.showToast('Failed: '+(r?.error||''),'error');
   },
 
   // ── CANNED RESPONSES ────────────────────────────────────────────────────────
@@ -15278,33 +15333,94 @@ const App = {
       // ── QUEUE CONFIG ─────────────────────────────────────────────────────
       else if (tid === 'queue-config') {
         var qr = await self.callAsync('getQueueConfig');
-        var qcfg = (qr&&qr.success)?qr.config:{enabled:false,mode:'roundrobin',agents:[]};
+        var mtr = await self.callAsync('getQueueMetrics');
+        var qcfg = (qr&&qr.success)?qr.config:{enabled:false,mode:'roundrobin',agents:[],routingRules:[],timeRules:[]};
+        var qmet = (mtr&&mtr.success)?mtr:{metrics:[],overflow:0,frozen:false};
+        var routingRules = qcfg.routingRules||[];
+        var timeRules = qcfg.timeRules||[];
         content =
-          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔄 Assignment Queue</h3>'+
-          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Auto-assign incoming tickets to agents using round robin rotation.</p>'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">🔄 Assignment Queue</h3>'+
+            '<p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Smart routing with round robin, skill-based, priority, domain, and time-based rules.</p></div>'+
+            '<div style="display:flex;gap:8px;">'+
+              '<button onclick="App._toggleQueueFreeze('+(qmet.frozen?'false':'true')+')" style="background:'+(qmet.frozen?'var(--critical-dim)':'var(--bg-elevated)')+';color:'+(qmet.frozen?'var(--critical)':'var(--text-muted)')+';border:1px solid '+(qmet.frozen?'var(--critical)':'var(--border)')+';border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">'+(qmet.frozen?'🔴 FROZEN — Click to Unfreeze':'❄ Freeze Queue')+'</button>'+
+            '</div>'+
+          '</div>'+
+          // Status bar
+          (qmet.depthWarnings&&qmet.depthWarnings.length?
+            '<div style="background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--critical);">⚠ Queue Depth Warning: '+qmet.depthWarnings.map(function(a){return App._esc(a.name)+' ('+a.openTickets+' open)';}).join(', ')+'</div>':'')+
+          (qmet.overflow>0?'<div style="background:var(--medium-dim);border:1px solid var(--medium);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--medium);">📭 '+qmet.overflow+' tickets have no agent assigned (overflow)</div>':'')+
           App._sSection('Queue Settings',[
-            App._sRow('Auto Assignment','Automatically assign new tickets to agents in queue',
+            App._sRow('Auto Assignment','Automatically assign new tickets',
               '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="q_enabled" '+(qcfg.enabled?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(qcfg.enabled?'Enabled':'Disabled')+'</span></label>'),
-            App._sRow('Mode','How tickets are distributed',
-              '<select id="q_mode" class="form-select" style="width:160px;"><option value="roundrobin" '+(qcfg.mode==='roundrobin'?'selected':'')+'>Round Robin</option><option value="leastbusy" '+(qcfg.mode==='leastbusy'?'selected':'')+'>Least Busy</option></select>'),
+            App._sRow('Distribution Mode','How tickets are spread across agents',
+              '<select id="q_mode" class="form-select" style="width:180px;">'+
+                '<option value="roundrobin" '+(qcfg.mode==='roundrobin'?'selected':'')+'>🔄 Round Robin</option>'+
+                '<option value="leastbusy" '+(qcfg.mode==='leastbusy'?'selected':'')+'>⚡ Least Busy (SLA-aware)</option>'+
+              '</select>'),
+            App._sRow('Priority Routing','Critical tickets → agent with most capacity',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="q_prio" '+(qcfg.priorityRouting?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(qcfg.priorityRouting?'On':'Off')+'</span></label>'),
+            App._sRow('Depth Warning Threshold','Alert when agent has this many open tickets',
+              '<input type="number" id="q_thresh" class="form-input" style="width:70px;" value="'+(qcfg.depthWarningThreshold||5)+'" min="1" max="50">'),
           ])+
           App._sSection('Agents in Queue',[
-            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">Toggle agents to include/exclude from auto-assignment. Away agents and full agents are skipped automatically.</div>'+
-            '<div style="display:flex;flex-direction:column;gap:8px;" id="qAgentList">'+
+            '<div style="display:flex;flex-direction:column;gap:6px;" id="qAgentList">'+
             (qcfg.agents||[]).map(function(a){
-              return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-elevated);border-radius:8px;">'+
-                '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">'+
+              var m = (qmet.metrics||[]).find(function(x){return x.email===a.email;})||{};
+              var cap = m.capacity||0;
+              var capColor = cap>=80?'var(--critical)':cap>=50?'var(--medium)':'var(--low)';
+              return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-elevated);border-radius:8px;">'+
+                '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">'+
                   '<input type="checkbox" data-agent-email="'+App._esc(a.email)+'" '+(a.inQueue?'checked':'')+' style="width:15px;height:15px;">'+
-                  '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(a.name)+'</span>'+
-                  '<span style="font-size:11px;color:var(--text-dim);">'+App._esc(a.email)+'</span>'+
+                  '<div><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(a.name)+'</div>'+
+                  '<div style="font-size:11px;color:var(--text-dim);">'+App._esc(a.email)+'</div></div>'+
                 '</label>'+
-                '<span style="font-size:11px;color:var(--text-dim);">'+App._esc(a.role||'')+'</span>'+
+                '<div style="text-align:right;"><div style="font-size:11px;color:'+capColor+';">'+m.openTickets+'/'+(m.maxTickets||10)+' tickets</div>'+
+                '<div style="width:80px;height:4px;background:var(--border);border-radius:2px;margin-top:3px;"><div style="width:'+Math.min(cap,100)+'%;height:4px;background:'+capColor+';border-radius:2px;"></div></div></div>'+
+                '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:'+({'available':'rgba(16,185,129,.12)','busy':'rgba(245,158,11,.12)','away':'rgba(239,68,68,.12)'}[m.status||'available']||'var(--bg-elevated)')+';color:'+({'available':'#10B981','busy':'#F59E0B','away':'#EF4444'}[m.status||'available']||'var(--text-dim)')+';">'+App._esc(m.status||'available')+'</span>'+
               '</div>';
             }).join('')+
-            (qcfg.agents&&qcfg.agents.length?'':'<div style="color:var(--text-dim);font-size:12px;padding:12px;">No agents found. Add team members in Settings → Team & Roles.</div>')+
+            (!qcfg.agents||!qcfg.agents.length?'<div style="color:var(--text-dim);font-size:12px;padding:12px;">No agents. Add users in Settings → Team.</div>':'')+
+            '</div>'
+          ])+
+          App._sSection('🎯 Routing Rules (Keyword / Domain / Email / Priority)',[
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">Route specific tickets to specific agents based on subject keywords, customer domains, or priority.</div>'+
+            '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;" id="routingRulesList">'+
+            routingRules.map(function(r,i){
+              return '<div style="display:grid;grid-template-columns:100px 1fr 1fr 80px 30px;gap:6px;align-items:center;padding:8px 10px;background:var(--bg-elevated);border-radius:7px;">'+
+                '<select class="form-select" style="font-size:11px;" data-rr-type="'+i+'">'+
+                  ['keyword','domain','email','priority'].map(function(t){return '<option value="'+t+'"'+(r.type===t?' selected':'')+'>'+t+'</option>';}).join('')+
+                '</select>'+
+                '<input class="form-input" style="font-size:11px;" value="'+App._esc(r.keyword||r.domain||r.email||r.priority||'')+'" data-rr-value="'+i+'" placeholder="Value...">'+
+                '<select class="form-select" style="font-size:11px;" data-rr-agent="'+i+'">'+
+                  (qcfg.agents||[]).map(function(a){return '<option value="'+App._esc(a.email)+'"'+(r.assignTo===a.email?' selected':'')+'>'+App._esc(a.name)+'</option>';}).join('')+
+                '</select>'+
+                '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox" data-rr-en="'+i+'" '+(r.enabled?'checked':'')+' style="width:12px;"> On</label>'+
+                '<button onclick="App._removeRoutingRule('+i+')" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:14px;">×</button>'+
+              '</div>';
+            }).join('')+
             '</div>'+
-            '<div style="margin-top:14px;text-align:right;"><button onclick="App._saveQueueConfig()" class="btn-primary">Save Queue Config</button></div>'
-          ]);
+            '<button onclick="App._addRoutingRule()" class="btn-secondary btn-sm">+ Add Rule</button>'
+          ])+
+          App._sSection('⏰ Time-Based Routing',[
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">Route tickets to specific agents during specific hours (24h format).</div>'+
+            '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;" id="timeRulesList">'+
+            timeRules.map(function(r,i){
+              return '<div style="display:grid;grid-template-columns:70px 20px 70px 1fr 80px 30px;gap:6px;align-items:center;padding:8px 10px;background:var(--bg-elevated);border-radius:7px;">'+
+                '<input type="number" class="form-input" style="font-size:11px;" value="'+App._esc(String(r.startHour||9))+'" data-tr-start="'+i+'" min="0" max="23" placeholder="9">'+
+                '<span style="font-size:11px;color:var(--text-dim);text-align:center;">to</span>'+
+                '<input type="number" class="form-input" style="font-size:11px;" value="'+App._esc(String(r.endHour||18))+'" data-tr-end="'+i+'" min="0" max="23" placeholder="18">'+
+                '<select class="form-select" style="font-size:11px;" data-tr-agent="'+i+'">'+
+                  (qcfg.agents||[]).map(function(a){return '<option value="'+App._esc(a.email)+'"'+(r.assignTo===a.email?' selected':'')+'>'+App._esc(a.name)+'</option>';}).join('')+
+                '</select>'+
+                '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox" data-tr-en="'+i+'" '+(r.enabled?'checked':'')+' style="width:12px;"> On</label>'+
+                '<button onclick="App._removeTimeRule('+i+')" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:14px;">×</button>'+
+              '</div>';
+            }).join('')+
+            '</div>'+
+            '<button onclick="App._addTimeRule()" class="btn-secondary btn-sm">+ Add Time Rule</button>'
+          ])+
+          '<div style="text-align:right;margin-top:6px;"><button onclick="App._saveQueueConfig()" class="btn-primary">Save All Queue Config</button></div>';
       }
 
       // ── VIP CONFIG ────────────────────────────────────────────────────────
@@ -15792,13 +15908,89 @@ const App = {
   _saveQueueConfig: async function() {
     var enabled = document.getElementById('q_enabled')?.checked||false;
     var mode = document.getElementById('q_mode')?.value||'roundrobin';
+    var priorityRouting = document.getElementById('q_prio')?.checked||false;
+    var depthWarningThreshold = parseInt(document.getElementById('q_thresh')?.value||5);
     var agents = [];
     document.querySelectorAll('[data-agent-email]').forEach(function(cb){
       agents.push({email:cb.getAttribute('data-agent-email'),inQueue:cb.checked});
     });
-    var r = await App.callAsync('saveQueueConfig',{enabled,mode,agents});
-    if(r&&r.success){App.showToast('Queue config saved','success');App.renderUnifiedSettings('queue-config');}
+    // Collect routing rules
+    var routingRules = [];
+    var rrTypes = document.querySelectorAll('[data-rr-type]');
+    rrTypes.forEach(function(sel,i){
+      var idx = sel.getAttribute('data-rr-type');
+      var type = sel.value;
+      var val = document.querySelector('[data-rr-value="'+idx+'"]')?.value?.trim()||'';
+      var assignTo = document.querySelector('[data-rr-agent="'+idx+'"]')?.value||'';
+      var enabled2 = document.querySelector('[data-rr-en="'+idx+'"]')?.checked!==false;
+      var rule = {type,assignTo,enabled:enabled2};
+      if(type==='keyword')rule.keyword=val;
+      else if(type==='domain')rule.domain=val;
+      else if(type==='email')rule.email=val;
+      else if(type==='priority')rule.priority=val;
+      if(assignTo)routingRules.push(rule);
+    });
+    // Collect time rules
+    var timeRules = [];
+    var trStarts = document.querySelectorAll('[data-tr-start]');
+    trStarts.forEach(function(inp,i){
+      var idx = inp.getAttribute('data-tr-start');
+      var startHour = parseInt(inp.value||9);
+      var endHour = parseInt(document.querySelector('[data-tr-end="'+idx+'"]')?.value||18);
+      var assignTo = document.querySelector('[data-tr-agent="'+idx+'"]')?.value||'';
+      var enabled2 = document.querySelector('[data-tr-en="'+idx+'"]')?.checked!==false;
+      if(assignTo)timeRules.push({startHour,endHour,assignTo,enabled:enabled2});
+    });
+    var r = await App.callAsync('saveQueueConfig',{enabled,mode,priorityRouting,depthWarningThreshold,agents,routingRules,timeRules});
+    if(r&&r.success){App.showToast('Queue config saved ✅','success');App.renderUnifiedSettings('queue-config');}
     else App.showToast('Failed','error');
+  },
+  _toggleQueueFreeze: async function(freeze) {
+    var r = await App.callAsync('freezeQueue', freeze==='true'||freeze===true);
+    if(r&&r.success){App.showToast(r.frozen?'❄ Queue frozen — no new auto-assignments':'▶ Queue unfrozen','success');App.renderUnifiedSettings('queue-config');}
+  },
+  _addRoutingRule: function() {
+    var list = document.getElementById('routingRulesList');
+    if(!list)return;
+    var idx = list.children.length;
+    var agentOptions = '<option value="">Select agent...</option>';
+    document.querySelectorAll('[data-agent-email]').forEach(function(cb){
+      agentOptions += '<option value="'+App._esc(cb.getAttribute('data-agent-email'))+'">'+App._esc(cb.getAttribute('data-agent-email').split('@')[0])+'</option>';
+    });
+    list.insertAdjacentHTML('beforeend',
+      '<div style="display:grid;grid-template-columns:100px 1fr 1fr 80px 30px;gap:6px;align-items:center;padding:8px 10px;background:var(--bg-elevated);border-radius:7px;">'+
+        '<select class="form-select" style="font-size:11px;" data-rr-type="'+idx+'"><option value="keyword">keyword</option><option value="domain">domain</option><option value="email">email</option><option value="priority">priority</option></select>'+
+        '<input class="form-input" style="font-size:11px;" data-rr-value="'+idx+'" placeholder="e.g. billing or enterprise.com">'+
+        '<select class="form-select" style="font-size:11px;" data-rr-agent="'+idx+'">'+agentOptions+'</select>'+
+        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox" data-rr-en="'+idx+'" checked style="width:12px;"> On</label>'+
+        '<button onclick="this.closest(\'div[style]\').remove()" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:14px;">×</button>'+
+      '</div>');
+  },
+  _removeRoutingRule: function(idx) {
+    var items = document.querySelectorAll('#routingRulesList > div');
+    if(items[idx])items[idx].remove();
+  },
+  _addTimeRule: function() {
+    var list = document.getElementById('timeRulesList');
+    if(!list)return;
+    var idx = list.children.length;
+    var agentOptions = '<option value="">Select agent...</option>';
+    document.querySelectorAll('[data-agent-email]').forEach(function(cb){
+      agentOptions += '<option value="'+App._esc(cb.getAttribute('data-agent-email'))+'">'+App._esc(cb.getAttribute('data-agent-email').split('@')[0])+'</option>';
+    });
+    list.insertAdjacentHTML('beforeend',
+      '<div style="display:grid;grid-template-columns:70px 20px 70px 1fr 80px 30px;gap:6px;align-items:center;padding:8px 10px;background:var(--bg-elevated);border-radius:7px;">'+
+        '<input type="number" class="form-input" style="font-size:11px;" data-tr-start="'+idx+'" value="9" min="0" max="23">'+
+        '<span style="font-size:11px;color:var(--text-dim);text-align:center;">to</span>'+
+        '<input type="number" class="form-input" style="font-size:11px;" data-tr-end="'+idx+'" value="18" min="0" max="23">'+
+        '<select class="form-select" style="font-size:11px;" data-tr-agent="'+idx+'">'+agentOptions+'</select>'+
+        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;"><input type="checkbox" data-tr-en="'+idx+'" checked style="width:12px;"> On</label>'+
+        '<button onclick="this.closest(\'div[style]\').remove()" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:14px;">×</button>'+
+      '</div>');
+  },
+  _removeTimeRule: function(idx) {
+    var items = document.querySelectorAll('#timeRulesList > div');
+    if(items[idx])items[idx].remove();
   },
 
   // ── VIP CONFIG SAVE ──────────────────────────────────────────────────────────
@@ -16923,6 +17115,7 @@ const App = {
       {id:'first-resp',   icon:'⚡', label:'First Response',       adminOnly:true},
       {id:'heatmap',      icon:'🗓', label:'Ticket Heatmap',       adminOnly:true},
       {id:'forecast',     icon:'📈', label:'Volume Forecast',      adminOnly:true},
+      {id:'queue-report', icon:'🔄', label:'Queue Performance',     adminOnly:true},
     ].filter(function(t){return !t.adminOnly || isAdmin;});
 
     var tabsHtml = TABS.map(function(t){
@@ -17397,6 +17590,67 @@ const App = {
                   '<div style="font-size:10px;color:var(--text-dim);">tickets</div></div>';
               }).join('')+
             '</div>'+
+          '</div>';
+      }
+
+      // ── QUEUE PERFORMANCE REPORT ─────────────────────────────────────────
+      else if (tid === 'queue-report') {
+        var qm = await self.callAsync('getQueueMetrics');
+        if(!qm||!qm.success){reportEl.innerHTML='<p style="color:var(--critical);padding:20px;">Failed</p>';return;}
+        var mets = qm.metrics||[];
+        var statusColor = {available:'#10B981',busy:'#F59E0B',away:'#EF4444'};
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;">'+
+            '<h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">🔄 Queue Performance</h2>'+
+            '<div style="font-size:12px;color:var(--text-muted);">Real-time agent capacity, wait times, and routing metrics</div>'+
+          '</div>'+
+          // Top stats
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">'+
+            statCard('📬','Total Open',qm.totalOpen,'tickets in queue','var(--accent)')+
+            statCard('📭','Unassigned',qm.overflow,'no agent assigned',qm.overflow>0?'var(--critical)':'var(--low)')+
+            statCard('❄','Queue Status',qm.frozen?'Frozen':'Active','auto-assign state',qm.frozen?'var(--critical)':'var(--low)')+
+            statCard('⚠','Depth Warnings',(qm.depthWarnings||[]).length,'agents over threshold',(qm.depthWarnings||[]).length>0?'var(--medium)':'var(--low)')+
+          '</div>'+
+          // Agent table
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+
+            '<table style="width:100%;border-collapse:collapse;">'+
+            '<thead><tr style="background:var(--bg-elevated);">'+
+              '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Agent</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Status</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Open</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Capacity</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Unresponded</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Avg Wait</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Avg FRT</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">This Week</th>'+
+              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">In Queue</th>'+
+            '</tr></thead><tbody>'+
+            mets.map(function(a){
+              var sc = statusColor[a.status]||'#10B981';
+              var cc = a.capacity>=80?'var(--critical)':a.capacity>=50?'var(--medium)':'var(--low)';
+              var frtLabel = a.avgFirstResponseMinutes!=null?(a.avgFirstResponseMinutes<60?a.avgFirstResponseMinutes+'m':Math.round(a.avgFirstResponseMinutes/60*10)/10+'h'):'—';
+              var waitLabel = a.avgWaitMinutes>0?(a.avgWaitMinutes<60?a.avgWaitMinutes+'m':Math.round(a.avgWaitMinutes/60*10)/10+'h'):'—';
+              return '<tr style="border-top:1px solid var(--border);">'+
+                '<td style="padding:11px 14px;">'+
+                  '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(a.name)+'</div>'+
+                  '<div style="font-size:11px;color:var(--text-dim);">'+App._esc(a.team||a.role)+'</div>'+
+                '</td>'+
+                '<td style="padding:11px 14px;text-align:center;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:'+sc+'18;color:'+sc+';">'+a.status+'</span></td>'+
+                '<td style="padding:11px 14px;text-align:center;font-size:14px;font-weight:700;color:'+cc+';">'+a.openTickets+'/'+a.maxTickets+'</td>'+
+                '<td style="padding:11px 14px;text-align:center;">'+
+                  '<div style="display:flex;align-items:center;gap:6px;justify-content:center;">'+
+                    '<div style="width:60px;height:6px;background:var(--border);border-radius:3px;"><div style="width:'+Math.min(a.capacity,100)+'%;height:6px;background:'+cc+';border-radius:3px;"></div></div>'+
+                    '<span style="font-size:11px;font-weight:700;color:'+cc+';">'+a.capacity+'%</span>'+
+                  '</div>'+
+                '</td>'+
+                '<td style="padding:11px 14px;text-align:center;font-size:13px;color:'+(a.unrespondedTickets>0?'var(--critical)':'var(--text-dim)')+';">'+a.unrespondedTickets+'</td>'+
+                '<td style="padding:11px 14px;text-align:center;font-size:13px;color:'+(a.avgWaitMinutes>60?'var(--critical)':a.avgWaitMinutes>30?'var(--medium)':'var(--text-secondary)')+';">'+waitLabel+'</td>'+
+                '<td style="padding:11px 14px;text-align:center;font-size:13px;color:var(--text-secondary);">'+frtLabel+'</td>'+
+                '<td style="padding:11px 14px;text-align:center;font-size:14px;font-weight:700;color:var(--low);">'+a.resolvedThisWeek+'</td>'+
+                '<td style="padding:11px 14px;text-align:center;"><span style="font-size:11px;color:'+(a.inQueue?'var(--low)':'var(--text-dim)')+';">'+(a.inQueue?'✅ Yes':'—')+'</span></td>'+
+              '</tr>';
+            }).join('')+
+            '</tbody></table>'+
           '</div>';
       }
 
