@@ -5,3 +5,14 @@ server.log
 *.log
 .DS_Store
 Thumbs.db
+
+# ── CUSTOMER DATA — NEVER COMMIT ──────────────────────
+# All JSON data files stay on each server separately.
+# Local = test data. VPS = real customer data.
+# Git only carries CODE, never data.
+data/
+
+# Temp files from bash environment
+cd
+node
+npx

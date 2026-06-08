@@ -3011,10 +3011,11 @@ app.post('/api/call',async(req,res)=>{
     // FEATURE 3: AUTO-SCHEDULE FROM TICKET — generate booking link in thread
     // ══════════════════════════════════════════════════════════════════════
     generateBookingLinkForTicket:(ticketId)=>{
-      const db=rDB();const cfg=db.bookingConfig||{};
-      if(!cfg.enabled)return{success:false,error:'Booking not enabled. Enable in Settings → Booking.'};
+      // Always generate link — admin can enable booking later
       const link=`${BASE_URL}/book/${slug}`;
-      return{success:true,link,message:`Book a call: ${link}`};
+      const db=rDB();const cfg=db.bookingConfig||{};
+      const enabled=cfg.enabled||false;
+      return{success:true,link,enabled,message:`Book a call with us: ${link}`,warning:!enabled?'Tip: Enable booking in Settings → 📅 Appointment Booking for customers to actually book.':null};
     },
 
     // ══════════════════════════════════════════════════════════════════════

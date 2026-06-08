@@ -16326,8 +16326,9 @@ const App = {
     if(r&&r.success){
       var ta = document.getElementById('replyText');
       if(ta)ta.value += (ta.value?'\n\n':'')+r.message;
-      App.showToast('📅 Booking link inserted into reply','success');
-    } else App.showToast(r?.error||'Booking not enabled. Enable in Settings → 📅 Appointment Booking.','warning');
+      if(r.warning) App.showToast('📅 Link inserted. '+r.warning,'success');
+      else App.showToast('📅 Booking link inserted into reply','success');
+    } else App.showToast('Failed: '+(r?.error||'unknown'),'error');
   },
 
   // ── APPOINTMENT CALENDAR (Feature 2) ─────────────────────────────────────
