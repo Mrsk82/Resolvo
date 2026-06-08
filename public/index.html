@@ -14221,8 +14221,9 @@ const App = {
         '<span style="font-size:9px;color:var(--text-dim);">/'+a.maxTickets+'</span></div>'+
       '</div>';
     }).join('') +
-    '<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">'+
-      '<button onclick="App.navigate(\'settings\',{tab:\'queue-config\'})" style="font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:0;">⚙ Configure Queue →</button>'+
+    '<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;display:flex;flex-direction:column;gap:4px;">'+
+      (r&&r.overflow>0?'<button onclick="App._distributeQueue()" style="width:100%;font-size:10px;font-weight:700;color:#0D0E14;background:#10B981;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;">⚡ Distribute '+r.overflow+' Unassigned</button>':'')+
+      '<button onclick="App.navigate(\'settings\',{tab:\'queue-config\'})" style="font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:0;text-align:left;">⚙ Configure Queue →</button>'+
     '</div>';
   },
 
@@ -14542,8 +14543,32 @@ const App = {
   _ticketStatusAction: async function(ticketId, status) {
     var self = this;
     var r = await self.callAsync('updateTicketStatus', ticketId, status);
-    if (r && r.success) { self.showToast('Status: ' + status, 'success'); self.renderTicketDetail(ticketId); }
-    else self.showToast('Failed', 'error');
+    if (r && r.success) {
+      if (status === 'resolved' || status === 'closed') {
+        self.showToast('✅ Resolved! Loading your next ticket...', 'success');
+        // Auto-navigate to My Tickets after short delay so queue can assign next
+        setTimeout(async function() {
+          self._ticketFilter = 'mine';
+          await self.renderTicketInbox();
+          // Auto-open first ticket in My Queue if there is one
+          setTimeout(async function() {
+            var r2 = await self.callAsync('getTickets', {status:'mine'});
+            var myTickets = (r2&&r2.tickets)||[];
+            if (myTickets.length > 0) {
+              self.showToast('📬 Next ticket ready — ' + myTickets[0].id, 'info');
+              self.navigate('ticket-detail', {id: myTickets[0].id});
+            } else {
+              self.showToast('✅ Queue is clear — no more tickets assigned to you', 'success');
+            }
+          }, 800);
+        }, 1200);
+      } else {
+        self.showToast('Status: ' + status, 'success');
+        self.renderTicketDetail(ticketId);
+      }
+    } else {
+      self.showToast('Failed', 'error');
+    }
   },
 
   // Feature 12: Take ticket (self-assign)
@@ -15373,7 +15398,9 @@ const App = {
             '<div><h3 style="margin:0;font-size:16px;font-weight:800;">🔄 Assignment Queue</h3>'+
             '<p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Smart routing with round robin, skill-based, priority, domain, and time-based rules.</p></div>'+
             '<div style="display:flex;gap:8px;">'+
-              '<button onclick="App._toggleQueueFreeze('+(qmet.frozen?'false':'true')+')" style="background:'+(qmet.frozen?'var(--critical-dim)':'var(--bg-elevated)')+';color:'+(qmet.frozen?'var(--critical)':'var(--text-muted)')+';border:1px solid '+(qmet.frozen?'var(--critical)':'var(--border)')+';border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">'+(qmet.frozen?'🔴 FROZEN — Click to Unfreeze':'❄ Freeze Queue')+'</button>'+
+              (qmet.overflow>0?'<button onclick="App._distributeQueue()" style="background:#10B981;color:#0D0E14;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">⚡ Distribute '+qmet.overflow+' Unassigned Now</button>':
+              '<span style="font-size:12px;color:var(--low);padding:6px 10px;">✅ No unassigned tickets</span>')+
+              '<button onclick="App._toggleQueueFreeze('+(qmet.frozen?'false':'true')+')" style="background:'+(qmet.frozen?'var(--critical-dim)':'var(--bg-elevated)')+';color:'+(qmet.frozen?'var(--critical)':'var(--text-muted)')+';border:1px solid '+(qmet.frozen?'var(--critical)':'var(--border)')+';border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">'+(qmet.frozen?'🔴 FROZEN — Click to Unfreeze':'❄ Freeze')+'</button>'+
             '</div>'+
           '</div>'+
           // Status bar
@@ -15975,6 +16002,21 @@ const App = {
     if(r&&r.success){App.showToast('Queue config saved ✅','success');App.renderUnifiedSettings('queue-config');}
     else App.showToast('Failed','error');
   },
+  _distributeQueue: async function() {
+    var btn = event?.target;
+    if(btn){btn.textContent='Distributing...';btn.disabled=true;}
+    var r = await App.callAsync('distributeUnassignedTickets');
+    if(r&&r.success){
+      App.showToast('⚡ '+r.assigned+' tickets distributed to agents'+(r.skipped>0?' ('+r.skipped+' skipped — agents at capacity)':''), 'success');
+      // Refresh current view
+      if(App._ticketFilter){App.renderTicketInbox();}
+      else{App.renderUnifiedSettings('queue-config');}
+    } else {
+      App.showToast('Failed: '+(r?.error||'Queue not enabled'), 'error');
+      if(btn){btn.textContent='⚡ Distribute';btn.disabled=false;}
+    }
+  },
+
   _toggleQueueFreeze: async function(freeze) {
     var r = await App.callAsync('freezeQueue', freeze==='true'||freeze===true);
     if(r&&r.success){App.showToast(r.frozen?'❄ Queue frozen — no new auto-assignments':'▶ Queue unfrozen','success');App.renderUnifiedSettings('queue-config');}

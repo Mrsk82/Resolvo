@@ -2385,6 +2385,32 @@ app.post('/api/call',async(req,res)=>{
       };
       wDB(db);return{success:true};
     },
+    // Distribute all existing unassigned tickets to queue agents
+    distributeUnassignedTickets:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const cfg=db.queueConfig||{};
+      if(!cfg.enabled)return{success:false,error:'Queue not enabled. Enable it in Settings → Assignment Queue first.'};
+      const unassigned=(db.tickets||[]).filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status))
+        .sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate)); // oldest first
+      let assigned=0,skipped=0;
+      for(const t of unassigned){
+        const agent=autoAssignAgent(db,t);
+        if(agent){
+          const idx=(db.tickets||[]).findIndex(x=>x.id===t.id);
+          if(idx>=0){
+            db.tickets[idx].assignedTo=agent;
+            db.tickets[idx].lastActivity=new Date().toISOString();
+            if(db.tickets[idx].status==='new')db.tickets[idx].status='open';
+            db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+            db.tickets[idx].timeline.push({event:'distributed_from_queue',by:su.email,byName:'Queue System',at:new Date().toISOString(),detail:`Bulk distributed to ${agent}`});
+            assigned++;
+          }
+        } else { skipped++; }
+      }
+      wDB(db);
+      return{success:true,assigned,skipped,total:unassigned.length,message:`${assigned} tickets assigned, ${skipped} skipped (agents at capacity)`};
+    },
     // Feature 14: Freeze/unfreeze queue
     freezeQueue:(freeze)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
