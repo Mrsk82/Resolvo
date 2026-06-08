@@ -1403,63 +1403,65 @@ app.post('/api/call',async(req,res)=>{
           `Ticket ${ticketId} is now ${status}`).catch(()=>{});
       });
 
-      // ── QUEUE PULL: When ticket resolved/closed, auto-assign next unassigned ticket ──
-      // This ensures agents always have work — resolving one pulls the next from queue
+      // ── QUEUE PULL: Fill agent bucket when ticket resolved ──────────────────
+      // Pulls tickets from unassigned until agent's bucket is FULL (maxTickets)
       if((status==='resolved'||status==='closed')){
         const freshDb=rDB();
         const qcfg=freshDb.queueConfig||{};
         if(qcfg.enabled&&!qcfg.frozen){
-          // Find oldest unassigned open ticket (sorted by creation date asc = oldest first)
-          // Only pull 'new' tickets — not pending/open, not automated senders
           const SPAM_RE=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|automated|newsletter)@/i;
-          const unassigned=(freshDb.tickets||[]).filter(t=>
-            !t.assignedTo&&
-            t.status==='new'&&
-            t.id!==ticketId&&
-            !SPAM_RE.test(t.from||'')&&  // skip automated senders
-            !t.autoResolved              // skip auto-resolved tickets
+          const SPAM_SUBJ=/^(delivery status|undeliverable|auto-?reply|out of office|automatic reply|failure notice|returned mail|non-?delivery|bounced mail|read receipt)/i;
+
+          // Get all real unassigned new tickets (no spam)
+          const getUnassigned=()=>(freshDb.tickets||[]).filter(t=>
+            !t.assignedTo&&t.status==='new'&&t.id!==ticketId&&
+            !SPAM_RE.test(t.from||'')&&!SPAM_SUBJ.test(t.subject||'')&&!t.autoResolved
           ).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
 
-          if(unassigned.length>0){
-            // Check if the agent who just resolved still has capacity
-            const resolver=su.email;
-            const resolverUser=(freshDb.users||[]).find(u=>u.email===resolver);
-            const resolverOpen=(freshDb.tickets||[]).filter(t=>
+          const resolver=su.email;
+          const resolverUser=(freshDb.users||[]).find(u=>u.email===resolver);
+          const resolverMax=resolverUser?.maxTickets||10;
+          const resolverStatus=resolverUser?.availabilityStatus||'available';
+          const inQueue=!!(qcfg.agents||[]).find(a=>a.email===resolver&&a.inQueue);
+
+          let totalAssigned=0;
+
+          // Keep filling until bucket is full OR no more unassigned tickets
+          while(true){
+            const currentOpen=(freshDb.tickets||[]).filter(t=>
               t.assignedTo===resolver&&!['resolved','closed'].includes(t.status)
             ).length;
-            const resolverMax=resolverUser?.maxTickets||10;
-            const resolverStatus=resolverUser?.availabilityStatus||'available';
+            const capacity=resolverMax-currentOpen;
+            if(capacity<=0||resolverStatus==='away')break; // bucket full or away
 
+            const unassigned=getUnassigned();
+            if(!unassigned.length)break; // no more tickets to assign
+
+            // Assign to resolver (if in queue and has capacity) or next agent
             let nextAgent=null;
+            if(inQueue&&capacity>0)nextAgent=resolver;
+            else nextAgent=autoAssignAgent(freshDb,unassigned[0]);
 
-            // Prefer to give the next ticket to the agent who just freed up (if they have capacity)
-            if(resolverStatus!=='away'&&resolverOpen<resolverMax){
-              const inQueue=(qcfg.agents||[]).find(a=>a.email===resolver&&a.inQueue);
-              if(inQueue)nextAgent=resolver;
-            }
+            if(!nextAgent)break;
 
-            // Otherwise use normal auto-assign routing
-            if(!nextAgent){
-              nextAgent=autoAssignAgent(freshDb,unassigned[0]);
-            }
+            const nextIdx=(freshDb.tickets||[]).findIndex(t=>t.id===unassigned[0].id);
+            if(nextIdx>=0){
+              freshDb.tickets[nextIdx].assignedTo=nextAgent;
+              freshDb.tickets[nextIdx].lastActivity=new Date().toISOString();
+              freshDb.tickets[nextIdx].status='open';
+              freshDb.tickets[nextIdx].timeline=freshDb.tickets[nextIdx].timeline||[];
+              freshDb.tickets[nextIdx].timeline.push({
+                event:'auto_assigned_from_queue',by:'system',byName:'Queue System',
+                at:new Date().toISOString(),
+                detail:`Bucket fill: assigned to ${nextAgent} (${currentOpen+1}/${resolverMax})`
+              });
+              totalAssigned++;
+            } else break;
+          }
 
-            if(nextAgent){
-              const nextIdx=(freshDb.tickets||[]).findIndex(t=>t.id===unassigned[0].id);
-              if(nextIdx>=0){
-                freshDb.tickets[nextIdx].assignedTo=nextAgent;
-                freshDb.tickets[nextIdx].lastActivity=new Date().toISOString();
-                freshDb.tickets[nextIdx].status='open'; // Move from new → open
-                freshDb.tickets[nextIdx].timeline=freshDb.tickets[nextIdx].timeline||[];
-                freshDb.tickets[nextIdx].timeline.push({
-                  event:'auto_assigned_from_queue',
-                  by:'system',byName:'Queue System',
-                  at:new Date().toISOString(),
-                  detail:`Auto-assigned to ${nextAgent} after ${ticketId} was resolved`
-                });
-                writeBrandDB(slug,freshDb);
-                console.log(`[Queue] Auto-assigned ${unassigned[0].id} → ${nextAgent} after ${ticketId} resolved`);
-              }
-            }
+          if(totalAssigned>0){
+            writeBrandDB(slug,freshDb);
+            console.log(`[Queue] Filled ${resolver} bucket: +${totalAssigned} tickets after ${ticketId} resolved`);
           }
         }
       }
@@ -3186,7 +3188,9 @@ async function createTicketFromEmail(slug, emailData) {
     /^donotreply/i, /^do-not-reply/i, /^bounce/i, /^bounce\+/i,
     /^notifications?@/i, /^alerts?@/i, /^auto-confirm/i,
     /^daemon@/i, /^system@/i, /MAILER-DAEMON/i,
-    /^newsletter/i, /^unsubscribe/i
+    /^newsletter/i, /^unsubscribe/i,
+    /mail.delivery.subsystem/i, /^mail-delivery/i,
+    /^delivery-status/i, /^delivery@/i
   ];
   // 2. Known automated subject patterns
   const SPAM_SUBJECT_PATTERNS = [
@@ -3196,7 +3200,10 @@ async function createTicketFromEmail(slug, emailData) {
     /^failure notice/i, /^returned mail/i, /^non-?delivery/i,
     /^\*\* address not found \*\*/i, /^bounced mail/i,
     /^message delivery status/i, /^read receipt/i,
-    /^vacation auto-?reply/i
+    /^vacation auto-?reply/i,
+    /\*\* message blocked \*\*/i, /\*\* address not found \*\*/i,
+    /your message (to|wasn't|was not)/i, /delivery (failed|failure|notification)/i,
+    /message not delivered/i, /could not be delivered/i
   ];
   // 3. Custom blocklist from brand config
   const customBlock = (config.senderBlocklist || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
