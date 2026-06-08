@@ -246,6 +246,19 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
   </div>
 
   <div class="sb-section">
+    <div class="sb-section-title">Queue & Appointments</div>
+    <a class="sb-item" onclick="showModule('queue')" href="#">
+      <div class="sb-check" id="chk-queue"></div><span>🔄 Smart Queue</span>
+    </a>
+    <a class="sb-item" onclick="showModule('appointments')" href="#">
+      <div class="sb-check" id="chk-appointments"></div><span>📅 Appointments</span>
+    </a>
+    <a class="sb-item" onclick="showModule('tasks')" href="#">
+      <div class="sb-check" id="chk-tasks"></div><span>✅ Tasks & Follow-ups</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
     <div class="sb-section-title">Reference</div>
     <a class="sb-item" onclick="showModule('cheatsheet')" href="#">
       <div class="sb-check" id="chk-cheatsheet"></div><span>📋 Full Feature Cheatsheet</span>
@@ -271,10 +284,10 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     <div class="module active" id="mod-quickstart">
       <div class="learn-hero">
         <h1>Welcome to Resolvo 👋</h1>
-        <p>This Learning Center walks you through every feature of the platform — from creating your first issue to setting up AI-powered email ticketing and reading forecasts. Complete each module to master Resolvo in under an hour.</p>
+        <p>This Learning Center walks you through every feature — from your first issue to queue management, appointment booking, task checklists, and AI-powered analytics. Complete all modules to master Resolvo.</p>
         <div class="hero-meta">
-          <span>📚 12 Modules</span>
-          <span>⏱ ~45 min total</span>
+          <span>📚 15 Modules</span>
+          <span>⏱ ~60 min total</span>
           <span>✅ Track your progress</span>
           <span>🖥 Works on all screens</span>
         </div>
@@ -1017,6 +1030,159 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     </div>
 
     <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: QUEUE                              -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-queue">
+      <div class="learn-hero">
+        <h1>🔄 Smart Queue Engine</h1>
+        <p>Auto-assign tickets to agents using round robin, skill-based, priority, domain, and time-based routing — with admin controls to manage any agent's workload.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>🔄 18 features</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Setting Up the Queue</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Go to Settings → 🔄 Assignment Queue</h4><p>Enable auto-assignment and choose distribution mode: <strong>Round Robin</strong> (rotate evenly) or <strong>Least Busy</strong> (assign to agent with most capacity).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Add Agents</h4><p>Check the agents you want in the queue rotation. You'll see their live capacity bar (current open tickets vs max). Uncheck to exclude someone temporarily.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Click "⚡ Distribute Now"</h4><p>If you have existing unassigned tickets, click the green Distribute button to spread them to all agents instantly. Future tickets auto-assign on arrival.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Bucket Fill:</strong> When an agent resolves a ticket, the system automatically pulls the next unassigned ticket to fill their bucket to capacity. Agents always have the right amount of work.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Routing Rules</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>🎯 Keyword Routing</h4><p>Subject contains "billing" → route to finance agent. Set in Settings → Queue → Routing Rules.</p></div>
+          <div class="feat-card"><h4>🌐 Domain Routing</h4><p>Emails from enterprise.com → dedicated account manager automatically.</p></div>
+          <div class="feat-card"><h4>🚨 Priority Routing</h4><p>Critical tickets always go to the agent with most available capacity.</p></div>
+          <div class="feat-card"><h4>⏰ Time Routing</h4><p>9am-6pm → Day shift agent. 6pm-10pm → Evening agent. Set by hour.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Admin Queue Controls</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>🟢🟡🔴 Set Agent Status</h4><p>Admin can change any agent's status: Available / Busy / Away. Away agents are skipped in rotation and their tickets redistributed.</p></div>
+          <div class="feat-card"><h4>↩ Drain Agent Queue</h4><p>Move ALL of an agent's open tickets back to unassigned pool in one click. Great when an agent goes on leave.</p></div>
+          <div class="feat-card"><h4>↩ Return Single Ticket</h4><p>In any ticket detail, admin can click ↩ Unassign to return that ticket to the pool.</p></div>
+          <div class="feat-card"><h4>❄ Freeze Queue</h4><p>Pause all auto-assignment instantly (e.g. during a system outage). Unfreeze to resume.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">My Queue — Agent View</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Ticket Inbox → My Tickets</h4><p>Shows only tickets assigned to you that are not resolved. This is your personal work queue.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Ticket Inbox → Unassigned</h4><p>Shows tickets nobody has taken. Click ✋ Take inside any ticket to self-assign it from the pool.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Auto-navigate on resolve</h4><p>When you mark a ticket resolved, the system waits 1.5s for the queue to assign the next ticket, then automatically opens it for you.</p></div></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('queue','appointments')">✓ Mark Complete — Next: Appointments →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: APPOINTMENTS                       -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-appointments">
+      <div class="learn-hero">
+        <h1>📅 Appointment Booking</h1>
+        <p>Let customers book appointments directly from a shareable link. Slots auto-create tickets, send confirmations, and reminders go out 1h before.</p>
+        <div class="hero-meta"><span>⏱ 6 min read</span><span>📅 Shareable booking page</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Setting Up Booking</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Settings → 📅 Appointment Booking</h4><p>Enable booking, set page title, slot duration (e.g. 30 min), and buffer between slots (e.g. 15 min).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Set Working Hours</h4><p>For each day of the week, set start time, end time, and whether the day is available. Saturday/Sunday default to off.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Share the Booking Link</h4><p>Your booking page URL: <code>app.resolvogroup.com/book/your-brand</code>. Copy and share with customers via email, website, or WhatsApp.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">What Customers See</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Customer opens booking link</h4><p>Sees a clean form: Name, Email, Phone, Topic, Date picker, Time slot grid.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Picks a time slot</h4><p>Only available slots shown. Taken slots shown as strikethrough.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Confirmation email sent</h4><p>Customer receives a beautiful confirmation email with date, time, topic, and reference number.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Ticket auto-created</h4><p>A ticket is automatically created in your inbox tagged "appointment" with full booking details.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 1h Reminder:</strong> System automatically sends a reminder email to the customer 1 hour before their appointment. No manual action needed.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Booking Link in Ticket Replies</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Click 📅 Book Call in reply box</h4><p>When replying to a ticket, click the "📅 Book Call" button. It inserts your booking link into the reply so the customer can schedule a call directly.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">View All Appointments</div>
+        <p style="color:var(--muted);font-size:14px;">Go to <strong>Reports → 📅 Appointments</strong> to see:</p>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Today's Schedule</h4><p>All appointments happening today, sorted by time. Never miss one.</p></div>
+          <div class="feat-card"><h4>Full Table</h4><p>All appointments with customer name, email, topic, status, and linked ticket.</p></div>
+          <div class="feat-card"><h4>🗓 My Calendar</h4><p>Click "🗓 Calendar" in any ticket → see your month's appointments in a clean calendar view.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('appointments','tasks')">✓ Mark Complete — Next: Tasks & Follow-ups →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TASKS & FOLLOW-UPS                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-tasks">
+      <div class="learn-hero">
+        <h1>✅ Tasks & Follow-ups</h1>
+        <p>Checklists inside tickets, scheduled follow-ups, SLA promises to customers, and a daily digest to keep your team on track.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">✅ Ticket Checklists</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Open any ticket → ✅ Checklist panel in sidebar</h4><p>Add tasks like: "Call customer", "Check server logs", "Send follow-up email". Each item has a checkbox.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Track progress</h4><p>A progress bar shows X/total items done. Ticket card shows the ratio so team leads can see at a glance how complete it is.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Best practice:</strong> When creating a ticket template, add standard checklist items so every agent follows the same process for that issue type.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⏰ Follow-up Scheduler</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>In ticket detail → click ⏰ Follow-up</h4><p>Set a date and optional note. E.g. "Follow up on Wednesday — check if customer received the fix."</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Get reminded</h4><p>On that date, the ticket appears in <strong>Reports → ⏰ Follow-ups Due</strong> highlighted in red. Background job also sends you an email at 8am.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Mark as done</h4><p>Once followed up, click "Done ✓" to clear it from your follow-up list.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📅 SLA Promise to Customer</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>In ticket detail → click 📅 Promise</h4><p>Set a date (and optional time). Customer receives an email: "We'll resolve your issue by Friday 5pm." This creates accountability and reduces follow-up calls.</p></div></div>
+        </div>
+        <div class="info"><strong>ℹ The promise date</strong> is shown in the ticket sidebar as a banner so agents always know what they committed to.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📋 Daily Agent Digest</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:12px;">Every morning at 9am, agents receive an email summary:</p>
+        <table class="shortcuts">
+          <tr><th>Section</th><th>What's included</th></tr>
+          <tr><td>📬 Open Tickets</td><td>Count + list of tickets assigned to you</td></tr>
+          <tr><td>📅 Appointments Today</td><td>All scheduled calls for today</td></tr>
+          <tr><td>⏰ Follow-ups Due</td><td>Any follow-ups you set that are due today</td></tr>
+        </table>
+        <div class="tip"><strong>💡 Enable it:</strong> Admin goes to Settings → Email & Ticketing → Digest Emails → Enable daily digest. Each active user gets their personalized summary.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('tasks','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
+    </div>
+
     <!-- MODULE: CHEATSHEET                         -->
     <!-- ═══════════════════════════════════════════ -->
     <div class="module" id="mod-cheatsheet">
@@ -1100,10 +1266,48 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Ticket templates</div>
             <div class="cheat-item"><span>✓</span> Auto-resolve rules</div>
             <div class="cheat-item"><span>✓</span> Email source routing</div>
-            <div class="cheat-item"><span>✓</span> Digest emails</div>
-            <div class="cheat-item"><span>✓</span> Slack notifications</div>
-            <div class="cheat-item"><span>✓</span> Webhook alerts</div>
-            <div class="cheat-item"><span>✓</span> CSAT auto-send</div>
+            <div class="cheat-item"><span>✓</span> Daily digest at 9am</div>
+            <div class="cheat-item"><span>✓</span> Appointment reminders (1h)</div>
+            <div class="cheat-item"><span>✓</span> Follow-up nudge at 8am</div>
+            <div class="cheat-item"><span>✓</span> CSAT auto-send on resolve</div>
+            <div class="cheat-item"><span>✓</span> Queue bucket fill on resolve</div>
+            <div class="cheat-item"><span>✓</span> Auto-reassign on Away</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🔄 Queue & Assignment</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Round robin distribution</div>
+            <div class="cheat-item"><span>✓</span> Least busy routing</div>
+            <div class="cheat-item"><span>✓</span> Keyword routing rules</div>
+            <div class="cheat-item"><span>✓</span> Domain routing rules</div>
+            <div class="cheat-item"><span>✓</span> Priority routing (Critical first)</div>
+            <div class="cheat-item"><span>✓</span> Time-based routing</div>
+            <div class="cheat-item"><span>✓</span> VIP customer flag</div>
+            <div class="cheat-item"><span>✓</span> Admin: set agent status</div>
+            <div class="cheat-item"><span>✓</span> Admin: drain agent queue</div>
+            <div class="cheat-item"><span>✓</span> ❄ Freeze/unfreeze queue</div>
+            <div class="cheat-item"><span>✓</span> ⚡ Distribute all unassigned</div>
+            <div class="cheat-item"><span>✓</span> Queue performance report</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>📅 Appointments & Tasks</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Customer booking page (/book)</div>
+            <div class="cheat-item"><span>✓</span> Working hours config</div>
+            <div class="cheat-item"><span>✓</span> Slot duration + buffer</div>
+            <div class="cheat-item"><span>✓</span> Auto-ticket on booking</div>
+            <div class="cheat-item"><span>✓</span> Email confirmation</div>
+            <div class="cheat-item"><span>✓</span> 1h reminder email</div>
+            <div class="cheat-item"><span>✓</span> Agent calendar view</div>
+            <div class="cheat-item"><span>✓</span> ✅ Ticket checklists</div>
+            <div class="cheat-item"><span>✓</span> ⏰ Follow-up scheduler</div>
+            <div class="cheat-item"><span>✓</span> 📅 SLA promise to customer</div>
+            <div class="cheat-item"><span>✓</span> Follow-ups report tab</div>
+            <div class="cheat-item"><span>✓</span> 📅 Book Call in reply box</div>
           </div>
         </div>
 
@@ -1116,11 +1320,14 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Email Ticketing Report</div>
             <div class="cheat-item"><span>✓</span> Agent Leaderboard</div>
             <div class="cheat-item"><span>✓</span> First Response Stats</div>
-            <div class="cheat-item"><span>✓</span> Ticket Heatmap</div>
+            <div class="cheat-item"><span>✓</span> Ticket Heatmap (90 days)</div>
             <div class="cheat-item"><span>✓</span> Volume Forecast</div>
-            <div class="cheat-item"><span>✓</span> CSV export</div>
+            <div class="cheat-item"><span>✓</span> Queue Performance</div>
+            <div class="cheat-item"><span>✓</span> Follow-ups Due</div>
+            <div class="cheat-item"><span>✓</span> Appointments Calendar</div>
+            <div class="cheat-item"><span>✓</span> CSV export (21 columns)</div>
+            <div class="cheat-item"><span>✓</span> Custom date range filters</div>
             <div class="cheat-item"><span>✓</span> Clickable drill-downs</div>
-            <div class="cheat-item"><span>✓</span> Date range filters</div>
             <div class="cheat-item"><span>✓</span> Revenue dashboard</div>
           </div>
         </div>
@@ -1188,13 +1395,15 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 </div><!-- /main -->
 
 <script>
-var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','cheatsheet'];
+var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','cheatsheet'];
 var TITLES = {
   quickstart:'🚀 Quick Start',dashboard:'📊 Dashboard',issues:'🎫 Issues & SLA',
   kanban:'🗂 Kanban & Sprints',tickets:'📬 Email Ticketing',
   'ticket-power':'⚡ Power Features','ticket-automation':'🤖 Automation',
   reports:'📈 Reports & Analytics',leaderboard:'🏆 Leaderboard & Forecast',
-  settings:'⚙️ Settings Guide',team:'🤝 Team & Users',cheatsheet:'📋 Full Cheatsheet'
+  settings:'⚙️ Settings Guide',team:'🤝 Team & Users',
+  queue:'🔄 Smart Queue',appointments:'📅 Appointments',tasks:'✅ Tasks & Follow-ups',
+  cheatsheet:'📋 Full Cheatsheet'
 };
 
 var done = JSON.parse(localStorage.getItem('resolvo_learn_done') || '["quickstart"]');

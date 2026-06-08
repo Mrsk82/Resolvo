@@ -3164,6 +3164,68 @@ app.post('/api/call',async(req,res)=>{
       return{success:true,sent};
     },
 
+    // ── MISSING HANDLERS — fixes "Unknown function" errors ─────────────────
+    // Clone issue
+    cloneIssue:(issueId)=>{
+      const db=rDB();const src=(db.issues||[]).find(i=>i.id===issueId);
+      if(!src)return{success:false,error:'Not found'};
+      const newId=generateIssueId(slug);
+      const now=new Date().toISOString();
+      const clone={...src,id:newId,title:'[Copy] '+src.title,status:'Open',createdDate:now,startedDate:'',resolvedDate:'',closedDate:'',raisedBy:su.email};
+      db.issues=db.issues||[];db.issues.push(clone);
+      logActivity(db,newId,`Cloned from ${issueId}`,su.email);
+      wDB(db);return{success:true,newIssueId:newId};
+    },
+    // Batch update issues
+    batchUpdateIssues:(ids,updates)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();let updated=0;
+      (ids||[]).forEach(id=>{const idx=(db.issues||[]).findIndex(i=>i.id===id);if(idx>=0){Object.assign(db.issues[idx],updates);updated++;}});
+      wDB(db);return{success:true,updated};
+    },
+    // Summary stats for dashboard
+    getSummaryStats:()=>{
+      const db=rDB();const now=new Date();
+      const issues=db.issues||[];const tickets=db.tickets||[];
+      const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
+      const breached=open.filter(i=>now>new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000));
+      return{success:true,openIssues:open.length,criticalIssues:open.filter(i=>i.priority==='Critical').length,slaBreached:breached.length,newTickets:tickets.filter(t=>t.status==='new').length,totalTickets:tickets.length};
+    },
+    // Notifications (in-app)
+    getNotifications:()=>{
+      const db=rDB();const now=new Date();
+      const notes=[];
+      // SLA breaching soon
+      (db.issues||[]).filter(i=>i.assignedTo===su.email&&!['Resolved','Release Required','Closed'].includes(i.status)).forEach(i=>{
+        const sla=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000);
+        const hr=(sla-now)/3600000;
+        if(hr<0)notes.push({type:'sla_breached',issueId:i.id,title:i.title,message:`SLA breached on ${i.id}`,at:i.createdDate});
+        else if(hr<2)notes.push({type:'sla_risk',issueId:i.id,title:i.title,message:`SLA at risk: ${i.id} (${Math.round(hr*60)}m left)`,at:i.createdDate});
+      });
+      // Follow-ups due
+      const today=now.toISOString().split('T')[0];
+      (db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===su.email).forEach(t=>{
+        notes.push({type:'follow_up',ticketId:t.id,title:t.subject,message:`Follow-up due: ${t.id}`,at:t.followUpAt});
+      });
+      return{success:true,notifications:notes.slice(0,20),unread:notes.length};
+    },
+    // AI features — return empty/stub if no Gemini key
+    getAITriage:(issueId)=>{const db=rDB();const key=(db.settings||{}).GEMINI_API_KEY||'';if(!key)return{success:false,error:'Add Gemini API key in Settings → Integrations'};return{success:true,triage:{priority:'Medium',module:'API',confidence:0.8,reason:'Gemini AI not called (stub)'}};},
+    getAISprintPlan:(sprintId)=>{return{success:false,error:'Requires Gemini API key in Settings → Integrations'};},
+    getDevLeaderboard:()=>{const db=rDB();const issues=db.issues||[];const devs={};(issues||[]).forEach(i=>{if(!i.assignedTo)return;if(!devs[i.assignedTo])devs[i.assignedTo]={email:i.assignedTo,resolved:0,open:0,avgHours:0,total:0};if(['Resolved','Release Required'].includes(i.status)){devs[i.assignedTo].resolved++;const h=i.resolvedDate&&i.createdDate?(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000:0;devs[i.assignedTo].avgHours+=h;}else devs[i.assignedTo].open++;devs[i.assignedTo].total++;});return{success:true,leaderboard:Object.values(devs).sort((a,b)=>b.resolved-a.resolved)};},
+    getCFDData:()=>{const db=rDB();const issues=db.issues||[];const statuses=['Open','Acknowledged','WIP','Testing','Resolved'];const today=new Date().toISOString().split('T')[0];const data=statuses.map(s=>({status:s,count:issues.filter(i=>i.status===s).length}));return{success:true,data,date:today};},
+    forecastResolution:(issueId)=>{const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const similar=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.priority===issue.priority&&i.resolvedDate&&i.createdDate);const avg=similar.length?similar.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/similar.length:24;return{success:true,forecastHours:Math.round(avg*10)/10,basedOn:similar.length,confidence:similar.length>5?'high':similar.length>2?'medium':'low'};},
+    getRepeatOffenders:()=>{const db=rDB();const titles={};(db.issues||[]).forEach(i=>{const k=i.module||'Unknown';titles[k]=(titles[k]||0)+1;});return{success:true,modules:Object.entries(titles).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([m,c])=>({module:m,count:c}))};},
+    markAsDuplicate:(issueId,ofIssueId)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].isDuplicate=true;db.issues[idx].duplicateOf=ofIssueId;logActivity(db,issueId,`Marked as duplicate of ${ofIssueId}`,su.email);wDB(db);return{success:true};},
+    removeWatcher:(issueId,email)=>{const db=rDB();db.watchers=db.watchers||[];db.watchers=db.watchers.filter(w=>!(w.issueId===issueId&&w.email===email));wDB(db);return{success:true};},
+    addWatcher:(issueId,email)=>{const db=rDB();db.watchers=db.watchers||[];if(!db.watchers.find(w=>w.issueId===issueId&&w.email===email))db.watchers.push({issueId,email,addedAt:new Date().toISOString()});wDB(db);return{success:true};},
+    getIssueHeatmap:()=>{const db=rDB();const modules={};(db.issues||[]).forEach(i=>{if(i.module){modules[i.module]=(modules[i.module]||0)+1;}});return{success:true,heatmap:Object.entries(modules).map(([m,c])=>({module:m,count:c})).sort((a,b)=>b.count-a.count)};},
+    draftEscalationEmail:(issueId)=>{const db=rDB();const i=(db.issues||[]).find(x=>x.id===issueId);if(!i)return{success:false,error:'Not found'};return{success:true,draft:{to:i.assignedTo,subject:`[Escalation] ${i.id}: ${i.title}`,body:`This issue has exceeded its SLA deadline and requires immediate attention.\n\nIssue: ${i.id}\nTitle: ${i.title}\nPriority: ${i.priority}\nStatus: ${i.status}\n\nPlease update the status immediately.`}};},
+    generateSprintRetrospective:(sprintId)=>{const db=rDB();const sprint=(db.sprints||[]).find(s=>s.id===sprintId);if(!sprint)return{success:false,error:'Sprint not found'};return{success:true,retrospective:{summary:'Sprint completed',velocity:sprint.completedPoints||0,feedback:'Add retrospective notes here'}};},
+    submitQASignoff:(issueId,passed,notes)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].qaSignoff={passed:!!passed,notes:notes||'',signedBy:su.email,signedAt:new Date().toISOString()};if(passed)db.issues[idx].status='Resolved';logActivity(db,issueId,`QA ${passed?'approved':'rejected'}: ${notes||''}`,su.email);wDB(db);return{success:true};},
+    markAsRegression:(issueId)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].isRegression=true;logActivity(db,issueId,'Marked as regression',su.email);wDB(db);return{success:true};},
+    deleteAnnouncement:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=(db.announcements||[]).filter(a=>a.id!==id);wDB(db);return{success:true};},
+
     // Stubs
     syncIssuesToCalendar:()=>({success:false,error:'Not available.'}),getCalendarStatus:()=>({success:true,configured:false}),getEmailTimeline:()=>({success:true,timeline:[]}),getEmailSummary:()=>({success:true,summary:null}),getEmailParticipants:()=>({success:true,participants:[]}),getInboundRules:()=>({success:true,rules:[]}),saveInboundRule:()=>({success:true}),deleteInboundRule:()=>({success:true}),exportIssueToPDF:()=>({success:false,error:'Use browser Print > Save as PDF.'}),exportDashboardReport:()=>({success:false,error:'Use browser print.'}),getAutoTagRules:()=>({success:true,rules:[]}),saveAutoTagRule:()=>({success:true}),deleteAutoTagRule:()=>({success:true}),checkDueDateReminders:()=>({success:true}),runSmartEscalation:()=>({success:true}),runEscalationCheck:()=>({success:true,escalated:0}),
   };
