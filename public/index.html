@@ -14007,11 +14007,17 @@ const App = {
     var area = document.getElementById('contentArea');
     area.innerHTML = '<div class="empty-state"><p>Loading support inbox...</p></div>';
 
-    var [r, cfgR] = await Promise.all([
+    var [r, cfgR, allR] = await Promise.all([
       self.callAsync('getTickets', { status: self._ticketFilter || 'all' }),
-      self.callAsync('getEmailTicketingConfig')
+      self.callAsync('getEmailTicketingConfig'),
+      // Always fetch all tickets separately to get accurate counts for sidebar
+      (self._ticketFilter==='mine'||self._ticketFilter==='unassigned')
+        ? self.callAsync('getTickets', {status:'all'})
+        : Promise.resolve(null)
     ]);
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
+    // Use all-tickets counts for sidebar badges (not filtered counts)
+    if (allR && allR.success) r.counts = allR.counts;
 
     var tickets = r.tickets || [];
     var counts = r.counts || {};
@@ -14053,7 +14059,7 @@ const App = {
           <!-- MY QUEUE section -->
           <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green,#10B981);">👤 My Queue</div>
           ${[
-            {k:'mine',       l:'My Tickets',    n:tickets.filter(t=>t.assignedTo===self.currentUser?.email&&!['resolved','closed'].includes(t.status)).length, c:'#10B981'},
+            {k:'mine',       l:'My Tickets',    n:tickets.filter(t=>t.assignedTo===(self.currentUser&&self.currentUser.email)&&!['resolved','closed'].includes(t.status)).length, c:'#10B981'},
             {k:'unassigned', l:'Unassigned',    n:tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length, c:'#EF4444'},
           ].map(s => `<div onclick="App._ticketFilter='${s.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;border-left:3px solid ${self._ticketFilter===s.k?s.c:'transparent'};background:${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'}'">
             <span style="font-size:13px;font-weight:${self._ticketFilter===s.k?700:500};color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
@@ -14111,8 +14117,16 @@ const App = {
           ${tickets.length === 0 ? `
             <div style="padding:60px;text-align:center;">
               <div style="font-size:48px;margin-bottom:16px;">📭</div>
-              <div style="font-size:16px;font-weight:600;color:var(--text-secondary);">No tickets yet</div>
-              <div style="font-size:13px;color:var(--text-dim);margin-top:6px;">Configure email ticketing in Admin → 📬 Email Ticketing</div>
+              <div style="font-size:16px;font-weight:600;color:var(--text-secondary);">
+                ${self._ticketFilter==='mine'?'No tickets assigned to you':''}
+                ${self._ticketFilter==='unassigned'?'No unassigned tickets — queue is clear ✅':''}
+                ${self._ticketFilter!=='mine'&&self._ticketFilter!=='unassigned'?'No tickets yet':''}
+              </div>
+              <div style="font-size:13px;color:var(--text-dim);margin-top:6px;">
+                ${self._ticketFilter==='mine'?'Tickets assigned to you will appear here':''}
+                ${self._ticketFilter==='unassigned'?'All incoming tickets have been assigned':''}
+                ${self._ticketFilter!=='mine'&&self._ticketFilter!=='unassigned'?'Configure email ticketing in Admin → 📬 Email Ticketing':''}
+              </div>
             </div>
           ` : `
           <div id="ticketListRows">
