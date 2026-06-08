@@ -7587,6 +7587,19 @@ tbody tr.row-selected {
           </div>
 
           <div class="topbar-right">
+            <!-- Feature 4: Agent availability status selector -->
+            <div style="position:relative;" id="agentStatusWrap">
+              <button onclick="document.getElementById('agentStatusMenu').style.display=document.getElementById('agentStatusMenu').style.display==='none'?'flex':'none'" style="display:flex;align-items:center;gap:5px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text-secondary);">
+                <span id="agentStatusDot" style="width:8px;height:8px;border-radius:50%;background:#10B981;flex-shrink:0;"></span>
+                <span class="agent-status-badge" style="font-size:11px;">Available</span>
+              </button>
+              <div id="agentStatusMenu" style="display:none;position:absolute;top:110%;right:0;background:var(--bg-surface);border:1px solid var(--border);border-radius:9px;padding:6px;z-index:200;flex-direction:column;gap:3px;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.3);">
+                <button onclick="App._setAgentStatus('available');document.getElementById('agentStatusMenu').style.display='none';document.getElementById('agentStatusDot').style.background='#10B981'" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#10B981;"></span>🟢 Available</button>
+                <button onclick="App._setAgentStatus('busy');document.getElementById('agentStatusMenu').style.display='none';document.getElementById('agentStatusDot').style.background='#F59E0B'" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#F59E0B;"></span>🟡 Busy</button>
+                <button onclick="App._setAgentStatus('away');document.getElementById('agentStatusMenu').style.display='none';document.getElementById('agentStatusDot').style.background='#EF4444'" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#EF4444;"></span>🔴 Away</button>
+              </div>
+            </div>
+
             <!-- Critical badge -->
             <div class="topbar-badge hidden" id="criticalBadge" onclick="App.navigate('issue-list')" title="Critical issues need attention">
               &#x26A0; <span id="criticalBadgeCount">0</span> Critical
@@ -14048,7 +14061,14 @@ const App = {
             <span style="font-size:13px;color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
             <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0&&s.k!=='all'?s.c+'20':'var(--bg-elevated)'};color:${s.n>0&&s.k!=='all'?s.c:'var(--text-dim)'};">${s.n}</span>
           </div>`).join('')}
-          <div style="padding:12px 14px 8px;border-top:1px solid var(--border);margin-top:auto;display:flex;flex-direction:column;gap:6px;">
+          <!-- Feature 7: Queue Dashboard -->
+          <div style="padding:10px 14px;border-top:1px solid var(--border);" id="queueDashPanel">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;">Queue Dashboard</div>
+            <div id="queueAgentList" style="display:flex;flex-direction:column;gap:4px;">
+              <div style="font-size:11px;color:var(--text-dim);">Loading agents...</div>
+            </div>
+          </div>
+          <div style="padding:10px 14px 8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">
             <button onclick="App._showCreateManualTicket()" style="width:100%;background:var(--accent);color:#0D0E14;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;">+ New Ticket</button>
             <button onclick="App._pollAndRefresh()" style="width:100%;background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-accent);border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer;">⟳ Check Inbox</button>
             ${counts.new > 0 ? `<button onclick="App._closeAllByStatus('new',${counts.new})" style="width:100%;background:var(--critical-dim);color:var(--critical);border:1px solid var(--critical-dim);border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer;">🗑 Close ${counts.new} New</button>` : ''}
@@ -14090,12 +14110,19 @@ const App = {
             const lastMsg = t.lastMessage;
             const ago = App._relTime ? App._relTime(t.lastActivity||t.createdDate) : (t.lastActivity||t.createdDate||'').split('T')[0];
             const isNew = t.status === 'new';
-            return `<div class="ticket-row" data-ticket-id="${t.id}" style="padding:10px 14px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:20px 36px 1fr auto;gap:10px;align-items:start;background:${isNew?'var(--accent-dim)':'none'};transition:background .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${isNew?'var(--accent-dim)':'none'}'">
+            // Feature 6: Ticket aging indicator
+            const ageHours = (Date.now() - new Date(t.createdDate||t.lastActivity).getTime()) / 3600000;
+            const ageColor = ageHours > 24 ? '#EF4444' : ageHours > 4 ? '#F59E0B' : '#10B981';
+            const ageBg = ageHours > 24 ? 'rgba(239,68,68,.12)' : ageHours > 4 ? 'rgba(245,158,11,.12)' : 'rgba(16,185,129,.12)';
+            const ageLabel = ageHours > 24 ? '🔴 '+Math.floor(ageHours)+'h' : ageHours > 4 ? '🟡 '+Math.floor(ageHours)+'h' : '🟢 '+Math.floor(ageHours)+'h';
+            const isVIP = t.isVIP || (t.tags||[]).includes('VIP');
+            return `<div class="ticket-row" data-ticket-id="${t.id}" style="padding:10px 14px;border-bottom:1px solid var(--border)${isVIP?';border-left:3px solid #F59E0B':''};display:grid;grid-template-columns:20px 36px 1fr auto;gap:10px;align-items:start;background:${isNew?'var(--accent-dim)':'none'};transition:background .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${isNew?'var(--accent-dim)':'none'}'">
               <input type="checkbox" class="ticket-checkbox" data-ticket-id="${t.id}" onclick="event.stopPropagation();App._toggleTicketSelect('${t.id}',this.checked)" style="accent-color:var(--accent);margin-top:10px;">
               <div onclick="App.navigate('ticket-detail',{id:'${t.id}'})" style="width:34px;height:34px;border-radius:50%;background:${sc}22;border:1.5px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:800;color:${sc};cursor:pointer;">${(t.fromName||t.from||'?').charAt(0).toUpperCase()}</div>
               <div style="min-width:0;cursor:pointer;" onclick="App.navigate('ticket-detail',{id:'${t.id}'})">
-                <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
-                  <span style="font-size:13px;font-weight:${isNew?800:600};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;">${self._esc(t.subject)}</span>
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;flex-wrap:wrap;">
+                  ${isVIP?'<span style="font-size:10px;font-weight:800;padding:1px 7px;border-radius:8px;background:#F59E0B22;color:#F59E0B;">⭐ VIP</span>':''}
+                  <span style="font-size:13px;font-weight:${isNew?800:600};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px;">${self._esc(t.subject)}</span>
                   ${isNew?'<span style="font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px;background:'+sc+'22;color:'+sc+';">NEW</span>':''}
                 </div>
                 <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -14105,7 +14132,8 @@ const App = {
                 <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;align-items:center;">
                   <span style="font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px;background:${sc}18;color:${sc};">${t.status.toUpperCase()}</span>
                   <span style="font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px;background:${pc}18;color:${pc};">${t.priority}</span>
-                  ${t.assignedTo?`<span style="font-size:10px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:'<span style="font-size:10px;color:var(--critical);">Unassigned</span>'}
+                  ${!['resolved','closed'].includes(t.status)?`<span style="font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px;background:${ageBg};color:${ageColor};" title="Open for ${Math.floor(ageHours)}h">${ageLabel}</span>`:''}
+                  ${t.assignedTo?`<span style="font-size:10px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:'<span style="font-size:10px;color:var(--critical);font-weight:700;">⚠ Unassigned</span>'}
                   ${t.linkedIssueId?`<span style="font-size:10px;color:var(--status-ack);">🎫 ${t.linkedIssueId}</span>`:''}
                   <span style="font-size:10px;color:var(--text-dim);">💬 ${t.threadCount||1}</span>
                 </div>
@@ -14130,6 +14158,31 @@ const App = {
       style.textContent = '.ticket-row:hover{background:var(--bg-hover)!important;}';
       document.head.appendChild(style);
     }
+
+    // Feature 7: Load Queue Dashboard
+    self._loadQueueDashboard();
+  },
+
+  _loadQueueDashboard: async function() {
+    var panel = document.getElementById('queueAgentList');
+    if (!panel) return;
+    var r = await App.callAsync('getAgentStatuses');
+    var agents = (r && r.agents) || [];
+    if (!agents.length) { panel.innerHTML = '<div style="font-size:11px;color:var(--text-dim);">No agents</div>'; return; }
+    var statusDot = {available:'#10B981', busy:'#F59E0B', away:'#EF4444'};
+    var statusLabel = {available:'Available', busy:'Busy', away:'Away'};
+    panel.innerHTML = agents.slice(0,6).map(function(a){
+      var dot = statusDot[a.status]||'#10B981';
+      var cap = Math.round((a.openTickets / (a.maxTickets||10)) * 100);
+      return '<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">'+
+        '<div style="width:7px;height:7px;border-radius:50%;background:'+dot+';flex-shrink:0;"></div>'+
+        '<div style="flex:1;min-width:0;">'+
+          '<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+App._esc(a.name.split(' ')[0])+'</div>'+
+          '<div style="background:var(--border);border-radius:2px;height:3px;margin-top:2px;"><div style="width:'+Math.min(cap,100)+'%;height:3px;background:'+(cap>80?'#EF4444':cap>50?'#F59E0B':'#10B981')+';border-radius:2px;"></div></div>'+
+        '</div>'+
+        '<span style="font-size:10px;color:var(--text-dim);">'+a.openTickets+'</span>'+
+      '</div>';
+    }).join('');
   },
 
   _selectedTickets: new Set(),
@@ -14330,6 +14383,7 @@ const App = {
             <div style="display:flex;gap:6px;">
               <a href="mailto:${self._esc(t.from)}" style="font-size:11px;color:var(--accent);text-decoration:none;padding:4px 8px;border:1px solid var(--border-accent);border-radius:5px;">✉ Email</a>
               <button onclick="App._addTicketCC('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:4px 8px;background:none;cursor:pointer;">+ CC</button>
+              <button onclick="App._showCustomerHistory('${self._esc(t.from)}')" style="font-size:11px;color:var(--indigo,#6366F1);border:1px solid var(--indigo,#6366F1)44;border-radius:5px;padding:4px 8px;background:rgba(99,102,241,.08);cursor:pointer;" title="View customer history">📋 History</button>
             </div>
           </div>
 
@@ -14702,6 +14756,8 @@ const App = {
       {id:'issue-form',icon:'📝',label:'Issue Form Builder'},
       {id:'notify-prefs',icon:'🔔',label:'My Notifications'},
       {id:'data-export',icon:'📦',label:'Data Export'},
+      {id:'queue-config',icon:'🔄',label:'Assignment Queue'},
+      {id:'vip-config',icon:'⭐',label:'VIP Customers'},
     ];
 
     var tabsHtml = TABS.map(function(t){
@@ -15219,6 +15275,62 @@ const App = {
           ]);
       }
 
+      // ── QUEUE CONFIG ─────────────────────────────────────────────────────
+      else if (tid === 'queue-config') {
+        var qr = await self.callAsync('getQueueConfig');
+        var qcfg = (qr&&qr.success)?qr.config:{enabled:false,mode:'roundrobin',agents:[]};
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔄 Assignment Queue</h3>'+
+          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Auto-assign incoming tickets to agents using round robin rotation.</p>'+
+          App._sSection('Queue Settings',[
+            App._sRow('Auto Assignment','Automatically assign new tickets to agents in queue',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="q_enabled" '+(qcfg.enabled?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(qcfg.enabled?'Enabled':'Disabled')+'</span></label>'),
+            App._sRow('Mode','How tickets are distributed',
+              '<select id="q_mode" class="form-select" style="width:160px;"><option value="roundrobin" '+(qcfg.mode==='roundrobin'?'selected':'')+'>Round Robin</option><option value="leastbusy" '+(qcfg.mode==='leastbusy'?'selected':'')+'>Least Busy</option></select>'),
+          ])+
+          App._sSection('Agents in Queue',[
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">Toggle agents to include/exclude from auto-assignment. Away agents and full agents are skipped automatically.</div>'+
+            '<div style="display:flex;flex-direction:column;gap:8px;" id="qAgentList">'+
+            (qcfg.agents||[]).map(function(a){
+              return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-elevated);border-radius:8px;">'+
+                '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">'+
+                  '<input type="checkbox" data-agent-email="'+App._esc(a.email)+'" '+(a.inQueue?'checked':'')+' style="width:15px;height:15px;">'+
+                  '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(a.name)+'</span>'+
+                  '<span style="font-size:11px;color:var(--text-dim);">'+App._esc(a.email)+'</span>'+
+                '</label>'+
+                '<span style="font-size:11px;color:var(--text-dim);">'+App._esc(a.role||'')+'</span>'+
+              '</div>';
+            }).join('')+
+            (qcfg.agents&&qcfg.agents.length?'':'<div style="color:var(--text-dim);font-size:12px;padding:12px;">No agents found. Add team members in Settings → Team & Roles.</div>')+
+            '</div>'+
+            '<div style="margin-top:14px;text-align:right;"><button onclick="App._saveQueueConfig()" class="btn-primary">Save Queue Config</button></div>'
+          ]);
+      }
+
+      // ── VIP CONFIG ────────────────────────────────────────────────────────
+      else if (tid === 'vip-config') {
+        var vr = await self.callAsync('getVIPConfig');
+        var vcfg = (vr&&vr.success)?vr.config:{emails:[],domains:[],autoNotify:true,autoTag:true};
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">⭐ VIP Customers</h3>'+
+          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Mark specific customers as VIP. Their tickets get tagged, prioritized, and admin is notified immediately.</p>'+
+          App._sSection('VIP Settings',[
+            App._sRow('Auto-tag VIP tickets','Adds ⭐ VIP tag to all tickets from VIP customers',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="vip_tag" '+(vcfg.autoTag!==false?'checked':'')+' style="width:16px;height:16px;"></label>'),
+            App._sRow('Notify admin immediately','Admin gets instant alert for every VIP ticket',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="vip_notify" '+(vcfg.autoNotify!==false?'checked':'')+' style="width:16px;height:16px;"></label>'),
+          ])+
+          App._sSection('VIP Email Addresses',[
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">One email per line. e.g. ceo@bigclient.com</div>'+
+            '<textarea id="vip_emails" class="form-textarea" style="min-height:100px;font-family:var(--font-mono);font-size:12px;">'+App._esc((vcfg.emails||[]).join('\n'))+'</textarea>'
+          ])+
+          App._sSection('VIP Domains',[
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">All emails from these domains become VIP. One domain per line. e.g. enterprise.com</div>'+
+            '<textarea id="vip_domains" class="form-textarea" style="min-height:80px;font-family:var(--font-mono);font-size:12px;">'+App._esc((vcfg.domains||[]).join('\n'))+'</textarea>'+
+            '<div style="text-align:right;margin-top:10px;"><button onclick="App._saveVIPConfig()" class="btn-primary">Save VIP Config</button></div>'
+          ]);
+      }
+
     } catch(err) {
       content = '<div style="background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;padding:16px;color:var(--critical);">Error loading settings: '+App._esc(err.message||String(err))+'</div>';
       console.error('[Settings]',err);
@@ -15675,6 +15787,117 @@ const App = {
     App._issueFormConfig = (r&&r.fields)||null;
     return App._issueFormConfig;
   },
+
+  // ── QUEUE CONFIG SAVE ────────────────────────────────────────────────────────
+  _saveQueueConfig: async function() {
+    var enabled = document.getElementById('q_enabled')?.checked||false;
+    var mode = document.getElementById('q_mode')?.value||'roundrobin';
+    var agents = [];
+    document.querySelectorAll('[data-agent-email]').forEach(function(cb){
+      agents.push({email:cb.getAttribute('data-agent-email'),inQueue:cb.checked});
+    });
+    var r = await App.callAsync('saveQueueConfig',{enabled,mode,agents});
+    if(r&&r.success){App.showToast('Queue config saved','success');App.renderUnifiedSettings('queue-config');}
+    else App.showToast('Failed','error');
+  },
+
+  // ── VIP CONFIG SAVE ──────────────────────────────────────────────────────────
+  _saveVIPConfig: async function() {
+    var emails = (document.getElementById('vip_emails')?.value||'').split('\n').map(e=>e.trim()).filter(Boolean);
+    var domains = (document.getElementById('vip_domains')?.value||'').split('\n').map(d=>d.trim().replace(/^@/,'')).filter(Boolean);
+    var autoTag = document.getElementById('vip_tag')?.checked!==false;
+    var autoNotify = document.getElementById('vip_notify')?.checked!==false;
+    var r = await App.callAsync('saveVIPConfig',{emails,domains,autoTag,autoNotify});
+    if(r&&r.success){App.showToast('VIP config saved ⭐','success');App.renderUnifiedSettings('vip-config');}
+    else App.showToast('Failed','error');
+  },
+
+  // ── AGENT STATUS ─────────────────────────────────────────────────────────────
+  _setAgentStatus: async function(status) {
+    var r = await App.callAsync('setAgentStatus', status);
+    if(r&&r.success){
+      App.showToast({available:'🟢 You are Available',busy:'🟡 You are Busy',away:'🔴 You are Away'}[status]||'Status updated','success');
+      App._agentStatus = status;
+      App._updateStatusBadge(status);
+    }
+  },
+  _updateStatusBadge: function(status) {
+    var badges = document.querySelectorAll('.agent-status-badge');
+    var colors = {available:'#10B981',busy:'#F59E0B',away:'#EF4444'};
+    var labels = {available:'Available',busy:'Busy',away:'Away'};
+    badges.forEach(function(b){
+      b.style.background = colors[status]||'#10B981';
+      b.textContent = labels[status]||'Available';
+    });
+  },
+
+  // ── CUSTOMER HISTORY PANEL ───────────────────────────────────────────────────
+  _showCustomerHistory: async function(email) {
+    var r = await App.callAsync('getCustomerHistory', email);
+    if(!r||!r.success){App.showToast('Failed to load','error');return;}
+    var h = r;
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:580px">'+
+      '<div class="modal-header">'+
+        '<span class="modal-title">'+(h.isVIP?'⭐ ':'')+'Customer History — '+App._esc(email)+'</span>'+
+        '<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button>'+
+      '</div>'+
+      '<div class="modal-body">'+
+        // Stats row
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">'+
+          '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:var(--accent);">'+h.totalTickets+'</div><div style="font-size:10px;color:var(--text-dim);">Total Tickets</div></div>'+
+          '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:var(--low);">'+h.resolvedTickets+'</div><div style="font-size:10px;color:var(--text-dim);">Resolved</div></div>'+
+          '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:'+(h.avgCSAT!=null?(h.avgCSAT>=70?'var(--low)':'var(--critical)'):'var(--text-dim)')+';">'+(h.avgCSAT!=null?h.avgCSAT+'%':'—')+'</div><div style="font-size:10px;color:var(--text-dim);">Avg CSAT</div></div>'+
+          '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:var(--status-ack);">'+(h.avgFirstResponseMinutes!=null?(h.avgFirstResponseMinutes<60?h.avgFirstResponseMinutes+'m':Math.round(h.avgFirstResponseMinutes/60*10)/10+'h'):'—')+'</div><div style="font-size:10px;color:var(--text-dim);">Avg Response</div></div>'+
+        '</div>'+
+        // Last contact
+        (h.lastContact?'<div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">Last contact: <strong style="color:var(--text-secondary);">'+h.lastContact.split('T')[0]+'</strong></div>':'')+
+        // Recent tickets
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;">Recent Tickets</div>'+
+        '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">'+
+        (h.recentTickets||[]).map(function(t){
+          var sc={new:'#7C3AED',open:'#2563EB',pending:'#D97706',resolved:'#16A34A',closed:'#6B7280'}[t.status]||'#6B7280';
+          return '<div onclick="App._closeAllModals();App.renderTicketDetail(\''+t.id+'\')" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-elevated);border-radius:7px;cursor:pointer;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\'var(--bg-elevated)\'">'+
+            '<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dim);">'+t.id+'</span>'+
+            '<span style="flex:1;font-size:12px;color:var(--text-primary);">'+App._esc((t.subject||'').substring(0,50))+'</span>'+
+            '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:'+sc+'20;color:'+sc+';">'+t.status+'</span>'+
+            '<span style="font-size:10px;color:var(--text-dim);">'+t.createdDate.split('T')[0]+'</span>'+
+          '</div>';
+        }).join('')+
+        (h.recentTickets&&h.recentTickets.length?'':'<div style="color:var(--text-dim);font-size:12px;padding:8px;">No tickets yet.</div>')+
+        '</div>'+
+        // Internal notes
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;">Internal Notes <span style="font-weight:400;text-transform:none;">(not visible to customer)</span></div>'+
+        '<div id="custNotesList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">'+
+        (h.notes||[]).map(function(n){
+          return '<div style="background:var(--medium-dim);border:1px solid var(--medium)33;border-radius:7px;padding:8px 12px;display:flex;gap:8px;">'+
+            '<div style="flex:1;"><div style="font-size:12px;color:var(--text-primary);">'+App._esc(n.note)+'</div>'+
+            '<div style="font-size:10px;color:var(--text-dim);margin-top:3px;">'+App._esc(n.byName)+' · '+n.at.split('T')[0]+'</div></div>'+
+            '<button onclick="App._deleteCustomerNote(\''+App._esc(email)+'\',\''+n.id+'\',this)" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:14px;padding:0 4px;">×</button>'+
+          '</div>';
+        }).join('')+
+        (h.notes&&h.notes.length?'':'<div style="color:var(--text-dim);font-size:12px;">No notes yet.</div>')+
+        '</div>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<input id="newCustNote" class="form-input" style="flex:1;font-size:12px;" placeholder="Add private note about this customer..." onkeydown="if(event.key===\'Enter\')App._addCustomerNote(\''+App._esc(email)+'\')">'+
+          '<button onclick="App._addCustomerNote(\''+App._esc(email)+'\')" class="btn-primary" style="font-size:12px;padding:7px 14px;">Add Note</button>'+
+        '</div>'+
+      '</div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _addCustomerNote: async function(email) {
+    var inp = document.getElementById('newCustNote');
+    var note = inp?.value?.trim();
+    if(!note){App.showToast('Enter a note','warning');return;}
+    var r = await App.callAsync('addCustomerNote', email, note);
+    if(r&&r.success){inp.value='';App.showToast('Note added','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App._showCustomerHistory(email);}
+    else App.showToast('Failed','error');
+  },
+  _deleteCustomerNote: async function(email, noteId, btn) {
+    var r = await App.callAsync('deleteCustomerNote', email, noteId);
+    if(r&&r.success){btn.closest('div[style*="border-radius:7px"]')?.remove();App.showToast('Note deleted','success');}
+  },
+  _closeAllModals: function() { document.querySelectorAll('.modal-overlay').forEach(function(m){m.remove();}); },
 
   _quickAddTeam: async function() {
     var name = (document.getElementById('newTeamName')||{}).value?.trim();
@@ -16710,11 +16933,23 @@ const App = {
     }).join('');
 
     area.innerHTML =
-      '<div style="border-bottom:1px solid var(--border);margin-bottom:20px;display:flex;align-items:center;gap:0;overflow-x:auto;">'+tabsHtml+'</div>'+
+      '<div style="border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:0;overflow-x:auto;">'+tabsHtml+'</div>'+
+      // Feature 1: Global date range picker for ALL report tabs
+      '<div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;">'+
+        '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📅 Date Range:</span>'+
+        '<input type="date" id="rpt_from" class="filter-select" style="font-size:12px;" value="'+(self._rptFrom||'')+'" onchange="App._rptFrom=this.value">'+
+        '<span style="font-size:12px;color:var(--text-dim);">to</span>'+
+        '<input type="date" id="rpt_to" class="filter-select" style="font-size:12px;" value="'+(self._rptTo||'')+'" onchange="App._rptTo=this.value">'+
+        '<button onclick="App.renderReports(App._reportTab)" class="btn-primary btn-sm">Apply</button>'+
+        '<button onclick="App._rptFrom=\'\';App._rptTo=\'\';document.getElementById(\'rpt_from\').value=\'\';document.getElementById(\'rpt_to\').value=\'\';App.renderReports(App._reportTab)" class="btn-secondary btn-sm">Clear</button>'+
+        '<span style="font-size:11px;color:var(--text-dim);margin-left:auto;">'+(self._rptFrom&&self._rptTo?self._rptFrom+' → '+self._rptTo:'All time')+'</span>'+
+      '</div>'+
       '<div id="reportContent"><div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-dim);">Loading report...</div></div>';
 
     var reportEl = document.getElementById('reportContent');
     var tid = self._reportTab;
+    // Pass date range to all report calls
+    var rptFilters = {dateFrom: self._rptFrom||'', dateTo: self._rptTo||''};
 
     // ── Helper: mini bar chart ─────────────────────────────────────────────
     function miniBar(label, value, max, color) {
@@ -16760,7 +16995,7 @@ const App = {
 
     try {
       if (tid === 'my-issues') {
-        var r = await self.callAsync('getMyIssueReport');
+        var r = await self.callAsync('getMyIssueReport', rptFilters);
         if (!r || !r.success) { reportEl.innerHTML = '<div style="color:var(--critical);padding:20px;">Failed to load report</div>'; return; }
         var d = r;
         var pColors = {Critical:'var(--critical)',High:'var(--high)',Medium:'var(--accent)',Low:'var(--low)'};
@@ -16894,7 +17129,7 @@ const App = {
       }
 
       else if (tid === 'user-level') {
-        var r3 = await self.callAsync('getUserLevelReport');
+        var r3 = await self.callAsync('getUserLevelReport', rptFilters);
         if(!r3||!r3.success){reportEl.innerHTML='<div style="color:var(--critical);padding:20px;">Failed</div>';return;}
         var users3=r3.users;
         reportEl.innerHTML =

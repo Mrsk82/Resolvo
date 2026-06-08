@@ -1727,11 +1727,17 @@ app.post('/api/call',async(req,res)=>{
     },
 
     // ── REPORTS ────────────────────────────────────────────────────────────────
-    getUserLevelReport:()=>{
+    getUserLevelReport:(filters)=>{
       const db=rDB();const now=new Date();
+      const dateFrom=filters?.dateFrom?new Date(filters.dateFrom):null;
+      const dateTo=filters?.dateTo?new Date(filters.dateTo+'T23:59:59'):null;
       const users=(db.users||[]).filter(u=>u.active);
-      const issues=db.issues||[];
-      const tickets=db.tickets||[];
+      let issues=db.issues||[];
+      let tickets=db.tickets||[];
+      if(dateFrom)issues=issues.filter(i=>new Date(i.createdDate)>=dateFrom);
+      if(dateTo)issues=issues.filter(i=>new Date(i.createdDate)<=dateTo);
+      if(dateFrom)tickets=tickets.filter(t=>new Date(t.createdDate||t.lastActivity)>=dateFrom);
+      if(dateTo)tickets=tickets.filter(t=>new Date(t.createdDate||t.lastActivity)<=dateTo);
       return{success:true,users:users.map(u=>{
         const raised=issues.filter(i=>i.raisedBy===u.email);
         const assigned=issues.filter(i=>i.assignedTo===u.email);
@@ -1799,10 +1805,13 @@ app.post('/api/call',async(req,res)=>{
         dateRange:{from:from.toISOString().split('T')[0],to:to.toISOString().split('T')[0]}
       };
     },
-    getMyIssueReport:()=>{
+    getMyIssueReport:(filters)=>{
       const db=rDB();const now=new Date();const email=su.email;
-      const raised=db.issues.filter(i=>i.raisedBy===email);
-      const assigned=db.issues.filter(i=>i.assignedTo===email);
+      const dateFrom=filters?.dateFrom?new Date(filters.dateFrom):null;
+      const dateTo=filters?.dateTo?new Date(filters.dateTo+'T23:59:59'):null;
+      const inRange=i=>{const d=new Date(i.createdDate);return(!dateFrom||d>=dateFrom)&&(!dateTo||d<=dateTo);};
+      const raised=(db.issues||[]).filter(i=>i.raisedBy===email&&inRange(i));
+      const assigned=(db.issues||[]).filter(i=>i.assignedTo===email&&inRange(i));
       const resolved=assigned.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
       const open=assigned.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
       const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
@@ -2254,27 +2263,126 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();
       const id=generateTicketId(slug);
       const now=new Date().toISOString();
+      // Apply VIP flag
+      const vip=db.vipConfig||{};
+      const fromEmail=(data.customerEmail||'').toLowerCase();
+      const isVIP=(vip.emails||[]).some(e=>fromEmail===e.toLowerCase())||(vip.domains||[]).some(d=>fromEmail.endsWith('@'+d.toLowerCase()));
+      const tags=data.tags?data.tags.split(',').map(t=>t.trim()).filter(Boolean):[];
+      if(isVIP&&!tags.includes('VIP'))tags.unshift('VIP');
+      // Round robin auto-assign if not manually assigned
+      const assignedTo=data.assignedTo||autoAssignAgent(db)||'';
       const ticket={
-        id,
-        subject:data.subject||'(No subject)',
+        id,subject:data.subject||'(No subject)',
         from:data.customerEmail||'manual@internal',
         fromName:data.customerName||data.customerEmail||'Manual Ticket',
-        body:data.body||'',
-        status:'open',
-        priority:data.priority||'Medium',
-        assignedTo:data.assignedTo||'',
-        createdDate:now,
-        lastActivity:now,
+        body:data.body||'',status:'open',priority:data.priority||'Medium',
+        assignedTo,createdDate:now,lastActivity:now,
         thread:[{id:generateId('MSG'),type:'incoming',from:data.customerEmail||'manual@internal',fromName:data.customerName||'Customer',body:data.body||'',timestamp:now}],
-        tags:data.tags?data.tags.split(',').map(t=>t.trim()).filter(Boolean):[],
-        source:'manual',
+        tags,source:'manual',isVIP,
         cc:data.cc?data.cc.split(',').map(e=>e.trim()).filter(Boolean):[],
-        templateId:data.templateId||null,
-        customFields:data.customFields||{}
+        templateId:data.templateId||null,customFields:data.customFields||{}
       };
       db.tickets=db.tickets||[];db.tickets.unshift(ticket);
       wDB(db);
       return{success:true,ticketId:id};
+    },
+
+    // ── FEATURE 1: QUEUE CONFIG & ROUND ROBIN ─────────────────────────────
+    // DB CHANGE: adds db.queueConfig — backward safe
+    getQueueConfig:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const users=(db.users||[]).filter(u=>u.active&&u.role!=='Admin');
+      const cfg=db.queueConfig||{enabled:false,mode:'roundrobin',lastIndex:0,agents:[]};
+      // Merge with current users
+      const agents=users.map(u=>{
+        const saved=(cfg.agents||[]).find(a=>a.email===u.email);
+        return{email:u.email,name:u.name||u.email,inQueue:saved?saved.inQueue:true,role:u.role};
+      });
+      return{success:true,config:{...cfg,agents}};
+    },
+    saveQueueConfig:(config)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      // DB CHANGE: adds db.queueConfig
+      db.queueConfig={enabled:config.enabled||false,mode:config.mode||'roundrobin',lastIndex:db.queueConfig?.lastIndex||0,agents:config.agents||[]};
+      wDB(db);return{success:true};
+    },
+
+    // ── FEATURE 4: AGENT AVAILABILITY STATUS ───────────────────────────────
+    // DB CHANGE: adds user.availabilityStatus — backward safe
+    setAgentStatus:(status)=>{
+      const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===su.email);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.users[idx].availabilityStatus=status; // 'available'|'busy'|'away'
+      db.users[idx].statusUpdatedAt=new Date().toISOString();
+      wDB(db);return{success:true,status};
+    },
+    getAgentStatuses:()=>{
+      const db=rDB();
+      return{success:true,agents:(db.users||[]).filter(u=>u.active).map(u=>({
+        email:u.email,name:u.name||u.email,role:u.role,team:u.team||'',
+        status:u.availabilityStatus||'available',
+        statusUpdatedAt:u.statusUpdatedAt||null,
+        openTickets:(db.tickets||[]).filter(t=>t.assignedTo===u.email&&!['resolved','closed'].includes(t.status)).length,
+        maxTickets:u.maxTickets||10
+      }))};
+    },
+
+    // ── FEATURE 3: CUSTOMER TICKET HISTORY ────────────────────────────────
+    getCustomerHistory:(email)=>{
+      const db=rDB();
+      const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===email.toLowerCase());
+      const resolved=tickets.filter(t=>t.status==='resolved'||t.status==='closed');
+      const csatScores=tickets.filter(t=>t.csatScore!=null).map(t=>t.csatScore);
+      const avgCSAT=csatScores.length?Math.round(csatScores.reduce((a,b)=>a+b,0)/csatScores.length):null;
+      const frTimes=tickets.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
+      const avgFRT=frTimes.length?Math.round(frTimes.reduce((a,b)=>a+b,0)/frTimes.length):null;
+      const notes=(db.customerNotes||{})[email.toLowerCase()]||[];
+      // Check VIP
+      const vip=db.vipConfig||{};
+      const fromLow=email.toLowerCase();
+      const isVIP=(vip.emails||[]).some(e=>fromLow===e.toLowerCase())||(vip.domains||[]).some(d=>fromLow.endsWith('@'+d.toLowerCase()));
+      return{success:true,
+        email,totalTickets:tickets.length,resolvedTickets:resolved.length,
+        openTickets:tickets.filter(t=>!['resolved','closed'].includes(t.status)).length,
+        avgCSAT,avgFirstResponseMinutes:avgFRT,isVIP,
+        lastContact:tickets.length?tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate))[0].createdDate:null,
+        recentTickets:tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate)).slice(0,5).map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,csatRating:t.csatRating})),
+        notes
+      };
+    },
+
+    // ── FEATURE 8: CUSTOMER INTERNAL NOTES ────────────────────────────────
+    // DB CHANGE: adds db.customerNotes — backward safe
+    addCustomerNote:(email,note)=>{
+      const db=rDB();
+      db.customerNotes=db.customerNotes||{};
+      const key=email.toLowerCase();
+      db.customerNotes[key]=db.customerNotes[key]||[];
+      db.customerNotes[key].push({id:generateId('CN'),note,by:su.email,byName:su.name||su.email,at:new Date().toISOString()});
+      wDB(db);return{success:true};
+    },
+    deleteCustomerNote:(email,noteId)=>{
+      const db=rDB();
+      db.customerNotes=db.customerNotes||{};
+      const key=email.toLowerCase();
+      db.customerNotes[key]=(db.customerNotes[key]||[]).filter(n=>n.id!==noteId);
+      wDB(db);return{success:true};
+    },
+
+    // ── FEATURE 5: VIP CUSTOMER CONFIG ────────────────────────────────────
+    // DB CHANGE: adds db.vipConfig — backward safe
+    getVIPConfig:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();return{success:true,config:db.vipConfig||{emails:[],domains:[],autoNotify:true,autoTag:true}};
+    },
+    saveVIPConfig:(config)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      // DB CHANGE: adds db.vipConfig
+      db.vipConfig={emails:(config.emails||[]).map(e=>e.trim().toLowerCase()).filter(Boolean),domains:(config.domains||[]).map(d=>d.trim().toLowerCase()).filter(Boolean),autoNotify:config.autoNotify!==false,autoTag:config.autoTag!==false};
+      wDB(db);return{success:true};
     },
     saveTicketTemplate:(tmpl)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
@@ -2700,6 +2808,31 @@ function generateTicketId(slug) {
 }
 
 // ── Create ticket from incoming email ──────────────────────────────────────────
+// ── ROUND ROBIN AUTO-ASSIGN ────────────────────────────────────────────────────
+function autoAssignAgent(db) {
+  const cfg = db.queueConfig || {};
+  if (!cfg.enabled) return null;
+  const agents = (cfg.agents || []).filter(a => a.inQueue);
+  if (!agents.length) return null;
+  // Filter by availability and capacity
+  const available = agents.filter(a => {
+    const user = (db.users || []).find(u => u.email === a.email);
+    if (!user || !user.active) return false;
+    if ((user.availabilityStatus || 'available') === 'away') return false;
+    const openCount = (db.tickets || []).filter(t => t.assignedTo === a.email && !['resolved','closed'].includes(t.status)).length;
+    if (openCount >= (user.maxTickets || 10)) return false;
+    return true;
+  });
+  if (!available.length) return null;
+  // Round robin — rotate from last index
+  const lastIdx = cfg.lastIndex || 0;
+  const nextIdx = lastIdx % available.length;
+  const chosen = available[nextIdx];
+  // Save updated index
+  db.queueConfig.lastIndex = (nextIdx + 1) % available.length;
+  return chosen.email;
+}
+
 async function createTicketFromEmail(slug, emailData) {
   const db = readBrandDB(slug);
   const config = db.emailTicketing || {};
@@ -2784,19 +2917,31 @@ async function createTicketFromEmail(slug, emailData) {
   const ticketId = generateTicketId(slug);
   const now = emailData.date || new Date().toISOString();
 
+  // VIP detection
+  const vipCfg = db.vipConfig || {};
+  const fromLow = (emailData.from || '').toLowerCase();
+  const isVIP = (vipCfg.emails || []).some(e => fromLow === e.toLowerCase()) ||
+                (vipCfg.domains || []).some(d => fromLow.endsWith('@' + d.toLowerCase()));
+  const ticketTags = [];
+  if (isVIP) { ticketTags.push('VIP'); if (isVIP) priority = priority === 'Low' ? 'Medium' : priority; }
+
+  // Round robin auto-assign
+  const assignedTo = config.defaultAssignee || autoAssignAgent(db) || '';
+
   const ticket = {
     id: ticketId,
     subject: emailData.subject || '(No Subject)',
-    status: 'new',         // new | open | pending | resolved | closed
+    status: 'new',
     priority,
     from: emailData.from || '',
     fromName: emailData.fromName || emailData.from || '',
-    assignedTo: config.defaultAssignee || '',
+    assignedTo,
     module: config.defaultModule || 'Support',
-    tags: [],
+    tags: ticketTags,
+    isVIP,
     createdDate: now,
     lastActivity: now,
-    linkedIssueId: null,   // set when "Raise as Issue" is used
+    linkedIssueId: null,
     messageIds: [emailData.messageId].filter(Boolean),
     thread: [{
       id: generateId('MSG'),
