@@ -14049,7 +14049,19 @@ const App = {
 
         <!-- Left sidebar: status filters -->
         <div style="width:190px;flex-shrink:0;background:var(--bg-surface);border-right:1px solid var(--border);border-radius:10px 0 0 10px;padding:12px 0;display:flex;flex-direction:column;">
-          <div style="padding:8px 14px 12px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);">Filter by Status</div>
+
+          <!-- MY QUEUE section -->
+          <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green,#10B981);">👤 My Queue</div>
+          ${[
+            {k:'mine',       l:'My Tickets',    n:tickets.filter(t=>t.assignedTo===self.currentUser?.email&&!['resolved','closed'].includes(t.status)).length, c:'#10B981'},
+            {k:'unassigned', l:'Unassigned',    n:tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length, c:'#EF4444'},
+          ].map(s => `<div onclick="App._ticketFilter='${s.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;border-left:3px solid ${self._ticketFilter===s.k?s.c:'transparent'};background:${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'}'">
+            <span style="font-size:13px;font-weight:${self._ticketFilter===s.k?700:500};color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
+            <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0?s.c+'20':'var(--bg-elevated)'};color:${s.n>0?s.c:'var(--text-dim)'};">${s.n}</span>
+          </div>`).join('')}
+
+          <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
+          <div style="padding:6px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);">Filter by Status</div>
           ${[
             {k:'all',  l:'All Tickets',  n:counts.all||0,  c:'var(--text-muted)'},
             {k:'new',  l:'New',          n:counts.new||0,  c:statusColors.new},

@@ -1346,7 +1346,11 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();
       let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.lastActivity||b.createdDate)-new Date(a.lastActivity||a.createdDate));
       if(filters){
-        if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
+        // My Queue filter — assigned to current user, not resolved/closed
+        if(filters.status==='mine')tickets=tickets.filter(t=>t.assignedTo===su.email&&!['resolved','closed'].includes(t.status));
+        // Unassigned filter — no agent, not resolved/closed
+        else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
+        else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
         if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}
