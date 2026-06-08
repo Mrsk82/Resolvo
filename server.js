@@ -1380,8 +1380,10 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline.push({event:'status_changed',by:su.email,byName:su.name||su.email,at:now,detail:`${prevStatus} → ${status}`});
       wDB(db);
       const ticket=db.tickets[idx];
-      // Send 1-click CSAT on resolve
-      if(status==='resolved'&&ticket.from&&!ticket.csatSent){
+      // Don't send CSAT to automated senders — they cause bounce loops
+      const isAutomatedSender=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|alert|automated|newsletter|unsubscribe)@/i.test(ticket.from||'');
+      // Send 1-click CSAT on resolve (only to real humans)
+      if(status==='resolved'&&ticket.from&&!ticket.csatSent&&!isAutomatedSender){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#10B981';
         const csatToken=Buffer.from(JSON.stringify({ticketId,slug,email:ticket.from,ts:Date.now()})).toString('base64url');
@@ -1408,11 +1410,14 @@ app.post('/api/call',async(req,res)=>{
         const qcfg=freshDb.queueConfig||{};
         if(qcfg.enabled&&!qcfg.frozen){
           // Find oldest unassigned open ticket (sorted by creation date asc = oldest first)
-          // Only pull 'new' tickets — not pending/open which are already in process
+          // Only pull 'new' tickets — not pending/open, not automated senders
+          const SPAM_RE=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|automated|newsletter)@/i;
           const unassigned=(freshDb.tickets||[]).filter(t=>
             !t.assignedTo&&
             t.status==='new'&&
-            t.id!==ticketId
+            t.id!==ticketId&&
+            !SPAM_RE.test(t.from||'')&&  // skip automated senders
+            !t.autoResolved              // skip auto-resolved tickets
           ).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
 
           if(unassigned.length>0){
@@ -2388,7 +2393,8 @@ app.post('/api/call',async(req,res)=>{
       // Auto-distribute existing unassigned tickets when queue is turned ON
       let autoDistributed=0;
       if(config.enabled&&!prev.enabled){
-        const unassigned=(db.tickets||[]).filter(t=>!t.assignedTo&&t.status==='new')
+        const spamRe=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|automated|newsletter)@/i;
+        const unassigned=(db.tickets||[]).filter(t=>!t.assignedTo&&t.status==='new'&&!spamRe.test(t.from||'')&&!t.autoResolved)
           .sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
         for(const t of unassigned){
           const agent=autoAssignAgent(db,t);
@@ -2412,9 +2418,21 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();
       const cfg=db.queueConfig||{};
       if(!cfg.enabled)return{success:false,error:'Queue not enabled. Enable it in Settings → Assignment Queue first.'};
-      // Only assign 'new' tickets — NOT pending/open (those are already in process)
-      const unassigned=(db.tickets||[]).filter(t=>!t.assignedTo&&t.status==='new')
-        .sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate)); // oldest first
+      const SPAM_PAT=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|automated|newsletter)@/i;
+      // Auto-close any spam tickets that slipped through (stops the loop)
+      let spamClosed=0;
+      (db.tickets||[]).forEach((t,i)=>{
+        if(!['resolved','closed'].includes(t.status)&&SPAM_PAT.test(t.from||'')){
+          db.tickets[i].status='closed';db.tickets[i].lastActivity=new Date().toISOString();
+          db.tickets[i].autoResolved=true;spamClosed++;
+        }
+      });
+      if(spamClosed>0)console.log(`[Queue] Auto-closed ${spamClosed} spam tickets`);
+      // Only assign 'new' real tickets — skip automated senders and auto-resolved
+      const unassigned=(db.tickets||[]).filter(t=>
+        !t.assignedTo&&t.status==='new'&&
+        !SPAM_PAT.test(t.from||'')&&!t.autoResolved
+      ).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate)); // oldest first
       let assigned=0,skipped=0;
       for(const t of unassigned){
         const agent=autoAssignAgent(db,t);
