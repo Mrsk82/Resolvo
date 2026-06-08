@@ -9,6 +9,9 @@ Object.defineProperty(global,'BASE_URL',{
   configurable:true
 });
 const OWNER_PATH=path.join(__dirname,'data','owner.json'),BRANDS_DIR=path.join(__dirname,'data','brands');
+// Auto-create data directories on fresh deploy (VPS without data/)
+const fs_init=require('fs');
+if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
 app.use(cors());app.use(express.json({limit:'20mb'}));app.use(express.static(path.join(__dirname,'public')));
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
 
@@ -91,10 +94,37 @@ function getMailer(){
   try{const nm=require('nodemailer');_mailer=nm.createTransport({service:'gmail',auth:{user,pass}});console.log('[Email] Ready:',user);return _mailer;}
   catch(e){console.error('[Email] Failed:',e.message);return null;}
 }
-async function sendEmail(to,subject,html,text){
+async function sendEmail(to,subject,html,text,fromOverride){
   const t=getMailer();if(!t){console.log('[Email] SKIPPED:',to);return;}
-  try{await t.sendMail({from:`"TechTrack" <${process.env.EMAIL_USER}>`,to,subject,text:text||subject,html});console.log('[Email] ✓:',to);}
+  const fromAddr=fromOverride||`"Resolvo" <${process.env.EMAIL_USER}>`;
+  try{await t.sendMail({from:fromAddr,to,subject,text:text||subject,html});console.log('[Email] ✓:',to);}
   catch(e){console.error('[Email] ✗',e.message);_mailer=null;}
+}
+// Feature A: Per-brand mailer — uses brand's own SMTP email if configured
+const _brandMailers={};
+function getBrandMailer(slug){
+  try{
+    const db=readBrandDB(slug);
+    const s=db.settings||{};
+    const bEmail=s.BRAND_NOTIFY_EMAIL||'';
+    const bPass=(s.BRAND_NOTIFY_PASS||'').replace(/\s/g,'');
+    if(!bEmail||!bPass)return null;
+    if(_brandMailers[bEmail])return{mailer:_brandMailers[bEmail],from:`"${s.APP_NAME||'Support'}" <${bEmail}>`};
+    const nm=require('nodemailer');
+    const t=nm.createTransport({service:'gmail',auth:{user:bEmail,pass:bPass}});
+    _brandMailers[bEmail]=t;
+    console.log('[BrandEmail] Ready:',bEmail,'for slug:',slug);
+    return{mailer:t,from:`"${s.APP_NAME||'Support'}" <${bEmail}>`};
+  }catch(e){return null;}
+}
+async function sendBrandEmail(slug,to,subject,html,text){
+  const bm=getBrandMailer(slug);
+  if(bm){
+    try{await bm.mailer.sendMail({from:bm.from,to,subject,text:text||subject,html});console.log('[BrandEmail] ✓:',to);return;}
+    catch(e){console.error('[BrandEmail] ✗',e.message);}
+  }
+  // Fallback to owner mailer
+  await sendEmail(to,subject,html,text);
 }
 function cr(label,val,vs){return`<tr><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;width:110px;font-size:11px;font-weight:700;text-transform:uppercase;color:#9ca3af;">${label}</td><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;font-size:14px;${vs||'color:#111827;'}">${val}</td></tr>`;}
 function shell(c){return`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 16px;"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">${c}<tr><td style="padding:24px 0;text-align:center;"><p style="margin:0;font-size:12px;color:#9ca3af;">Powered by <strong>TechTrack</strong> · Do not reply</p></td></tr></table></td></tr></table></body></html>`;}
@@ -979,7 +1009,7 @@ app.post('/api/call',async(req,res)=>{
       const uid=generateId('USR'),ip=ud.password||ud.email.split('@')[0]+'123';
       const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:new Date().toISOString(),passwordHash:ip,firstLogin:true};
       db.users=db.users||[];db.users.push(nu);wDB(db);
-      await sendEmail(ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
+      await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
       return{success:true,userId:uid};
     },
     createIssue:async id=>{
@@ -1003,7 +1033,7 @@ app.post('/api/call',async(req,res)=>{
         }
       })();
       const o2=readOwner(),b2=(o2.brands||[]).find(b=>b.slug===slug)||{};
-      if(issue.assignedTo){const a=(db.issues?db:rDB()).users&&(rDB().users||[]).find(u=>u.email===issue.assignedTo)||null;const db2=rDB();const assignee=(db2.users||[]).find(u=>u.email===issue.assignedTo);if(assignee){sendEmail(assignee.email,`[${su.brandName}] Issue Assigned: ${issueId}`,issueAssignedHTML(issue,su.brandName,b2.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL),`Issue ${issueId} assigned`).catch(console.error);}}
+      if(issue.assignedTo){const db2=rDB();const assignee=(db2.users||[]).find(u=>u.email===issue.assignedTo);if(assignee){const prefs=assignee.notifyPrefs||{};if(prefs.onAssigned!==false)sendBrandEmail(slug,assignee.email,`[${su.brandName}] Issue Assigned: ${issueId}`,issueAssignedHTML(issue,su.brandName,b2.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL),`Issue ${issueId} assigned`).catch(console.error);}}
       // Webhook on issue created (brand-level)
       const whUrl=(b2.settings&&b2.settings.WEBHOOK_ALERT_URL)||((rDB().settings||{}).WEBHOOK_ALERT_URL)||'';
       fireWebhook(whUrl,{event:'issue.created',issueId,title:issue.title,priority:issue.priority,brandName:su.brandName,raisedBy:su.email,url:BASE_URL}).catch(()=>{});
@@ -1024,7 +1054,13 @@ app.post('/api/call',async(req,res)=>{
       const issue=db.issues[idx];wDB(db);
       const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};
       const recipients=[...new Set([issue.raisedBy,issue.assignedTo].filter(Boolean).filter(e=>e!==su.email))];
-      for(const email of recipients)sendEmail(email,`[${su.brandName}] ${issueId} → ${newStatus}`,statusUpdateHTML(issue,newStatus,su.name||su.email,su.brandName,b.accentColor||'#f5a623',BASE_URL),`Issue ${issueId}: ${newStatus}`).catch(()=>{});
+      const db3=rDB();
+      for(const email of recipients){
+        const usr=(db3.users||[]).find(u=>u.email===email);const prefs=(usr&&usr.notifyPrefs)||{};
+        if(prefs.onStatusChange===false)continue;
+        if(prefs.onCriticalOnly&&issue.priority!=='Critical')continue;
+        sendBrandEmail(slug,email,`[${su.brandName}] ${issueId} → ${newStatus}`,statusUpdateHTML(issue,newStatus,su.name||su.email,su.brandName,b.accentColor||'#f5a623',BASE_URL),`Issue ${issueId}: ${newStatus}`).catch(()=>{});
+      }
       return{success:true};
     },
     changePassword:async(uid,np,currentPwd)=>{
@@ -1075,11 +1111,19 @@ app.post('/api/call',async(req,res)=>{
       const s=t?sessions[t]:null;
       return{success:true,expiresAt:s?s.expiresAt:null,expiresIn:s&&s.expiresAt?Math.max(0,Math.round((s.expiresAt-Date.now())/60000)):0};
     },
-    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};await sendEmail(user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#f5a623',user.passwordHash,BASE_URL),`Login: ${BASE_URL}`);return{success:true};},
+    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#f5a623',user.passwordHash,BASE_URL),`Login: ${BASE_URL}`);return{success:true};},
     sendTestEmail:async to=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};await sendEmail(to||su.email,`✅ TechTrack Email Test`,testEmailHTML(),'Email test OK');return{success:true};},
     completeBrandSetup:async sd=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const db=rDB();if(sd.appName){db.settings=db.settings||{};db.settings.APP_NAME=sd.appName;}const ui=(db.users||[]).findIndex(u=>u.email===su.email);if(ui>=0){db.users[ui].firstLogin=false;if(sd.adminName)db.users[ui].name=sd.adminName;}wDB(db);const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){if(sd.accentColor)o.brands[bi].accentColor=sd.accentColor;if(sd.theme)o.brands[bi].theme=sd.theme;if(sd.logoUrl!==undefined)o.brands[bi].logoUrl=sd.logoUrl;if(sd.appName)o.brands[bi].name=sd.appName;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])Object.assign(sessions[t],{brandName:sd.appName||su.brandName,brandAccentColor:sd.accentColor||su.brandAccentColor,brandTheme:sd.theme||su.brandTheme,firstLogin:false});return{success:true};},
     updateBrandProfile:async updates=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi<0)return{success:false,error:'Not found'};['name','logoUrl','accentColor','theme'].forEach(k=>{if(updates[k]!==undefined)o.brands[bi][k]=updates[k];});writeOwner(o);return{success:true};},
     pollEmailInbox:async()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};try{await pollBrandInbox(slug);return{success:true,message:'Inbox polled. New emails converted to tickets.'};}catch(e){return{success:false,error:e.message||String(e)};}},
+    testBrandEmail:async(toEmail)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      try{
+        await sendBrandEmail(slug,toEmail||su.email,'✅ Brand Email Test — Resolvo',`<div style="font-family:Arial;padding:24px;"><h2>✅ Brand Email Configured</h2><p>Your brand email is working correctly. All issue alerts, welcome emails and ticket replies will now send from this address.</p></div>`,`Brand email test OK`);
+        const db=rDB();db.settings=db.settings||{};db.settings.BRAND_EMAIL_TESTED=true;wDB(db);
+        return{success:true,message:`Test email sent to ${toEmail||su.email}`};
+      }catch(e){return{success:false,error:e.message};}
+    },
     replyToTicket:async(ticketId,replyText,isNote)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
@@ -1110,15 +1154,12 @@ app.post('/api/call',async(req,res)=>{
       if(!isNote&&ticket.from){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
-        // Also send to CC recipients
-        const ccList=(ticket.cc||[]).join(',');
-        await sendEmail(ticket.from,`Re: [${brandName}] ${ticket.subject}`,
+        await sendBrandEmail(slug,ticket.from,`Re: [${brandName}] ${ticket.subject}`,
           `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:16px 24px;display:flex;align-items:center;gap:12px;"><div style="font-size:13px;font-weight:700;color:#fff;">${brandName} Support</div><div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);">${ticketId}</div></div><div style="padding:24px 28px;"><p style="color:#374151;font-size:14px;line-height:1.7;white-space:pre-wrap;margin:0 0 20px;">${replyText}</p><hr style="border:none;border-top:1px solid #f0f2f5;margin:0 0 16px;"><p style="color:#9ca3af;font-size:12px;margin:0;">Reply to this email to continue the conversation &nbsp;·&nbsp; Ref: ${ticketId}</p></div></div></body></html>`,
           replyText
         );
-        // Notify CC recipients
         for(const ccEmail of (ticket.cc||[])){
-          sendEmail(ccEmail,`CC: Re: [${brandName}] ${ticket.subject}`,`<p>${replyText}</p><p style="color:#9ca3af;font-size:12px;">You are CC'd on ticket ${ticketId}</p>`,replyText).catch(()=>{});
+          sendBrandEmail(slug,ccEmail,`CC: Re: [${brandName}] ${ticket.subject}`,`<p>${replyText}</p><p style="color:#9ca3af;font-size:12px;">You are CC'd on ticket ${ticketId}</p>`,replyText).catch(()=>{});
         }
       }
       // Notify watchers
@@ -1727,25 +1768,32 @@ app.post('/api/call',async(req,res)=>{
       const from=dateFrom?new Date(dateFrom):new Date(Date.now()-30*86400000);
       const to=dateTo?new Date(dateTo):now;
       const inRange=tickets.filter(t=>new Date(t.createdDate||t.lastActivity||now)>=from&&new Date(t.createdDate||now)<=to);
-      // Top senders
-      const senderMap={};inRange.forEach(t=>{const k=t.from||'unknown';senderMap[k]=(senderMap[k]||0)+1;});
+      // Top senders (exclude system/recurring)
+      const senderMap={};inRange.filter(t=>t.from&&!t.from.includes('system@')).forEach(t=>{const k=t.from;senderMap[k]=(senderMap[k]||0)+1;});
       const topSenders=Object.entries(senderMap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([email,count])=>({email,count}));
       // By day
       const dayMap={};inRange.forEach(t=>{const d=(t.createdDate||'').substring(0,10);if(d)dayMap[d]=(dayMap[d]||0)+1;});
       const byDay=Object.entries(dayMap).sort().map(([date,count])=>({date,count}));
-      // Avg response time (first reply)
-      const withReply=inRange.filter(t=>(t.thread||[]).some(m=>m.type==='reply'));
+      // FIX: withReplies = tickets that have at least one AGENT reply (not just the original incoming message)
+      const withReply=inRange.filter(t=>(t.thread||[]).some(m=>m.type==='reply'&&m.from!==t.from));
+      // FIX: avg response uses firstResponseMinutes if available, else calculate from first agent reply
       const avgResponseHours=withReply.length>0?
         Math.round(withReply.reduce((s,t)=>{
-          const first=(t.thread||[]).find(m=>m.type==='reply');
+          if(t.firstResponseMinutes!=null)return s+t.firstResponseMinutes/60;
+          const first=(t.thread||[]).find(m=>m.type==='reply'&&m.from!==t.from);
           return s+(first?((new Date(first.timestamp)-new Date(t.createdDate||first.timestamp))/3600000):0);
         },0)/withReply.length*10)/10:null;
+      // CSAT stats
+      const csatScores=inRange.filter(t=>t.csatRating!=null);
+      const csatPositive=csatScores.filter(t=>t.csatRating==='yes').length;
+      const csatRate=csatScores.length>0?Math.round(csatPositive/csatScores.length*100):null;
       return{success:true,
         total:inRange.length,
         byStatus:{new:inRange.filter(t=>t.status==='new').length,open:inRange.filter(t=>t.status==='open').length,pending:inRange.filter(t=>t.status==='pending').length,resolved:inRange.filter(t=>t.status==='resolved').length,closed:inRange.filter(t=>t.status==='closed').length},
         withReplies:withReply.length,
         avgResponseHours,
         resolutionRate:inRange.length>0?Math.round((inRange.filter(t=>t.status==='resolved'||t.status==='closed').length/inRange.length)*100):0,
+        csatRate,csatResponses:csatScores.length,csatPositive,
         topSenders,byDay,
         totalAll:tickets.length,
         dateRange:{from:from.toISOString().split('T')[0],to:to.toISOString().split('T')[0]}
@@ -1789,12 +1837,17 @@ app.post('/api/call',async(req,res)=>{
       const byPriority={Critical:0,High:0,Medium:0,Low:0};
       issues.forEach(i=>{if(byPriority[i.priority]!==undefined)byPriority[i.priority]++;});
       const byModule={};issues.forEach(i=>{if(i.module){byModule[i.module]=(byModule[i.module]||0)+1;}});
-      const resolved=issues.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
-      const avgResHours=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
-      const breached=issues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d&&!['Resolved','Release Required'].includes(i.status);});
+      // FIX: include Closed in resolved count for avg resolution time
+      const resolved=issues.filter(i=>['Resolved','Release Required','Closed'].includes(i.status)&&i.resolvedDate&&i.createdDate);
+      const avgResHours=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate||i.closedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
+      // FIX: SLA breached only counts open issues (resolved ones met SLA by definition)
+      const openIssues=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
+      const breached=openIssues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000+(i.slaExtraMs||0));return now>d;});
+      // FIX: SLA compliance = open issues that are within SLA / total open (not total issues)
+      const slaComplianceRate=openIssues.length>0?Math.round((1-breached.length/openIssues.length)*100):(issues.length>0?100:null);
       const byAssignee={};issues.forEach(i=>{if(i.assignedTo){byAssignee[i.assignedTo]=(byAssignee[i.assignedTo]||0)+1;}});
       const trend=[];for(let d=29;d>=0;d--){const date=new Date();date.setDate(date.getDate()-d);const ds=date.toISOString().split('T')[0];trend.push({date:ds,created:issues.filter(i=>i.createdDate&&i.createdDate.startsWith(ds)).length,resolved:resolved.filter(i=>i.resolvedDate&&i.resolvedDate.startsWith(ds)).length});}
-      return{success:true,total:issues.length,byStatus,byPriority,byModule,byAssignee,avgResHours,slaBreached:breached.length,slaComplianceRate:issues.length>0?Math.round((1-breached.length/issues.length)*100):100,trend,totalResolved:resolved.length,filters};
+      return{success:true,total:issues.length,byStatus,byPriority,byModule,byAssignee,avgResHours,slaBreached:breached.length,slaComplianceRate,openCount:openIssues.length,trend,totalResolved:resolved.length,filters};
     },
     getTicketCounts:()=>{
       const db=rDB();const tickets=db.tickets||[];
@@ -1916,6 +1969,157 @@ app.post('/api/call',async(req,res)=>{
     getDigestConfig:()=>{const db=rDB();return{success:true,digest:db.digestConfig||{enabled:false,frequency:'daily',time:'09:00',recipients:[]}};},
     saveDigestConfig:c=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.digestConfig=c;wDB(db);return{success:true};},
     getServerIssueTemplates:()=>{const db=rDB();return{success:true,templates:db.issueTemplates||[]};},
+    saveIssueTemplate:(tmpl)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.issueTemplates=db.issueTemplates||[];
+      const id=tmpl.id||generateId('ITPL');
+      const idx=db.issueTemplates.findIndex(t=>t.id===id);
+      if(idx>=0)db.issueTemplates[idx]={...tmpl,id};
+      else db.issueTemplates.push({...tmpl,id,createdBy:su.email,createdAt:new Date().toISOString()});
+      wDB(db);return{success:true,id};
+    },
+    deleteIssueTemplate:(id)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.issueTemplates=(db.issueTemplates||[]).filter(t=>t.id!==id);wDB(db);return{success:true};
+    },
+
+    // ── FEATURE B: DATA EXPORT ─────────────────────────────────────────────
+    // DB CHANGE: none — read-only exports
+    exportIssuesCSV:(filters)=>{
+      const db=rDB();const now=new Date();
+      let issues=db.issues||[];
+      if(filters){
+        if(filters.status&&filters.status!=='all')issues=issues.filter(i=>i.status===filters.status);
+        if(filters.priority&&filters.priority!=='all')issues=issues.filter(i=>i.priority===filters.priority);
+        if(filters.assignedTo&&filters.assignedTo!=='all')issues=issues.filter(i=>i.assignedTo===filters.assignedTo);
+        if(filters.dateFrom)issues=issues.filter(i=>new Date(i.createdDate)>=new Date(filters.dateFrom));
+        if(filters.dateTo)issues=issues.filter(i=>new Date(i.createdDate)<=new Date(filters.dateTo));
+      }
+      const rows=issues.map(i=>{
+        const sla=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000);
+        const breached=now>sla&&!['Resolved','Release Required','Closed'].includes(i.status);
+        const resHours=i.resolvedDate&&i.createdDate?Math.round((new Date(i.resolvedDate)-new Date(i.createdDate))/360000)/10:null;
+        return[i.id,i.title?.replace(/,/g,' '),i.status,i.priority,i.module||'',i.assignedTo||'',i.raisedBy||'',(i.createdDate||'').substring(0,10),(i.resolvedDate||'').substring(0,10),breached?'Yes':'No',resHours??'',i.slaHours||24,i.environment||'',i.impact||'',i.revenueImpact||''].join(',');
+      });
+      const header='ID,Title,Status,Priority,Module,AssignedTo,RaisedBy,CreatedDate,ResolvedDate,SLABreached,ResolutionHours,SLAHours,Environment,Impact,RevenueImpact';
+      return{success:true,csv:header+'\n'+rows.join('\n'),count:issues.length};
+    },
+    exportTicketsCSV:()=>{
+      const db=rDB();
+      const tickets=db.tickets||[];
+      const rows=tickets.map(t=>{
+        const threadCount=(t.thread||[]).length;
+        const agentReplies=(t.thread||[]).filter(m=>m.type==='reply'&&m.from!==t.from).length;
+        return[t.id,(t.subject||'').replace(/,/g,' '),t.status,t.priority||'Medium',(t.from||'').replace(/,/g,' '),t.assignedTo||'',(t.createdDate||'').substring(0,10),(t.resolvedDate||'').substring(0,10),threadCount,agentReplies,t.firstResponseMinutes??'',t.csatRating||'',t.csatScore??'',(t.tags||[]).join(';')].join(',');
+      });
+      const header='ID,Subject,Status,Priority,From,AssignedTo,CreatedDate,ResolvedDate,ThreadMessages,AgentReplies,FirstResponseMin,CSAT,CSATScore,Tags';
+      return{success:true,csv:header+'\n'+rows.join('\n'),count:tickets.length};
+    },
+    exportUsersCSV:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const users=db.users||[];
+      const issues=db.issues||[];
+      const tickets=db.tickets||[];
+      const rows=users.map(u=>{
+        const raised=issues.filter(i=>i.raisedBy===u.email).length;
+        const resolved=issues.filter(i=>i.assignedTo===u.email&&['Resolved','Release Required','Closed'].includes(i.status)).length;
+        const tHandled=tickets.filter(t=>t.assignedTo===u.email).length;
+        return[u.id,u.email,u.name,u.role,u.team||'',u.active?'Yes':'No',(u.createdDate||'').substring(0,10),raised,resolved,tHandled].join(',');
+      });
+      const header='ID,Email,Name,Role,Team,Active,CreatedDate,IssuesRaised,IssuesResolved,TicketsHandled';
+      return{success:true,csv:header+'\n'+rows.join('\n'),count:users.length};
+    },
+    exportAuditCSV:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const logs=(db.auditTrail||db.activityLog||[]);
+      const rows=logs.map(l=>[l.id||'',l.issueId||'',l.action||l.activity||'',(l.user||l.by||'').replace(/,/g,' '),(l.timestamp||l.at||'').substring(0,19),(l.details?JSON.stringify(l.details).replace(/,/g,';').replace(/"/g,''):'')].join(','));
+      const header='ID,IssueID,Action,User,Timestamp,Details';
+      return{success:true,csv:header+'\n'+rows.join('\n'),count:logs.length};
+    },
+
+    // ── FEATURE C: ISSUE FORM CUSTOMIZATION ────────────────────────────────
+    // DB CHANGE: adds db.issueFormConfig = {} — backward safe, defaults used if absent
+    getIssueFormConfig:()=>{
+      const db=rDB();
+      const defaults=[
+        {key:'title',label:'Title',type:'text',required:true,visible:true,order:1},
+        {key:'priority',label:'Priority',type:'select',options:['Critical','High','Medium','Low'],required:true,visible:true,order:2},
+        {key:'module',label:'Module',type:'select',options:[],required:false,visible:true,order:3},
+        {key:'description',label:'Description',type:'textarea',required:false,visible:true,order:4},
+        {key:'assignedTo',label:'Assign To',type:'user',required:false,visible:true,order:5},
+        {key:'environment',label:'Environment',type:'text',required:false,visible:true,order:6},
+        {key:'impact',label:'Business Impact',type:'textarea',required:false,visible:true,order:7},
+        {key:'revenueImpact',label:'Revenue Impact (₹)',type:'number',required:false,visible:false,order:8},
+        {key:'attachmentUrl',label:'Attachment URL',type:'url',required:false,visible:true,order:9},
+      ];
+      const saved=db.issueFormConfig||{};
+      // Merge saved config over defaults — adds new defaults, keeps user customizations
+      const fields=defaults.map(d=>{const s=(saved.fields||[]).find(f=>f.key===d.key);return s?{...d,...s}:d;});
+      return{success:true,fields:fields.sort((a,b)=>a.order-b.order),customSections:saved.customSections||[]};
+    },
+    saveIssueFormConfig:(config)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      // DB CHANGE: adds db.issueFormConfig — never touches existing issues
+      db.issueFormConfig=db.issueFormConfig||{};
+      db.issueFormConfig.fields=config.fields||[];
+      db.issueFormConfig.customSections=config.customSections||[];
+      db.issueFormConfig.updatedAt=new Date().toISOString();
+      db.issueFormConfig.updatedBy=su.email;
+      wDB(db);return{success:true};
+    },
+
+    // ── FEATURE E: NOTIFICATION PREFERENCES ───────────────────────────────
+    // DB CHANGE: adds user.notifyPrefs = {} — backward safe
+    getNotifyPrefs:()=>{
+      const db=rDB();const user=(db.users||[]).find(u=>u.email===su.email);
+      const defaults={onAssigned:true,onMention:true,onStatusChange:true,onSLABreach:true,onCriticalOnly:false,onNewTicket:true,onTicketReply:true,digestEnabled:false,digestFreq:'daily'};
+      return{success:true,prefs:{...defaults,...(user?.notifyPrefs||{})}};
+    },
+    saveNotifyPrefs:(prefs)=>{
+      const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===su.email);
+      if(idx===-1)return{success:false,error:'User not found'};
+      // DB CHANGE: adds user.notifyPrefs — never touches other user fields
+      db.users[idx].notifyPrefs={...(db.users[idx].notifyPrefs||{}),...prefs};
+      wDB(db);return{success:true};
+    },
+
+    // ── FEATURE F: SAVED VIEWS ─────────────────────────────────────────────
+    // DB CHANGE: uses existing db.savedFilters array — backward safe
+    getSavedViews:()=>{const db=rDB();return{success:true,views:db.savedFilters||[]};},
+    saveView:(name,filters,shared,icon)=>{
+      const db=rDB();db.savedFilters=db.savedFilters||[];
+      const id=generateId('VW');
+      db.savedFilters.push({id,name,filters:filters||{},shared:!!shared,icon:icon||'🔖',createdBy:su.email,createdAt:new Date().toISOString()});
+      wDB(db);return{success:true,id};
+    },
+    deleteView:(id)=>{
+      const db=rDB();
+      const view=(db.savedFilters||[]).find(v=>v.id===id);
+      if(view&&view.createdBy!==su.email&&su.role!=='Admin')return{success:false,error:'Not your view'};
+      db.savedFilters=(db.savedFilters||[]).filter(v=>v.id!==id);
+      wDB(db);return{success:true};
+    },
+
+    // ── FEATURE A: BRAND EMAIL PROFILE ────────────────────────────────────
+    // DB CHANGE: adds db.settings.BRAND_NOTIFY_EMAIL / BRAND_NOTIFY_PASS — backward safe
+    getBrandEmailProfile:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const s=db.settings||{};
+      return{success:true,email:s.BRAND_NOTIFY_EMAIL||'',hasPass:!!(s.BRAND_NOTIFY_PASS),testSent:s.BRAND_EMAIL_TESTED||false};
+    },
+    saveBrandEmailProfile:(email,pass)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.settings=db.settings||{};
+      db.settings.BRAND_NOTIFY_EMAIL=email||'';
+      if(pass&&!pass.startsWith('•'))db.settings.BRAND_NOTIFY_PASS=pass.replace(/\s/g,'');
+      // Clear cached mailer so it picks up new credentials
+      if(db.settings.BRAND_NOTIFY_EMAIL)delete _brandMailers[db.settings.BRAND_NOTIFY_EMAIL];
+      wDB(db);return{success:true};
+    },
+    // testBrandEmail is ASYNC — moved to aH below
 
     // ══════════════════════════════════════════════════════════════════════
     // FEATURE 1: TICKET TIME BOMB — Escalation chain
@@ -2043,6 +2247,35 @@ app.post('/api/call',async(req,res)=>{
     // FEATURE 9: TICKET TEMPLATES WITH REQUIRED FIELDS
     // ══════════════════════════════════════════════════════════════════════
     getTicketTemplates:()=>{const db=rDB();return{success:true,templates:db.ticketTemplates||[]};},
+    // Create ticket manually (from UI, not email)
+    // DB CHANGE: adds to db.tickets — backward safe
+    createManualTicket:(data)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const id=generateTicketId(slug);
+      const now=new Date().toISOString();
+      const ticket={
+        id,
+        subject:data.subject||'(No subject)',
+        from:data.customerEmail||'manual@internal',
+        fromName:data.customerName||data.customerEmail||'Manual Ticket',
+        body:data.body||'',
+        status:'open',
+        priority:data.priority||'Medium',
+        assignedTo:data.assignedTo||'',
+        createdDate:now,
+        lastActivity:now,
+        thread:[{id:generateId('MSG'),type:'incoming',from:data.customerEmail||'manual@internal',fromName:data.customerName||'Customer',body:data.body||'',timestamp:now}],
+        tags:data.tags?data.tags.split(',').map(t=>t.trim()).filter(Boolean):[],
+        source:'manual',
+        cc:data.cc?data.cc.split(',').map(e=>e.trim()).filter(Boolean):[],
+        templateId:data.templateId||null,
+        customFields:data.customFields||{}
+      };
+      db.tickets=db.tickets||[];db.tickets.unshift(ticket);
+      wDB(db);
+      return{success:true,ticketId:id};
+    },
     saveTicketTemplate:(tmpl)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.ticketTemplates=db.ticketTemplates||[];
@@ -2274,7 +2507,84 @@ app.post('/api/call',async(req,res)=>{
   try{res.json(sh(...args));}catch(e){res.json({success:false,error:e.message});}
 });
 
-app.get('/api/backup',(req,res)=>{const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.status(403).json({error:'Admin only'});const db=readBrandDB(su.brandSlug);res.setHeader('Content-Disposition',`attachment; filename=${su.brandSlug}-backup-${new Date().toISOString().split('T')[0]}.json`);res.setHeader('Content-Type','application/json');res.send(JSON.stringify(db,null,2));});
+app.get('/api/backup',(req,res)=>{
+  if(req.query.token&&!req.headers['x-session-token'])req.headers['x-session-token']=req.query.token;
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.status(403).send('Admin only');const db=readBrandDB(su.brandSlug);res.setHeader('Content-Disposition',`attachment; filename=${su.brandSlug}-backup-${new Date().toISOString().split('T')[0]}.json`);res.setHeader('Content-Type','application/json');res.send(JSON.stringify(db,null,2));});
+
+// ── FEATURE B: CSV export routes ──────────────────────────────────────────────
+// Supports token via query param (?token=...) for browser direct downloads
+app.get('/api/export/:type',(req,res)=>{
+  // Read token from header OR query param (needed for <a href> downloads)
+  const tokenFromQuery=req.query.token;
+  if(tokenFromQuery&&!req.headers['x-session-token'])req.headers['x-session-token']=tokenFromQuery;
+  const su=getSessionUser(req);if(!su)return res.status(401).send('Not logged in — please log in first');
+  const type=req.params.type;const slug=su.brandSlug;
+  const db=readBrandDB(slug);const now=new Date();
+  const dateStr=now.toISOString().split('T')[0];
+  // Date range from query params
+  const dateFrom=req.query.from?new Date(req.query.from):null;
+  const dateTo=req.query.to?new Date(req.query.to+'T23:59:59'):null;
+  function inRange(d){if(!d)return true;const dt=new Date(d);if(dateFrom&&dt<dateFrom)return false;if(dateTo&&dt>dateTo)return false;return true;}
+  function esc(v){return v==null?'':'"'+String(v).replace(/"/g,"'").replace(/\n/g,' ')+'"';}
+  let csv='',filename='';
+  try{
+    if(type==='issues'){
+      let issues=(db.issues||[]).filter(i=>inRange(i.createdDate));
+      filename=`${slug}-issues-${dateStr}.csv`;
+      const header='ID,Title,Status,Priority,Module,AssignedTo,RaisedBy,CreatedDate,StartedDate,ResolvedDate,ClosedDate,SLAHours,SLADeadline,SLABreached,ResolutionHours,Environment,Impact,RevenueImpact,SprintID,Tags,Source';
+      const rows=issues.map(i=>{
+        const slaDeadline=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000+(i.slaExtraMs||0));
+        const breached=now>slaDeadline&&!['Resolved','Release Required','Closed'].includes(i.status);
+        const resHours=i.resolvedDate&&i.createdDate?Math.round((new Date(i.resolvedDate)-new Date(i.createdDate))/360000)/10:'';
+        return[i.id,esc(i.title),i.status,i.priority,i.module||'',i.assignedTo||'',i.raisedBy||'',(i.createdDate||'').substring(0,10),(i.startedDate||'').substring(0,10),(i.resolvedDate||'').substring(0,10),(i.closedDate||'').substring(0,10),i.slaHours||24,slaDeadline.toISOString().substring(0,10),breached?'Yes':'No',resHours,esc(i.environment),esc(i.impact),i.revenueImpact||'',i.sprintId||'',(i.tags||[]).join(';'),i.source||'manual'].join(',');
+      });
+      csv=header+'\n'+rows.join('\n');
+    } else if(type==='tickets'){
+      if(su.role!=='Admin')return res.status(403).send('Admin only');
+      let tickets=(db.tickets||[]).filter(t=>inRange(t.createdDate));
+      filename=`${slug}-tickets-${dateStr}.csv`;
+      const header='ID,Subject,Status,Priority,From,FromName,AssignedTo,CreatedDate,LastActivity,ResolvedDate,TotalMessages,AgentReplies,IncomingMessages,FirstResponseMinutes,CSATRating,CSATScore,SlaPaused,Tags,Source,LinkedIssueID,ParentID';
+      const rows=tickets.map(t=>{
+        const thread=t.thread||[];
+        const agentReplies=thread.filter(m=>m.type==='reply'&&m.from!==t.from).length;
+        const incomingMsgs=thread.filter(m=>m.type==='incoming').length;
+        return[t.id,esc(t.subject),t.status,t.priority||'Medium',t.from||'',esc(t.fromName),t.assignedTo||'',(t.createdDate||'').substring(0,10),(t.lastActivity||'').substring(0,10),(t.resolvedDate||'').substring(0,10),thread.length,agentReplies,incomingMsgs,t.firstResponseMinutes??'',t.csatRating||'',t.csatScore??'',t.slaPaused?'Yes':'No',(t.tags||[]).join(';'),t.source||'email',t.linkedIssueId||'',t.parentId||''].join(',');
+      });
+      csv=header+'\n'+rows.join('\n');
+    } else if(type==='users'){
+      if(su.role!=='Admin')return res.status(403).send('Admin only');
+      const users=db.users||[];const issues=db.issues||[];const tickets=db.tickets||[];const timeLogs=db.timeLogs||[];
+      filename=`${slug}-users-${dateStr}.csv`;
+      const header='ID,Email,Name,Role,Team,Active,CreatedDate,IssuesRaised,IssuesAssigned,IssuesResolved,IssuesOpen,TicketsAssigned,TicketsResolved,TotalHoursLogged,SLABreaches,AvgResolutionHours';
+      const rows=users.map(u=>{
+        const raised=issues.filter(i=>i.raisedBy===u.email).length;
+        const assigned=issues.filter(i=>i.assignedTo===u.email);
+        const resolved=assigned.filter(i=>['Resolved','Release Required','Closed'].includes(i.status));
+        const open=assigned.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
+        const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000);return now>d;}).length;
+        const avgRes=resolved.filter(i=>i.resolvedDate&&i.createdDate).length>0?Math.round(resolved.filter(i=>i.resolvedDate&&i.createdDate).reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.filter(i=>i.resolvedDate&&i.createdDate).length*10)/10:'';
+        const tAssigned=tickets.filter(t=>t.assignedTo===u.email);
+        const tResolved=tAssigned.filter(t=>['resolved','closed'].includes(t.status));
+        const hours=Math.round(timeLogs.filter(l=>l.loggedBy===u.email).reduce((s,l)=>s+(parseFloat(l.hours)||0),0)*10)/10;
+        return[u.id,u.email,esc(u.name),u.role,u.team||'',u.active?'Yes':'No',(u.createdDate||'').substring(0,10),raised,assigned.length,resolved.length,open.length,tAssigned.length,tResolved.length,hours,breached,avgRes].join(',');
+      });
+      csv=header+'\n'+rows.join('\n');
+    } else if(type==='audit'){
+      if(su.role!=='Admin')return res.status(403).send('Admin only');
+      const logs=[...(db.auditTrail||[]),...(db.activityLog||[])].filter(l=>inRange(l.timestamp||l.at)).sort((a,b)=>new Date(b.timestamp||b.at||0)-new Date(a.timestamp||a.at||0));
+      filename=`${slug}-audit-${dateStr}.csv`;
+      const header='IssueID,Action,User,Timestamp,Details';
+      const rows=logs.map(l=>[(l.issueId||''),(l.action||l.activity||'').replace(/,/g,' '),(l.user||l.by||''),(l.timestamp||l.at||'').substring(0,19),esc(l.details?JSON.stringify(l.details):'')].join(','));
+      csv=header+'\n'+rows.join('\n');
+    } else {
+      return res.status(400).send('Unknown export type. Use: issues, tickets, users, audit');
+    }
+    res.setHeader('Content-Disposition',`attachment; filename="${filename}"`);
+    res.setHeader('Content-Type','text/csv; charset=utf-8');
+    res.setHeader('Cache-Control','no-cache');
+    res.send('﻿'+csv); // BOM for Excel UTF-8 compatibility
+  }catch(e){console.error('[Export]',e);res.status(500).send('Export error: '+e.message);}
+});
 app.post('/api/restore',(req,res)=>{const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.status(403).json({error:'Admin only'});try{writeBrandDB(su.brandSlug,req.body);res.json({success:true});}catch(e){res.json({success:false,error:e.message});}});
 app.get('/api/external/sync',async(req,res)=>res.json({success:false,error:'Configure in Admin > API Integration.'}));
 

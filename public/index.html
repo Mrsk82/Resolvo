@@ -7509,14 +7509,6 @@ tbody tr.row-selected {
               <span class="theme-label">Forest</span>
             </div>
 
-            <div class="theme-option" data-theme-pick="sunset" onclick="Themes.set('sunset',this)">
-              <div class="theme-swatch">
-                <span style="background:#130810"></span><span style="background:#f472b6"></span>
-                <span style="background:#241320"></span><span style="background:#fb923c"></span>
-              </div>
-              <span class="theme-label">Sunset</span>
-            </div>
-
             <div class="theme-option" data-theme-pick="ocean" onclick="Themes.set('ocean',this)">
               <div class="theme-swatch">
                 <span style="background:#060d1a"></span><span style="background:#38bdf8"></span>
@@ -7525,54 +7517,12 @@ tbody tr.row-selected {
               <span class="theme-label">Ocean</span>
             </div>
 
-            <div class="theme-option" data-theme-pick="slate" onclick="Themes.set('slate',this)">
-              <div class="theme-swatch">
-                <span style="background:#0f1117"></span><span style="background:#7ee787"></span>
-                <span style="background:#1c2128"></span><span style="background:#f85149"></span>
-              </div>
-              <span class="theme-label">Slate Pro</span>
-            </div>
-
-            <div class="theme-option" data-theme-pick="uiux" onclick="Themes.set('uiux',this)">
-              <div class="theme-swatch">
-                <span style="background:#1a2537"></span><span style="background:#0a6ed1"></span>
-                <span style="background:#ffffff"></span><span style="background:#16a34a"></span>
-              </div>
-              <span class="theme-label">UIUX</span>
-            </div>
-
-            <div class="theme-option" data-theme-pick="neon" onclick="Themes.set('neon',this)">
-              <div class="theme-swatch">
-                <span style="background:#09000f"></span><span style="background:#bf5fff"></span>
-                <span style="background:#180028"></span><span style="background:#ff6b8a"></span>
-              </div>
-              <span class="theme-label">Neon Purple</span>
-            </div>
-
-            <div class="theme-option" data-theme-pick="rosegold" onclick="Themes.set('rosegold',this)">
-              <div class="theme-swatch">
-                <span style="background:#fff8f5"></span><span style="background:#c9606a"></span>
-                <span style="background:#ffffff"></span><span style="background:#15803d"></span>
-              </div>
-              <span class="theme-label">Rose Gold</span>
-            </div>
-
             <div class="theme-option" data-theme-pick="nova" onclick="Themes.set('nova',this)" style="position:relative;overflow:hidden;">
               <div class="theme-swatch" style="background:linear-gradient(135deg,#04050d,#7c6cf0);border-radius:4px;">
                 <span style="background:#04050d"></span><span style="background:#7c6cf0"></span>
                 <span style="background:#e879f9"></span><span style="background:#34d399"></span>
               </div>
               <span class="theme-label" style="background:linear-gradient(135deg,#7c6cf0,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">✦ Nova</span>
-              <div style="position:absolute;top:4px;right:6px;font-size:8px;font-weight:800;letter-spacing:0.08em;color:#7c6cf0;opacity:0.8;">NEW</div>
-            </div>
-
-            <div class="theme-option" data-theme-pick="clarity" onclick="Themes.set('clarity',this)" style="position:relative;overflow:hidden;">
-              <div class="theme-swatch" style="background:linear-gradient(135deg,#F1F3F6,#2DB67D);border-radius:4px;">
-                <span style="background:#F1F3F6"></span><span style="background:#2DB67D"></span>
-                <span style="background:#FFFFFF"></span><span style="background:#111827"></span>
-              </div>
-              <span class="theme-label" style="font-weight:700;color:#2DB67D;">⬡ Clarity</span>
-              <div style="position:absolute;top:4px;right:6px;font-size:8px;font-weight:800;letter-spacing:0.08em;color:#2DB67D;opacity:0.9;">SaaS</div>
             </div>
 
             <!-- Custom Accent Color -->
@@ -14099,6 +14049,7 @@ const App = {
             <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0&&s.k!=='all'?s.c+'20':'var(--bg-elevated)'};color:${s.n>0&&s.k!=='all'?s.c:'var(--text-dim)'};">${s.n}</span>
           </div>`).join('')}
           <div style="padding:12px 14px 8px;border-top:1px solid var(--border);margin-top:auto;display:flex;flex-direction:column;gap:6px;">
+            <button onclick="App._showCreateManualTicket()" style="width:100%;background:var(--accent);color:#0D0E14;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;">+ New Ticket</button>
             <button onclick="App._pollAndRefresh()" style="width:100%;background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-accent);border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer;">⟳ Check Inbox</button>
             ${counts.new > 0 ? `<button onclick="App._closeAllByStatus('new',${counts.new})" style="width:100%;background:var(--critical-dim);color:var(--critical);border:1px solid var(--critical-dim);border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer;">🗑 Close ${counts.new} New</button>` : ''}
             <button onclick="App.navigate('email-ticketing')" style="width:100%;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:7px;font-size:11px;cursor:pointer;">⚙ Spam Settings</button>
@@ -14113,6 +14064,7 @@ const App = {
               <input type="checkbox" id="selectAllTickets" onchange="App._selectAllTickets(this.checked)" style="accent-color:var(--accent);">
               <input id="ticketSearch" class="search-input" placeholder="Search tickets…" style="flex:1;" oninput="App._filterTicketList(this.value)">
               <span style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;">${tickets.length} ticket${tickets.length!==1?'s':''}</span>
+              <button onclick="App._showCreateManualTicket()" style="background:var(--accent);color:#0D0E14;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ New Ticket</button>
             </div>
             <!-- Bulk action bar (shown when items selected) -->
             <div id="ticketBulkBar" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg-elevated);border-radius:8px;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -14747,6 +14699,9 @@ const App = {
       {id:'ooo',icon:'🏖',label:'Out of Office'},
       {id:'escalation',icon:'🚨',label:'Escalation Rules'},
       {id:'recurring-tkt',icon:'🔁',label:'Recurring Tickets'},
+      {id:'issue-form',icon:'📝',label:'Issue Form Builder'},
+      {id:'notify-prefs',icon:'🔔',label:'My Notifications'},
+      {id:'data-export',icon:'📦',label:'Data Export'},
     ];
 
     var tabsHtml = TABS.map(function(t){
@@ -14781,6 +14736,8 @@ const App = {
         var s = (r&&r.success)?r.settings:{};
         var mr = await self.callAsync('getModules');
         var mods = (mr&&mr.success)?mr.modules:[];
+        var bep2 = await self.callAsync('getBrandEmailProfile');
+        self._brandEmailProfile = (bep2&&bep2.success)?bep2:{email:'',hasPass:false,testSent:false};
         content =
           App._sSection('Brand Identity',[
             App._sRow('App / Brand Name','Shown in sidebar, emails and public pages',
@@ -14795,7 +14752,23 @@ const App = {
             '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Comma-separated modules available when creating issues.</div>',
             '<textarea id="admin_modules" class="form-textarea" style="min-height:70px;font-family:var(--font-mono);font-size:12px;">'+mods.join(', ')+'</textarea>',
             '<div style="text-align:right;margin-top:8px;"><button onclick="App.saveModulesFromAdmin()" class="btn-secondary btn-sm">Save Modules</button></div>'
-          ]);
+          ])+
+          (function(){
+            // Brand email profile — loaded already via bep2 above
+            var be = self._brandEmailProfile||{email:'',hasPass:false,testSent:false};
+            return App._sSection('📧 Brand Email Profile',[
+              '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">When set, <strong>all brand emails</strong> (welcome, issue alerts, ticket replies) send from this address instead of the platform owner\'s email.</div>',
+              App._sRow('Brand From Email','Gmail address your users will see emails from',
+                '<input id="be_email" class="form-input" style="width:260px;" placeholder="support@yourcompany.com" value="'+App._esc(be.email||'')+'">'),
+              App._sRow('Gmail App Password','16-char App Password from Google Account → Security → App Passwords',
+                '<input id="be_pass" type="password" class="form-input" style="width:260px;" placeholder="'+(be.hasPass?'••••••••••••••••':'xxxx xxxx xxxx xxxx')+'">'),
+              '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">'+
+                '<button onclick="App._testBrandEmail()" class="btn-secondary btn-sm">📤 Send Test Email</button>'+
+                '<button onclick="App._saveBrandEmailProfile()" class="btn-primary">Save Email Profile</button>'+
+              '</div>'+
+              (be.testSent?'<div style="font-size:11px;color:var(--low);margin-top:6px;">✓ Test email sent successfully</div>':'')
+            ]);
+          })();
       }
       else if (tid === 'email') {
         var er = await self.callAsync('getEmailTicketingConfig');
@@ -15145,6 +15118,107 @@ const App = {
           '</div>');
       }
 
+      // ── ISSUE FORM BUILDER ────────────────────────────────────────────────
+      else if (tid === 'issue-form') {
+        var ifr = await self.callAsync('getIssueFormConfig');
+        // Fallback: if API fails or returns empty, use hardcoded defaults
+        var fields = (ifr&&ifr.success&&ifr.fields&&ifr.fields.length>0)?ifr.fields:[
+          {key:'title',label:'Issue Title',type:'text',required:true,visible:true,order:1},
+          {key:'description',label:'Description',type:'textarea',required:false,visible:true,order:2},
+          {key:'priority',label:'Priority',type:'select',required:true,visible:true,order:3},
+          {key:'module',label:'Module / Product Area',type:'select',required:false,visible:true,order:4},
+          {key:'assignedTo',label:'Assign To',type:'user',required:false,visible:true,order:5},
+          {key:'environment',label:'Environment',type:'text',required:false,visible:true,order:6},
+          {key:'impact',label:'Business Impact',type:'textarea',required:false,visible:true,order:7},
+          {key:'revenueImpact',label:'Revenue Impact (₹)',type:'number',required:false,visible:false,order:8},
+          {key:'attachmentUrl',label:'Attachment URL',type:'url',required:false,visible:true,order:9},
+        ];
+        content =
+          '<div style="margin-bottom:16px;"><h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">📝 Issue Form Builder</h3>'+
+          '<p style="margin:0 0 12px;font-size:12px;color:var(--text-dim);">Customize which fields appear when creating issues, rename labels, and toggle required/visible. Changes apply to new issues immediately.</p>'+
+          '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+
+            '⠿ Drag row handles to reorder · Check <strong>Required</strong> to make field mandatory · Uncheck <strong>Visible</strong> to hide from the form'+
+          '</div></div>'+
+          '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;" id="formFieldsList">'+
+          '<div style="display:grid;grid-template-columns:24px 180px 140px 1fr;gap:10px;padding:4px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);">'+
+            '<span></span><span>Field Label</span><span>Type</span><span>Options</span>'+
+          '</div>'+
+          fields.map(function(f){
+            return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;" data-field-key="'+f.key+'">'+
+              '<span style="font-size:16px;cursor:grab;color:var(--text-dim);">⠿</span>'+
+              '<div style="flex:1;display:grid;grid-template-columns:180px 140px 1fr;gap:10px;align-items:center;">'+
+                '<input class="form-input" style="font-size:12px;" value="'+App._esc(f.label)+'" data-fi-label="'+f.key+'" placeholder="Field label">'+
+                '<select class="form-select" style="font-size:12px;" data-fi-type="'+f.key+'">'+
+                  ['text','textarea','select','number','url','user','date'].map(function(t){return '<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+t+'</option>';}).join('')+
+                '</select>'+
+                '<div style="display:flex;gap:12px;align-items:center;">'+
+                  '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;"><input type="checkbox" data-fi-req="'+f.key+'" '+(f.required?'checked':'')+' style="width:14px;height:14px;"> Required</label>'+
+                  '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;"><input type="checkbox" data-fi-vis="'+f.key+'" '+(f.visible?'checked':'')+' style="width:14px;height:14px;"> Visible</label>'+
+                '</div>'+
+              '</div>'+
+            '</div>';
+          }).join('')+
+          '</div>'+
+          '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+            '<button onclick="App._resetIssueForm()" class="btn-secondary btn-sm">Reset to Defaults</button>'+
+            '<button onclick="App._saveIssueFormConfig()" class="btn-primary">Save Form Config</button>'+
+          '</div>';
+      }
+
+      // ── NOTIFICATION PREFERENCES ─────────────────────────────────────────
+      else if (tid === 'notify-prefs') {
+        var npr = await self.callAsync('getNotifyPrefs');
+        var prefs = (npr&&npr.prefs)||{};
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔔 My Notification Preferences</h3>'+
+          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Choose what you get notified about. Changes apply to your account only.</p>'+
+          App._sSection('Issue Notifications',[
+            App._sRow('When I\'m assigned an issue','Get email when an issue is assigned to you','<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="np_assigned" '+(prefs.onAssigned!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onAssigned!==false?'On':'Off')+'</span></label>'),
+            App._sRow('On status changes','Get email when issues you\'re involved in change status','<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="np_status" '+(prefs.onStatusChange!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onStatusChange!==false?'On':'Off')+'</span></label>'),
+            App._sRow('Only Critical priority','Only receive emails for Critical priority issues','<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="np_critical" '+(prefs.onCriticalOnly?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onCriticalOnly?'On':'Off')+'</span></label>'),
+            App._sRow('SLA breach alerts','Get notified when issues you own are about to breach SLA','<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="np_sla" '+(prefs.onSLABreach!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onSLABreach!==false?'On':'Off')+'</span></label>'),
+            App._sRow('@Mentions in comments','Get email when someone mentions your email in a comment','<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="np_mention" '+(prefs.onMention!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onMention!==false?'On':'Off')+'</span></label>'),
+          ])+
+          App._sSection('Ticket Notifications',[
+            App._sRow('New ticket assigned to me','When a support ticket is assigned to me','<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="np_ticket" '+(prefs.onNewTicket!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onNewTicket!==false?'On':'Off')+'</span></label>'),
+            App._sRow('Ticket replies (watching)','Get notified when tickets I\'m watching get replies','<label style="display:flex;align-items:center;gap=6px;cursor:pointer;"><input type="checkbox" id="np_treply" '+(prefs.onTicketReply!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(prefs.onTicketReply!==false?'On':'Off')+'</span></label>'),
+          ])+
+          '<div style="text-align:right;"><button onclick="App._saveNotifyPrefs()" class="btn-primary">Save Preferences</button></div>';
+      }
+
+      // ── DATA EXPORT ───────────────────────────────────────────────────────
+      else if (tid === 'data-export') {
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">📦 Data Export</h3>'+
+          '<p style="margin:0 0 14px;font-size:12px;color:var(--text-dim);">Download your data as CSV files. Opens directly in Excel. No data is deleted.</p>'+
+          // Date range filter
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;">'+
+            '<div style="font-size:12px;font-weight:700;color:var(--text-dim);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">📅 Date Range Filter (optional)</div>'+
+            '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">'+
+              '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:3px;">From</label><input type="date" id="exp_from" class="form-input" style="font-size:12px;"></div>'+
+              '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:3px;">To</label><input type="date" id="exp_to" class="form-input" style="font-size:12px;"></div>'+
+              '<div style="margin-top:14px;font-size:11px;color:var(--text-dim);">Leave blank to export all data</div>'+
+            '</div>'+
+          '</div>'+
+          App._sSection('📊 Issue Data',[
+            App._exportRow('All Issues (21 columns)','ID, Title, Status, Priority, Module, Assignee, Dates, SLA, Resolution Time, Revenue Impact, Tags','issues'),
+          ])+
+          App._sSection('📬 Ticket Data',[
+            App._exportRow('All Support Tickets (21 columns)','ID, Subject, Status, From, Assignee, Dates, Agent Replies, First Response, CSAT, Tags, Parent ID','tickets'),
+          ])+
+          App._sSection('👥 Team Data',[
+            App._exportRow('Users & Performance (16 columns)','Email, Role, Team, Issues Raised/Resolved, Open, Tickets, Hours Logged, Avg Resolution','users'),
+            App._exportRow('Full Audit Trail (5 columns)','Issue ID, Action, User, Timestamp, Details','audit'),
+          ])+
+          App._sSection('🗄 Full Backup',[
+            '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Complete JSON backup of ALL brand data — issues, tickets, users, settings, everything.</div>'+
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+              '<button onclick="App._downloadBackupWithToken()" class="btn-primary btn-sm">⬇ Download Full Backup (.json)</button>'+
+              '<label class="btn-secondary btn-sm" style="cursor:pointer;">⬆ Restore Backup<input type="file" accept=".json" style="display:none" onchange="App._restoreBackup(this)"></label>'+
+            '</div>'
+          ]);
+      }
+
     } catch(err) {
       content = '<div style="background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;padding:16px;color:var(--critical);">Error loading settings: '+App._esc(err.message||String(err))+'</div>';
       console.error('[Settings]',err);
@@ -15152,6 +15226,44 @@ const App = {
 
     var el = document.getElementById('settingsContent');
     if (el) el.innerHTML = content || '<div style="color:var(--text-dim);padding:20px;">Nothing to show here.</div>';
+  },
+
+  // Helper: export row for Data Export settings tab
+  _exportRow: function(label, desc, type) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">'+
+      '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+label+'</div>'+
+      '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">'+desc+'</div></div>'+
+      '<button onclick="App._downloadCSV(\''+type+'\')" class="btn-primary btn-sm" style="flex-shrink:0;">⬇ Download CSV</button>'+
+    '</div>';
+  },
+
+  // Download CSV with session token in URL
+  _downloadCSV: function(type) {
+    var token = localStorage.getItem('tt_session_token')||'';
+    var from = document.getElementById('exp_from')?.value||'';
+    var to = document.getElementById('exp_to')?.value||'';
+    var url = '/api/export/'+type+'?token='+encodeURIComponent(token);
+    if (from) url += '&from='+from;
+    if (to) url += '&to='+to;
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    App.showToast('⬇ Downloading '+type+' CSV...', 'success');
+  },
+
+  _downloadBackupWithToken: function() {
+    var token = localStorage.getItem('tt_session_token')||'';
+    var url = '/api/backup?token='+encodeURIComponent(token);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    App.showToast('⬇ Downloading backup...', 'success');
   },
 
   _sSection: function(title, rows) {
@@ -15169,6 +15281,177 @@ const App = {
       '</div>'+
       '<div style="flex-shrink:0;">'+input+'</div>'+
     '</div>';
+  },
+
+  // ── CREATE MANUAL TICKET ────────────────────────────────────────────────────
+  _showCreateManualTicket: async function() {
+    var self = this;
+    // Load templates + agents in parallel
+    var [tmplR, usersR] = await Promise.all([
+      self.callAsync('getTicketTemplates'),
+      self.callAsync('getUsers', true)
+    ]);
+    var templates = (tmplR && tmplR.templates) || [];
+    var agents = (usersR && usersR.users) || [];
+
+    var templateOptions = '<option value="">No template</option>' +
+      templates.map(function(t){ return '<option value="'+t.id+'">'+self._esc(t.name)+'</option>'; }).join('');
+
+    var agentOptions = '<option value="">Unassigned</option>' +
+      agents.map(function(u){ return '<option value="'+u.email+'">'+self._esc(u.name||u.email)+'</option>'; }).join('');
+
+    // Template required fields placeholder
+    var reqFieldsHtml = '<div id="tmplRequiredFields"></div>';
+
+    var html = `<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <span class="modal-title">📬 Create New Ticket</span>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;max-height:70vh;overflow-y:auto;">
+
+        <!-- Template Picker -->
+        <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">📋 Apply Template (optional)</label>
+          <select id="ct_template" class="form-select" style="font-size:13px;" onchange="App._applyTicketTemplate(this.value)">
+            ${templateOptions}
+          </select>
+          <div id="tmplRequiredFields" style="margin-top:8px;font-size:11px;color:var(--text-dim);"></div>
+        </div>
+
+        <!-- Customer Info -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="form-label">Customer Name</label>
+            <input id="ct_cname" class="form-input" placeholder="Rajesh Kumar">
+          </div>
+          <div>
+            <label class="form-label">Customer Email *</label>
+            <input id="ct_cemail" class="form-input" type="email" placeholder="customer@company.com">
+          </div>
+        </div>
+
+        <!-- CC -->
+        <div>
+          <label class="form-label">CC (comma-separated emails)</label>
+          <input id="ct_cc" class="form-input" placeholder="manager@co.com, billing@co.com">
+        </div>
+
+        <!-- Subject -->
+        <div>
+          <label class="form-label">Subject *</label>
+          <input id="ct_subject" class="form-input" placeholder="Brief description of the issue">
+        </div>
+
+        <!-- Body -->
+        <div>
+          <label class="form-label">Message / Description</label>
+          <textarea id="ct_body" class="form-textarea" style="min-height:100px;" placeholder="Describe the issue in detail..."></textarea>
+        </div>
+
+        <!-- Priority + Assignee -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="form-label">Priority</label>
+            <select id="ct_priority" class="form-select">
+              <option value="Critical">🔴 Critical</option>
+              <option value="High">🟠 High</option>
+              <option value="Medium" selected>🟡 Medium</option>
+              <option value="Low">🟢 Low</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Assign To</label>
+            <select id="ct_assign" class="form-select">${agentOptions}</select>
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div>
+          <label class="form-label">Tags (comma-separated)</label>
+          <input id="ct_tags" class="form-input" placeholder="billing, urgent, mobile">
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn-primary" id="createTicketBtn" onclick="App._submitManualTicket()">Create Ticket →</button>
+      </div>
+    </div></div>`;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  _applyTicketTemplate: async function(templateId) {
+    var el = document.getElementById('tmplRequiredFields');
+    if (!el) return;
+    if (!templateId) { el.innerHTML = ''; return; }
+    var r = await App.callAsync('getTicketTemplates');
+    var tmpl = (r && r.templates || []).find(function(t){ return t.id === templateId; });
+    if (!tmpl) return;
+    var fields = tmpl.requiredFields || [];
+    if (tmpl.body) {
+      var bodyEl = document.getElementById('ct_body');
+      if (bodyEl && !bodyEl.value) bodyEl.value = tmpl.body;
+    }
+    if (fields.length) {
+      el.innerHTML = '<div style="color:var(--medium);font-size:11px;font-weight:600;margin-bottom:4px;">⚠ Required fields for this template:</div>'+
+        fields.map(function(f){ return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'+
+          '<span style="font-size:11px;color:var(--text-dim);width:120px;">'+App._esc(f)+'</span>'+
+          '<input class="form-input" style="font-size:12px;flex:1;" placeholder="'+App._esc(f)+'" data-required-field="'+App._esc(f)+'">'+
+        '</div>'; }).join('');
+    } else {
+      el.innerHTML = '<span style="color:var(--low);font-size:11px;">✓ Template applied — no additional required fields</span>';
+    }
+    // Pre-fill subject if template has one
+    var subj = document.getElementById('ct_subject');
+    if (subj && !subj.value && tmpl.name) subj.value = '[' + tmpl.name + '] ';
+  },
+
+  _submitManualTicket: async function() {
+    var cemail = document.getElementById('ct_cemail')?.value?.trim();
+    var subject = document.getElementById('ct_subject')?.value?.trim();
+    if (!cemail || !cemail.includes('@')) { App.showToast('Customer email is required', 'warning'); return; }
+    if (!subject) { App.showToast('Subject is required', 'warning'); return; }
+
+    // Validate required template fields
+    var missing = [];
+    document.querySelectorAll('[data-required-field]').forEach(function(inp){
+      if (!inp.value.trim()) missing.push(inp.getAttribute('data-required-field'));
+    });
+    if (missing.length) { App.showToast('Fill required fields: ' + missing.join(', '), 'warning'); return; }
+
+    // Collect custom fields from template
+    var customFields = {};
+    document.querySelectorAll('[data-required-field]').forEach(function(inp){
+      customFields[inp.getAttribute('data-required-field')] = inp.value.trim();
+    });
+
+    var btn = document.getElementById('createTicketBtn');
+    if (btn) { btn.textContent = 'Creating...'; btn.disabled = true; }
+
+    var data = {
+      customerName: document.getElementById('ct_cname')?.value?.trim() || '',
+      customerEmail: cemail,
+      cc: document.getElementById('ct_cc')?.value?.trim() || '',
+      subject,
+      body: document.getElementById('ct_body')?.value?.trim() || '',
+      priority: document.getElementById('ct_priority')?.value || 'Medium',
+      assignedTo: document.getElementById('ct_assign')?.value || '',
+      tags: document.getElementById('ct_tags')?.value?.trim() || '',
+      templateId: document.getElementById('ct_template')?.value || '',
+      customFields
+    };
+
+    var r = await App.callAsync('createManualTicket', data);
+    if (r && r.success) {
+      App.showToast('✅ Ticket created: ' + r.ticketId, 'success');
+      document.querySelectorAll('.modal-overlay').forEach(function(m){ m.remove(); });
+      App.renderTicketDetail(r.ticketId);
+    } else {
+      if (btn) { btn.textContent = 'Create Ticket →'; btn.disabled = false; }
+      App.showToast('Failed: ' + (r?.error || 'Unknown error'), 'error');
+    }
   },
 
   // ── OOO SAVE ────────────────────────────────────────────────────────────────
@@ -15264,6 +15547,133 @@ const App = {
     var r = await App.callAsync('saveRecurringTicketTemplate',{subject,frequency,priority,body,enabled:true});
     if (r&&r.success) { App.showToast('Schedule saved','success'); document.querySelectorAll('.modal-overlay').forEach(m=>m.remove()); App.renderUnifiedSettings('recurring-tkt'); }
     else App.showToast('Failed','error');
+  },
+
+  // ── FEATURE A: BRAND EMAIL PROFILE ─────────────────────────────────────────
+  _saveBrandEmailProfile: async function() {
+    var email = document.getElementById('be_email')?.value?.trim();
+    var pass = document.getElementById('be_pass')?.value||'';
+    if (!email) { App.showToast('Enter brand email address', 'warning'); return; }
+    var r = await App.callAsync('saveBrandEmailProfile', email, pass);
+    if (r&&r.success) { App.showToast('Brand email profile saved', 'success'); App.renderUnifiedSettings('general'); }
+    else App.showToast('Failed: '+(r?.error||''), 'error');
+  },
+  _testBrandEmail: async function() {
+    var email = document.getElementById('be_email')?.value?.trim() || App._currentUser?.email;
+    var btn = event.target; if(btn){btn.textContent='Sending...';btn.disabled=true;}
+    var r = await App.callAsync('testBrandEmail', email);
+    if(btn){btn.textContent='📤 Send Test Email';btn.disabled=false;}
+    if (r&&r.success) App.showToast('✅ Test email sent to '+email, 'success');
+    else App.showToast('Failed: '+(r?.error||''), 'error');
+  },
+
+  // ── FEATURE C: ISSUE FORM BUILDER ──────────────────────────────────────────
+  _saveIssueFormConfig: async function() {
+    var fields = [];
+    document.querySelectorAll('#formFieldsList [data-field-key]').forEach(function(row, i) {
+      var key = row.getAttribute('data-field-key');
+      var label = row.querySelector('[data-fi-label="'+key+'"]')?.value?.trim() || key;
+      var type = row.querySelector('[data-fi-type="'+key+'"]')?.value || 'text';
+      var required = row.querySelector('[data-fi-req="'+key+'"]')?.checked || false;
+      var visible = row.querySelector('[data-fi-vis="'+key+'"]')?.checked !== false;
+      fields.push({key, label, type, required, visible, order: i+1});
+    });
+    var r = await App.callAsync('saveIssueFormConfig', {fields});
+    if (r&&r.success) { App.showToast('Form config saved', 'success'); App._issueFormConfig = null; }
+    else App.showToast('Failed: '+(r?.error||''), 'error');
+  },
+  _resetIssueForm: async function() {
+    if (!confirm('Reset form to defaults? Your customizations will be lost.')) return;
+    var r = await App.callAsync('saveIssueFormConfig', {fields:[]});
+    if (r&&r.success) { App.showToast('Reset to defaults', 'success'); App.renderUnifiedSettings('issue-form'); App._issueFormConfig = null; }
+  },
+
+  // ── FEATURE E: NOTIFICATION PREFERENCES ────────────────────────────────────
+  _saveNotifyPrefs: async function() {
+    var prefs = {
+      onAssigned: document.getElementById('np_assigned')?.checked !== false,
+      onStatusChange: document.getElementById('np_status')?.checked !== false,
+      onCriticalOnly: !!document.getElementById('np_critical')?.checked,
+      onSLABreach: document.getElementById('np_sla')?.checked !== false,
+      onMention: document.getElementById('np_mention')?.checked !== false,
+      onNewTicket: document.getElementById('np_ticket')?.checked !== false,
+      onTicketReply: document.getElementById('np_treply')?.checked !== false,
+    };
+    var r = await App.callAsync('saveNotifyPrefs', prefs);
+    if (r&&r.success) App.showToast('Notification preferences saved', 'success');
+    else App.showToast('Failed', 'error');
+  },
+
+  // ── FEATURE B: EXPORT FILTERED ISSUES ──────────────────────────────────────
+  _exportFilteredIssues: async function() {
+    var r = await App.callAsync('exportIssuesCSV', {});
+    if (!r||!r.success) { App.showToast('Export failed', 'error'); return; }
+    var blob = new Blob([r.csv], {type:'text/csv'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'issues-export-'+(new Date().toISOString().split('T')[0])+'.csv';
+    a.click();
+    App.showToast('Downloaded '+r.count+' issues', 'success');
+  },
+
+  // ── FEATURE F: SAVED VIEWS UI ───────────────────────────────────────────────
+  _showSaveViewModal: function(currentFilters) {
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:400px">'+
+      '<div class="modal-header"><span class="modal-title">🔖 Save Current View</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label class="form-label">View Name *</label><input id="sv_name" class="form-input" placeholder="e.g. My Open Critical Issues"></div>'+
+        '<div><label class="form-label">Icon (emoji)</label><input id="sv_icon" class="form-input" style="width:80px;" value="🔖" maxlength="2"></div>'+
+        '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sv_shared" style="width:15px;height:15px;"> Share with all team members</label>'+
+      '</div>'+
+      '<div class="modal-footer">'+
+        '<button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+        '<button class="btn-primary" onclick="App._doSaveView('+JSON.stringify(JSON.stringify(currentFilters||{}))+')" >Save View</button>'+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(function(){document.getElementById('sv_name')?.focus();},100);
+  },
+  _doSaveView: async function(filtersJson) {
+    var name = document.getElementById('sv_name')?.value?.trim();
+    var icon = document.getElementById('sv_icon')?.value||'🔖';
+    var shared = !!document.getElementById('sv_shared')?.checked;
+    if (!name) { App.showToast('Enter a name for this view','warning'); return; }
+    var filters = {}; try{filters=JSON.parse(filtersJson);}catch(e){}
+    var r = await App.callAsync('saveView', name, filters, shared, icon);
+    if (r&&r.success) {
+      App.showToast('View saved!','success');
+      document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
+      App._loadSavedViews();
+    } else App.showToast('Failed','error');
+  },
+  _loadSavedViews: async function() {
+    var r = await App.callAsync('getSavedViews');
+    var views = (r&&r.views)||[];
+    var panel = document.getElementById('savedViewsPanel');
+    if (!panel) return;
+    if (!views.length) { panel.innerHTML='<div style="font-size:12px;color:var(--text-dim);padding:6px 0;">No saved views yet</div>'; return; }
+    panel.innerHTML = views.map(function(v){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;cursor:pointer;" onclick="App._applyView(\''+v.id+'\')">'+
+        '<span>'+v.icon+'</span><span style="font-size:12px;color:var(--text-secondary);flex:1;">'+App._esc(v.name)+'</span>'+
+        '<span onclick="event.stopPropagation();App.callAsync(\'deleteView\',\''+v.id+'\').then(function(){App._loadSavedViews();})" style="color:var(--critical);font-size:11px;cursor:pointer;">×</span>'+
+      '</div>';
+    }).join('');
+  },
+  _applyView: async function(viewId) {
+    var r = await App.callAsync('getSavedViews');
+    var view = (r&&r.views||[]).find(function(v){return v.id===viewId;});
+    if (!view) return;
+    // Apply filters and navigate to issues
+    App._issueFilters = view.filters || {};
+    App.navigate('issues');
+    App.showToast('View applied: '+view.name, 'success');
+  },
+
+  // ── FEATURE G: ISSUE TEMPLATES IN QUICK-CREATE ─────────────────────────────
+  _getIssueFormConfig: async function() {
+    if (App._issueFormConfig) return App._issueFormConfig;
+    var r = await App.callAsync('getIssueFormConfig');
+    App._issueFormConfig = (r&&r.fields)||null;
+    return App._issueFormConfig;
   },
 
   _quickAddTeam: async function() {
@@ -17607,22 +18017,22 @@ const App = {
   // ============================================================
   loadSavedFiltersBar: async function() {
     var self = this;
-    var r = await self.callAsync('getSavedFilters');
-    var filters = (r && r.success) ? r.filters : [];
+    var r = await self.callAsync('getSavedViews');
+    var views = (r && r.success) ? r.views : [];
     var bar = document.getElementById('savedFiltersBar');
     if (!bar) return;
-    if (filters.length === 0) { bar.style.display = 'none'; return; }
     bar.style.display = 'flex';
-        var html = '<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dim);margin-right:8px;">SAVED:</span>';
-    filters.forEach(function(f) {
-      html += '<div class="saved-filter-chip" onclick="App.applySavedFilter(' + JSON.stringify(f.filters) + ')">' + self._esc(f.name) + '</div>';
+    var html = '<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dim);margin-right:8px;flex-shrink:0;">🔖 VIEWS:</span>';
+    if (views.length === 0) html += '<span style="font-size:11px;color:var(--text-dim);">No saved views</span>';
+    views.forEach(function(v) {
+      html += '<div class="saved-filter-chip" onclick="App._applyView(\''+v.id+'\')" title="'+self._esc(v.name)+'">'+(v.icon||'🔖')+' '+self._esc(v.name)+'</div>';
     });
-    html += '<button class="btn-secondary btn-sm" style="margin-left:auto" onclick="App.saveCurrentFilter()">Save Filter</button>';
+    html += '<button class="btn-secondary btn-sm" style="margin-left:auto;flex-shrink:0;" onclick="App._showSaveViewModal(App.issueFilters)">+ Save View</button>';
     bar.innerHTML = html;
   },
 
   applySavedFilter: function(filtersObj) {
-    self.issueFilters = Object.assign(self.issueFilters, filtersObj);
+    self.issueFilters = Object.assign(self.issueFilters||{}, filtersObj);
     self.renderIssueList();
   },
 
