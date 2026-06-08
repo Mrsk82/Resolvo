@@ -2267,7 +2267,7 @@ app.post('/api/call',async(req,res)=>{
     // Create ticket manually (from UI, not email)
     // DB CHANGE: adds to db.tickets — backward safe
     createManualTicket:(data)=>{
-      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      // Any active user can create a manual ticket on behalf of a customer
       const db=rDB();
       const id=generateTicketId(slug);
       const now=new Date().toISOString();
@@ -2300,7 +2300,8 @@ app.post('/api/call',async(req,res)=>{
     getQueueConfig:()=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();
-      const users=(db.users||[]).filter(u=>u.active&&u.role!=='Admin');
+      // Include ALL active users in queue (any role can receive tickets)
+      const users=(db.users||[]).filter(u=>u.active);
       const cfg=db.queueConfig||{enabled:false,mode:'roundrobin',lastIndex:0,agents:[]};
       // Merge with current users
       const agents=users.map(u=>{
