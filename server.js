@@ -2935,6 +2935,235 @@ app.post('/api/call',async(req,res)=>{
       wDB(db);return{success:true};
     },
 
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 1 & 5: BOOKING CONFIG
+    // DB CHANGE: adds db.bookingConfig — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getBookingConfig:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      return{success:true,config:db.bookingConfig||{
+        enabled:false,title:'Book an Appointment',slotDuration:30,buffer:15,maxPerDay:10,
+        workingHours:{monday:{enabled:true,start:'09:00',end:'18:00'},tuesday:{enabled:true,start:'09:00',end:'18:00'},wednesday:{enabled:true,start:'09:00',end:'18:00'},thursday:{enabled:true,start:'09:00',end:'18:00'},friday:{enabled:true,start:'09:00',end:'17:00'},saturday:{enabled:false,start:'10:00',end:'14:00'},sunday:{enabled:false,start:'10:00',end:'14:00'}},
+        bookingLink:`${BASE_URL}/book/${slug}`
+      }};
+    },
+    saveBookingConfig:(config)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      // DB CHANGE: adds db.bookingConfig — never overwrites existing appointments
+      db.bookingConfig={...config,bookingLink:`${BASE_URL}/book/${slug}`,updatedAt:new Date().toISOString()};
+      wDB(db);return{success:true,bookingLink:`${BASE_URL}/book/${slug}`};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 2: AGENT CALENDAR & APPOINTMENTS
+    // DB CHANGE: adds db.appointments — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getAppointments:(filters)=>{
+      const db=rDB();
+      let apts=db.appointments||[];
+      if(filters&&filters.agentEmail)apts=apts.filter(a=>a.assignedTo===filters.agentEmail);
+      if(filters&&filters.date)apts=apts.filter(a=>a.date===filters.date);
+      if(filters&&filters.status)apts=apts.filter(a=>a.status===filters.status);
+      // Non-admin only sees their own
+      if(su.role!=='Admin')apts=apts.filter(a=>a.assignedTo===su.email||!a.assignedTo);
+      return{success:true,appointments:apts.sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time))};
+    },
+    createAppointment:(data)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const id=generateId('APT');const now=new Date().toISOString();
+      db.appointments=db.appointments||[];
+      db.appointments.push({id,brandSlug:slug,customerName:data.customerName||'',customerEmail:data.customerEmail||'',customerPhone:data.phone||'',topic:data.topic||'',date:data.date,time:data.time,assignedTo:data.assignedTo||'',status:'confirmed',notes:data.notes||'',createdAt:now,createdBy:su.email,reminderSent:false,ticketId:data.ticketId||null});
+      wDB(db);return{success:true,id};
+    },
+    updateAppointment:(id,updates)=>{
+      const db=rDB();const idx=(db.appointments||[]).findIndex(a=>a.id===id);
+      if(idx===-1)return{success:false,error:'Not found'};
+      Object.assign(db.appointments[idx],updates,{updatedAt:new Date().toISOString()});
+      wDB(db);return{success:true};
+    },
+    cancelAppointment:(id,reason)=>{
+      const db=rDB();const idx=(db.appointments||[]).findIndex(a=>a.id===id);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.appointments[idx].status='cancelled';db.appointments[idx].cancelReason=reason||'';db.appointments[idx].cancelledAt=new Date().toISOString();db.appointments[idx].cancelledBy=su.email;
+      wDB(db);
+      // Notify customer
+      const apt=db.appointments[idx];
+      if(apt.customerEmail){
+        const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+        sendBrandEmail(slug,apt.customerEmail,`Appointment Cancelled — ${brand.name||'Support'}`,`<p>Hi ${apt.customerName},</p><p>Your appointment on ${apt.date} at ${apt.time} has been cancelled.${reason?'<br>Reason: '+reason:''}</p><p>Please rebook at your convenience.</p>`,`Your appointment on ${apt.date} at ${apt.time} has been cancelled`).catch(()=>{});
+      }
+      return{success:true};
+    },
+    getAgentCalendar:(agentEmail,month)=>{
+      const db=rDB();
+      const email=agentEmail||su.email;
+      const m=month||new Date().toISOString().substring(0,7);
+      const apts=(db.appointments||[]).filter(a=>(!a.assignedTo||a.assignedTo===email)&&a.date.startsWith(m)&&a.status!=='cancelled');
+      const tickets=(db.tickets||[]).filter(t=>t.assignedTo===email&&!['resolved','closed'].includes(t.status));
+      return{success:true,appointments:apts,openTickets:tickets.length,month:m};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 3: AUTO-SCHEDULE FROM TICKET — generate booking link in thread
+    // ══════════════════════════════════════════════════════════════════════
+    generateBookingLinkForTicket:(ticketId)=>{
+      const db=rDB();const cfg=db.bookingConfig||{};
+      if(!cfg.enabled)return{success:false,error:'Booking not enabled. Enable in Settings → Booking.'};
+      const link=`${BASE_URL}/book/${slug}`;
+      return{success:true,link,message:`Book a call: ${link}`};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 7: TICKET CHECKLISTS (tasks inside tickets)
+    // DB CHANGE: adds ticket.checklist — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getTicketChecklist:(ticketId)=>{
+      const db=rDB();const t=(db.tickets||[]).find(x=>x.id===ticketId);
+      if(!t)return{success:false,error:'Not found'};
+      return{success:true,checklist:t.checklist||[]};
+    },
+    addChecklistItem:(ticketId,text)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      const item={id:generateId('CI'),text,done:false,createdBy:su.email,createdAt:new Date().toISOString()};
+      db.tickets[idx].checklist=db.tickets[idx].checklist||[];
+      db.tickets[idx].checklist.push(item);
+      db.tickets[idx].lastActivity=new Date().toISOString();
+      wDB(db);return{success:true,item};
+    },
+    toggleChecklistItem:(ticketId,itemId)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      const ci=(db.tickets[idx].checklist||[]).findIndex(c=>c.id===itemId);
+      if(ci===-1)return{success:false,error:'Item not found'};
+      db.tickets[idx].checklist[ci].done=!db.tickets[idx].checklist[ci].done;
+      db.tickets[idx].checklist[ci].doneAt=db.tickets[idx].checklist[ci].done?new Date().toISOString():null;
+      db.tickets[idx].checklist[ci].doneBy=db.tickets[idx].checklist[ci].done?su.email:null;
+      wDB(db);return{success:true,done:db.tickets[idx].checklist[ci].done};
+    },
+    deleteChecklistItem:(ticketId,itemId)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].checklist=(db.tickets[idx].checklist||[]).filter(c=>c.id!==itemId);
+      wDB(db);return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 8: FOLLOW-UP SCHEDULER
+    // DB CHANGE: adds ticket.followUpAt — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    scheduleFollowUp:(ticketId,followUpDate,note)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].followUpAt=followUpDate;
+      db.tickets[idx].followUpNote=note||'';
+      db.tickets[idx].followUpBy=su.email;
+      db.tickets[idx].followUpDone=false;
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'follow_up_scheduled',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`Follow-up set for ${followUpDate}${note?': '+note:''}`});
+      wDB(db);return{success:true};
+    },
+    getFollowUps:()=>{
+      const db=rDB();const now=new Date().toISOString().split('T')[0];
+      const due=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=now&&!['resolved','closed'].includes(t.status));
+      const upcoming=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt>now&&!['resolved','closed'].includes(t.status));
+      const myDue=su.role==='Admin'?due:due.filter(t=>t.followUpBy===su.email||t.assignedTo===su.email);
+      return{success:true,due:myDue,upcoming:upcoming.slice(0,20),totalDue:due.length};
+    },
+    markFollowUpDone:(ticketId)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].followUpDone=true;db.tickets[idx].followUpDoneAt=new Date().toISOString();
+      wDB(db);return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 9: SLA PROMISE TO CUSTOMER
+    // DB CHANGE: adds ticket.slaPromiseDate — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    setTicketSLAPromise:(ticketId,promiseDate,promiseTime)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      const promiseDT=promiseDate+(promiseTime?'T'+promiseTime+':00':'T23:59:00');
+      db.tickets[idx].slaPromiseDate=promiseDT;db.tickets[idx].slaPromiseSetBy=su.email;db.tickets[idx].slaPromiseSetAt=new Date().toISOString();
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'sla_promise_set',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`Promised resolution by ${promiseDate} ${promiseTime||'EOD'}`});
+      wDB(db);
+      // Notify customer
+      const ticket=db.tickets[idx];
+      if(ticket.from){
+        const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+        sendBrandEmail(slug,ticket.from,`We'll resolve your issue by ${promiseDate} — ${brand.name||'Support'}`,
+          `<p>Hi ${ticket.fromName||'there'},</p><p>We've reviewed your request and promise to resolve it by <strong>${promiseDate}${promiseTime?' at '+promiseTime:''}</strong>.</p><p>Ref: ${ticketId}</p>`,
+          `We'll resolve your issue by ${promiseDate}`).catch(()=>{});
+      }
+      return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 11: TICKET DEPENDENCIES
+    // DB CHANGE: adds db.ticketDependencies — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    addTicketDependency:(ticketId,blockedByTicketId)=>{
+      const db=rDB();
+      db.ticketDependencies=db.ticketDependencies||[];
+      const exists=db.ticketDependencies.find(d=>d.ticket===ticketId&&d.blockedBy===blockedByTicketId);
+      if(!exists)db.ticketDependencies.push({ticket:ticketId,blockedBy:blockedByTicketId,addedBy:su.email,addedAt:new Date().toISOString()});
+      wDB(db);return{success:true};
+    },
+    removeTicketDependency:(ticketId,blockedByTicketId)=>{
+      const db=rDB();
+      db.ticketDependencies=(db.ticketDependencies||[]).filter(d=>!(d.ticket===ticketId&&d.blockedBy===blockedByTicketId));
+      wDB(db);return{success:true};
+    },
+    getTicketDependencies:(ticketId)=>{
+      const db=rDB();
+      const blocking=(db.ticketDependencies||[]).filter(d=>d.blockedBy===ticketId).map(d=>{const t=(db.tickets||[]).find(x=>x.id===d.ticket);return{...d,ticketSubject:t?.subject,ticketStatus:t?.status};});
+      const blockedBy=(db.ticketDependencies||[]).filter(d=>d.ticket===ticketId).map(d=>{const t=(db.tickets||[]).find(x=>x.id===d.blockedBy);return{...d,blockingSubject:t?.subject,blockingStatus:t?.status};});
+      return{success:true,blocking,blockedBy,isBlocked:blockedBy.some(d=>!['resolved','closed'].includes(d.blockingStatus||''))};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FEATURE 12: AGENT DAILY DIGEST
+    // ══════════════════════════════════════════════════════════════════════
+    getAgentDailyDigest:()=>{
+      const db=rDB();const today=new Date().toISOString().split('T')[0];const email=su.email;
+      const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===email&&!['resolved','closed'].includes(t.status));
+      const myApts=(db.appointments||[]).filter(a=>(a.assignedTo===email||!a.assignedTo)&&a.date===today&&a.status!=='cancelled');
+      const myFollowUps=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===email);
+      const now=new Date();
+      const slaRisk=myTickets.filter(t=>{const sla=new Date(new Date(t.createdDate).getTime()+(24*3600000));const hr=(sla-now)/3600000;return hr>0&&hr<4;});
+      return{success:true,email,date:today,openTickets:myTickets.length,appointmentsToday:myApts.length,followUpsDue:myFollowUps.length,slaRisk:slaRisk.length,appointments:myApts,topTickets:myTickets.slice(0,5).map(t=>({id:t.id,subject:t.subject.substring(0,60),status:t.status,priority:t.priority}))};
+    },
+    sendDailyDigest:async()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const today=new Date().toISOString().split('T')[0];
+      const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+      const agents=(db.users||[]).filter(u=>u.active);
+      let sent=0;
+      for(const agent of agents){
+        const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status));
+        const myApts=(db.appointments||[]).filter(a=>a.assignedTo===agent.email&&a.date===today&&a.status!=='cancelled');
+        const myFollowUps=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===agent.email);
+        if(myTickets.length===0&&myApts.length===0&&myFollowUps.length===0)continue;
+        const html=`<div style="font-family:Arial;max-width:520px;margin:0 auto;">
+          <div style="background:${brand.accentColor||'#10B981'};padding:20px;color:#fff;border-radius:12px 12px 0 0;"><h2 style="margin:0;">📋 Daily Digest — ${today}</h2><p style="margin:4px 0 0;opacity:.85;">Hi ${agent.name||agent.email}</p></div>
+          <div style="background:#fff;padding:20px;border-radius:0 0 12px 12px;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+          ${myTickets.length?`<div style="margin-bottom:16px;"><strong>📬 Open Tickets (${myTickets.length})</strong>${myTickets.slice(0,5).map(t=>`<div style="padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px;"><span style="color:#6b7280;">${t.id}</span> ${t.subject.substring(0,50)}</div>`).join('')}</div>`:''}
+          ${myApts.length?`<div style="margin-bottom:16px;"><strong>📅 Appointments Today (${myApts.length})</strong>${myApts.map(a=>`<div style="padding:6px 0;font-size:13px;">${a.time} — ${a.customerName}: ${a.topic.substring(0,40)}</div>`).join('')}</div>`:''}
+          ${myFollowUps.length?`<div style="margin-bottom:16px;"><strong>⏰ Follow-ups Due (${myFollowUps.length})</strong>${myFollowUps.map(t=>`<div style="padding:6px 0;font-size:13px;color:#ef4444;">${t.id}: ${t.subject.substring(0,50)}</div>`).join('')}</div>`:''}
+          <a href="${BASE_URL}" style="display:inline-block;padding:10px 24px;background:${brand.accentColor||'#10B981'};color:#fff;border-radius:8px;text-decoration:none;font-weight:700;">Open Resolvo →</a>
+          </div></div>`;
+        await sendBrandEmail(slug,agent.email,`📋 Daily Digest ${today} — ${brand.name||'Resolvo'}`,html,`You have ${myTickets.length} open tickets, ${myApts.length} appointments today.`).catch(()=>{});
+        sent++;
+      }
+      return{success:true,sent};
+    },
+
     // Stubs
     syncIssuesToCalendar:()=>({success:false,error:'Not available.'}),getCalendarStatus:()=>({success:true,configured:false}),getEmailTimeline:()=>({success:true,timeline:[]}),getEmailSummary:()=>({success:true,summary:null}),getEmailParticipants:()=>({success:true,participants:[]}),getInboundRules:()=>({success:true,rules:[]}),saveInboundRule:()=>({success:true}),deleteInboundRule:()=>({success:true}),exportIssueToPDF:()=>({success:false,error:'Use browser Print > Save as PDF.'}),exportDashboardReport:()=>({success:false,error:'Use browser print.'}),getAutoTagRules:()=>({success:true,rules:[]}),saveAutoTagRule:()=>({success:true}),deleteAutoTagRule:()=>({success:true}),checkDueDateReminders:()=>({success:true}),runSmartEscalation:()=>({success:true}),runEscalationCheck:()=>({success:true,escalated:0}),
   };
@@ -3115,6 +3344,155 @@ app.get('/csat-ticket',(req,res)=>{
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
 app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 1 & 5: CUSTOMER BOOKING PAGE — Public, no auth required
+// GET /book/:slug → booking form
+// GET /book/:slug/slots → available time slots JSON
+// POST /book/:slug → submit booking
+// ══════════════════════════════════════════════════════════════════════════════
+app.get('/book/:slug',(req,res)=>{
+  const{slug}=req.params;
+  const db=readBrandDB(slug);
+  if(!db||!db.bookingConfig)return res.send('<html><body style="font-family:Arial;padding:40px;text-align:center;"><h2>Booking not available</h2><p>This brand has not set up appointment booking.</p></body></html>');
+  const cfg=db.bookingConfig||{};
+  if(!cfg.enabled)return res.send('<html><body style="font-family:Arial;padding:40px;text-align:center;"><h2>Booking unavailable</h2><p>Appointment booking is currently disabled.</p></body></html>');
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+  const accent=brand.accentColor||'#10B981';
+  const brandName=brand.name||'Support';
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book Appointment — ${brandName}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f0f2f5;font-family:-apple-system,Arial,sans-serif;padding:20px;}
+.card{max-width:520px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);overflow:hidden;}
+.hdr{background:${accent};padding:28px;text-align:center;color:#fff;}
+.hdr h1{font-size:22px;font-weight:800;margin-bottom:6px;}
+.body{padding:28px;}
+.fg{margin-bottom:16px;}label{font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;}
+input,select,textarea{width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:${accent};}
+.btn{width:100%;padding:14px;background:${accent};color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;}
+.slot{padding:8px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-size:13px;cursor:pointer;transition:all .15s;}
+.slot:hover,.slot.selected{border-color:${accent};background:${accent}18;color:${accent};font-weight:700;}
+.slot.taken{opacity:.4;cursor:not-allowed;text-decoration:line-through;}
+#success{display:none;text-align:center;padding:40px 28px;}
+</style></head><body>
+<div class="card">
+  <div class="hdr"><div style="font-size:32px;margin-bottom:8px;">📅</div><h1>${brandName}</h1><p style="opacity:.85;font-size:14px;">${cfg.title||'Book an Appointment'}</p></div>
+  <div class="body" id="bookForm">
+    <div class="fg"><label>Your Name *</label><input id="bk_name" placeholder="Full name"></div>
+    <div class="fg"><label>Email *</label><input id="bk_email" type="email" placeholder="your@email.com"></div>
+    <div class="fg"><label>Phone</label><input id="bk_phone" placeholder="+91 ..."></div>
+    <div class="fg"><label>Topic / Reason *</label><textarea id="bk_topic" rows="2" placeholder="What would you like to discuss?"></textarea></div>
+    <div class="fg"><label>Select Date</label><input id="bk_date" type="date" onchange="loadSlots(this.value)" min="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="fg"><label>Select Time Slot</label><div class="slots" id="slotsGrid"><p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Pick a date first</p></div></div>
+    <div id="bk_err" style="color:#ef4444;font-size:12px;margin-bottom:8px;display:none;"></div>
+    <button class="btn" onclick="submitBooking()">📅 Confirm Appointment</button>
+  </div>
+  <div id="success"><div style="font-size:52px;margin-bottom:16px;">✅</div><h2 style="color:#111827;margin-bottom:8px;">Appointment Booked!</h2><p style="color:#6b7280;" id="successMsg">We'll send a confirmation to your email.</p></div>
+</div>
+<script>
+var selectedSlot=null;
+function loadSlots(date){
+  fetch('/book/${slug}/slots?date='+date).then(r=>r.json()).then(data=>{
+    var g=document.getElementById('slotsGrid');
+    if(!data.slots||!data.slots.length){g.innerHTML='<p style="color:#9ca3af;font-size:13px;grid-column:span 3;">No slots available on this day</p>';return;}
+    g.innerHTML=data.slots.map(s=>'<div class="slot'+(s.taken?' taken':'')+(selectedSlot===s.time?' selected':'')+'" onclick="'+(s.taken?'':'selectSlot(this,\''+s.time+'\')')+'">'+s.label+'</div>').join('');
+  });
+}
+function selectSlot(el,time){selectedSlot=time;document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));el.classList.add('selected');}
+function submitBooking(){
+  var name=document.getElementById('bk_name').value.trim();
+  var email=document.getElementById('bk_email').value.trim();
+  var topic=document.getElementById('bk_topic').value.trim();
+  var date=document.getElementById('bk_date').value;
+  var err=document.getElementById('bk_err');
+  if(!name||!email||!topic||!date||!selectedSlot){err.textContent='Please fill all required fields and select a time slot.';err.style.display='block';return;}
+  err.style.display='none';
+  fetch('/book/${slug}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,phone:document.getElementById('bk_phone').value,topic,date,time:selectedSlot})})
+  .then(r=>r.json()).then(d=>{
+    if(d.success){document.getElementById('bookForm').style.display='none';document.getElementById('success').style.display='block';document.getElementById('successMsg').textContent='Confirmation sent to '+email+'. Ref: '+d.appointmentId;}
+    else{err.textContent=d.error||'Booking failed';err.style.display='block';}
+  });
+}
+</script></body></html>`);
+});
+
+app.get('/book/:slug/slots',(req,res)=>{
+  const{slug}=req.params;const{date}=req.query;
+  const db=readBrandDB(slug);const cfg=db.bookingConfig||{};
+  if(!cfg.enabled)return res.json({slots:[]});
+  const d=new Date(date);const dayName=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][d.getDay()];
+  const workingHours=(cfg.workingHours||{})[dayName]||cfg.defaultHours||{start:'09:00',end:'18:00',enabled:true};
+  if(!workingHours.enabled)return res.json({slots:[],message:'Not available on this day'});
+  const slots=[];const duration=parseInt(cfg.slotDuration||30);const buffer=parseInt(cfg.buffer||15);
+  const[sh,sm]=workingHours.start.split(':').map(Number);
+  const[eh,em]=workingHours.end.split(':').map(Number);
+  let cur=sh*60+sm;const end=eh*60+em;
+  while(cur+duration<=end){
+    const h=Math.floor(cur/60);const m=cur%60;
+    const timeStr=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+    const label=(h>12?h-12:h||12)+':'+(String(m).padStart(2,'0'))+' '+(h>=12?'PM':'AM');
+    const taken=(db.appointments||[]).some(a=>a.date===date&&a.time===timeStr&&a.status!=='cancelled');
+    slots.push({time:timeStr,label,taken});
+    cur+=duration+buffer;
+  }
+  res.json({slots,date,dayName});
+});
+
+app.post('/book/:slug',async(req,res)=>{
+  const{slug}=req.params;
+  const{name,email,phone,topic,date,time}=req.body;
+  if(!name||!email||!date||!time)return res.json({success:false,error:'Missing required fields'});
+  const db=readBrandDB(slug);
+  const cfg=db.bookingConfig||{};
+  if(!cfg.enabled)return res.json({success:false,error:'Booking disabled'});
+  // Check slot not taken
+  const taken=(db.appointments||[]).some(a=>a.date===date&&a.time===time&&a.status!=='cancelled');
+  if(taken)return res.json({success:false,error:'This slot is no longer available. Please choose another.'});
+  const aId=generateId('APT');
+  const appointment={
+    id:aId,brandSlug:slug,
+    customerName:name,customerEmail:email,customerPhone:phone||'',
+    topic,date,time,status:'confirmed',
+    createdAt:new Date().toISOString(),
+    reminderSent:false,ticketId:null
+  };
+  db.appointments=db.appointments||[];db.appointments.push(appointment);
+  // Auto-create a ticket for this appointment
+  const ticketId=generateTicketId(slug);
+  const now=new Date().toISOString();
+  const ticket={
+    id:ticketId,subject:`📅 Appointment: ${topic} — ${date} ${time}`,
+    from:email,fromName:name,status:'new',priority:'Medium',
+    createdDate:now,lastActivity:now,
+    thread:[{id:generateId('MSG'),type:'incoming',from:email,fromName:name,
+      body:`Appointment booked:\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone||'N/A'}\nDate: ${date}\nTime: ${time}\nTopic: ${topic}`,
+      timestamp:now}],
+    tags:['appointment'],source:'booking',appointmentId:aId
+  };
+  db.tickets=db.tickets||[];db.tickets.unshift(ticket);
+  appointment.ticketId=ticketId;
+  writeBrandDB(slug,db);
+  // Send confirmation email to customer
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+  const accent=brand.accentColor||'#10B981';const brandName=brand.name||'Support';
+  sendBrandEmail(slug,email,`📅 Appointment Confirmed — ${brandName}`,
+    `<div style="font-family:Arial;max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+    <div style="background:${accent};padding:24px;text-align:center;color:#fff;"><div style="font-size:32px;margin-bottom:8px;">📅</div><h2 style="margin:0;font-size:20px;">Appointment Confirmed!</h2></div>
+    <div style="padding:24px;"><p>Hi <strong>${name}</strong>,</p><p style="margin:12px 0;">Your appointment has been confirmed:</p>
+    <table style="width:100%;border-collapse:collapse;">
+    <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Date</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:700;">${date}</td></tr>
+    <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Time</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;font-weight:700;">${time}</td></tr>
+    <tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">Topic</td><td style="padding:8px 0;font-weight:700;">${topic}</td></tr>
+    </table><p style="margin-top:16px;font-size:12px;color:#9ca3af;">Ref: ${aId}</p></div></div>`,
+    `Appointment confirmed: ${date} ${time} — ${topic}`).catch(()=>{});
+  res.json({success:true,appointmentId:aId,ticketId});
+});
+
+// Booking confirmation page
+app.get('/confirm/:token',(req,res)=>{
+  res.send('<html><body style="font-family:Arial;padding:40px;text-align:center;"><h2>✅ Appointment Confirmed</h2><p>Thank you! Check your email for details.</p></body></html>');
+});
 
 // ============================================================
 // EMAIL TICKETING ENGINE
@@ -3648,6 +4026,74 @@ function initEmailPollers() {
   }
 }
 
+// ── FEATURE 4 & 12: Background jobs — appointment reminders + daily digest ──
+function runBackgroundJobs(){
+  const cron=require('node-cron');
+  // Daily digest at 9am
+  cron.schedule('0 9 * * *',async()=>{
+    console.log('[Jobs] Running daily digest...');
+    const owner=readOwner();
+    for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+      try{
+        const db=readBrandDB(brand.slug);
+        if(!(db.digestConfig?.enabled))continue;
+        const today=new Date().toISOString().split('T')[0];
+        const agents=(db.users||[]).filter(u=>u.active);
+        for(const agent of agents){
+          const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status));
+          const myApts=(db.appointments||[]).filter(a=>a.assignedTo===agent.email&&a.date===today&&a.status!=='cancelled');
+          const myFollowUps=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===agent.email);
+          if(myTickets.length===0&&myApts.length===0&&myFollowUps.length===0)continue;
+          await sendBrandEmail(brand.slug,agent.email,`📋 Daily Digest ${today} — ${brand.name}`,
+            `<p>Hi ${agent.name||agent.email},</p><p>You have <strong>${myTickets.length}</strong> open tickets, <strong>${myApts.length}</strong> appointments today, <strong>${myFollowUps.length}</strong> follow-ups due.</p><a href="${BASE_URL}">Open Resolvo →</a>`,
+            `Open tickets: ${myTickets.length} | Today's appointments: ${myApts.length} | Follow-ups due: ${myFollowUps.length}`).catch(()=>{});
+        }
+      }catch(e){console.error('[Jobs] Digest error:',brand.slug,e.message);}
+    }
+  });
+  // Appointment reminders — check every 15 min
+  cron.schedule('*/15 * * * *',async()=>{
+    const owner=readOwner();
+    for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+      try{
+        const db=readBrandDB(brand.slug);
+        const now=new Date();const in1h=new Date(now.getTime()+3600000);
+        const toRemind=(db.appointments||[]).filter(a=>{
+          if(a.status==='cancelled'||a.reminderSent)return false;
+          const aptDt=new Date(a.date+'T'+a.time+':00');
+          return aptDt>now&&aptDt<=in1h;
+        });
+        for(const apt of toRemind){
+          const idx=(db.appointments||[]).findIndex(x=>x.id===apt.id);
+          if(idx>=0&&apt.customerEmail){
+            await sendBrandEmail(brand.slug,apt.customerEmail,`⏰ Reminder: Appointment in 1 hour — ${brand.name}`,
+              `<p>Hi ${apt.customerName},</p><p>Reminder: You have an appointment in <strong>1 hour</strong> at ${apt.time}.</p><p>Topic: ${apt.topic}</p>`,
+              `Reminder: Your appointment is in 1 hour at ${apt.time}`).catch(()=>{});
+            db.appointments[idx].reminderSent=true;
+          }
+        }
+        if(toRemind.length>0)writeBrandDB(brand.slug,db);
+      }catch(e){}
+    }
+  });
+  // Follow-up nudges — check daily at 8am
+  cron.schedule('0 8 * * *',async()=>{
+    const owner=readOwner();
+    for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+      try{
+        const db=readBrandDB(brand.slug);const today=new Date().toISOString().split('T')[0];
+        const due=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt===today&&t.assignedTo);
+        for(const t of due){
+          await sendBrandEmail(brand.slug,t.assignedTo,`⏰ Follow-up Due Today: ${t.subject.substring(0,60)} — ${brand.name}`,
+            `<p>Your follow-up for ticket <strong>${t.id}</strong> is due today.</p><p>Note: ${t.followUpNote||'No note'}</p><a href="${BASE_URL}">View ticket →</a>`,
+            `Follow-up due today: ${t.id}`).catch(()=>{});
+        }
+      }catch(e){}
+    }
+  });
+  console.log('[Jobs] Background jobs started (reminders, digest, follow-ups)');
+}
+
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
@@ -3657,4 +4103,5 @@ app.listen(PORT,()=>{
   console.log(`Email:  ${eon?'✓ ON ('+process.env.EMAIL_USER+')':'✗ Off'}\n`);
   if(eon)getMailer();
   initEmailPollers();
+  runBackgroundJobs();
 });
