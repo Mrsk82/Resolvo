@@ -1309,7 +1309,7 @@ app.post('/api/call',async(req,res)=>{
         const brand2=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         (updatedTicket.watchers||[]).filter(w=>w!==su.email).forEach(wEmail=>{
           const wu=(dbFresh.users||[]).find(u=>u.email===wEmail);
-          sendEmail(wEmail,`[Watching] New reply on ${ticketId}: ${updatedTicket.subject}`,
+          sendBrandEmail(slug,wEmail,`[Watching] New reply on ${ticketId}: ${updatedTicket.subject}`,
             `<p>Hi ${wu?.name||wEmail},</p><p>${su.name||su.email} replied to a ticket you're watching.</p><p><strong>${updatedTicket.subject}</strong></p><p style="background:#f9fafb;padding:12px;border-radius:8px;">${replyText.substring(0,300)}</p><a href="${BASE_URL}">View ticket →</a>`,
             `New reply on ${ticketId}`).catch(()=>{});
         });
@@ -1357,7 +1357,7 @@ app.post('/api/call',async(req,res)=>{
         const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};
         mentions.filter(m=>m!==su.email).forEach(mentionEmail=>{
           const mu=(db.users||[]).find(u=>u.email===mentionEmail);
-          if(mu)sendEmail(mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,`<p>Hi ${mu.name||mentionEmail}, ${su.name||su.email} mentioned you in a comment on issue ${issueId}. <a href="${BASE_URL}">View issue</a></p>`,`${su.name} mentioned you on issue ${issueId}`).catch(()=>{});
+          if(mu)sendBrandEmail(slug,mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,`<p>Hi ${mu.name||mentionEmail}, ${su.name||su.email} mentioned you in a comment on issue ${issueId}. <a href="${BASE_URL}">View issue</a></p>`,`${su.name} mentioned you on issue ${issueId}`).catch(()=>{});
         });
       }
       return{success:true,commentId:cid};
@@ -1536,15 +1536,16 @@ app.post('/api/call',async(req,res)=>{
         const csatUrl=`${BASE_URL}/csat-ticket?token=${csatToken}`;
         db.tickets[idx].csatToken=csatToken;db.tickets[idx].csatSent=true;
         writeBrandDB(slug,rDB());
-        sendEmail(ticket.from,`✅ Your issue has been resolved — [${brandName}] ${ticket.subject}`,
+        // Use brand email so customer sees reply from the brand, not contact@resolvogroup.com
+        sendBrandEmail(slug,ticket.from,`✅ Your issue has been resolved — [${brandName}] ${ticket.subject}`,
           `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:20px 24px;text-align:center;"><div style="font-size:32px;margin-bottom:6px;">✅</div><h2 style="margin:0;color:#fff;font-size:18px;">Issue Resolved</h2></div><div style="padding:28px;text-align:center;"><p style="color:#374151;font-size:14px;margin:0 0 20px;">Hi there! Your support request has been resolved. Was this helpful?</p><div style="display:flex;gap:12px;justify-content:center;margin:0 0 20px;"><a href="${csatUrl}&rating=yes" style="background:#10B981;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👍 Yes</a><a href="${csatUrl}&rating=no" style="background:#EF4444;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👎 No</a></div><p style="color:#9ca3af;font-size:12px;margin:0;">Ref: ${ticketId}</p></div></div></body></html>`,
           `Your ticket ${ticketId} has been resolved. Was this helpful? Reply YES or NO.`
         ).catch(()=>{});
       }
-      // Notify watchers of status change
+      // Notify watchers — use brand email
       const brand2=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
       (ticket.watchers||[]).filter(w=>w!==su.email).forEach(wEmail=>{
-        sendEmail(wEmail,`[Watching] Ticket ${ticketId} status: ${status}`,
+        sendBrandEmail(slug,wEmail,`[Watching] Ticket ${ticketId} status: ${status}`,
           `<p>Ticket <strong>${ticket.subject}</strong> was updated to <strong>${status}</strong> by ${su.name||su.email}.</p><a href="${BASE_URL}">View ticket →</a>`,
           `Ticket ${ticketId} is now ${status}`).catch(()=>{});
       });
@@ -1832,7 +1833,7 @@ app.post('/api/call',async(req,res)=>{
       db.csatSurveys.push({token:surveyToken,ticketId,customerEmail:ticket.from,brandSlug:slug,createdAt:new Date().toISOString(),rating:null,comment:null,respondedAt:null});
       wDB(db);
       const surveyUrl=`${BASE_URL}/csat?token=${surveyToken}`;
-      await sendEmail(ticket.from,`How did we do? — ${brand.name||'Support'}`,
+      await sendBrandEmail(slug,ticket.from,`How did we do? — ${brand.name||'Support'}`,
         `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:32px 16px;">
         <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
           <div style="background:#F5A623;padding:28px 32px;text-align:center;">
