@@ -15112,43 +15112,83 @@ const App = {
     self.setPage('Settings','Admin / Settings');
     var area = document.getElementById('contentArea');
 
-    var TABS = [
-      {id:'general',icon:'🏢',label:'General'},
-      {id:'email',icon:'📬',label:'Email & Ticketing'},
-      {id:'sla',icon:'⏱',label:'SLA Configuration'},
-      {id:'integrations',icon:'🔗',label:'Integrations'},
-      {id:'team',icon:'🤝',label:'Team & Roles'},
-      {id:'features',icon:'⚡',label:'Features & Plan'},
-      {id:'security',icon:'🔐',label:'Security'},
-      {id:'canned',icon:'⚡',label:'Canned Responses'},
-      {id:'templates',icon:'📋',label:'Ticket Templates'},
-      {id:'ooo',icon:'🏖',label:'Out of Office'},
-      {id:'escalation',icon:'🚨',label:'Escalation Rules'},
-      {id:'recurring-tkt',icon:'🔁',label:'Recurring Tickets'},
-      {id:'issue-form',icon:'📝',label:'Issue Form Builder'},
-      {id:'notify-prefs',icon:'🔔',label:'My Notifications'},
-      {id:'data-export',icon:'📦',label:'Data Export'},
-      {id:'queue-config',icon:'🔄',label:'Assignment Queue'},
-      {id:'vip-config',icon:'⭐',label:'VIP Customers'},
-      {id:'booking-config',icon:'📅',label:'Appointment Booking'},
-      {id:'knowledge-base',icon:'📖',label:'Knowledge Base'},
-      {id:'roadmap',icon:'🗺',label:'Roadmap'},
-      {id:'api-keys',icon:'🔑',label:'API Keys'},
-      {id:'two-fa',icon:'🔒',label:'Two-Factor Auth'},
-      {id:'approval-rules',icon:'✅',label:'Approval Workflows'},
-      // SLA Policies merged into SLA Configuration tab above
-      {id:'gdpr',icon:'🛡',label:'GDPR & Privacy'},
+    // Get feature flags for current brand
+    var ff = self.featureFlags || {};
+    var isEnterprise = self.currentUser && ['Enterprise'].includes(self.currentUser.brandTier);
+    var isPro = self.currentUser && ['Pro','Enterprise','Trial'].includes(self.currentUser.brandTier);
+
+    // All tabs — each has an optional 'requires' feature flag
+    var ALL_TABS = [
+      // ── ALWAYS VISIBLE ──
+      {id:'general',     icon:'🏢', label:'General',            group:'Core'},
+      {id:'sla',         icon:'⏱', label:'SLA Configuration',  group:'Core'},
+      {id:'team',        icon:'🤝', label:'Team & Roles',       group:'Core'},
+      {id:'features',    icon:'⚡', label:'Features & Plan',    group:'Core'},
+      {id:'security',    icon:'🔐', label:'Security',           group:'Core'},
+      {id:'notify-prefs',icon:'🔔', label:'My Notifications',   group:'Core'},
+      {id:'data-export', icon:'📦', label:'Data Export',        group:'Core'},
+      // ── EMAIL & TICKETING ──
+      {id:'email',         icon:'📬', label:'Email & Ticketing',   group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'canned',        icon:'⚡', label:'Canned Responses',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'templates',     icon:'📋', label:'Ticket Templates',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'ooo',           icon:'🏖', label:'Out of Office',       group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'queue-config',  icon:'🔄', label:'Assignment Queue',    group:'Email & Support', requires:'QUEUE_ENABLED'},
+      {id:'vip-config',    icon:'⭐', label:'VIP Customers',       group:'Email & Support', requires:'QUEUE_ENABLED'},
+      {id:'booking-config',icon:'📅', label:'Appointment Booking', group:'Email & Support', requires:'APPOINTMENT_BOOKING_ENABLED'},
+      // ── WORKFLOW ──
+      {id:'issue-form',    icon:'📝', label:'Issue Form Builder',  group:'Workflow', requires:'ISSUE_TEMPLATES_ENABLED'},
+      {id:'escalation',    icon:'🚨', label:'Escalation Rules',    group:'Workflow'},
+      {id:'recurring-tkt', icon:'🔁', label:'Recurring Tickets',   group:'Workflow'},
+      {id:'approval-rules',icon:'✅', label:'Approval Workflows',  group:'Workflow', requires:'APPROVAL_WORKFLOWS_ENABLED'},
+      // ── CONTENT ──
+      {id:'knowledge-base',icon:'📖', label:'Knowledge Base',      group:'Content', requires:'KNOWLEDGE_BASE_ENABLED'},
+      {id:'roadmap',       icon:'🗺', label:'Roadmap',             group:'Content', requires:'ROADMAP_ENABLED'},
+      // ── INTEGRATIONS ──
+      {id:'integrations',  icon:'🔗', label:'Integrations',        group:'Integrations'},
+      {id:'api-keys',      icon:'🔑', label:'API Keys',            group:'Integrations', requires:'API_KEYS_ENABLED'},
+      // ── SECURITY ──
+      {id:'two-fa',        icon:'🔒', label:'Two-Factor Auth',     group:'Security', requires:'TWO_FA_ENABLED'},
+      {id:'gdpr',          icon:'🛡', label:'GDPR & Privacy',      group:'Compliance', requires:'GDPR_TOOLS_ENABLED'},
     ];
 
-    var tabsHtml = TABS.map(function(t){
-      var active = t.id === self._settingsTab;
-      return '<div onclick="App._settingsTab=\''+t.id+'\';App.renderUnifiedSettings(\''+t.id+'\')" '+
-        'style="display:flex;align-items:center;gap:9px;padding:10px 14px;cursor:pointer;border-radius:8px;'+
-        'background:'+(active?'var(--accent-dim)':'transparent')+';'+
-        'border:1px solid '+(active?'var(--border-accent)':'transparent')+';margin-bottom:2px;transition:all .12s;">'+
-        '<span style="font-size:16px;">'+t.icon+'</span>'+
-        '<span style="font-size:13px;font-weight:'+(active?700:500)+';color:'+(active?'var(--accent)':'var(--text-secondary)')+';">'+t.label+'</span>'+
-        '</div>';
+    // Filter tabs based on feature flags — only show tabs for enabled features
+    var TABS = ALL_TABS.filter(function(t){
+      if(!t.requires) return true; // always show tabs with no requirement
+      var flag = ff[t.requires];
+      return flag === true || flag === 'true';
+    });
+
+    // If no tab is accessible, reset to general
+    if(TABS.length>0 && !TABS.find(function(t){return t.id===self._settingsTab;})){
+      self._settingsTab = 'general';
+    }
+
+    // Group tabs visually
+    var groups = {};
+    TABS.forEach(function(t){
+      var g = t.group||'Core';
+      if(!groups[g]) groups[g]=[];
+      groups[g].push(t);
+    });
+
+    // Build grouped sidebar
+    var tabsHtml = Object.entries(groups).map(function(entry){
+      var groupName = entry[0];
+      var groupTabs = entry[1];
+      var tabItems = groupTabs.map(function(t){
+        var active = t.id === self._settingsTab;
+        return '<div onclick="App._settingsTab=\''+t.id+'\';App.renderUnifiedSettings(\''+t.id+'\')" '+
+          'style="display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;border-radius:7px;'+
+          'background:'+(active?'var(--accent-dim)':'transparent')+';'+
+          'border:1px solid '+(active?'var(--border-accent)':'transparent')+';margin-bottom:1px;transition:all .12s;">'+
+          '<span style="font-size:14px;">'+t.icon+'</span>'+
+          '<span style="font-size:12px;font-weight:'+(active?700:500)+';color:'+(active?'var(--accent)':'var(--text-secondary)')+';">'+t.label+'</span>'+
+          '</div>';
+      }).join('');
+      // Only show group label if there are multiple groups
+      return (Object.keys(groups).length>1?
+        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);padding:8px 12px 3px;margin-top:4px;">'+groupName+'</div>':'')+
+        tabItems;
     }).join('');
 
     area.innerHTML =
