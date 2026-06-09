@@ -3850,6 +3850,56 @@ app.get('/csat-ticket',(req,res)=>{
   }catch(e){return res.send('<html><body><p>Invalid link.</p></body></html>');}
 });
 
+// ── PUBLIC SELF-SIGNUP (no auth — creates trial brand) ─────────────────────
+app.post('/api/signup',async(req,res)=>{
+  const{name,email,company,password}=req.body;
+  if(!name||!email||!company)return res.json({success:false,error:'Name, email and company required.'});
+  if(!email.includes('@'))return res.json({success:false,error:'Invalid email.'});
+  const owner=readOwner();
+  // Check email not already registered
+  const existing=(owner.brands||[]).find(b=>b.majorAdminEmail===email);
+  if(existing)return res.json({success:false,error:'An account with this email already exists. Please log in.'});
+  // Generate slug from company name
+  let slug=company.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').substring(0,30);
+  if(!slug)slug='brand-'+Date.now();
+  // Ensure unique slug
+  let finalSlug=slug;let i=2;
+  while((owner.brands||[]).find(b=>b.slug===finalSlug)){finalSlug=slug+'-'+i;i++;}
+  const pass=password||email.split('@')[0]+'@'+Math.floor(1000+Math.random()*9000);
+  fs.mkdirSync(path.join(BRANDS_DIR,finalSlug),{recursive:true});
+  writeBrandDB(finalSlug,defaultBrandDB(company,email,name,pass));
+  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',majorAdminEmail:email,createdDate:new Date().toISOString(),lastActive:null,limits:{maxUsers:10,maxIssues:100}};
+  owner.brands=owner.brands||[];owner.brands.push(brand);
+  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup'},owner.email);
+  writeOwner(owner);
+  // Send welcome email
+  const welcomeHtml=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:32px;text-align:center;"><div style="font-size:36px;margin-bottom:10px;">🎉</div><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Welcome to Resolvo!</h1><p style="margin:8px 0 0;color:rgba(255,255,255,.85);font-size:14px;">Your account is ready</p></div><div style="padding:28px 32px;"><p style="font-size:15px;color:#374151;">Hi <strong>${name}</strong>,</p><p style="font-size:14px;color:#374151;line-height:1.7;">Your Resolvo workspace for <strong>${company}</strong> is live and ready. Here are your login details:</p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:16px 0;border:1px solid #e5e7eb;"><div style="font-size:13px;color:#6b7280;margin-bottom:6px;"><strong>Login URL:</strong> <a href="${BASE_URL}" style="color:#10B981;">${BASE_URL}</a></div><div style="font-size:13px;color:#6b7280;margin-bottom:6px;"><strong>Email:</strong> ${email}</div><div style="font-size:13px;color:#6b7280;"><strong>Password:</strong> <span style="font-family:monospace;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${pass}</span></div></div><p style="font-size:13px;color:#6b7280;">Please change your password after first login.</p><div style="text-align:center;margin-top:20px;"><a href="${BASE_URL}" style="display:inline-block;padding:13px 40px;background:linear-gradient(135deg,#10B981,#6366F1);color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;">Open Your Workspace →</a></div></div><div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;"><p style="font-size:12px;color:#9ca3af;margin:0;">Need help? <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></p></div></div></body></html>`;
+  await sendEmail(email,`🎉 Welcome to Resolvo — ${company} is live!`,welcomeHtml,`Your Resolvo workspace is ready. Login: ${BASE_URL} | Email: ${email} | Password: ${pass}`).catch(()=>{});
+  // Notify owner
+  sendEmail(owner.email,`New signup: ${company} (${email})`,`<p>New self-signup on Resolvo:</p><p><strong>Company:</strong> ${company}<br><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Slug:</strong> ${finalSlug}<br><strong>Tier:</strong> Free<br><strong>Time:</strong> ${new Date().toLocaleString()}</p>`,`New signup: ${company} — ${email}`).catch(()=>{});
+  res.json({success:true,message:'Account created! Check your email for login details.',slug:finalSlug});
+});
+
+// ── DEMO REQUEST ─────────────────────────────────────────────────────────────
+app.post('/api/demo-request',async(req,res)=>{
+  const{name,email,company,message}=req.body;
+  if(!name||!email)return res.json({success:false,error:'Name and email required.'});
+  const owner=readOwner();
+  await sendEmail(owner.email,`Demo Request: ${name} from ${company||'unknown'}`,`<p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Company:</strong> ${company||'—'}<br><strong>Message:</strong> ${message||'—'}</p><p><a href="mailto:${email}">Reply to ${name}</a></p>`,`Demo request from ${name} (${email}) — ${company||''}`).catch(()=>{});
+  // Auto-reply to prospect
+  await sendEmail(email,`Thanks for your interest in Resolvo!`,`<div style="font-family:Arial;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#10B981;">Hi ${name}! 👋</h2><p>Thank you for your interest in Resolvo. We've received your request and will be in touch within 24 hours.</p><p>In the meantime, feel free to start a free trial:</p><a href="${BASE_URL}" style="display:inline-block;padding:12px 32px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Start Free Trial →</a><p style="margin-top:20px;color:#6b7280;font-size:13px;">— Team Resolvo<br><a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p></div>`,`Hi ${name}, we received your demo request and will be in touch shortly.`).catch(()=>{});
+  res.json({success:true,message:'Request received! Check your email — we\'ll be in touch within 24 hours.'});
+});
+
+// ── SEO LANDING PAGES ─────────────────────────────────────────────────────────
+app.get('/for/engineering-teams',(req,res)=>res.redirect('/pitch'));
+app.get('/for/support-teams',(req,res)=>res.redirect('/pitch'));
+app.get('/vs/jira',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-jira.html')));
+app.get('/vs/freshdesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-freshdesk.html')));
+app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
+app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));
+app.get('/signup',(req,res)=>res.sendFile(path.join(__dirname,'public','signup.html')));
+
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
 
@@ -4736,7 +4786,7 @@ app.listen(PORT,()=>{
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
   console.log(`║   Resolvo SaaS  —  ${BASE_URL.padEnd(34)}║`);
   console.log(`╚══════════════════════════════════════════════════════╝\n`);
-  console.log(`Owner:  asif@konnectinsights.com / asif`);
+  const ownerInfo=readOwner();console.log(`Owner:  ${ownerInfo.email}`);
   console.log(`Email:  ${eon?'✓ ON ('+process.env.EMAIL_USER+')':'✗ Off'}\n`);
   if(eon)getMailer();
   initEmailPollers();

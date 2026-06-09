@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start Free — Resolvo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#08090A;color:#F0F4FF;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.card{background:#0D1220;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:48px;width:100%;max-width:440px;box-shadow:0 40px 80px rgba(0,0,0,.5);}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:36px;}
+.logo-r{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00FF94,#9D4EDD);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#000;}
+.logo-t{font-size:18px;font-weight:800;background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+h1{font-size:26px;font-weight:900;letter-spacing:-1px;margin-bottom:6px;}
+.sub{font-size:14px;color:#7A8899;margin-bottom:28px;}
+.fg{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:600;color:#7A8899;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:12px 16px;font-size:14px;color:#F0F4FF;font-family:inherit;outline:none;transition:border-color .2s;}
+input:focus{border-color:#00FF94;}
+.btn{width:100%;background:linear-gradient(135deg,#00FF94,#9D4EDD);color:#000;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px;transition:all .2s;}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(0,255,148,.25);}
+.msg{display:none;margin-top:14px;padding:12px;border-radius:8px;font-size:13px;text-align:center;}
+.footer-link{text-align:center;margin-top:20px;font-size:13px;color:#7A8899;}
+.footer-link a{color:#00FF94;text-decoration:none;}
+.perks{display:flex;flex-direction:column;gap:6px;margin-bottom:24px;}
+.perk{display:flex;align-items:center;gap:8px;font-size:13px;color:#7A8899;}
+.perk::before{content:'✓';color:#00FF94;font-weight:800;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-r">R</div>
+    <span class="logo-t">resolvo</span>
+  </div>
+  <h1>Start for free</h1>
+  <p class="sub">No credit card. No setup. Running in 5 minutes.</p>
+  <div class="perks">
+    <div class="perk">Issue tracking + SLA timers</div>
+    <div class="perk">Email ticketing inbox</div>
+    <div class="perk">AI-powered smart queue</div>
+    <div class="perk">Up to 10 users on Free</div>
+  </div>
+  <div class="fg"><label>Your Name</label><input id="s_name" placeholder="Asif Shaikh"></div>
+  <div class="fg"><label>Company Name</label><input id="s_company" placeholder="Acme Corp"></div>
+  <div class="fg"><label>Work Email</label><input id="s_email" type="email" placeholder="you@company.com"></div>
+  <div class="fg"><label>Password</label><input id="s_pass" type="password" placeholder="Min 8 characters"></div>
+  <button class="btn" id="s_btn" onclick="doSignup()">Create free account →</button>
+  <div class="msg" id="s_msg"></div>
+  <div class="footer-link">Already have an account? <a href="/">Sign in</a></div>
+  <div class="footer-link" style="margin-top:8px;"><a href="/pitch">Back to home</a></div>
+</div>
+<script>
+async function doSignup() {
+  const name=document.getElementById('s_name').value.trim();
+  const company=document.getElementById('s_company').value.trim();
+  const email=document.getElementById('s_email').value.trim();
+  const pass=document.getElementById('s_pass').value.trim();
+  const btn=document.getElementById('s_btn');
+  const msg=document.getElementById('s_msg');
+  if(!name||!company||!email){showMsg('Please fill all fields.','#FF4757');return;}
+  if(pass&&pass.length<8){showMsg('Password must be at least 8 characters.','#FF4757');return;}
+  btn.textContent='Creating your account...';btn.disabled=true;
+  const r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company,email,password:pass||undefined})}).then(x=>x.json()).catch(()=>({success:false,error:'Network error'}));
+  if(r.success){
+    showMsg('🎉 Account created! Check your email for login details.','#00FF94');
+    btn.textContent='✓ Account created!';
+    setTimeout(()=>window.location.href='/',2500);
+  } else {
+    showMsg(r.error||'Something went wrong.','#FF4757');
+    btn.textContent='Create free account →';btn.disabled=false;
+  }
+}
+function showMsg(text,color){const el=document.getElementById('s_msg');el.textContent=text;el.style.display='block';el.style.background=color==='#00FF94'?'rgba(0,255,148,.1)':'rgba(255,71,87,.1)';el.style.border='1px solid '+color+'33';el.style.color=color;}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();});
+</script>
+</body>
+</html>

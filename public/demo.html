@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Book a Demo — Resolvo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#08090A;color:#F0F4FF;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.wrap{display:grid;grid-template-columns:1fr 1fr;gap:60px;max-width:900px;width:100%;align-items:start;}
+.left h1{font-size:clamp(28px,4vw,48px);font-weight:900;letter-spacing:-2px;line-height:1.05;margin-bottom:16px;}
+.hl{background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.left p{font-size:16px;color:#7A8899;line-height:1.7;margin-bottom:28px;}
+.points{display:flex;flex-direction:column;gap:12px;}
+.point{display:flex;align-items:flex-start;gap:12px;font-size:14px;color:#94A3B8;}
+.point-icon{width:32px;height:32px;border-radius:8px;background:rgba(0,255,148,.1);border:1px solid rgba(0,255,148,.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.point-text strong{display:block;color:#F0F4FF;font-weight:600;margin-bottom:2px;}
+.card{background:#0D1220;border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:36px;box-shadow:0 40px 80px rgba(0,0,0,.5);}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;}
+.logo-r{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#00FF94,#9D4EDD);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#000;}
+.logo-t{font-size:16px;font-weight:800;background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.card h2{font-size:20px;font-weight:800;margin-bottom:4px;}
+.card .sub{font-size:13px;color:#7A8899;margin-bottom:22px;}
+.fg{margin-bottom:14px;}
+label{display:block;font-size:11px;font-weight:600;color:#7A8899;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+input,textarea,select{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:11px 14px;font-size:13px;color:#F0F4FF;font-family:inherit;outline:none;transition:border-color .2s;resize:none;}
+input:focus,textarea:focus,select:focus{border-color:#00FF94;}
+select option{background:#0D1220;}
+.btn{width:100%;background:linear-gradient(135deg,#00FF94,#9D4EDD);color:#000;border:none;border-radius:9px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .2s;}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,255,148,.2);}
+.msg{display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;text-align:center;}
+@media(max-width:700px){.wrap{grid-template-columns:1fr;gap:32px;}.left h1{font-size:28px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="left">
+    <a href="/pitch" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:32px;">
+      <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#00FF94,#9D4EDD);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#000;">R</div>
+      <span style="font-size:16px;font-weight:800;background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">resolvo</span>
+    </a>
+    <h1>See Resolvo<br>in <span class="hl">action</span></h1>
+    <p>Book a 30-minute demo. We'll walk you through the platform and answer every question your team has.</p>
+    <div class="points">
+      <div class="point"><div class="point-icon">🎯</div><div class="point-text"><strong>Personalized walkthrough</strong>We focus on your specific use case — issue tracking, ticketing, or both.</div></div>
+      <div class="point"><div class="point-icon">⚡</div><div class="point-text"><strong>Live Q&A</strong>Ask anything about features, pricing, or integrations. No scripts.</div></div>
+      <div class="point"><div class="point-icon">🚀</div><div class="point-text"><strong>Same-day setup</strong>If you decide to go ahead, we'll have you live before the call ends.</div></div>
+      <div class="point"><div class="point-icon">🎁</div><div class="point-text"><strong>Free Pro trial</strong>Every demo gets a 14-day Pro trial — no card required.</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="logo"><div class="logo-r">R</div><span class="logo-t">resolvo</span></div>
+    <h2>Book your demo</h2>
+    <p class="sub">We reply within 2 hours on weekdays</p>
+    <div class="fg"><label>Your Name *</label><input id="d_name" placeholder="Asif Shaikh"></div>
+    <div class="fg"><label>Work Email *</label><input id="d_email" type="email" placeholder="you@company.com"></div>
+    <div class="fg"><label>Company</label><input id="d_company" placeholder="Acme Corp"></div>
+    <div class="fg"><label>Team Size</label>
+      <select id="d_size">
+        <option value="">Select team size</option>
+        <option>1-5 people</option>
+        <option>6-20 people</option>
+        <option>21-50 people</option>
+        <option>50+ people</option>
+      </select>
+    </div>
+    <div class="fg"><label>What do you need most?</label>
+      <textarea id="d_msg" rows="3" placeholder="e.g. Issue tracking for 3 teams, email support ticketing..."></textarea>
+    </div>
+    <button class="btn" id="d_btn" onclick="sendDemo()">Book my demo →</button>
+    <div class="msg" id="d_msg_el"></div>
+  </div>
+</div>
+<script>
+async function sendDemo(){
+  const name=document.getElementById('d_name').value.trim();
+  const email=document.getElementById('d_email').value.trim();
+  const company=document.getElementById('d_company').value.trim();
+  const size=document.getElementById('d_size').value;
+  const message=document.getElementById('d_msg').value.trim();
+  const btn=document.getElementById('d_btn');
+  if(!name||!email){showMsg('Name and email are required.','#FF4757');return;}
+  btn.textContent='Sending...';btn.disabled=true;
+  const r=await fetch('/api/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,company,message:`Team size: ${size||'Not specified'}\n${message}`})}).then(x=>x.json()).catch(()=>({success:false,error:'Network error'}));
+  if(r.success){showMsg("✅ Request sent! We'll email you within 2 hours.",'#00FF94');btn.textContent='✓ Request sent!';}
+  else{showMsg(r.error||'Error. Try emailing contact@resolvogroup.com','#FF4757');btn.textContent='Book my demo →';btn.disabled=false;}
+}
+function showMsg(text,color){const el=document.getElementById('d_msg_el');el.textContent=text;el.style.display='block';el.style.background=color==='#00FF94'?'rgba(0,255,148,.1)':'rgba(255,71,87,.1)';el.style.border='1px solid '+color+'33';el.style.color=color;}
+</script>
+</body>
+</html>
