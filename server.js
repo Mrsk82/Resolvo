@@ -950,6 +950,74 @@ app.get('/api/owner/export-csv',ownerOnly,(req,res)=>{
   res.setHeader('Content-Type','text/csv');res.send(csv);
 });
 
+// ── OWNER CRM — Prospect tracking (owner-only, not visible to brands) ─────────
+// DB CHANGE: adds owner.prospects — backward safe
+app.get('/api/owner/prospects',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  res.json({success:true,prospects:(owner.prospects||[]).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))});
+});
+app.post('/api/owner/prospects',ownerOnly,(req,res)=>{
+  const{name,email,company,status,notes,source}=req.body;
+  const owner=readOwner();owner.prospects=owner.prospects||[];
+  const id=uuidv4().substring(0,8);const now=new Date().toISOString();
+  owner.prospects.push({id,name,email,company,status:status||'lead',notes:notes||'',source:source||'manual',createdAt:now,updatedAt:now,lastContact:null});
+  writeOwner(owner);res.json({success:true,id});
+});
+app.put('/api/owner/prospects/:id',ownerOnly,(req,res)=>{
+  const owner=readOwner();const idx=(owner.prospects||[]).findIndex(p=>p.id===req.params.id);
+  if(idx===-1)return res.json({success:false,error:'Not found'});
+  Object.assign(owner.prospects[idx],req.body,{updatedAt:new Date().toISOString()});
+  writeOwner(owner);res.json({success:true});
+});
+app.delete('/api/owner/prospects/:id',ownerOnly,(req,res)=>{
+  const owner=readOwner();owner.prospects=(owner.prospects||[]).filter(p=>p.id!==req.params.id);
+  writeOwner(owner);res.json({success:true});
+});
+
+// ── REFERRAL SYSTEM (owner-only feature) ─────────────────────────────────────
+// DB CHANGE: adds owner.referrals — backward safe
+app.post('/api/owner/referral/generate/:slug',ownerOnly,(req,res)=>{
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===req.params.slug);
+  if(!brand)return res.json({success:false,error:'Brand not found'});
+  owner.referrals=owner.referrals||{};
+  const code=req.params.slug.substring(0,6).toUpperCase()+Math.random().toString(36).substring(2,5).toUpperCase();
+  owner.referrals[code]={slug:req.params.slug,brandName:brand.name,email:brand.majorAdminEmail,createdAt:new Date().toISOString(),uses:0,freeMonthsEarned:0};
+  // Also store on brand
+  const idx=(owner.brands||[]).findIndex(b=>b.slug===req.params.slug);
+  if(idx>=0)owner.brands[idx].referralCode=code;
+  writeOwner(owner);
+  const referralUrl=`${BASE_URL}/signup?ref=${code}`;
+  res.json({success:true,code,url:referralUrl});
+});
+app.get('/api/owner/referrals',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  const refs=Object.entries(owner.referrals||{}).map(([code,r])=>({code,...r}));
+  res.json({success:true,referrals:refs});
+});
+// When signup includes ?ref= code, credit the referrer
+// (handled in /api/signup — checks req.body.ref)
+
+// ── ONBOARDING CHECKLIST for new brand admins ─────────────────────────────────
+app.get('/api/onboarding-status',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.isOwner)return res.json({success:false});
+  const db=readBrandDB(su.brandSlug);
+  const steps=[
+    {id:'create_issue',label:'Create your first issue',done:(db.issues||[]).length>0,link:'#create-issue',icon:'🎫'},
+    {id:'invite_user',label:'Invite a teammate',done:(db.users||[]).length>1,link:'#user-management',icon:'👥'},
+    {id:'connect_email',label:'Connect email inbox',done:!!(db.emailTicketing?.enabled),link:'#email-ticketing',icon:'📬'},
+    {id:'set_sla',label:'Configure SLA rules',done:!!(db.slaConfig?.Critical),link:'#sla-settings',icon:'⏱'},
+    {id:'setup_queue',label:'Enable assignment queue',done:!!(db.queueConfig?.enabled),link:'#settings|queue-config',icon:'🔄'},
+    {id:'view_reports',label:'Check your first report',done:!!(db.activityLog?.length>5),link:'#reports',icon:'📊'},
+  ];
+  const completed=steps.filter(s=>s.done).length;
+  return res.json({success:true,steps,completed,total:steps.length,percent:Math.round(completed/steps.length*100)});
+});
+
+// ── GA4 ANALYTICS placeholder route ──────────────────────────────────────────
+app.get('/api/ga4-config',(req,res)=>{
+  res.json({measurementId:process.env.GA4_ID||''});
+});
+
 // Platform version info
 app.get('/api/owner/platform-info',ownerOnly,(req,res)=>{
   const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'package.json'),'utf8'));
@@ -3852,7 +3920,7 @@ app.get('/csat-ticket',(req,res)=>{
 
 // ── PUBLIC SELF-SIGNUP (no auth — creates trial brand) ─────────────────────
 app.post('/api/signup',async(req,res)=>{
-  const{name,email,company,password}=req.body;
+  const{name,email,company,password,ref}=req.body;
   if(!name||!email||!company)return res.json({success:false,error:'Name, email and company required.'});
   if(!email.includes('@'))return res.json({success:false,error:'Invalid email.'});
   const owner=readOwner();
@@ -3870,7 +3938,16 @@ app.post('/api/signup',async(req,res)=>{
   writeBrandDB(finalSlug,defaultBrandDB(company,email,name,pass));
   const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',majorAdminEmail:email,createdDate:new Date().toISOString(),lastActive:null,limits:{maxUsers:10,maxIssues:100}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
-  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup'},owner.email);
+  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null},owner.email);
+  // Track referral if ref code provided
+  if(ref&&owner.referrals&&owner.referrals[ref]){
+    owner.referrals[ref].uses=(owner.referrals[ref].uses||0)+1;
+    owner.referrals[ref].lastUsed=new Date().toISOString();
+    // Free month for referrer — add note (manual credit for now)
+    const refIdx=(owner.brands||[]).findIndex(b=>b.slug===owner.referrals[ref].slug);
+    if(refIdx>=0){owner.brands[refIdx].referralCredits=(owner.brands[refIdx].referralCredits||0)+1;}
+    console.log(`[Referral] Code ${ref} used by ${email} — referrer: ${owner.referrals[ref].email}`);
+  }
   writeOwner(owner);
   // Send welcome email
   const welcomeHtml=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:32px;text-align:center;"><div style="font-size:36px;margin-bottom:10px;">🎉</div><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Welcome to Resolvo!</h1><p style="margin:8px 0 0;color:rgba(255,255,255,.85);font-size:14px;">Your account is ready</p></div><div style="padding:28px 32px;"><p style="font-size:15px;color:#374151;">Hi <strong>${name}</strong>,</p><p style="font-size:14px;color:#374151;line-height:1.7;">Your Resolvo workspace for <strong>${company}</strong> is live and ready. Here are your login details:</p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:16px 0;border:1px solid #e5e7eb;"><div style="font-size:13px;color:#6b7280;margin-bottom:6px;"><strong>Login URL:</strong> <a href="${BASE_URL}" style="color:#10B981;">${BASE_URL}</a></div><div style="font-size:13px;color:#6b7280;margin-bottom:6px;"><strong>Email:</strong> ${email}</div><div style="font-size:13px;color:#6b7280;"><strong>Password:</strong> <span style="font-family:monospace;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${pass}</span></div></div><p style="font-size:13px;color:#6b7280;">Please change your password after first login.</p><div style="text-align:center;margin-top:20px;"><a href="${BASE_URL}" style="display:inline-block;padding:13px 40px;background:linear-gradient(135deg,#10B981,#6366F1);color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;">Open Your Workspace →</a></div></div><div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;"><p style="font-size:12px;color:#9ca3af;margin:0;">Need help? <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></p></div></div></body></html>`;
@@ -4714,6 +4791,48 @@ function initEmailPollers() {
 }
 
 // ── FEATURE 4 & 12: Background jobs — appointment reminders + daily digest ──
+// ── EMAIL NURTURE SEQUENCES ────────────────────────────────────────────────────
+// Sent automatically after brand self-signup: Day 1, 3, 7, 14
+const NURTURE_EMAILS=[
+  {day:1,subject:'Quick tip: Create your first issue in Resolvo',
+   body:(n,url)=>`<p>Hi ${n},</p><p>Welcome to Resolvo! 🎉</p><p>The fastest way to see value is to create your first issue and assign it to a teammate.</p><p>Here's what takes 2 minutes:</p><ol style="margin:12px 0;padding-left:20px;line-height:2;"><li>Click <strong>+ New Issue</strong> in the top right</li><li>Set a priority (try Critical or High first)</li><li>Assign it to yourself or a teammate</li></ol><p>The SLA timer starts immediately — you'll see the countdown. That's the magic.</p><a href="${url}" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Create first issue →</a><p style="margin-top:16px;color:#6b7280;font-size:13px;">Reply to this email if you need any help getting started.</p>`},
+  {day:3,subject:'Did you know Resolvo has a full email helpdesk?',
+   body:(n,url)=>`<p>Hi ${n},</p><p>Most teams start with issue tracking and don't realise Resolvo also has a complete email support inbox.</p><p><strong>How it works:</strong> Connect your Gmail → customer emails become tickets automatically → reply from Resolvo → customer gets a professional branded reply.</p><p>No separate Freshdesk. No separate Zendesk. It's all here.</p><p><strong>To set it up:</strong> Settings → Email & Ticketing → Connect Gmail</p><a href="${url}/settings" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Connect email inbox →</a>`},
+  {day:7,subject:'Your first week with Resolvo — how\'s it going?',
+   body:(n,url)=>`<p>Hi ${n},</p><p>It's been a week! Here are 3 features teams love most that you might not have tried yet:</p><ul style="margin:12px 0;padding-left:20px;line-height:2;"><li><strong>Smart Queue</strong> — auto-assigns support tickets to your team. Settings → Assignment Queue</li><li><strong>Customer Portal</strong> — give customers a self-service page at /portal/your-brand</li><li><strong>Reports</strong> — see your SLA compliance, agent performance, ticket volume forecast</li></ul><p>Any questions? Just reply — I personally respond within 24 hours.</p><p>— Team Resolvo</p><a href="${url}" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Explore Resolvo →</a>`},
+  {day:14,subject:'Upgrade to Pro? Here\'s what you unlock',
+   body:(n,url)=>`<p>Hi ${n},</p><p>Two weeks in! Teams on Pro close issues 3× faster. Here's what you unlock:</p><table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;"><tr style="background:#f9fafb;"><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:700;">Feature</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">Free</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;color:#10B981;font-weight:700;">Pro</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">Email Ticketing + Queue</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">AI Triage (Gemini)</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">Knowledge Base + Roadmap</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">9 Report Types</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr></table><p>Pro is ₹999/month for your entire team. That's less than one coffee per day.</p><a href="mailto:contact@resolvogroup.com?subject=Upgrade to Pro" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Upgrade to Pro →</a>`},
+];
+
+async function sendNurtureEmails(){
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const created=new Date(brand.createdDate||brand.lastActive||Date.now());
+      const daysSince=Math.floor((Date.now()-created.getTime())/86400000);
+      const email=brand.majorAdminEmail;
+      if(!email)continue;
+      for(const n of NURTURE_EMAILS){
+        // Send on the exact day (within a 1-day window)
+        if(daysSince===n.day){
+          // Check not already sent
+          const sentKey=`nurture_${brand.slug}_day${n.day}`;
+          owner.nurtureSent=owner.nurtureSent||{};
+          if(owner.nurtureSent[sentKey])continue;
+          const db=readBrandDB(brand.slug);
+          const admin=(db.users||[]).find(u=>u.email===email);
+          const adminName=admin?.name||email.split('@')[0];
+          const html=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:20px 28px;"><div style="font-size:16px;font-weight:800;color:#fff;">Resolvo</div></div><div style="padding:28px 32px;font-size:14px;color:#374151;line-height:1.7;">${n.body(adminName,BASE_URL)}</div><div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;text-align:center;">Resolvo · <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></div></div></body></html>`;
+          await sendEmail(email,n.subject,html,n.subject).catch(()=>{});
+          owner.nurtureSent[sentKey]=new Date().toISOString();
+          console.log(`[Nurture] Day ${n.day} email sent to ${email} for ${brand.slug}`);
+        }
+      }
+    }catch(e){console.error('[Nurture] Error for',brand.slug,e.message);}
+  }
+  writeOwner(owner);
+}
+
 function runBackgroundJobs(){
   const cron=require('node-cron');
   // Daily digest at 9am
@@ -4763,6 +4882,12 @@ function runBackgroundJobs(){
       }catch(e){}
     }
   });
+  // Nurture email sequence — runs daily at 10am, sends day 1/3/7/14 emails to new signups
+  cron.schedule('0 10 * * *',async()=>{
+    console.log('[Nurture] Checking nurture emails...');
+    await sendNurtureEmails().catch(e=>console.error('[Nurture] Error:',e.message));
+  });
+
   // Follow-up nudges — check daily at 8am
   cron.schedule('0 8 * * *',async()=>{
     const owner=readOwner();

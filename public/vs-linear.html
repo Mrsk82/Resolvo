@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo vs Linear — Issue Tracking With Built-in Support</title>
+<meta name="description" content="Linear is beautiful but has no email ticketing, no customer support inbox. Resolvo has everything Linear has PLUS a full support platform — at ₹999/month flat.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#08090A;color:#F0F4FF;font-family:'Inter',sans-serif;line-height:1.6;}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px;}
+nav{background:rgba(8,9,10,.9);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.07);padding:14px 24px;display:flex;align-items:center;gap:10px;}
+.logo-r{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#00FF94,#9D4EDD);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#000;}
+.logo-t{font-size:14px;font-weight:800;background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero{padding:80px 0 60px;text-align:center;}
+.tag{display:inline-block;background:rgba(94,106,210,.12);border:1px solid rgba(94,106,210,.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:#5E6AD2;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px;}
+h1{font-size:clamp(28px,5vw,52px);font-weight:900;letter-spacing:-2px;margin-bottom:16px;line-height:1.05;}
+.hl{background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sub{font-size:17px;color:#7A8899;max-width:580px;margin:0 auto 36px;}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.btn-g{display:inline-block;background:linear-gradient(135deg,#00FF94,#9D4EDD);color:#000;padding:13px 32px;border-radius:10px;font-size:14px;font-weight:800;text-decoration:none;transition:all .2s;}
+.btn-g:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,255,148,.2);}
+.btn-s{display:inline-block;background:rgba(255,255,255,.06);color:#F0F4FF;padding:13px 28px;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;border:1px solid rgba(255,255,255,.1);}
+/* verdict bar */
+.verdict{display:flex;align-items:center;justify-content:center;gap:40px;background:#0D1220;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:28px 32px;margin:0 0 60px;}
+.verdict-item{text-align:center;}
+.verdict-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.verdict-name.them{color:#5E6AD2;}
+.verdict-name.us{color:#00FF94;}
+.verdict-score{font-size:36px;font-weight:900;}
+.verdict-score.them{color:#5E6AD2;}
+.verdict-score.us{color:#00FF94;}
+.verdict-vs{font-size:20px;font-weight:900;color:#4B5563;}
+.verdict-sub{font-size:11px;color:#4B5563;margin-top:4px;}
+/* Comparison table */
+.table-wrap{overflow-x:auto;margin:60px 0;}
+table{width:100%;border-collapse:collapse;background:#0D1220;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;}
+th{padding:16px 20px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7A8899;background:rgba(255,255,255,.03);}
+th:first-child{width:40%;}
+th.them{color:#5E6AD2;}
+th.us{color:#00FF94;}
+td{padding:14px 20px;font-size:14px;border-top:1px solid rgba(255,255,255,.06);}
+td:first-child{color:#94A3B8;}
+.yes{color:#00FF94;font-weight:700;}
+.no{color:#EF4444;}
+.partial{color:#F59E0B;}
+/* Why section */
+.reasons{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:60px 0;}
+.reason{background:#0D1220;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:24px;}
+.reason-icon{font-size:24px;margin-bottom:12px;}
+.reason-title{font-size:15px;font-weight:800;margin-bottom:8px;}
+.reason-desc{font-size:13px;color:#7A8899;line-height:1.65;}
+/* linear praise */
+.praise{background:rgba(94,106,210,.07);border:1px solid rgba(94,106,210,.18);border-radius:12px;padding:24px 28px;margin:0 0 60px;display:flex;gap:16px;align-items:flex-start;}
+.praise-icon{font-size:22px;flex-shrink:0;margin-top:2px;}
+.praise-title{font-size:14px;font-weight:800;color:#A5B4FC;margin-bottom:6px;}
+.praise-desc{font-size:13px;color:#7A8899;line-height:1.7;}
+footer{border-top:1px solid rgba(255,255,255,.07);padding:24px;text-align:center;font-size:13px;color:#4B5563;}
+footer a{color:#00FF94;text-decoration:none;}
+@media(max-width:700px){.reasons{grid-template-columns:1fr;}.verdict{flex-direction:column;gap:16px;}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/pitch" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <div class="logo-r">R</div><span class="logo-t">resolvo</span>
+  </a>
+  <div style="margin-left:auto;display:flex;gap:10px;">
+    <a href="/pitch" style="font-size:13px;color:#7A8899;text-decoration:none;">Home</a>
+    <a href="/signup" style="font-size:13px;color:#00FF94;text-decoration:none;font-weight:700;">Free Trial →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="tag">Resolvo vs Linear</div>
+    <h1>Linear is beautiful.<br><span class="hl">Resolvo does more.</span></h1>
+    <p class="sub">Linear nailed developer issue tracking. But when a customer emails you, you're on your own. Resolvo gives you Linear's speed plus a full support platform — one tool, one price.</p>
+    <div class="cta-row">
+      <a href="/signup" class="btn-g">Start free — no card needed →</a>
+      <a href="/demo" class="btn-s">Book a demo</a>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <div class="verdict-item">
+      <div class="verdict-name them">Linear</div>
+      <div class="verdict-score them">7</div>
+      <div class="verdict-sub">of 13 features</div>
+    </div>
+    <div class="verdict-vs">vs</div>
+    <div class="verdict-item">
+      <div class="verdict-name us">Resolvo</div>
+      <div class="verdict-score us">13</div>
+      <div class="verdict-sub">of 13 features</div>
+    </div>
+  </div>
+
+  <div class="praise">
+    <div class="praise-icon">💜</div>
+    <div>
+      <div class="praise-title">Fair credit where it's due — Linear is outstanding at what it does.</div>
+      <div class="praise-desc">Linear has the best issue-tracking UX ever built. Keyboard-first, blazing fast, gorgeous design. If all you need is a dev team issue tracker with zero customer-facing support, Linear is excellent. But the moment a customer emails you, opens a support ticket, or books a call — Linear has no answer. That's the gap Resolvo fills.</div>
+    </div>
+  </div>
+
+  <div class="reasons">
+    <div class="reason"><div class="reason-icon">📬</div><div class="reason-title">Email ticketing built in</div><div class="reason-desc">Linear has zero email support inbox. Resolvo has a full Freshdesk-style helpdesk — every inbound email becomes a tracked ticket automatically.</div></div>
+    <div class="reason"><div class="reason-icon">🧠</div><div class="reason-title">AI routing from day one</div><div class="reason-desc">Gemini AI auto-reads incoming tickets, sets priority, and routes to the right agent. Linear's roadmap has nothing like this for customer support.</div></div>
+    <div class="reason"><div class="reason-icon">🔄</div><div class="reason-title">Smart Queue Engine</div><div class="reason-desc">Auto-assign tickets with round-robin, skill-based, or domain routing. Your team handles more without a queue manager role.</div></div>
+    <div class="reason"><div class="reason-icon">🌐</div><div class="reason-title">Customer Portal included</div><div class="reason-desc">Customers track their own tickets at /portal/your-brand. No extra tool, no extra seat cost. Linear doesn't offer this at all.</div></div>
+    <div class="reason"><div class="reason-icon">📅</div><div class="reason-title">Appointment booking</div><div class="reason-desc">Customers book support calls directly via /book/:brand. Linear has no scheduling feature — you'd need Calendly + something else.</div></div>
+    <div class="reason"><div class="reason-icon">💰</div><div class="reason-title">₹999 vs $8/user/month</div><div class="reason-desc">Linear charges $8 per user per month. A 10-person team pays ~$80/mo. Resolvo's whole team pays ₹999/month flat — roughly 10× cheaper at scale.</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th class="them">Linear</th>
+          <th class="us">Resolvo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Issue tracking + SLA timers</td><td class="yes">✓</td><td class="yes">✓ + Auto-timers</td></tr>
+        <tr><td>Kanban board</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Sprint / cycle planning</td><td class="yes">✓</td><td class="yes">✓ + Burndown</td></tr>
+        <tr><td>Keyboard-first speed</td><td class="yes">✓ Best-in-class</td><td class="yes">✓</td></tr>
+        <tr><td>Email support ticketing inbox</td><td class="no">✗ Not available</td><td class="yes">✓ Built-in</td></tr>
+        <tr><td>Smart queue / auto-assign</td><td class="no">✗</td><td class="yes">✓ Round robin, skills, domain</td></tr>
+        <tr><td>Customer self-service portal</td><td class="no">✗</td><td class="yes">✓ /portal/:brand</td></tr>
+        <tr><td>Embeddable support widget</td><td class="no">✗</td><td class="yes">✓ 1 script tag</td></tr>
+        <tr><td>Appointment booking</td><td class="no">✗</td><td class="yes">✓ /book/:brand</td></tr>
+        <tr><td>AI triage (auto-priority + routing)</td><td class="no">✗</td><td class="yes">✓ Gemini AI</td></tr>
+        <tr><td>CSAT surveys</td><td class="no">✗</td><td class="yes">✓ Auto-sent after close</td></tr>
+        <tr><td>Multi-tenant (multiple clients)</td><td class="no">✗ Separate workspaces</td><td class="yes">✓ One owner account</td></tr>
+        <tr><td>Price</td><td class="no">$8/user/month</td><td class="yes">₹999/month flat</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background:linear-gradient(135deg,rgba(0,255,148,.06),rgba(139,92,246,.06));border:1px solid rgba(0,255,148,.15);border-radius:16px;padding:48px;text-align:center;margin-bottom:80px;">
+    <h2 style="font-size:28px;font-weight:900;letter-spacing:-1px;margin-bottom:12px;">Get Linear's speed + a full support platform</h2>
+    <p style="color:#7A8899;margin-bottom:24px;">One tool for your dev team's issues and your customers' tickets. No integrations, no extra seats.</p>
+    <a href="/signup" class="btn-g">Start free — no card →</a>
+  </div>
+</div>
+
+<footer>
+  © 2025 Resolvo · <a href="/pitch">Home</a> · <a href="/demo">Book Demo</a> · <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a>
+</footer>
+</body>
+</html>

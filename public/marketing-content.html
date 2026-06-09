@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo — Marketing Content Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0A0B0D;
+  --surface:#111318;
+  --surface2:#181B22;
+  --border:rgba(255,255,255,.07);
+  --border2:rgba(255,255,255,.12);
+  --text:#EDF0FF;
+  --muted:#6B7280;
+  --accent:#00FF94;
+  --accent2:#9D4EDD;
+  --li-purple:#5E6AD2;
+  --warn:#F59E0B;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;line-height:1.6;}
+/* layout */
+.sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:20px 0;z-index:100;}
+.sidebar-logo{display:flex;align-items:center;gap:8px;padding:0 18px 20px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+.logo-r{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#00FF94,#9D4EDD);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#000;}
+.logo-t{font-size:13px;font-weight:800;background:linear-gradient(135deg,#00FF94,#9D4EDD);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sidebar-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:8px 18px 4px;}
+.sidebar a{display:block;padding:7px 18px;font-size:12px;font-weight:500;color:#9CA3AF;text-decoration:none;transition:all .15s;border-left:2px solid transparent;}
+.sidebar a:hover,.sidebar a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,255,148,.04);}
+.main{margin-left:220px;padding:40px 48px;max-width:1200px;}
+/* section headers */
+.section{margin-bottom:80px;}
+.section-header{margin-bottom:32px;}
+.section-tag{display:inline-block;background:rgba(0,255,148,.1);border:1px solid rgba(0,255,148,.2);border-radius:20px;padding:3px 12px;font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+.section-title{font-size:28px;font-weight:900;letter-spacing:-1px;}
+.section-desc{font-size:14px;color:var(--muted);margin-top:6px;}
+/* cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;margin-bottom:20px;position:relative;}
+.card-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:14px;}
+.card-title{font-size:15px;font-weight:800;margin-bottom:16px;color:var(--text);}
+.post-body{font-size:14px;color:#C9D1E0;line-height:1.75;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;}
+/* copy button */
+.copy-btn{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:7px;padding:5px 12px;font-size:11px;font-weight:600;color:#9CA3AF;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.copy-btn:hover{background:rgba(0,255,148,.1);color:var(--accent);border-color:rgba(0,255,148,.3);}
+.copy-btn.copied{background:rgba(0,255,148,.15);color:var(--accent);border-color:rgba(0,255,148,.4);}
+/* topic badge */
+.topic{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:12px;}
+/* email card */
+.email-subject{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;}
+.email-subject-label{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.email-subject-val{font-size:14px;font-weight:700;color:var(--text);}
+/* scene */
+.scene{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:12px;}
+.scene-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.scene-num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#00FF94,#9D4EDD);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#000;flex-shrink:0;}
+.scene-title{font-size:13px;font-weight:700;color:var(--text);}
+.scene-time{font-size:11px;font-weight:600;color:var(--warn);margin-left:auto;}
+.scene-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.scene-col-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
+.scene-col-body{font-size:13px;color:#C9D1E0;line-height:1.7;}
+/* ph tags */
+.ph-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.ph-tag{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--warn);}
+/* divider */
+hr{border:none;border-top:1px solid var(--border);margin:40px 0;}
+/* scroll-to-top */
+.scrolltop{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--muted);transition:all .2s;z-index:200;}
+.scrolltop:hover{color:var(--accent);border-color:rgba(0,255,148,.3);}
+@media(max-width:900px){
+  .sidebar{display:none;}
+  .main{margin-left:0;padding:24px 20px;}
+  .scene-row{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-r">R</div><span class="logo-t">resolvo</span>
+  </div>
+  <div class="sidebar-label">Marketing Library</div>
+  <a href="#linkedin" class="active">LinkedIn Posts</a>
+  <a href="#emails">Cold Email Templates</a>
+  <a href="#producthunt">Product Hunt Listing</a>
+  <a href="#reddit">Reddit Posts</a>
+  <a href="#reviews">Review Responses</a>
+  <a href="#video">Welcome Video Script</a>
+  <div class="sidebar-label" style="margin-top:20px;">Quick Links</div>
+  <a href="/pitch">Pitch Page</a>
+  <a href="/vs-jira">vs Jira</a>
+  <a href="/vs-linear">vs Linear</a>
+</nav>
+
+<div class="main">
+
+<!-- SECTION 1: LINKEDIN POSTS -->
+<div class="section" id="linkedin">
+  <div class="section-header">
+    <div class="section-tag">Section 1</div>
+    <div class="section-title">10 LinkedIn Posts</div>
+    <div class="section-desc">Complete posts with hook, body, CTA, and hashtags. Paste directly into LinkedIn.</div>
+  </div>
+
+  <!-- Post 1 -->
+  <div class="card">
+    <div class="card-label">Post 1 of 10</div>
+    <div class="topic">Why We Built Resolvo</div>
+    <div class="post-body" id="post1">We almost lost a client because of a lost email.
+
+Our team was juggling Jira for bugs, Gmail for support, Calendly for calls, and a spreadsheet for client notes.
+
+One email got buried. An SLA was breached. The client noticed before we did.
+
+That was the day we decided to build Resolvo.
+
+We wanted one tool that could:
+→ Track engineering issues with full SLA timers
+→ Catch every inbound support email and turn it into a ticket
+→ Let customers check their own ticket status without pinging us
+→ Auto-assign tickets to the right person without a daily standup just for that
+
+We built it. We use it ourselves every day.
+
+And now we're making it available to every small and mid-sized team that's still duct-taping 4 tools together.
+
+If that sounds like your team — come try Resolvo free.
+👉 resolvogroup.com
+
+#SaaS #ProductBuilding #CustomerSupport #IssueTracking #StartupLife
+    <button class="copy-btn" onclick="copyText('post1',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 2 -->
+  <div class="card">
+    <div class="card-label">Post 2 of 10</div>
+    <div class="topic">The Problem With Jira for Small Teams</div>
+    <div class="post-body" id="post2">Jira was built for Atlassian's own scale. Not yours.
+
+I've watched teams spend 3 full days "configuring" Jira before a single issue was logged.
+
+Here's what nobody tells you about Jira for small teams:
+
+1. Every useful feature is behind a separate paid add-on
+2. Email support ticketing? That's a whole other Atlassian product (Jira Service Management)
+3. You need someone dedicated to maintaining the board structure
+4. The onboarding alone requires watching hours of YouTube tutorials
+
+Meanwhile your team just needs to know: what do I work on today?
+
+Small teams don't need enterprise-grade complexity. They need a tool that:
+✅ Works on day 1
+✅ Catches every customer email
+✅ Shows each dev exactly what to pick up next
+✅ Costs a flat fee, not per-seat
+
+That's what we built with Resolvo.
+
+Try it free — no card, no salesperson, no 45-minute demo call required.
+👉 resolvogroup.com
+
+What's your current Jira frustration? Drop it in the comments 👇
+
+#Jira #EngineeringTeams #ProjectManagement #DevTools #ProductManagement
+    <button class="copy-btn" onclick="copyText('post2',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 3 -->
+  <div class="card">
+    <div class="card-label">Post 3 of 10</div>
+    <div class="topic">How We Handle 100+ Support Tickets With 2 People</div>
+    <div class="post-body" id="post3">Our support team is 2 people. We handle 100+ tickets a week.
+
+Here's exactly how we do it without burning out:
+
+First — every inbound email auto-becomes a ticket. Nobody manually creates a ticket. The system does it.
+
+Second — AI reads every new ticket before any human does. It sets priority, tags the category, and routes it to the right agent. By the time the agent sees it, context is already there.
+
+Third — Smart Queue means no one "picks" their own tickets. The queue assigns. Agents just work.
+
+Fourth — The customer portal handles the "any update?" emails. Customers check /portal themselves. We stopped getting 30% of all follow-up messages.
+
+Fifth — SLA timers are visible to everyone. No ticket sits forgotten. The system escalates before a breach happens.
+
+Result: 2 people, 100+ tickets/week, sub-24h first response, 4.8/5 CSAT.
+
+The tool we use? Resolvo. We built it ourselves after nothing else fit.
+
+Curious how we set up the smart queue? Comment "queue" and I'll explain.
+
+#CustomerSupport #SupportOps #TicketingSystem #SmallTeam #SaaS
+    <button class="copy-btn" onclick="copyText('post3',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 4 -->
+  <div class="card">
+    <div class="card-label">Post 4 of 10</div>
+    <div class="topic">SLA Breach Horror Story</div>
+    <div class="post-body" id="post4">We missed an SLA and didn't know for 6 hours.
+
+A critical bug was reported by a paying client at 9 AM. It sat in an inbox nobody was watching that day. Our SLA was 4 hours.
+
+By 3 PM, the client had emailed twice more and was on a call with our sales rep asking if they should switch.
+
+We fixed the bug in 20 minutes. The damage to the relationship took 3 months to repair.
+
+The cause wasn't a bad team. The cause was a bad system:
+— No automatic ticket creation from emails
+— No SLA timer anyone could see
+— No escalation alert when a ticket aged past the breach threshold
+
+The fix was building Resolvo.
+
+Now every email auto-becomes a ticket. SLA timers start the moment the ticket is created. When a ticket hits 75% of its SLA, the agent gets a nudge. At 100%, it escalates to the manager.
+
+No more silent breaches.
+
+If you're still running support out of an email inbox, please — automate this before your horror story happens.
+
+👉 resolvogroup.com/signup
+
+#CustomerSuccess #SLA #SupportOperations #IssueTracking #B2BSaaS
+    <button class="copy-btn" onclick="copyText('post4',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 5 -->
+  <div class="card">
+    <div class="card-label">Post 5 of 10</div>
+    <div class="topic">What "From Chaos to Clarity" Means</div>
+    <div class="post-body" id="post5">"From chaos to clarity" sounds like a cliché.
+
+Here's what it actually looks like at 9 AM Monday morning.
+
+BEFORE Resolvo:
+— Developer opens Gmail, Jira, Slack, and a spreadsheet
+— Asks in the team channel "what's on fire today?"
+— Spends 30 min triaging before writing a line of code
+— A customer email from Friday is still unread
+— Someone double-assigned the same bug
+
+AFTER Resolvo:
+— Developer opens one dashboard
+— Smart Queue shows exactly 3 tickets assigned to them, priority order
+— Each ticket has context, history, and SLA status
+— No standup needed just to decide what to work on
+— The customer who emailed Friday already got an auto-acknowledgment and can see ticket status at the portal
+
+The chaos wasn't your team's fault. It was the system.
+
+When the system does the routing, the triaging, and the context-gathering — your team just builds.
+
+That's what clarity feels like.
+👉 resolvogroup.com
+
+#EngineeringProductivity #DeveloperExperience #StartupOps #TeamTools #Focus
+    <button class="copy-btn" onclick="copyText('post5',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 6 -->
+  <div class="card">
+    <div class="card-label">Post 6 of 10</div>
+    <div class="topic">Multi-Tenant SaaS Story</div>
+    <div class="post-body" id="post6">We support 14 different clients from one dashboard.
+
+Not 14 separate Jira instances. Not 14 Gmail folders. One dashboard.
+
+Here's how multi-tenant works in Resolvo:
+
+Each client gets their own workspace — their own ticket queue, their own SLA rules, their own branded portal (/portal/clientname).
+
+From our owner account, we can:
+→ Jump between any client workspace in 1 click
+→ See aggregate metrics across all clients
+→ Set different SLA rules for each client tier
+→ Give the client's own team access to just their workspace
+
+When a client emails support@resolvo.io with "ACME" in the subject — it auto-routes to the ACME workspace queue. Not to a shared pool.
+
+The result: we look like we have dedicated support teams for each client. We don't. It's 2 people and a smart system.
+
+If you're an agency, MSP, or multi-product SaaS — this is exactly what you need.
+
+Comment "multi-tenant" and I'll walk you through the setup.
+
+#Agencies #MSP #MultiTenant #SaaS #CustomerSuccess
+    <button class="copy-btn" onclick="copyText('post6',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 7 -->
+  <div class="card">
+    <div class="card-label">Post 7 of 10</div>
+    <div class="topic">AI in Support Ticketing</div>
+    <div class="post-body" id="post7">AI doesn't replace your support team. It removes the 40% of work that was never human work anyway.
+
+Every ticket that comes in, our AI (Gemini-powered) does this before any human sees it:
+
+1. Reads the full message
+2. Detects: bug report, feature request, billing question, or general inquiry
+3. Sets priority: Critical / High / Medium / Low based on language signals
+4. Checks if a similar ticket was resolved before and pre-populates a suggested reply
+5. Routes to the right queue: Dev team, Billing, or General Support
+
+By the time an agent opens the ticket — the boring part is done.
+
+The agent reads a 1-line summary, checks the suggested reply, edits if needed, sends.
+
+What used to take 8 minutes takes 90 seconds.
+
+And the AI gets smarter as it sees more of your resolved tickets. It learns what "urgent" means for YOUR customers specifically.
+
+This isn't a chatbot. It's a triage co-pilot.
+
+Try it in Resolvo — free for your first 30 days.
+👉 resolvogroup.com/signup
+
+#AIinSaaS #SupportAutomation #TicketTriaging #GeminiAI #CustomerSupport
+    <button class="copy-btn" onclick="copyText('post7',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 8 -->
+  <div class="card">
+    <div class="card-label">Post 8 of 10</div>
+    <div class="topic">How to Reduce Ticket Volume 30%</div>
+    <div class="post-body" id="post8">We reduced inbound support tickets by 31% in 60 days. Here's exactly what we changed.
+
+The biggest ticket category was: "What's the status of my request?"
+
+Those tickets don't need a human. They need visibility.
+
+Change 1: We launched a Customer Portal (/portal/our-brand). Every customer can log in and see every ticket they've ever raised — status, comments, expected resolution. Result: follow-up "any update?" tickets dropped 22%.
+
+Change 2: We turned on auto-acknowledgment. Every new ticket gets an auto-reply within 60 seconds: "We received your request, your ticket ID is #1234, here's the portal link." Result: "did you get my email?" tickets dropped to near zero.
+
+Change 3: We added an embeddable support widget to our app. Before, users would email. Now they create tickets in context — from inside the product — with their account info pre-attached. Duplicate tickets dropped 9%.
+
+31% fewer tickets. Same team size. Way less stress.
+
+All three of these are built into Resolvo at no extra cost.
+
+👉 resolvogroup.com
+
+What's your biggest repeat ticket category? Drop it below and I'll suggest a fix 👇
+
+#SupportOps #CustomerSuccess #ReduceTickets #SelfService #SaaSGrowth
+    <button class="copy-btn" onclick="copyText('post8',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 9 -->
+  <div class="card">
+    <div class="card-label">Post 9 of 10</div>
+    <div class="topic">Smart Queue vs Manual Assignment</div>
+    <div class="post-body" id="post9">The daily "who takes this ticket?" meeting is costing you more than you think.
+
+Let's say it takes 8 minutes per day per agent to figure out their queue. You have 4 agents. That's 32 minutes of paid time, every single day — just deciding who does what.
+
+Annually: 130+ hours wasted on queue management.
+
+And that's before accounting for:
+— Agents cherry-picking easy tickets
+— High-priority items sitting unassigned while agents are on other tasks
+— New agent not knowing which skills qualify them for what
+
+Smart Queue in Resolvo automates all of this:
+
+Round Robin: Each new ticket goes to the next agent in rotation. Fair load distribution, no arguments.
+
+Skill-based: Billing tickets → Billing agents. Technical bugs → Senior devs. Automatically.
+
+Domain routing: Tickets from enterprise@bigclient.com always go to that client's dedicated agent.
+
+SLA-priority: Tickets closest to breach always bubble to the top of any queue.
+
+The result: agents open Resolvo and see their pre-sorted, pre-prioritized list. They just work.
+
+Would you like me to do a deep-dive on setting up skill-based routing? Let me know in the comments.
+
+#SmartQueue #SupportAutomation #TicketAssignment #SupportOps #ProductivityHacks
+    <button class="copy-btn" onclick="copyText('post9',this)">Copy</button></div>
+  </div>
+
+  <!-- Post 10 -->
+  <div class="card">
+    <div class="card-label">Post 10 of 10</div>
+    <div class="topic">Customer Portal Story</div>
+    <div class="post-body" id="post10">A customer told us: "This is the first time a vendor has ever made me feel respected."
+
+All we did was give them a portal.
+
+Before the portal, here's what the experience looked like from the customer's side:
+
+— They email us with a problem
+— They wait. No acknowledgment.
+— They email again: "Did you get my message?"
+— We reply: "Yes, we're working on it."
+— They wait again.
+— Two days later, still no update.
+— They escalate to their manager, who calls our account manager.
+
+We weren't being bad at support. We just had no way to give customers visibility.
+
+After launching /portal/their-brand in Resolvo:
+
+— They email us (or raise a ticket directly in the portal)
+— They get an auto-acknowledgment with a portal link
+— They check the portal: ticket open, assigned to Agent X, expected resolution Friday
+— They see comments as we work. We can ask clarifying questions right in the thread.
+— When resolved: one-click CSAT, 4 stars, positive comment
+
+Total "where is my ticket?" emails: zero.
+
+We didn't hire more people. We just gave customers a window.
+
+That's the portal. It's included free in every Resolvo plan.
+👉 resolvogroup.com
+
+#CustomerExperience #SelfService #CustomerPortal #SupportExcellence #B2BSaaS
+    <button class="copy-btn" onclick="copyText('post10',this)">Copy</button></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- SECTION 2: COLD EMAIL TEMPLATES -->
+<div class="section" id="emails">
+  <div class="section-header">
+    <div class="section-tag">Section 2</div>
+    <div class="section-title">5 Cold Email Templates</div>
+    <div class="section-desc">Short, punchy. Edit [Company] and [Name] before sending.</div>
+  </div>
+
+  <!-- Email 1 -->
+  <div class="card">
+    <div class="card-label">Email 1 — CTO / Engineering Manager</div>
+    <div class="email-subject">
+      <div class="email-subject-label">Subject Line</div>
+      <div class="email-subject-val">Your team is probably using 4 tools to do 1 job</div>
+    </div>
+    <div class="post-body" id="email1">Hi [Name],
+
+Most engineering teams I talk to are running Jira for issues, a separate tool for customer support emails, another for client portals, and something else for scheduling.
+
+Resolvo consolidates all four — issue tracking, email ticketing, smart queue, and customer portal — in one platform. Flat fee, not per seat.
+
+A 10-person team at [Company] would pay ₹999/month total vs $80+/month for Jira alone.
+
+Worth a 15-minute look? I'll show you the setup live.
+
+[Your Name]
+
+P.S. Setup takes under 5 minutes. You can have your first ticket live before the call ends.
+    <button class="copy-btn" onclick="copyText('email1',this)">Copy</button></div>
+  </div>
+
+  <!-- Email 2 -->
+  <div class="card">
+    <div class="card-label">Email 2 — Head of Support</div>
+    <div class="email-subject">
+      <div class="email-subject-label">Subject Line</div>
+      <div class="email-subject-val">Re: the "where is my ticket?" email problem</div>
+    </div>
+    <div class="post-body" id="email2">Hi [Name],
+
+Quick question — what percentage of your inbound support volume is customers following up on existing tickets?
+
+For most teams it's 25–35%. Those are tickets that don't need a human — they need a portal.
+
+Resolvo gives every customer a live view of their tickets at /portal/your-brand. Follow-up "any update?" emails typically drop 20–30% in the first 60 days.
+
+You also get: AI triage, smart queue auto-assignment, SLA breach alerts, and CSAT auto-send.
+
+Happy to show you a 10-minute live demo this week?
+
+[Your Name]
+
+P.S. One of our customers went from 2-day first-response average to 4-hour average, same team size, in 30 days.
+    <button class="copy-btn" onclick="copyText('email2',this)">Copy</button></div>
+  </div>
+
+  <!-- Email 3 -->
+  <div class="card">
+    <div class="card-label">Email 3 — SaaS Founder</div>
+    <div class="email-subject">
+      <div class="email-subject-label">Subject Line</div>
+      <div class="email-subject-val">How many tools are between you and a resolved support ticket?</div>
+    </div>
+    <div class="post-body" id="email3">Hi [Name],
+
+Built-for-scale tools (Jira, Zendesk, Freshdesk) are expensive, slow to set up, and priced per seat — which gets painful as you grow.
+
+Resolvo is built for SaaS founders who want enterprise-quality support ops without enterprise prices.
+
+One flat fee. Issue tracking + email ticketing + AI routing + customer portal + appointment booking.
+
+We built it because we needed it ourselves. Now our 2-person support team handles 100+ tickets/week with sub-24h response time.
+
+Would love to give you a tour. 15 minutes, no pitch deck.
+👉 resolvogroup.com or just reply here.
+
+[Your Name]
+
+P.S. Free 30-day trial. No card required.
+    <button class="copy-btn" onclick="copyText('email3',this)">Copy</button></div>
+  </div>
+
+  <!-- Email 4 -->
+  <div class="card">
+    <div class="card-label">Email 4 — IT Manager</div>
+    <div class="email-subject">
+      <div class="email-subject-label">Subject Line</div>
+      <div class="email-subject-val">Replacing Jira + helpdesk + calendar — one tool, ₹999/month</div>
+    </div>
+    <div class="post-body" id="email4">Hi [Name],
+
+IT teams typically maintain 3–4 separate tools for issue tracking, internal helpdesk, client portals, and scheduling.
+
+Resolvo replaces all of them. One login, one dashboard, one price.
+
+Key for IT teams specifically:
+— Multi-tenant: separate workspaces per department or client
+— Smart queue: tickets auto-route to the right tech based on skill tags
+— SLA breach alerts before a ticket goes red
+— Embeddable widget for internal staff to raise tickets from any internal tool
+
+Current pricing: ₹999/month for your whole team (not per seat).
+
+Can I send over a 5-minute walkthrough video, or would you prefer a live demo?
+
+[Your Name]
+
+P.S. We offer white-label portals — your IT department's branding, your URL.
+    <button class="copy-btn" onclick="copyText('email4',this)">Copy</button></div>
+  </div>
+
+  <!-- Email 5 -->
+  <div class="card">
+    <div class="card-label">Email 5 — Follow-up Email</div>
+    <div class="email-subject">
+      <div class="email-subject-label">Subject Line</div>
+      <div class="email-subject-val">Following up — Resolvo for [Company]</div>
+    </div>
+    <div class="post-body" id="email5">Hi [Name],
+
+Sending a quick follow-up on my note from last week about Resolvo.
+
+I know inboxes are loud. Just wanted to share one thing:
+
+We had a customer go from 3 support tools + constant customer escalations to one platform, in a single afternoon. Their words: "I can't believe we waited this long."
+
+If the timing is better now, I'd love to show you what we've built.
+
+15 minutes. No slides. Just the product.
+
+Reply here or grab a slot: resolvogroup.com/demo
+
+[Your Name]
+
+P.S. If you've already moved forward with something else, just let me know — I'll stop following up and won't be offended.
+    <button class="copy-btn" onclick="copyText('email5',this)">Copy</button></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- SECTION 3: PRODUCT HUNT -->
+<div class="section" id="producthunt">
+  <div class="section-header">
+    <div class="section-tag">Section 3</div>
+    <div class="section-title">Product Hunt Listing</div>
+    <div class="section-desc">Complete listing copy ready to paste into Product Hunt.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Tagline (60 chars max)</div>
+    <div class="post-body" id="ph-tagline">Issue tracking + support inbox + AI routing — one flat fee
+    <button class="copy-btn" onclick="copyText('ph-tagline',this)">Copy</button></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Description (260 chars max)</div>
+    <div class="post-body" id="ph-desc">Resolvo replaces Jira + Zendesk + Calendly for growing teams. Track issues, handle customer emails, auto-assign with smart queue, give customers a self-serve portal, and book support calls — all in one place, at ₹999/month flat.
+    <button class="copy-btn" onclick="copyText('ph-desc',this)">Copy</button></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">First Comment (Maker comment — ~500 words)</div>
+    <div class="post-body" id="ph-comment">Hey Product Hunt! 👋
+
+I'm Asif, founder of Resolvo — and I want to tell you why we built this before I tell you what it does.
+
+Two years ago our team was running Jira for bug tracking, a shared Gmail inbox for customer support, Calendly for scheduling support calls, and a spreadsheet to track which client had which issue. It was a mess. A real ticket fell through the cracks. An enterprise client breached their SLA. We almost lost them.
+
+That was the day we started building Resolvo.
+
+**What is Resolvo?**
+
+Resolvo is a unified issue tracking + customer support platform designed for teams of 2–50 people who need:
+
+→ A fast, Kanban-based issue tracker (think Linear/Jira, but simpler and with SLA timers built in)
+→ An email support inbox that auto-converts inbound emails into tracked tickets
+→ A smart queue engine that auto-assigns tickets via round-robin, skill-based, or domain routing
+→ A customer self-serve portal (/portal/:brand) so customers can track their own tickets
+→ Appointment booking (/book/:brand) for support calls, integrated into the ticket timeline
+→ AI triage powered by Gemini — auto-priority, auto-categorization, suggested replies
+→ CSAT surveys sent automatically when a ticket closes
+→ Multi-tenant support — one owner account managing multiple client workspaces
+
+**What makes it different?**
+
+Jira and Linear are great at issue tracking. Zendesk and Freshdesk are great at customer support. But nothing merged the two — until now.
+
+We charge ₹999/month for the entire team (not per seat). A 10-person team would pay $80+/month on Jira alone, before adding any support tooling.
+
+**Who is it for?**
+
+→ Engineering teams tired of Jira's complexity
+→ SaaS founders supporting multiple clients from one account
+→ IT teams managing internal and external helpdesks
+→ Agencies running client-specific support portals
+→ Any team where the same 2 people handle both bugs AND customer emails
+
+**What's free on launch day?**
+
+→ Full 30-day free trial — no credit card required
+→ Unlimited issues, unlimited tickets during trial
+→ Full access to AI triage, smart queue, and customer portal
+
+We're a small team, we ship fast, and we read every reply. If you have questions, feedback, or a feature request — drop it in the comments below. I'll personally respond to every one.
+
+Thank you for the upvotes and the hunt 🙏
+
+— Asif and the Resolvo team
+👉 resolvogroup.com
+    <button class="copy-btn" onclick="copyText('ph-comment',this)">Copy</button></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Topics / Tags to Select</div>
+    <div class="ph-tags" id="ph-tags-display">
+      <span class="ph-tag">Project Management</span>
+      <span class="ph-tag">Customer Support</span>
+      <span class="ph-tag">SaaS</span>
+      <span class="ph-tag">Productivity</span>
+      <span class="ph-tag">Artificial Intelligence</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Launch Day Plan</div>
+    <div class="post-body" id="ph-plan">LAUNCH DAY CHECKLIST
+
+12:01 AM (PH resets): Go live. Post maker comment immediately.
+
+6 AM: Post on all personal LinkedIn accounts. Ask friends/colleagues to upvote (not to spam — genuine ask).
+
+8 AM: Send email to existing waitlist / beta users. Subject: "We're live on Product Hunt — would love your support"
+
+10 AM: Post in relevant Slack communities (Indie Hackers, etc.) — share link, not begging for votes.
+
+12 PM: Check comments. Reply to every single one within 30 minutes.
+
+2 PM: Post in Twitter/X with demo GIF and PH link.
+
+4 PM: LinkedIn post with first-day update ("We're #X on Product Hunt today — here's what we built and why")
+
+6 PM: Reddit post in r/SaaS and r/IndieHackers with genuine story, PH link at the bottom.
+
+8 PM: Final push — reply to all outstanding comments, thank the hunters.
+
+METRICS TO WATCH:
+— Upvote velocity (aim for top 5 in category by noon)
+— Website signups from PH referral
+— Comments (respond to every one)
+— Any press pickup
+
+AFTER LAUNCH:
+— Follow up with all commenters via DM
+— Send "thank you" email to everyone who signed up on launch day
+— Write a "what we learned from our PH launch" LinkedIn post 48 hours later
+    <button class="copy-btn" onclick="copyText('ph-plan',this)">Copy</button></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- SECTION 4: REDDIT POSTS -->
+<div class="section" id="reddit">
+  <div class="section-header">
+    <div class="section-tag">Section 4</div>
+    <div class="section-title">5 Reddit Posts</div>
+    <div class="section-desc">Tailored for each subreddit's tone and rules. Lead with value, not promotion.</div>
+  </div>
+
+  <!-- Reddit 1 -->
+  <div class="card">
+    <div class="card-label">r/devops</div>
+    <div class="card-title">We replaced Jira + Freshdesk + Calendly with one internal tool — here's what we built and why</div>
+    <div class="post-body" id="reddit1">We're a small engineering team. For 2 years we ran:
+- Jira for issue tracking
+- Freshdesk for customer email tickets
+- Calendly for support booking calls
+- A separate customer portal tool nobody remembered to log into
+
+The overhead was insane. Tickets fell through the gaps between tools. Customer emails sat in Freshdesk while the related bug was in Jira and nobody linked them.
+
+So we built our own thing. We called it Resolvo.
+
+Key things it does:
+- Issue tracker with SLA timers (Jira-style kanban)
+- Email ticketing built in — inbound emails auto-become tickets
+- Smart queue auto-assigns by round-robin, skill, or domain
+- AI triage with Gemini — reads ticket, sets priority, suggests reply
+- Customer portal at /portal/:brand — customers see their own tickets live
+- Appointment booking at /book/:brand — support calls, linked to the ticket thread
+- Multi-tenant — one admin account managing multiple client workspaces
+
+We built it for ourselves. It worked so well we turned it into a product.
+
+Sharing here because I know devops folks deal with this exact problem — too many tools, too much context-switching between the issue tracker and the support inbox.
+
+Happy to answer any questions about the architecture or the queue logic. Not here to sell — genuinely happy to talk about the problem.
+
+(Mods: if this breaks rules, I'll remove it. Just thought this community would find the problem/solution interesting.)
+    <button class="copy-btn" onclick="copyText('reddit1',this)">Copy</button></div>
+  </div>
+
+  <!-- Reddit 2 -->
+  <div class="card">
+    <div class="card-label">r/startups</div>
+    <div class="card-title">How we handle 100+ support tickets/week with 2 people — the exact system</div>
+    <div class="post-body" id="reddit2">People keep asking how our 2-person support team handles the volume we do without falling apart. Sharing the exact setup.
+
+**The problem we had:**
+Every morning was 30 minutes of triage before anyone did actual work. Which email needs answering? Which bug is on fire? Did the enterprise client hear back? It was exhausting.
+
+**What changed:**
+
+1. Every inbound email auto-creates a ticket. No manual input.
+2. AI reads each ticket before any human and sets: category, priority, and suggested reply. This alone saves ~4 minutes per ticket.
+3. Smart queue auto-assigns. Nobody picks their own tickets. The queue assigns by skill tag and round-robin.
+4. Customers check their own ticket status at a portal URL. "Where is my ticket?" emails dropped by 30%.
+5. SLA breach alerts fire before a ticket goes red. No more silent breaches.
+
+The tool: we built this ourselves (Resolvo). It's live and we use it every day.
+
+**What didn't work:**
+- Shared Gmail inbox with color labels: nobody agrees on the label system, things get missed
+- Assigning tickets manually in standups: takes too long, creates resentment
+- Separate Jira + Freshdesk: no link between a customer-reported bug and the engineering issue
+
+Happy to go deep on any part of this. What's your current support setup?
+    <button class="copy-btn" onclick="copyText('reddit2',this)">Copy</button></div>
+  </div>
+
+  <!-- Reddit 3 -->
+  <div class="card">
+    <div class="card-label">r/SaaS</div>
+    <div class="card-title">Show r/SaaS: Resolvo — Issue tracking + email support + customer portal in one tool (built because we needed it)</div>
+    <div class="post-body" id="reddit3">**What I built:** Resolvo — a unified issue tracker + customer support platform
+
+**The problem:** Running a SaaS with a small team means wearing both the engineering hat (bugs, sprints, SLAs) and the support hat (customer emails, escalations, status updates). Every tool I tried solved one of these. Nothing solved both.
+
+**What Resolvo does:**
+- Kanban issue tracking with SLA timers (similar to Linear or Jira but leaner)
+- Email ticketing inbox — inbound emails become tickets automatically
+- Smart queue — auto-assigns tickets to agents by skill, domain, or round-robin
+- AI triage (Gemini) — priority + category + suggested reply before human eyes land on it
+- Customer portal — customers check their own tickets at /portal/your-brand
+- Appointment booking — support call scheduling built into the ticket thread
+- Multi-tenant — separate workspaces per client from one admin panel
+
+**Why I'm sharing it:** I've seen a dozen "Show HN / r/SaaS" posts about issue trackers or helpdesks. I haven't seen one that does both in one flat-fee product.
+
+**Pricing:** ₹999/month for the whole team. Not per seat.
+
+**Current stage:** Live, in use, actively improving.
+
+Would love feedback from anyone who's dealt with the "Jira for bugs + something else for support emails" problem. What would make this a no-brainer switch for your team?
+
+Demo: resolvogroup.com
+    <button class="copy-btn" onclick="copyText('reddit3',this)">Copy</button></div>
+  </div>
+
+  <!-- Reddit 4 -->
+  <div class="card">
+    <div class="card-label">r/entrepreneur</div>
+    <div class="card-title">We almost lost a client because of a lost email. Here's what we built to make sure it never happens again.</div>
+    <div class="post-body" id="reddit4">About 18 months ago, we had an enterprise client report a critical issue at 9 AM. The email landed in a shared inbox. Everyone assumed someone else had it. By 3 PM, our SLA was blown and the client was talking to our sales rep about switching.
+
+We fixed the bug. The relationship took 3 months to repair.
+
+The root cause wasn't our team. It was the system:
+- No auto-acknowledgment when an email arrived
+- No SLA timer counting down
+- No escalation alert when a ticket aged past the breach window
+- No way for the client to see progress without pinging us
+
+So we built the system we needed. We called it Resolvo.
+
+**Core loop:**
+1. Client emails us → auto-ticket created, auto-acknowledgment sent to client
+2. AI reads the ticket → priority set, category tagged, suggested reply generated
+3. Smart queue assigns the ticket to the right agent
+4. Client checks /portal/clientname for live status — no need to email us asking
+5. SLA timer visible to everyone; escalation fires at 75% and 100% of SLA window
+6. Ticket resolved → CSAT survey auto-sent
+
+We haven't had a silent SLA breach since.
+
+We turned it into a product for other teams dealing with the same problem. Live at resolvogroup.com.
+
+Anyone else had a "lost email nearly lost a client" moment? What did you do to fix it?
+    <button class="copy-btn" onclick="copyText('reddit4',this)">Copy</button></div>
+  </div>
+
+  <!-- Reddit 5 -->
+  <div class="card">
+    <div class="card-label">r/programming</div>
+    <div class="card-title">Built a smart ticket routing engine — here's how the queue algorithm works</div>
+    <div class="post-body" id="reddit5">I've been working on a support queue routing system for our internal ticketing tool (Resolvo). Thought some folks here might find the logic interesting.
+
+**The problem with manual assignment:**
+When tickets are manually assigned, humans tend to cherry-pick easy ones, skip unfamiliar categories, and miss priority ordering. A queue algorithm removes all of that.
+
+**How our smart queue works:**
+
+```
+On new ticket creation:
+1. AI triage runs first:
+   - Extract category from ticket content (NLP classification)
+   - Set priority: Critical/High/Medium/Low using signal words + sender history
+   - Store suggested_reply based on similar resolved tickets
+
+2. Routing decision tree:
+   IF ticket.domain matches agent.client_domain → assign to that agent
+   ELSE IF ticket.category matches agent.skill_tags → skill-based pool
+   ELSE → round-robin across available agents in that tier
+
+3. SLA assignment:
+   - Pull SLA config for this client tier
+   - Set breach_at = created_at + sla_hours
+   - Schedule breach_alert at 75% of window
+   - Schedule escalation at 100%
+
+4. If no agents available (all at capacity):
+   - Queue ticket
+   - On next agent status change → re-run routing
+```
+
+**Edge cases we had to handle:**
+- Agent goes offline mid-shift → re-route open unacknowledged tickets
+- Client with dedicated agent goes to dedicated agent even if capacity is at limit (escalation path)
+- Skill match with multiple agents → prefer agent with lowest current open count
+
+**Stack:** Node.js, PostgreSQL, Gemini API for NLP triage, WebSockets for real-time queue updates.
+
+The routing logic went through about 4 iterations before it felt "fair." Happy to share more implementation details if anyone's building something similar.
+
+(Resolvo is our product — not a stealth ad, just context. The routing logic is what I actually want to talk about.)
+    <button class="copy-btn" onclick="copyText('reddit5',this)">Copy</button></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- SECTION 5: REVIEW RESPONSES -->
+<div class="section" id="reviews">
+  <div class="section-header">
+    <div class="section-tag">Section 5</div>
+    <div class="section-title">5 G2 / Capterra Response Templates</div>
+    <div class="section-desc">Use when responding to negative Jira or Freshdesk reviews. Be helpful, not salesy.</div>
+  </div>
+
+  <!-- Response 1 -->
+  <div class="card">
+    <div class="card-label">Response to: "Jira is too complex for our team size"</div>
+    <div class="post-body" id="rev1">Thank you for sharing this — you're not alone. Jira was architected for large enterprises with dedicated Jira admins, and its complexity often becomes a burden for teams under 50 people.
+
+If you're open to exploring alternatives, Resolvo was specifically built for teams like yours. It covers issue tracking with SLA timers, a built-in email support inbox, and a customer self-serve portal — without the configuration overhead. Setup is under 5 minutes and pricing is a flat fee (not per seat).
+
+Happy to give you a demo if you'd like to see if it fits: resolvogroup.com/demo
+    <button class="copy-btn" onclick="copyText('rev1',this)">Copy</button></div>
+  </div>
+
+  <!-- Response 2 -->
+  <div class="card">
+    <div class="card-label">Response to: "Jira has no email support — we need to use another tool"</div>
+    <div class="post-body" id="rev2">This is a very common pain point — Jira's issue tracking doesn't connect with customer-facing email support, which forces teams to run two separate systems and manually link tickets.
+
+Resolvo was designed to solve exactly this: issue tracking and email ticketing in a single platform. When a customer emails you, a ticket is auto-created, SLA timers start, and it goes into the same queue as your engineering issues. No tool-switching, no manual linking.
+
+Worth a look if you're evaluating alternatives: resolvogroup.com
+    <button class="copy-btn" onclick="copyText('rev2',this)">Copy</button></div>
+  </div>
+
+  <!-- Response 3 -->
+  <div class="card">
+    <div class="card-label">Response to: "Freshdesk is too expensive at scale"</div>
+    <div class="post-body" id="rev3">Totally understandable — per-seat pricing models work against you as your team grows. A helpdesk shouldn't get more expensive just because you hired two more support agents.
+
+Resolvo uses a flat monthly price (₹999/month for the whole team, regardless of seat count). It covers email ticketing, smart queue auto-assignment, AI triage, customer portal, and issue tracking in one platform.
+
+If pricing at scale is the main friction with Freshdesk, happy to show you a comparison: resolvogroup.com
+    <button class="copy-btn" onclick="copyText('rev3',this)">Copy</button></div>
+  </div>
+
+  <!-- Response 4 -->
+  <div class="card">
+    <div class="card-label">Response to: "Freshdesk's automation rules are hard to configure"</div>
+    <div class="post-body" id="rev4">Automation configuration in enterprise helpdesks tends to require a rule-builder that itself needs a manual to understand. It's a real barrier for smaller teams without a dedicated ops person.
+
+Resolvo's smart queue works out-of-the-box with three modes (round-robin, skill-based, domain routing) that can be set up in minutes without custom rule logic. AI triage handles priority and categorization automatically.
+
+If simplified automation is high on your list, we'd love to show you what we've built: resolvogroup.com/demo
+    <button class="copy-btn" onclick="copyText('rev4',this)">Copy</button></div>
+  </div>
+
+  <!-- Response 5 -->
+  <div class="card">
+    <div class="card-label">Response to: "No customer portal — clients always email asking for updates"</div>
+    <div class="post-body" id="rev5">This is one of the top frustrations we hear from support teams — the constant "any update?" follow-up emails that a simple status page would eliminate.
+
+Resolvo includes a branded customer portal (/portal/your-brand) where customers can see all their tickets, statuses, comments, and expected resolution times in real time. No login friction for your team, no "where is my ticket?" emails.
+
+Teams using the portal report 20–30% fewer inbound follow-up tickets within 60 days. If this is a problem you're actively trying to solve, we'd love to show you: resolvogroup.com
+    <button class="copy-btn" onclick="copyText('rev5',this)">Copy</button></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- SECTION 6: VIDEO SCRIPT -->
+<div class="section" id="video">
+  <div class="section-header">
+    <div class="section-tag">Section 6</div>
+    <div class="section-title">Welcome Video Script</div>
+    <div class="section-desc">Complete scene-by-scene script for a 3-minute product demo. Total runtime: ~3 min.</div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-label">Production Notes</div>
+    <div class="post-body" id="vid-notes">FORMAT: Screen recording with voiceover. No talking head needed.
+RESOLUTION: 1920x1080 minimum
+MUSIC: Soft, upbeat background. Volume 15% under voiceover.
+FONT OVERLAY: Use clean sans-serif (Inter or similar) for text callouts
+CURSOR: Use a large, highlighted cursor so viewers can track it
+PACING: Slightly slower than feels natural. Viewers are reading AND watching.
+TOTAL RUNTIME: 3 min 0 sec
+    <button class="copy-btn" onclick="copyText('vid-notes',this)">Copy</button></div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">1</div>
+      <div class="scene-title">Scene 1 — Problem Hook</div>
+      <div class="scene-time">0:00 – 0:30 (30s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Split-screen animation: Left side shows cluttered Gmail inbox with 47 unread emails. Right side shows a Jira board with overflowing backlog. Center text fades in: "Sound familiar?"<br><br>Then: montage of switching between tabs — Gmail, Jira, Calendly, spreadsheet — with an overwhelmed cursor frantically clicking.</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"Your team tracks bugs in Jira. Customer emails live in Gmail. Support calls get booked in Calendly. And somewhere in a spreadsheet, there's a list of who's working on what.<br><br>Every tool is doing its job. But nothing is connected. Tickets fall through the gaps. SLAs get missed. Customers email to ask where their issue is.<br><br>There's a better way."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">2</div>
+      <div class="scene-title">Scene 2 — The Dashboard</div>
+      <div class="scene-time">0:30 – 1:00 (30s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Resolvo dashboard opens full screen. Pan slowly across: left sidebar (Issues, Tickets, Queue, Portal, Bookings, Reports). Center shows a clean kanban board with 3 columns: Open, In Progress, Resolved. Callout bubbles point to: "SLA Timer running", "AI Priority: High", "Assigned by Smart Queue".</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"This is Resolvo. One dashboard for your engineering issues, your customer support tickets, your team's queue, your client portal, and your booking schedule.<br><br>Everything your team needs to see — in one place. No tab-switching. No context-switching. No dropped tickets."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">3</div>
+      <div class="scene-title">Scene 3 — Creating an Issue</div>
+      <div class="scene-time">1:00 – 1:30 (30s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Click "New Issue". Form slides in: Title, Description, Priority dropdown, Assignee, SLA tier selector. Fill in a realistic bug: "Login flow breaks on mobile Safari". Click Create. Issue appears instantly on the kanban board. SLA timer starts counting. "SLA: 23h 59m remaining" appears in green next to the card.</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"Creating an issue takes five seconds. Set the priority, assign it, pick an SLA tier — and the clock starts automatically.<br><br>When the SLA is at 75%, your agent gets a nudge. At 100%, it escalates to the manager. No more silent breaches."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">4</div>
+      <div class="scene-title">Scene 4 — Email Ticketing Inbox</div>
+      <div class="scene-time">1:30 – 2:00 (30s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Navigate to "Tickets" in sidebar. Show inbox view: inbound emails listed as ticket cards. One is highlighted: "From: enterprise@bigclient.com — Subject: Invoice portal down". Callout: "Auto-created from email". Click the ticket. Show full thread view with AI summary at top: "Priority: Critical | Category: Billing | Suggested reply: [pre-filled draft]". Agent edits 2 words and hits Send.</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"When a customer emails your support address, Resolvo automatically creates a ticket, reads the message, and drafts a suggested reply — before any human sees it.<br><br>Your agent opens the ticket. The hard part is already done. Edit, send, move on."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">5</div>
+      <div class="scene-title">Scene 5 — Smart Queue</div>
+      <div class="scene-time">2:00 – 2:20 (20s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Navigate to Queue settings. Show three toggle cards: "Round Robin", "Skill-Based", "Domain Routing". Enable Skill-Based. Show agent profiles with skill tags: "billing, enterprise, mobile". New ticket comes in tagged "billing" — queue auto-assigns to the billing agent. Small toast notification: "Assigned to Priya (billing)". Agent's queue view shows the ticket already there.</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"Smart Queue means nobody picks their own tickets. The system routes each ticket to the right agent — by skill, by client, or by rotation. Your team just works the queue."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">6</div>
+      <div class="scene-title">Scene 6 — Customer Portal</div>
+      <div class="scene-time">2:20 – 2:40 (20s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Open a new browser tab. Navigate to resolvo.io/portal/acmecorp. Page loads with a branded portal: ACME Corp logo, list of their open tickets, statuses (Open / In Progress / Resolved), SLA remaining. Click one ticket — shows the full thread. Bottom of page: "Book a support call →" button.</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"Every client gets their own portal. They see their tickets, statuses, and the full conversation — without ever emailing you to ask. It's the fastest way to eliminate follow-up messages."</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-num">7</div>
+      <div class="scene-title">Scene 7 — CTA</div>
+      <div class="scene-time">2:40 – 3:00 (20s)</div>
+    </div>
+    <div class="scene-row">
+      <div>
+        <div class="scene-col-label">On Screen</div>
+        <div class="scene-col-body">Return to the Resolvo dashboard. Zoom out to show the full dashboard. Text overlay fades in: "Everything your team needs. One tool. ₹999/month." Then: resolvogroup.com URL + "Start free — no card needed" button. Fade to Resolvo logo on dark background.</div>
+      </div>
+      <div>
+        <div class="scene-col-label">Voiceover</div>
+        <div class="scene-col-body">"Issue tracking, email ticketing, smart queue, customer portal, AI triage, appointment booking — everything in one platform, at a flat ₹999 per month for your whole team.<br><br>Start free at resolvogroup.com. No credit card. Up and running in five minutes."</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- end .main -->
+
+<div class="scrolltop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
+
+<script>
+function copyText(id, btn) {
+  const el = document.getElementById(id);
+  // Get text content, excluding the button
+  const btn_el = el.querySelector('.copy-btn');
+  let text = '';
+  el.childNodes.forEach(node => {
+    if (node !== btn_el) {
+      text += node.textContent || node.innerText || '';
+    }
+  });
+  text = text.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Highlight active sidebar link on scroll
+const sections = document.querySelectorAll('.section[id]');
+const links = document.querySelectorAll('.sidebar a[href^="#"]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 120) current = s.id; });
+  links.forEach(l => {
+    l.classList.remove('active');
+    if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

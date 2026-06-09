@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="/manifest.json">
+  <!-- GA4 — add your G-XXXXXXXXXX ID here when ready -->
+  <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-XXXXXXXXXX');</script> -->
   <meta name="theme-color" content="#f5a623">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -7770,6 +7773,15 @@ tbody tr.row-selected {
             <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">System Online</span>
           </div>
           <div style="padding:6px 10px;border-top:1px solid var(--border)">
+            <!-- Onboarding progress bar -->
+            <div id="onboardingBar" style="display:none;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:4px;">
+                <span>Setup progress</span><span id="onboardingPct" style="color:var(--accent);">0%</span>
+              </div>
+              <div style="background:var(--border);border-radius:3px;height:4px;cursor:pointer;" onclick="App._showOnboardingChecklist()">
+                <div id="onboardingFill" style="height:4px;background:var(--accent);border-radius:3px;transition:width .4s;width:0%"></div>
+              </div>
+            </div>
             <a href="/learn" target="_blank" style="display:flex;align-items:center;gap:7px;width:100%;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);text-decoration:none;transition:color 0.15s,border-color 0.15s;margin-bottom:5px;" onmouseover="this.style.color='var(--low)';this.style.borderColor='var(--low)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">📚 Learning Center</a>
             <button onclick="App._logout()" style="width:100%;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);transition:color 0.15s,border-color 0.15s;" onmouseover="this.style.color='var(--critical)';this.style.borderColor='var(--critical-dim)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">⎋ Sign Out</button>
           </div>
@@ -9625,6 +9637,9 @@ const App = {
             <span style="font-size:12px;color:var(--text-muted);">👤 ${statsRes.owner.name}</span>
             <button onclick="App._showBaseUrlUpdater()" id="urlBtn" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🔗 URL</button>
             <button onclick="App._ownerBulkAnnounce()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">📢 Announce</button>
+            <button onclick="App._showOwnerCRM()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">👥 Prospect CRM</button>
+            <button onclick="App._showReferralManager()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🎁 Referrals</button>
+            <a href="/marketing-content.html" target="_blank" style="background:none;border:1px solid rgba(16,185,129,.4);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--low);cursor:pointer;text-decoration:none;">📣 Marketing Kit</a>
             <button onclick="App._ownerCrossSearch()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🔍 Search All</button>
             <button onclick="App._ownerShowSLALeague()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🏆 SLA Table</button>
             <button onclick="App._ownerShowBilling()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">💳 Billing</button>
@@ -11236,6 +11251,8 @@ const App = {
     // Load in-app notifications
     this._loadNotificationBell();
     setInterval(() => this._loadNotificationBell(), 120000);
+    // Load onboarding progress for non-owner brand admins
+    if (!this.currentUser?.isOwner) this._loadOnboardingProgress();
   },
 
   // ============================================================
@@ -17080,6 +17097,160 @@ const App = {
       }).join(''))+
       '</div></div></div>';
     document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  // ── ONBOARDING CHECKLIST (#10) ─────────────────────────────────────────────
+  _loadOnboardingProgress: async function() {
+    try {
+      var r = await fetch('/api/onboarding-status', {headers:{'x-session-token':localStorage.getItem('tt_session_token')||''}}).then(x=>x.json());
+      if (!r || !r.success) return;
+      if (r.percent >= 100) return; // fully onboarded, hide bar
+      var bar = document.getElementById('onboardingBar');
+      var fill = document.getElementById('onboardingFill');
+      var pct = document.getElementById('onboardingPct');
+      if (bar) bar.style.display = 'block';
+      if (fill) fill.style.width = r.percent + '%';
+      if (pct) pct.textContent = r.percent + '%';
+      App._onboardingData = r;
+    } catch(e) {}
+  },
+  _showOnboardingChecklist: function() {
+    var d = App._onboardingData;
+    if (!d) return;
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:480px">'+
+      '<div class="modal-header"><span class="modal-title">🚀 Setup Checklist — '+d.completed+'/'+d.total+' done</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body">'+
+      '<div style="background:var(--bg-elevated);border-radius:8px;height:8px;margin-bottom:16px;"><div style="height:8px;background:var(--accent);border-radius:8px;transition:width .4s;width:'+d.percent+'%;"></div></div>'+
+      '<div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Complete these steps to get the most out of Resolvo.</div>'+
+      '<div style="display:flex;flex-direction:column;gap:8px;">'+
+      (d.steps||[]).map(function(s){
+        return '<div onclick="'+(!s.done?'App.navigate(\''+s.link.replace('#','')+'\');this.closest(\'.modal-overlay\')?.remove();':'')+'" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-elevated);border-radius:8px;border:1px solid '+(s.done?'var(--low)44':'var(--border)')+';cursor:'+(s.done?'default':'pointer')+';opacity:'+(s.done?'.7':'1')+';">'+
+          '<div style="width:24px;height:24px;border-radius:50%;background:'+(s.done?'var(--low-dim)':'var(--bg-card)')+';border:2px solid '+(s.done?'var(--low)':'var(--border)')+';display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">'+(s.done?'✓':s.icon)+'</div>'+
+          '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:'+(s.done?'var(--text-dim)':'var(--text-primary)')+';">'+(s.done?'<s>':'')+s.label+(s.done?'</s>':'')+'</div></div>'+
+          (!s.done?'<span style="font-size:12px;color:var(--accent);">→</span>':'')+
+        '</div>';
+      }).join('')+
+      '</div></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  // ── OWNER CRM (#9) — Prospect tracking ────────────────────────────────────
+  _showOwnerCRM: async function() {
+    var token = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/owner/prospects', {headers:{'x-session-token':token}}).then(x=>x.json()).catch(()=>({success:false,prospects:[]}));
+    var prospects = r.prospects||[];
+    var statusColors = {lead:'#F59E0B',contacted:'#3B82F6',demo:'#8B5CF6',trial:'#10B981',customer:'#00D084',lost:'#EF4444'};
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:780px;max-height:85vh;">'+
+      '<div class="modal-header">'+
+        '<span class="modal-title">👥 Prospect CRM</span>'+
+        '<div style="display:flex;gap:8px;"><button onclick="App._addProspect()" class="btn-primary btn-sm">+ Add Prospect</button><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '</div>'+
+      '<div style="overflow-y:auto;max-height:calc(85vh - 60px);">'+
+      '<table style="width:100%;border-collapse:collapse;">'+
+      '<thead><tr style="background:var(--bg-elevated);">'+
+        '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Name</th>'+
+        '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Email</th>'+
+        '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Company</th>'+
+        '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Status</th>'+
+        '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Notes</th>'+
+        '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Actions</th>'+
+      '</tr></thead><tbody>'+
+      (prospects.length===0?'<tr><td colspan="6" style="padding:28px;text-align:center;color:var(--text-dim);">No prospects yet. Add your first lead.</td></tr>':
+      prospects.map(function(p){
+        var sc = statusColors[p.status]||'#6B7280';
+        return '<tr style="border-top:1px solid var(--border);">'+
+          '<td style="padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(p.name||'')+'</td>'+
+          '<td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">'+App._esc(p.email||'')+'</td>'+
+          '<td style="padding:10px 14px;font-size:13px;color:var(--text-secondary);">'+App._esc(p.company||'')+'</td>'+
+          '<td style="padding:10px 14px;text-align:center;"><select onchange="App._updateProspectStatus(\''+p.id+'\',this.value)" style="font-size:11px;padding:3px 7px;border-radius:5px;border:1px solid '+sc+'44;background:'+sc+'18;color:'+sc+';font-family:inherit;">'+
+            ['lead','contacted','demo','trial','customer','lost'].map(function(s){return '<option value="'+s+'"'+(p.status===s?' selected':'')+'>'+s.charAt(0).toUpperCase()+s.slice(1)+'</option>';}).join('')+
+          '</select></td>'+
+          '<td style="padding:10px 14px;font-size:11px;color:var(--text-dim);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+App._esc(p.notes||'—')+'</td>'+
+          '<td style="padding:10px 14px;text-align:center;display:flex;gap:6px;justify-content:center;">'+
+            (p.email?'<a href="mailto:'+App._esc(p.email)+'" style="font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);text-decoration:none;">✉</a>':'')+
+            '<button onclick="App._editProspect(\''+p.id+'\')" style="font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">Edit</button>'+
+            '<button onclick="App._deleteProspect(\''+p.id+'\')" style="font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--critical-dim);background:var(--critical-dim);color:var(--critical);cursor:pointer;">Del</button>'+
+          '</td>'+
+        '</tr>';
+      }).join(''))+
+      '</tbody></table></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _addProspect: function() {
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:420px">'+
+      '<div class="modal-header"><span class="modal-title">+ Add Prospect</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label class="form-label">Name *</label><input id="pr_name" class="form-input" placeholder="Rajesh Kumar"></div>'+
+        '<div><label class="form-label">Email</label><input id="pr_email" class="form-input" type="email" placeholder="rajesh@company.com"></div>'+
+        '<div><label class="form-label">Company</label><input id="pr_company" class="form-input" placeholder="Acme Corp"></div>'+
+        '<div><label class="form-label">Source</label><select id="pr_source" class="form-select"><option value="linkedin">LinkedIn</option><option value="referral">Referral</option><option value="inbound">Inbound</option><option value="reddit">Reddit</option><option value="producthunt">Product Hunt</option><option value="manual">Manual</option></select></div>'+
+        '<div><label class="form-label">Notes</label><textarea id="pr_notes" class="form-textarea" style="min-height:70px;" placeholder="How we met, what they need..."></textarea></div>'+
+      '</div>'+
+      '<div class="modal-footer"><button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button><button class="btn-primary" onclick="App._saveProspect()">Add Prospect</button></div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _saveProspect: async function() {
+    var name = document.getElementById('pr_name')?.value?.trim();
+    if (!name) { App.showToast('Name required','warning'); return; }
+    var token = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/owner/prospects',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({name,email:document.getElementById('pr_email')?.value?.trim(),company:document.getElementById('pr_company')?.value?.trim(),source:document.getElementById('pr_source')?.value,notes:document.getElementById('pr_notes')?.value?.trim()})}).then(x=>x.json());
+    if(r&&r.success){App.showToast('Prospect added','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App._showOwnerCRM();}
+    else App.showToast('Failed','error');
+  },
+  _updateProspectStatus: async function(id, status) {
+    var token = localStorage.getItem('tt_session_token')||'';
+    await fetch('/api/owner/prospects/'+id,{method:'PUT',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({status})});
+    App.showToast('Status updated','success');
+  },
+  _deleteProspect: async function(id) {
+    if (!confirm('Delete this prospect?')) return;
+    var token = localStorage.getItem('tt_session_token')||'';
+    await fetch('/api/owner/prospects/'+id,{method:'DELETE',headers:{'x-session-token':token}});
+    App.showToast('Deleted','success');
+    document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
+    App._showOwnerCRM();
+  },
+  _editProspect: function(id) { App.showToast('Click status dropdown to update, or delete and re-add','info'); },
+
+  // ── REFERRAL SYSTEM (#11) ──────────────────────────────────────────────────
+  _showReferralManager: async function() {
+    var token = localStorage.getItem('tt_session_token')||'';
+    var owner = readOwner?.() || {};
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:560px">'+
+      '<div class="modal-header"><span class="modal-title">🎁 Referral System</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body">'+
+        '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+
+          'Each brand gets a unique referral link. When someone signs up using their link, that brand earns a free month of Pro.'+
+        '</div>'+
+        '<div id="refBrandList">Loading...</div>'+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    // Load brands
+    var r = await fetch('/api/owner/brands',{headers:{'x-session-token':token}}).then(x=>x.json());
+    var el = document.getElementById('refBrandList');
+    if (!el) return;
+    var brands = (r&&r.brands)||[];
+    el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">'+
+      brands.filter(function(b){return b.status==='active';}).map(function(b){
+        var link = location.origin+'/signup?ref='+(b.referralCode||'GENERATE');
+        return '<div style="background:var(--bg-elevated);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;">'+
+          '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(b.name)+'</div>'+
+          (b.referralCode?'<div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);">'+link+'</div>':'<div style="font-size:11px;color:var(--text-dim);">No referral link yet</div>')+
+          (b.referralCredits>0?'<div style="font-size:11px;color:var(--low);">Credits earned: '+b.referralCredits+' month(s)</div>':'')+
+          '</div>'+
+          (b.referralCode?
+            '<button onclick="navigator.clipboard.writeText(\''+link+'\').then(()=>App.showToast(\'Copied!\',\'success\'))" class="btn-secondary btn-sm">Copy Link</button>':
+            '<button onclick="App._generateReferralCode(\''+b.slug+'\')" class="btn-primary btn-sm">Generate Link</button>')+
+        '</div>';
+      }).join('')+
+    '</div>';
+  },
+  _generateReferralCode: async function(slug) {
+    var token = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/owner/referral/generate/'+slug,{method:'POST',headers:{'x-session-token':token}}).then(x=>x.json());
+    if(r&&r.success){App.showToast('Referral link created: '+r.url,'success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App._showReferralManager();}
+    else App.showToast('Failed: '+(r?.error||''),'error');
   },
 
   _quickAddTeam: async function() {
