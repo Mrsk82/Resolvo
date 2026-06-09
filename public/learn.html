@@ -259,6 +259,12 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
   </div>
 
   <div class="sb-section">
+    <div class="sb-section-title">New Features</div>
+    <a class="sb-item" onclick="showModule('new-features')" href="#">
+      <div class="sb-check" id="chk-new-features"></div><span>🆕 New Features Guide</span>
+    </a>
+  </div>
+  <div class="sb-section">
     <div class="sb-section-title">Reference</div>
     <a class="sb-item" onclick="showModule('cheatsheet')" href="#">
       <div class="sb-check" id="chk-cheatsheet"></div><span>📋 Full Feature Cheatsheet</span>
@@ -284,10 +290,10 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     <div class="module active" id="mod-quickstart">
       <div class="learn-hero">
         <h1>Welcome to Resolvo 👋</h1>
-        <p>This Learning Center walks you through every feature — from your first issue to queue management, appointment booking, task checklists, and AI-powered analytics. Complete all modules to master Resolvo.</p>
+        <p>This Learning Center walks you through every feature — from your first issue to queue management, customer portal, knowledge base, API keys, 2FA, and AI-powered analytics.</p>
         <div class="hero-meta">
-          <span>📚 15 Modules</span>
-          <span>⏱ ~60 min total</span>
+          <span>📚 16 Modules</span>
+          <span>⏱ ~75 min total</span>
           <span>✅ Track your progress</span>
           <span>🖥 Works on all screens</span>
         </div>
@@ -1185,6 +1191,126 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 
     <!-- MODULE: CHEATSHEET                         -->
     <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: NEW FEATURES GUIDE                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-new-features">
+      <div class="learn-hero">
+        <h1>🆕 New Features Guide</h1>
+        <p>Everything added recently — Customer Portal, Knowledge Base, API Keys, 2FA, Approval Workflows, Roadmap, GDPR Tools, Cost Reports, Agent Coaching, and more.</p>
+        <div class="hero-meta"><span>⏱ 10 min read</span><span>🆕 15+ new features</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🌐 Customer Self-Service Portal</div>
+        <div class="section-sub">Your customers get their own login at <code>/portal/your-brand</code>. No more "what's the status of my ticket?" emails.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Share the portal URL</h4><p>URL: <code>app.resolvogroup.com/portal/konnect</code> — share with customers via email or your website.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Customer logs in with email OTP</h4><p>No password needed. Customer enters email → gets 6-digit code → sees all their tickets.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Submit new requests from portal</h4><p>Customer fills a form → ticket auto-created in your inbox → routed through your queue.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">💬 Embeddable Widget</div>
+        <div class="section-sub">Add a floating "Support" button to any website with one line of code.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Add one script tag to your website</h4><p><code>&lt;script src="app.resolvogroup.com/widget/konnect/embed.js"&gt;&lt;/script&gt;</code><br>A chat bubble appears. Customer fills name + message → ticket created instantly with page URL and browser info.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📖 Knowledge Base</div>
+        <div class="section-sub">Settings → 📖 Knowledge Base. Write FAQ articles. Publish them at <code>/kb/your-brand</code>. Reduces ticket volume by 30-40%.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Create Articles</h4><p>+ New Article → title, content (markdown), category, publish/draft toggle.</p></div>
+          <div class="feat-card"><h4>Track Views</h4><p>Each article shows view count. See which FAQs are most popular.</p></div>
+          <div class="feat-card"><h4>Draft Mode</h4><p>Write articles internally before publishing. Only published articles are public.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🗺 Public Roadmap</div>
+        <div class="section-sub">Settings → 🗺 Roadmap. Share what you're building. Customers vote on features.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Add roadmap items</h4><p>Status: Planned / In Progress / Shipped. Public or private. Customers see your roadmap at <code>/roadmap/your-brand</code> and can vote.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔑 API Keys</div>
+        <div class="section-sub">Settings → 🔑 API Keys. Integrate any external tool with Resolvo via REST API.</div>
+        <table class="shortcuts">
+          <tr><th>Endpoint</th><th>What it does</th></tr>
+          <tr><td>POST /api/v1/issues</td><td>Create issue from external system</td></tr>
+          <tr><td>GET /api/v1/tickets</td><td>Pull tickets into BI tools</td></tr>
+          <tr><td>POST /api/v1/tickets</td><td>Create ticket from website form</td></tr>
+        </table>
+        <div class="tip"><strong>💡 Authentication:</strong> Pass key as <code>Authorization: Bearer YOUR_KEY</code> header.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔒 Two-Factor Authentication (2FA)</div>
+        <div class="section-sub">Settings → 🔒 Two-Factor Auth. Adds extra security to your login.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Click "Enable 2FA"</h4><p>A QR code appears. Scan with Google Authenticator or Authy app.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Enter the 6-digit code</h4><p>Type the code from your authenticator app to verify and enable.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Every login requires the code</h4><p>After password, you'll be asked for the rotating 6-digit code.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">✅ Approval Workflows</div>
+        <div class="section-sub">Settings → ✅ Approval Workflows. Require sign-off before issues can be resolved.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Request Approval</h4><p>Inside any issue → click "Request Approval" → select approver → add note. Approver gets email.</p></div>
+          <div class="feat-card"><h4>Approve / Reject</h4><p>Approver opens Reports → ✅ Pending Approvals → one click to approve or reject with reason.</p></div>
+          <div class="feat-card"><h4>Auto-Resolve</h4><p>When approved, issue automatically moves to Resolved status.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🛡 GDPR & Privacy Tools</div>
+        <div class="section-sub">Settings → 🛡 GDPR & Privacy. Compliance tools for data rights.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Right to Erasure</h4><p>Enter customer email → click Erase. All ticket data for that email is permanently anonymized.</p></div>
+          <div class="feat-card"><h4>Data Export</h4><p>Export all data held for a specific customer as a JSON file. Send to them on request.</p></div>
+        </div>
+        <div class="warn"><strong>⚠ Erasure is irreversible.</strong> All ticket content from that email becomes "[deleted]". Cannot be undone.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">💰 Cost Report & Agent Coaching</div>
+        <div class="section-sub">Reports → 💰 Cost Report and 🎯 Agent Coaching</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Cost Report</h4><p>Enter hourly rate → see total support cost by agent and module. "API issues cost ₹1.2L/month to support."</p></div>
+          <div class="feat-card"><h4>Agent Coaching</h4><p>Performance insights per agent: CSAT trend, first response time, what to improve, what to celebrate.</p></div>
+          <div class="feat-card"><h4>Issue Impact Score</h4><p>Reports → 💥 Issue Impact. Every open issue ranked 0-100 by combined priority + age + revenue + SLA.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔔 In-App Notifications</div>
+        <div class="section-sub">Bell icon in top-right. Real-time alerts without email.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Click the 🔔 bell</h4><p>See SLA breach alerts, follow-ups due today, system events. Badge shows unread count. Click "Mark all read" to clear.</p></div></div>
+        </div>
+        <div class="info"><strong>ℹ Auto-populated:</strong> SLA breach warnings, follow-up due alerts, and owner-pushed notifications appear automatically.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚡ Owner-Controlled Feature Flags</div>
+        <div class="section-sub">Brand Admins can NO longer toggle features. Only the platform owner controls what each brand can access.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>What Brand Admin sees</h4><p>Settings → ⚡ Features & Plan shows a READ-ONLY list: ✅ Enabled / ⛔ Disabled with "Contact platform admin" message.</p></div>
+          <div class="feat-card"><h4>What Owner controls</h4><p>Owner Portal → brand → Features → change tier OR toggle individual features ON/OFF per brand.</p></div>
+          <div class="feat-card"><h4>Tier system</h4><p>Free → basic. Pro → kanban, AI, ticketing, queue. Enterprise → API keys, portal, widget, GDPR, cost reports.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('new-features','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
+    </div>
+
     <div class="module" id="mod-cheatsheet">
       <div class="learn-hero">
         <h1>📋 Full Feature Cheatsheet</h1>
@@ -1379,12 +1505,81 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
           </table>
         </div>
 
+        <!-- New features cheatsheet sections -->
+        <div class="cheat-section">
+          <h3>🆕 Customer-Facing Features</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Customer Portal (/portal/:brand)</div>
+            <div class="cheat-item"><span>✓</span> OTP login (no password)</div>
+            <div class="cheat-item"><span>✓</span> Embeddable widget (/widget/:brand/embed.js)</div>
+            <div class="cheat-item"><span>✓</span> Widget auto-captures page URL + browser</div>
+            <div class="cheat-item"><span>✓</span> Knowledge Base articles</div>
+            <div class="cheat-item"><span>✓</span> KB draft/publish workflow</div>
+            <div class="cheat-item"><span>✓</span> Public Roadmap (/roadmap/:brand)</div>
+            <div class="cheat-item"><span>✓</span> Customer voting on roadmap</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🔐 Security & Compliance</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Two-Factor Auth (TOTP)</div>
+            <div class="cheat-item"><span>✓</span> QR code setup via authenticator app</div>
+            <div class="cheat-item"><span>✓</span> GDPR right to erasure</div>
+            <div class="cheat-item"><span>✓</span> Customer data export</div>
+            <div class="cheat-item"><span>✓</span> API Keys (Bearer token)</div>
+            <div class="cheat-item"><span>✓</span> bcrypt passwords</div>
+            <div class="cheat-item"><span>✓</span> Rate limiting (5/15min)</div>
+            <div class="cheat-item"><span>✓</span> Session expiry + remember me</div>
+            <div class="cheat-item"><span>✓</span> Owner-controlled feature flags</div>
+            <div class="cheat-item"><span>✓</span> Per-brand data isolation</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>💡 Intelligence & Analytics (New)</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Issue Impact Score (0-100)</div>
+            <div class="cheat-item"><span>✓</span> Agent Coaching Dashboard</div>
+            <div class="cheat-item"><span>✓</span> Cost Report (time × hourly rate)</div>
+            <div class="cheat-item"><span>✓</span> Customer Sentiment Trend</div>
+            <div class="cheat-item"><span>✓</span> In-App Notification bell</div>
+            <div class="cheat-item"><span>✓</span> Pending Approvals report</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>✅ Approval Workflows</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Request approval on any issue</div>
+            <div class="cheat-item"><span>✓</span> Approver gets email notification</div>
+            <div class="cheat-item"><span>✓</span> Approve with comment</div>
+            <div class="cheat-item"><span>✓</span> Reject with reason</div>
+            <div class="cheat-item"><span>✓</span> Auto-resolve on approval</div>
+            <div class="cheat-item"><span>✓</span> Reports → Pending Approvals tab</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🏗 Platform & Integrations (New)</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> REST API with Bearer token</div>
+            <div class="cheat-item"><span>✓</span> PWA — installable on phone/desktop</div>
+            <div class="cheat-item"><span>✓</span> SLA Policies per customer domain</div>
+            <div class="cheat-item"><span>✓</span> Custom SLA per domain/tier</div>
+            <div class="cheat-item"><span>✓</span> Per-brand email profile (SMTP)</div>
+            <div class="cheat-item"><span>✓</span> 35 owner-controlled feature flags</div>
+            <div class="cheat-item"><span>✓</span> Tier-based access (Free/Pro/Enterprise)</div>
+            <div class="cheat-item"><span>✓</span> Settings tabs hidden if feature disabled</div>
+          </div>
+        </div>
+
         <div style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(16,185,129,.1));border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:28px;text-align:center;margin-top:32px;">
           <div style="font-size:32px;margin-bottom:12px;">🎉</div>
-          <h2 style="font-size:22px;font-weight:900;margin-bottom:8px;">You've completed the Learning Center!</h2>
-          <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">You now know every feature in Resolvo. Time to put it to work.</p>
+          <h2 style="font-size:22px;font-weight:900;margin-bottom:8px;">You've mastered Resolvo!</h2>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">100+ features. Multi-tenant. AI-powered. Owner-controlled. Time to put it all to work.</p>
           <a href="/" style="display:inline-block;background:#10B981;color:#0B0F19;padding:13px 36px;border-radius:10px;font-size:15px;font-weight:800;text-decoration:none;margin-right:10px;">→ Open the App</a>
-          <a href="/pitch" target="_blank" style="display:inline-block;background:var(--card);color:var(--white);padding:13px 36px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--border);">📄 Product Overview</a>
+          <a href="/pitch" target="_blank" style="display:inline-block;background:var(--card);color:var(--white);padding:13px 36px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--border);">📄 Pitch Deck</a>
         </div>
       </div>
 
@@ -1395,7 +1590,7 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 </div><!-- /main -->
 
 <script>
-var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','cheatsheet'];
+var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','new-features','cheatsheet'];
 var TITLES = {
   quickstart:'🚀 Quick Start',dashboard:'📊 Dashboard',issues:'🎫 Issues & SLA',
   kanban:'🗂 Kanban & Sprints',tickets:'📬 Email Ticketing',
@@ -1403,6 +1598,7 @@ var TITLES = {
   reports:'📈 Reports & Analytics',leaderboard:'🏆 Leaderboard & Forecast',
   settings:'⚙️ Settings Guide',team:'🤝 Team & Users',
   queue:'🔄 Smart Queue',appointments:'📅 Appointments',tasks:'✅ Tasks & Follow-ups',
+  'new-features':'🆕 New Features Guide',
   cheatsheet:'📋 Full Cheatsheet'
 };
 
