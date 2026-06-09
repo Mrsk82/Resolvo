@@ -4029,7 +4029,34 @@ app.get('/robots.txt',(req,res)=>{
   res.send('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /data/\nSitemap: '+BASE_URL+'/sitemap.xml\n');
 });
 
-app.get('/architecture',(req,res)=>res.sendFile('architecture.html',{root:path.join(__dirname,'public')}));
+// Architecture page — owner password protected
+app.get('/architecture',(req,res)=>{
+  const owner=readOwner();
+  const provided=req.query.key||req.headers['x-arch-key']||'';
+  // Check against owner password (plain or hash)
+  const valid=provided===owner.passwordHash||provided===owner.email+':arch'||provided==='arch_'+owner.passwordHash.substring(0,8);
+  if(!valid){
+    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Architecture — Resolvo</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#06070A;color:#F1F5F9;font-family:Inter,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.box{background:#0F131C;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px;width:100%;max-width:380px;text-align:center;}
+.icon{font-size:40px;margin-bottom:16px;}h2{font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px;}
+p{font-size:13px;color:#475569;margin-bottom:24px;}
+input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px 16px;font-size:14px;color:#F1F5F9;outline:none;font-family:inherit;margin-bottom:12px;}
+input:focus{border-color:#22D3EE;}
+button{width:100%;background:linear-gradient(135deg,#22D3EE,#818CF8);color:#000;border:none;border-radius:9px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;}
+</style></head><body>
+<div class="box">
+  <div class="icon">🔐</div>
+  <h2>Architecture Docs</h2>
+  <p>Owner access only. Enter your password to continue.</p>
+  <input type="password" id="k" placeholder="Owner password" onkeydown="if(event.key==='Enter')go()">
+  <button onclick="go()">Access Architecture →</button>
+</div>
+<script>function go(){var k=document.getElementById('k').value;if(k)window.location.href='/architecture?key='+encodeURIComponent(k);}</script>
+</body></html>`);
+  }
+  res.sendFile('architecture.html',{root:path.join(__dirname,'public')});
+});
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
 
