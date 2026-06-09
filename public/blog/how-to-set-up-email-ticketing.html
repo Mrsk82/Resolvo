@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How to Set Up Email Ticketing for Your Engineering Team — Resolvo Blog</title>
+<meta name="description" content="Complete step-by-step guide to setting up email ticketing for engineering teams. Connect Gmail, auto-create tickets, route to agents, and measure CSAT.">
+<meta name="keywords" content="email ticketing setup, email support ticketing engineering, gmail ticketing, engineering team email support, ticket from email">
+<link rel="canonical" href="https://resolvogroup.com/blog/how-to-set-up-email-ticketing">
+<meta property="og:title" content="How to Set Up Email Ticketing for Your Engineering Team">
+<meta property="og:description" content="Complete step-by-step guide to setting up email ticketing for engineering teams. Connect Gmail, auto-create tickets, route to agents, and measure CSAT.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://resolvogroup.com/blog/how-to-set-up-email-ticketing">
+<meta property="og:image" content="https://resolvogroup.com/og-email-ticketing.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Set Up Email Ticketing for Your Engineering Team">
+<meta name="twitter:description" content="Complete step-by-step guide to setting up email ticketing for engineering teams. Connect Gmail, auto-create tickets, route to agents, and measure CSAT.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How to Set Up Email Ticketing for Your Engineering Team",
+  "description": "Complete step-by-step guide to setting up email ticketing for engineering teams. Connect Gmail, auto-create tickets, route to agents, and measure CSAT.",
+  "datePublished": "2025-06-09",
+  "dateModified": "2025-06-09",
+  "author": {
+    "@type": "Organization",
+    "name": "Resolvo Team",
+    "url": "https://resolvogroup.com"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Resolvo",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://resolvogroup.com/logo.png"
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://resolvogroup.com/blog/how-to-set-up-email-ticketing"
+  }
+}
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#08090C;color:#F1F5F9;font-family:'Inter',sans-serif;line-height:1.7;font-size:17px;}
+
+/* NAV */
+nav{background:rgba(8,9,12,.9);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06);padding:14px 28px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.logo-r{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#22D3EE,#818CF8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#000;}
+.logo-t{font-size:15px;font-weight:800;background:linear-gradient(135deg,#22D3EE,#818CF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-home{color:rgba(241,245,249,.5);font-size:13px;text-decoration:none;margin-left:auto;}
+.nav-home:hover{color:#F1F5F9;}
+
+/* ARTICLE LAYOUT */
+.article-wrap{max-width:760px;margin:0 auto;padding:0 24px;}
+
+/* HEADER */
+.article-header{padding:60px 0 48px;}
+.article-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#22D3EE;display:inline-block;margin-bottom:18px;}
+.article-header h1{font-size:clamp(28px,4.5vw,46px);font-weight:900;letter-spacing:-1.5px;line-height:1.08;margin-bottom:20px;color:#F1F5F9;}
+.article-meta{display:flex;align-items:center;gap:16px;font-size:13px;color:#475569;flex-wrap:wrap;}
+.article-meta span{display:flex;align-items:center;gap:6px;}
+.meta-dot{width:3px;height:3px;border-radius:50%;background:#334155;}
+
+/* TOC */
+.toc{background:#111722;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:20px 24px;margin:32px 0 40px;}
+.toc-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;margin-bottom:12px;}
+.toc ol{margin-left:18px;}
+.toc li{margin-bottom:6px;}
+.toc a{color:#22D3EE;font-size:14px;text-decoration:none;border-bottom:none;}
+.toc a:hover{text-decoration:underline;}
+
+/* BODY TYPOGRAPHY */
+.article-body{padding-bottom:80px;}
+.article-body p{color:#CBD5E1;margin-bottom:22px;line-height:1.8;}
+.article-body h2{font-size:clamp(20px,3vw,28px);font-weight:800;letter-spacing:-0.6px;color:#F1F5F9;margin:52px 0 18px;scroll-margin-top:80px;}
+.article-body h3{font-size:18px;font-weight:700;color:#F1F5F9;margin:30px 0 12px;}
+.article-body ul,.article-body ol{margin:0 0 22px 24px;color:#CBD5E1;}
+.article-body li{margin-bottom:10px;line-height:1.75;}
+.article-body strong{color:#F1F5F9;font-weight:600;}
+.article-body a{color:#22D3EE;text-decoration:none;border-bottom:1px solid rgba(34,211,238,.3);}
+.article-body a:hover{border-bottom-color:#22D3EE;}
+.article-body blockquote{border-left:3px solid #22D3EE;padding:16px 20px;background:rgba(34,211,238,.05);border-radius:0 8px 8px 0;margin:28px 0;color:#94A3B8;font-style:italic;}
+
+/* CALLOUT BOXES */
+.callout{border-radius:10px;padding:18px 20px;margin:28px 0;font-size:15px;line-height:1.7;}
+.callout-tip{background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.2);}
+.callout-warning{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);}
+.callout-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;display:block;}
+.callout-tip .callout-label{color:#22D3EE;}
+.callout-warning .callout-label{color:#FBBF24;}
+.callout p{color:#94A3B8;margin-bottom:0;}
+
+/* CODE BLOCKS */
+pre{background:#0D1117;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:20px 22px;overflow-x:auto;margin:22px 0;font-size:14px;line-height:1.6;}
+code{font-family:'JetBrains Mono','Fira Code','Courier New',monospace;color:#7DD3FC;}
+pre code{color:#CBD5E1;}
+.code-comment{color:#475569;}
+.code-key{color:#22D3EE;}
+.code-string{color:#86EFAC;}
+.code-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.code-filename{font-size:12px;color:#475569;font-family:'JetBrains Mono',monospace;}
+
+/* METRICS GRID */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin:24px 0;}
+.metric-card{background:#111722;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:18px 20px;}
+.metric-val{font-size:24px;font-weight:900;color:#22D3EE;letter-spacing:-1px;margin-bottom:4px;}
+.metric-label{font-size:12px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.06em;}
+.metric-desc{font-size:13px;color:#64748B;margin-top:6px;line-height:1.5;}
+
+/* STEP BLOCKS */
+.step-header{display:flex;align-items:center;gap:14px;margin:40px 0 18px;}
+.step-badge{background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:#22D3EE;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;white-space:nowrap;}
+.step-header h2{margin:0;}
+
+/* MISTAKES LIST */
+.mistake{background:#111722;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:18px 20px;margin-bottom:14px;}
+.mistake-title{font-size:15px;font-weight:700;color:#F1F5F9;margin-bottom:6px;}
+.mistake p{font-size:14px;color:#64748B;margin-bottom:0;line-height:1.65;}
+
+/* CTA */
+.cta-box{background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(129,140,248,.12));border:1px solid rgba(34,211,238,.25);border-radius:16px;padding:40px;text-align:center;margin:52px 0;}
+.cta-box h2{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:12px;color:#F1F5F9;}
+.cta-box p{color:#94A3B8;font-size:16px;margin-bottom:28px;}
+.cta-btn{display:inline-block;background:linear-gradient(135deg,#22D3EE,#818CF8);color:#000;font-weight:800;font-size:15px;padding:14px 32px;border-radius:10px;text-decoration:none;letter-spacing:-0.2px;}
+.cta-btn:hover{opacity:.9;}
+.cta-sub{margin-top:12px;font-size:13px;color:#475569;}
+.cta-sub a{color:#22D3EE;}
+
+/* RELATED */
+.related{border-top:1px solid rgba(255,255,255,.06);padding:48px 0;}
+.related h3{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;margin-bottom:24px;}
+.related-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+.related-card{background:#111722;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:18px 20px;text-decoration:none;color:inherit;display:block;transition:all .2s;}
+.related-card:hover{border-color:rgba(255,255,255,.12);transform:translateY(-2px);}
+.related-card .tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#22D3EE;display:block;margin-bottom:8px;}
+.related-card .title{font-size:14px;font-weight:700;line-height:1.4;color:#F1F5F9;}
+
+/* FOOTER */
+footer{border-top:1px solid rgba(255,255,255,.06);padding:24px 28px;text-align:center;font-size:13px;color:#334155;}
+footer a{color:#22D3EE;text-decoration:none;}
+
+@media(max-width:640px){
+  .article-header{padding:40px 0 32px;}
+  .cta-box{padding:28px 20px;}
+  .metrics-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <div class="logo-r">R</div><span class="logo-t">resolvo</span>
+  </a>
+  <a href="/blog" class="nav-home">← Blog</a>
+</nav>
+
+<div class="article-wrap">
+
+  <header class="article-header">
+    <span class="article-tag">Email Ticketing</span>
+    <h1>How to Set Up Email Ticketing for Your Engineering Team</h1>
+    <div class="article-meta">
+      <span>By Resolvo Team</span>
+      <span class="meta-dot"></span>
+      <span>June 9, 2025</span>
+      <span class="meta-dot"></span>
+      <span>9 min read</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Table of contents">
+    <div class="toc-title">In this guide</div>
+    <ol>
+      <li><a href="#what-is-email-ticketing">What Is Email Ticketing and Why Engineering Teams Need It</a></li>
+      <li><a href="#step-1">Step 1 — Connect Your Gmail Inbox</a></li>
+      <li><a href="#step-2">Step 2 — Configure Smart Queue and Auto-Assignment</a></li>
+      <li><a href="#step-3">Step 3 — Set Up Canned Responses for Fast Replies</a></li>
+      <li><a href="#step-4">Step 4 — Enable CSAT Surveys</a></li>
+      <li><a href="#step-5">Step 5 — Set SLA Rules for Email Tickets</a></li>
+      <li><a href="#metrics">Measuring Email Ticketing Success</a></li>
+      <li><a href="#mistakes">Common Mistakes to Avoid</a></li>
+    </ol>
+  </nav>
+
+  <article class="article-body">
+
+    <p>There's a particular kind of anxiety that comes with running a shared <code>support@yourcompany.com</code> inbox. You never know if someone already replied to that customer's bug report. You have no idea if that critical production issue from Tuesday was ever actually resolved. You can't tell who's responsible for what, and there's no record of how long any of this took.</p>
+
+    <p>For early-stage teams, a Gmail inbox handles this okay — when there are three of you and two emails per day. But somewhere around ten team members and twenty inbound requests per week, the chaos becomes expensive. Issues slip through. The same customer emails three times. Engineers spend time triaging emails instead of writing code. There's no data to tell you whether your support is getting better or worse.</p>
+
+    <p>Email ticketing solves this by giving every inbound email a ticket number, an owner, a status, and a timestamp. It transforms a chaotic inbox into a structured queue where nothing gets lost, every request is accountable, and you can measure your team's responsiveness over time.</p>
+
+    <p>This guide walks through the complete setup — connecting Gmail, configuring routing and automation, building a canned response library, enabling CSAT surveys, and setting SLA rules. The examples use Resolvo, but the concepts apply to any ticketing system you choose. By the end, you'll have a production-ready email ticketing setup that took less than 30 minutes to build.</p>
+
+    <h2 id="what-is-email-ticketing">What Is Email Ticketing and Why Engineering Teams Need It</h2>
+
+    <p>Email ticketing is the practice of converting inbound emails into structured support tickets that are tracked through a workflow from receipt to resolution. Instead of living as a thread in Gmail, each email becomes a record with a unique ID, assignee, priority, status, SLA clock, and audit trail.</p>
+
+    <p>Engineering teams in particular benefit from ticketing because their support requests are often technical and complex — a customer-reported bug might need to be reproduced, triaged, turned into a development issue, fixed in a branch, deployed, and confirmed. Without a structured ticket linking all these steps together, you lose the thread between "customer reported X" and "engineer deployed fix for X."</p>
+
+    <p>Here's what email ticketing gives you that a shared inbox cannot:</p>
+
+    <ul>
+      <li><strong>No duplicate responses:</strong> When one agent opens a ticket, others see it's claimed. No more two people replying to the same email with conflicting information.</li>
+      <li><strong>Accountability:</strong> Every ticket has an owner. If something isn't resolved, it's clear whose queue it's sitting in.</li>
+      <li><strong>SLA tracking:</strong> You can set rules like "first response within 4 hours for priority bugs" and see in real time which tickets are at risk of breaching.</li>
+      <li><strong>Customer history:</strong> See every previous conversation with a customer in one timeline, not scattered across multiple thread views in Gmail.</li>
+      <li><strong>Metrics:</strong> First response time, resolution time, CSAT score — data that helps you improve support quality over time.</li>
+    </ul>
+
+    <blockquote>"We had 47 emails in our support inbox that were technically 'open' but nobody knew who was responsible for any of them. Setting up ticketing took us 20 minutes. We cleared the backlog in two days." — Engineering Lead, B2B SaaS startup</blockquote>
+
+    <h2 id="step-1">Step 1 — Connect Your Gmail Inbox</h2>
+
+    <p>The foundation of email ticketing is the inbox connection. This is a one-time OAuth authorization that lets your ticketing system monitor a mailbox, create tickets from inbound emails, and send replies that appear to come from your support address.</p>
+
+    <h3>Before you connect</h3>
+
+    <p>Decide which email address will be your support inbox. The best setups use a dedicated address (<code>support@yourcompany.com</code> or <code>help@yourcompany.com</code>) rather than a personal address. If you don't have one yet, create a Google Workspace alias or a separate Gmail account before proceeding. This keeps your support volume separate from your personal email and makes it easier to hand off to team members later.</p>
+
+    <h3>Connecting in Resolvo</h3>
+
+    <ol>
+      <li>Go to <strong>Settings → Email Ticketing → Inboxes</strong></li>
+      <li>Click <strong>Connect Gmail</strong></li>
+      <li>Authorize with the Google account that owns your support inbox</li>
+      <li>Select which labels to monitor (default: all mail; recommended: create a <code>Support</code> label in Gmail and filter support@yourcompany.com emails into it)</li>
+      <li>Set the <strong>default project</strong> that new tickets will be created in</li>
+      <li>Click <strong>Save</strong></li>
+    </ol>
+
+    <p>Within about 60 seconds, you'll see existing unread emails from your inbox appear as new tickets in your queue. From this point on, any email to your support address will become a ticket automatically.</p>
+
+    <div class="callout callout-tip">
+      <span class="callout-label">💡 Pro tip</span>
+      <p>Create a Gmail filter that applies a <code>Support-Ticketed</code> label to all emails after they're ingested. This gives you a clean way to archive processed threads in Gmail while keeping the ticket as your source of truth in Resolvo.</p>
+    </div>
+
+    <h3>What happens when an email arrives</h3>
+
+    <p>When a new email lands in your connected inbox, the system does four things automatically:</p>
+
+    <ol>
+      <li>Creates a ticket with the email subject as the title and email body as the description</li>
+      <li>Associates the sender's email address with a contact record (new or existing)</li>
+      <li>Applies default priority (configurable — see Step 2)</li>
+      <li>Sends an auto-acknowledgment to the customer with their ticket number</li>
+    </ol>
+
+    <p>The auto-acknowledgment is important: it tells the customer their message was received and gives them a reference number they can use in follow-up emails. Customers who get an immediate acknowledgment are significantly less likely to send a follow-up "did you receive my email?" message — which saves you two touches per ticket.</p>
+
+    <h2 id="step-2">Step 2 — Configure Smart Queue and Auto-Assignment</h2>
+
+    <p>A connected inbox that dumps all tickets into an unassigned queue is better than a shared inbox, but it's not much better. Smart queue configuration is what turns raw ticket volume into an organized, actionable workflow.</p>
+
+    <h3>Auto-assignment rules</h3>
+
+    <p>Go to <strong>Settings → Email Ticketing → Assignment Rules</strong>. You can create rules based on:</p>
+
+    <ul>
+      <li><strong>Keywords in subject or body:</strong> Tickets containing "billing" → assign to finance team; tickets containing "API" or "integration" → assign to the integrations engineer</li>
+      <li><strong>Sender domain:</strong> Emails from enterprise customers → assign to their dedicated account manager or senior engineer</li>
+      <li><strong>Round-robin:</strong> Distribute tickets evenly across all available agents in a group</li>
+      <li><strong>Sender history:</strong> If a customer has an open ticket, route their new email as a reply to that ticket rather than creating a duplicate</li>
+    </ul>
+
+    <p>For most small teams, a simple round-robin rule for the general queue plus a few keyword-based escalation rules covers 90% of routing needs. Don't over-engineer this — you can always add rules as patterns emerge.</p>
+
+    <h3>Priority auto-classification</h3>
+
+    <p>Set default priority rules based on language patterns. Some useful starting rules:</p>
+
+    <ul>
+      <li>Email contains "urgent", "down", "outage", "broken", "can't login", "blocked" → <strong>High priority</strong></li>
+      <li>Email contains "question", "how do I", "where can I", "feature request" → <strong>Low priority</strong></li>
+      <li>All others → <strong>Normal priority</strong></li>
+    </ul>
+
+    <p>Resolvo's AI triage can do this automatically by analyzing the full semantic content of the email — not just keyword matching. Enable it under <strong>Settings → AI Features → Smart Priority</strong>. It's worth turning on even if you adjust the suggestions manually at first; it learns from your corrections.</p>
+
+    <div class="callout callout-tip">
+      <span class="callout-label">💡 Queue hygiene</span>
+      <p>Create a weekly 15-minute calendar block for queue review. Check for tickets older than 48 hours without a response, tickets assigned to people who are OOO, and tickets marked "waiting on customer" where the customer hasn't replied in 5+ days. This prevents queue rot before it becomes a problem.</p>
+    </div>
+
+    <h2 id="step-3">Step 3 — Set Up Canned Responses for Fast Replies</h2>
+
+    <p>Canned responses (also called macros or templates) are pre-written reply templates for common situations. They're one of the highest-leverage investments in email ticketing: a library of 15–20 good templates can reduce your average reply time from 8 minutes to 90 seconds.</p>
+
+    <h3>The essential canned responses every engineering team needs</h3>
+
+    <p>Go to <strong>Settings → Email Ticketing → Canned Responses → New Template</strong>. Start with these:</p>
+
+    <h3>1. Initial triage acknowledgment</h3>
+    <pre><code><span class="code-comment">Template: "Ticket received — investigating"</span>
+Hi {{customer.first_name}},
+
+Thanks for reaching out. I've received your report about {{ticket.subject}}
+and I'm investigating now.
+
+I'll have an update for you within {{sla.first_response_deadline}}.
+
+Ticket reference: #{{ticket.id}}
+
+— {{agent.name}}, {{company.name}} Engineering</code></pre>
+
+    <h3>2. Needs more information</h3>
+    <pre><code><span class="code-comment">Template: "Need more info to reproduce"</span>
+Hi {{customer.first_name}},
+
+Thanks for the report. To investigate further, I need a few details:
+
+1. Which browser/OS/app version are you seeing this on?
+2. Steps to reproduce (what did you click, in what order)?
+3. Does it happen every time, or intermittently?
+4. Any error messages or screenshots you can share?
+
+A screen recording is incredibly helpful if you can capture it.
+
+— {{agent.name}}</code></pre>
+
+    <h3>3. Bug confirmed, fix in progress</h3>
+    <pre><code><span class="code-comment">Template: "Bug confirmed — fix in progress"</span>
+Hi {{customer.first_name}},
+
+I've confirmed this is a bug on our end — thanks for the clear reproduction steps.
+
+Our engineering team is working on a fix. I'll follow up as soon as it's deployed.
+You can track progress here: {{ticket.url}}
+
+Estimated resolution: {{custom.estimated_fix_date}}
+
+Apologies for the disruption.
+
+— {{agent.name}}</code></pre>
+
+    <h3>4. Resolution confirmation</h3>
+    <pre><code><span class="code-comment">Template: "Issue resolved — please confirm"</span>
+Hi {{customer.first_name}},
+
+Good news — the fix for {{ticket.subject}} is now deployed.
+Could you try again and let me know if everything is working as expected?
+
+If you encounter any further issues, just reply to this email and we'll
+reopen the ticket immediately.
+
+— {{agent.name}}</code></pre>
+
+    <p>Build your canned response library incrementally. After the first 50 tickets, you'll have a clear picture of the 5–6 most common request types — those are the ones worth templating. Don't build 40 templates up front; most will never get used.</p>
+
+    <h2 id="step-4">Step 4 — Enable CSAT Surveys</h2>
+
+    <p>CSAT (Customer Satisfaction) surveys are short post-resolution surveys sent automatically when you close a ticket. They typically ask one question: "How satisfied were you with the support you received?" with a thumbs up/down or 1–5 star scale.</p>
+
+    <p>CSAT data does two things: it tells you how your team is performing from the customer's perspective (which is often different from how your internal metrics look), and it surfaces individual tickets where the customer was unhappy so you can follow up proactively.</p>
+
+    <h3>Setting up CSAT in Resolvo</h3>
+
+    <ol>
+      <li>Go to <strong>Settings → Email Ticketing → CSAT</strong></li>
+      <li>Enable CSAT surveys and choose <strong>Send on ticket close</strong></li>
+      <li>Set a delay (recommend: 30 minutes after close, so the customer has time to confirm the fix works)</li>
+      <li>Choose your rating scale (thumbs up/down for simplicity; 1–5 stars for more granularity)</li>
+      <li>Add one optional follow-up text field: "What could we have done better?" — keep it optional</li>
+      <li>Customize the survey email: use your brand colors, keep the message short, make the rating one click</li>
+    </ol>
+
+    <div class="callout callout-warning">
+      <span class="callout-label">⚠ Don't over-survey</span>
+      <p>Send CSAT surveys only on resolved tickets, not on every ticket close (some tickets are closed as "won't fix" or "duplicate" — those customers didn't get support, so a survey is inappropriate). Also suppress surveys if a customer has already received one in the past 14 days to avoid survey fatigue.</p>
+    </div>
+
+    <p>A CSAT response rate of 15–30% is typical for email-based surveys. Don't be discouraged by low response rates — even 20% of your ticket volume is enough to identify patterns. Focus on the <strong>negative responses</strong> first: reach out personally to unhappy customers and understand what went wrong. Those conversations are worth more than any data dashboard.</p>
+
+    <h2 id="step-5">Step 5 — Set SLA Rules for Email Tickets</h2>
+
+    <p>SLA (Service Level Agreement) rules define target response and resolution times for tickets, typically by priority. They're the mechanism that converts "we try to respond quickly" into a measurable, enforceable commitment.</p>
+
+    <h3>Recommended SLA targets for engineering teams</h3>
+
+    <p>These are reasonable starting points for a small B2B SaaS team. Adjust based on your customers' expectations and your team's capacity:</p>
+
+    <ul>
+      <li><strong>High priority (production issues, security bugs):</strong> First response within 1 hour; resolution or workaround within 4 hours</li>
+      <li><strong>Normal priority (functional bugs):</strong> First response within 4 business hours; resolution within 2 business days</li>
+      <li><strong>Low priority (how-to questions, feature requests):</strong> First response within 1 business day; resolution within 5 business days</li>
+    </ul>
+
+    <h3>Configuring SLA in Resolvo</h3>
+
+    <ol>
+      <li>Go to <strong>Settings → Email Ticketing → SLA Policies</strong></li>
+      <li>Create a policy for each priority level with first response time and resolution time targets</li>
+      <li>Set business hours (SLA clocks can pause outside working hours, or run 24/7 for high priority)</li>
+      <li>Configure breach notifications: "Email team lead when a ticket is 30 minutes from SLA breach"</li>
+      <li>Assign the policy to your email ticketing inbox</li>
+    </ol>
+
+    <p>Once SLA rules are active, your ticket queue will show a color-coded timer on each ticket: green (on track), yellow (at risk), red (breached). This visual signal is enough to change team behavior — most engineers, once they can see a clock ticking toward red, will prioritize accordingly.</p>
+
+    <div class="callout callout-tip">
+      <span class="callout-label">💡 SLA clock discipline</span>
+      <p>The SLA clock measures time to first <em>substantive</em> response, not the auto-acknowledgment. Your ticketing system should not count the auto-acknowledgment email as fulfilling the SLA. Make sure this is configured correctly — it's a common mistake that makes your SLA metrics look better than they actually are.</p>
+    </div>
+
+    <h2 id="metrics">Measuring Email Ticketing Success</h2>
+
+    <p>Once your system has been running for two to four weeks, you'll have enough data to start measuring performance. Here are the metrics that matter most:</p>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-val">FRT</div>
+        <div class="metric-label">First Response Time</div>
+        <div class="metric-desc">Time from ticket creation to first agent response. Target: under 4 hours for normal priority.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">TTR</div>
+        <div class="metric-label">Time to Resolution</div>
+        <div class="metric-desc">Total time from open to closed. Measures end-to-end handling efficiency.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">CSAT</div>
+        <div class="metric-label">Customer Satisfaction</div>
+        <div class="metric-desc">% of positive survey responses. Target: above 85% for engineering support.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">RR</div>
+        <div class="metric-label">Reopen Rate</div>
+        <div class="metric-desc">% of tickets reopened after close. High reopen rate signals premature closure.</div>
+      </div>
+    </div>
+
+    <h3>FRT (First Response Time)</h3>
+    <p>This is the most actionable metric in the short term. If your FRT is high, the fix is usually structural: too many tickets in one person's queue, no clear rotation schedule, or tickets falling through the cracks during handoffs. Check your queue assignment rules and distribution before blaming individual capacity.</p>
+
+    <h3>CSAT Score</h3>
+    <p>Look at CSAT trends over time, not individual data points. A single bad survey is noise; a three-week decline in CSAT is a signal. Segment by agent and by ticket type to find patterns — you might discover that one specific request type consistently generates low satisfaction, pointing to a process or documentation gap rather than an individual performance issue.</p>
+
+    <h3>Resolution Rate by Priority</h3>
+    <p>What percentage of high-priority tickets are resolved within SLA? This number should be above 90%. If it's not, your SLA targets may be too aggressive for your current team size, or you have a structural bottleneck (all escalations routing to one overloaded engineer, for example).</p>
+
+    <h3>Ticket Volume Trends</h3>
+    <p>Track weekly ticket volume by category. A spike in a specific category — say, "authentication errors" or "CSV export bugs" — is often your first signal that a recent deployment introduced a regression. Ticket volume analytics is an under-appreciated form of production monitoring for small teams without dedicated observability tooling.</p>
+
+    <h2 id="mistakes">Common Mistakes to Avoid</h2>
+
+    <div class="mistake">
+      <div class="mistake-title">Mistake 1: Treating tickets as email threads</div>
+      <p>The point of ticketing is to track <em>work</em>, not correspondence. A ticket should have a clear definition of done: "bug reproduced, fix deployed, customer confirmed." If your team is treating tickets as email threads that they reply to and close after one exchange, you're losing the tracking value. Make sure agents update ticket status and add internal notes as the issue progresses.</p>
+    </div>
+
+    <div class="mistake">
+      <div class="mistake-title">Mistake 2: Not linking email tickets to engineering issues</div>
+      <p>When a customer reports a bug and your engineer files a development issue to fix it, link them. Most ticketing systems support linking a ticket to an issue tracker entry. This creates a chain from "customer report" to "engineering task" to "deployed fix" — which lets you close the customer ticket the moment the fix ships, automatically. Without this link, engineers fix bugs while agents are still telling customers "we're looking into it."</p>
+    </div>
+
+    <div class="mistake">
+      <div class="mistake-title">Mistake 3: Setting SLAs you can't meet</div>
+      <p>Overly aggressive SLAs are worse than no SLAs. If you breach them constantly, the numbers become meaningless and your team learns to ignore the red indicators. Start with targets that represent your current best performance, not your aspirational performance. You can tighten them once you've consistently hit your initial targets for 30 days.</p>
+    </div>
+
+    <div class="mistake">
+      <div class="mistake-title">Mistake 4: Skipping the auto-acknowledgment</div>
+      <p>Customers who don't hear back within an hour often send follow-up emails — which creates duplicate tickets and extra work. An auto-acknowledgment with a ticket number takes two minutes to configure and eliminates a meaningful percentage of follow-up noise. Always turn this on.</p>
+    </div>
+
+    <div class="mistake">
+      <div class="mistake-title">Mistake 5: One inbox, no routing</div>
+      <p>Routing all tickets to a single queue with no assignment rules works at very low volume but breaks down quickly. When there's no clear ownership, everyone assumes someone else is handling it. Even a simple round-robin distribution — ticket 1 to Alice, ticket 2 to Bob, ticket 3 to Alice — dramatically improves accountability compared to a shared unassigned queue.</p>
+    </div>
+
+    <div class="mistake">
+      <div class="mistake-title">Mistake 6: Not reviewing closed tickets</div>
+      <p>Closed tickets are a goldmine of operational intelligence. A monthly 30-minute review of the past month's closed tickets will surface recurring issues, documentation gaps, and onboarding friction that your product roadmap should address. Most teams skip this entirely because they're focused on the open queue — which is exactly why those recurring issues keep coming back.</p>
+    </div>
+
+    <div class="cta-box">
+      <h2>Set Up Email Ticketing in 30 Minutes</h2>
+      <p>Resolvo connects to Gmail, creates tickets automatically, and gives your team a shared queue with SLA tracking — all in one workspace alongside your engineering issue tracker.</p>
+      <a href="/signup" class="cta-btn">Start free with Resolvo →</a>
+      <p class="cta-sub">Free plan includes Gmail integration, unlimited tickets, and 3 team members. No credit card required. <a href="/learn">See all features →</a></p>
+    </div>
+
+  </article>
+
+  <section class="related">
+    <h3>Related Articles</h3>
+    <div class="related-grid">
+      <a href="/blog/best-jira-alternative-small-teams" class="related-card">
+        <span class="tag">Issue Tracking</span>
+        <span class="title">Best Jira Alternative for Small Teams in 2025</span>
+      </a>
+      <a href="/blog/engineering-issue-tracking-sla" class="related-card">
+        <span class="tag">SLA Management</span>
+        <span class="title">Engineering Issue Tracking with SLA: The Complete Guide</span>
+      </a>
+      <a href="/signup" class="related-card">
+        <span class="tag">Get Started</span>
+        <span class="title">Sign up free and connect your inbox in minutes</span>
+      </a>
+    </div>
+  </section>
+
+</div><!-- /article-wrap -->
+
+<footer>
+  <p>© 2025 Resolvo · <a href="/pitch">Home</a> · <a href="/blog">Blog</a> · <a href="/signup">Sign up free</a> · <a href="/learn">Learn</a> · <a href="/privacy">Privacy</a></p>
+</footer>
+
+</body>
+</html>

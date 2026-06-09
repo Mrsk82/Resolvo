@@ -3995,6 +3995,18 @@ app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
 app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));
 app.get('/signup',(req,res)=>res.sendFile(path.join(__dirname,'public','signup.html')));
 
+// ── SEO FILES ─────────────────────────────────────────────────────────────────
+app.get('/sitemap.xml',(req,res)=>res.sendFile(path.join(__dirname,'public','sitemap.xml')));
+app.get('/robots.txt',(req,res)=>{res.setHeader('Content-Type','text/plain');res.send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /data/\nSitemap: ${BASE_URL}/sitemap.xml`);});
+
+// ── BLOG ROUTES ────────────────────────────────────────────────────────────────
+app.get('/blog',(req,res)=>res.sendFile(path.join(__dirname,'public','blog','index.html')));
+app.get('/blog/:slug',(req,res)=>{
+  const p=path.join(__dirname,'public','blog',req.params.slug+'.html');
+  if(require('fs').existsSync(p))return res.sendFile(p);
+  res.redirect('/blog');
+});
+
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
 
