@@ -290,7 +290,7 @@ app.post('/api/forgot-password',async(req,res)=>{
     const resetToken=uuidv4();
     pwdResetTokens[resetToken]={email,brandSlug:brand.slug,expiresAt:Date.now()+3600000};
     const resetUrl=`${BASE_URL}/reset-password?token=${resetToken}`;
-    await sendEmail(email,'Reset Your TechTrack Password',
+    await sendBrandEmail(brand.slug,email,'Reset Your Password — '+brand.name,
       `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:40px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,#f5a623,#ff6b35);padding:40px;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">🔑</div><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Password Reset</h1><p style="margin:10px 0 0;color:rgba(255,255,255,0.85);">Click below to set a new password. Link expires in 1 hour.</p></div><div style="padding:32px 40px;"><p style="color:#374151;">Hi <strong>${user.name||user.email}</strong>, we received a request to reset your password for <strong>${brand.name}</strong>.</p><div style="text-align:center;margin:24px 0;"><a href="${resetUrl}" style="display:inline-block;padding:14px 44px;border-radius:10px;background:#f5a623;color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Reset Password →</a></div><p style="font-size:12px;color:#9ca3af;">If you didn't request this, ignore this email. Your password won't change.</p><p style="font-size:11px;color:#d1d5db;word-break:break-all;">Link: ${resetUrl}</p></div></div></body></html>`,
       `Reset your password: ${resetUrl}`
     );
@@ -1337,7 +1337,7 @@ app.post('/api/call',async(req,res)=>{
         mentions.filter(m=>m!==su.email).forEach(mentionEmail=>{
           const mentionedUser=(db.users||[]).find(u=>u.email===mentionEmail);
           if(mentionedUser){
-            sendEmail(mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,
+            sendBrandEmail(slug,mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,
               `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:30px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,${b.accentColor||'#f5a623'},${b.accentColor||'#f5a623'}cc);padding:32px;text-align:center;"><div style="font-size:32px;margin-bottom:10px;">💬</div><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">You were mentioned</h1></div><div style="padding:28px 32px;"><p style="color:#374151;margin:0 0 14px;">Hi <strong>${mentionedUser.name||mentionEmail}</strong>, <strong>${su.name||su.email}</strong> mentioned you in a comment on <strong>${issue?issue.title:issueId}</strong>.</p><div style="background:#f9fafb;border-radius:10px;padding:14px 16px;border-left:4px solid ${b.accentColor||'#f5a623'};margin-bottom:20px;"><p style="margin:0;font-size:13px;color:#374151;font-style:italic;">"${ct.substring(0,200)}${ct.length>200?'...':''}"</p></div><div style="text-align:center;"><a href="${BASE_URL}" style="display:inline-block;padding:12px 36px;border-radius:8px;background:${b.accentColor||'#f5a623'};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue →</a></div></div></div></body></html>`,
               `${su.name||su.email} mentioned you: "${ct.substring(0,100)}"`
             ).catch(()=>{});
@@ -4588,7 +4588,7 @@ async function createTicketFromEmail(slug, emailData) {
             db.tickets[idx].thread.push({ id: generateId('MSG'), type: 'reply', from: 'system', fromName: 'Auto-Resolve', body: rule.replyMessage, timestamp: new Date().toISOString(), sentAsEmail: true });
             // Send the auto-reply
             const brand = (readOwner().brands || []).find(b => b.slug === slug) || {};
-            sendEmail(ticket.from, `Re: [${brand.name||'Support'}] ${ticket.subject}`, `<p>${rule.replyMessage}</p>`, rule.replyMessage).catch(() => {});
+            sendBrandEmail(slug,ticket.from, `Re: [${brand.name||'Support'}] ${ticket.subject}`, `<p>${rule.replyMessage}</p>`, rule.replyMessage).catch(() => {});
           }
           writeBrandDB(slug, db);
           console.log(`[AutoResolve] Ticket ${ticketId} auto-resolved by rule: ${rule.name}`);
@@ -4861,7 +4861,8 @@ async function sendNurtureEmails(){
           const admin=(db.users||[]).find(u=>u.email===email);
           const adminName=admin?.name||email.split('@')[0];
           const html=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:20px 28px;"><div style="font-size:16px;font-weight:800;color:#fff;">Resolvo</div></div><div style="padding:28px 32px;font-size:14px;color:#374151;line-height:1.7;">${n.body(adminName,BASE_URL)}</div><div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;text-align:center;">Resolvo · <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></div></div></body></html>`;
-          await sendEmail(email,n.subject,html,n.subject).catch(()=>{});
+          // Nurture emails send from brand's own email if configured
+          await sendBrandEmail(brand.slug,email,n.subject,html,n.subject).catch(()=>{});
           owner.nurtureSent[sentKey]=new Date().toISOString();
           console.log(`[Nurture] Day ${n.day} email sent to ${email} for ${brand.slug}`);
         }
