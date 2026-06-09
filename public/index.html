@@ -15115,7 +15115,7 @@ const App = {
     var TABS = [
       {id:'general',icon:'🏢',label:'General'},
       {id:'email',icon:'📬',label:'Email & Ticketing'},
-      {id:'sla',icon:'⏱',label:'SLA & Workflow'},
+      {id:'sla',icon:'⏱',label:'SLA Configuration'},
       {id:'integrations',icon:'🔗',label:'Integrations'},
       {id:'team',icon:'🤝',label:'Team & Roles'},
       {id:'features',icon:'⚡',label:'Features & Plan'},
@@ -15136,7 +15136,7 @@ const App = {
       {id:'api-keys',icon:'🔑',label:'API Keys'},
       {id:'two-fa',icon:'🔒',label:'Two-Factor Auth'},
       {id:'approval-rules',icon:'✅',label:'Approval Workflows'},
-      {id:'sla-policies',icon:'📋',label:'SLA Policies'},
+      // SLA Policies merged into SLA Configuration tab above
       {id:'gdpr',icon:'🛡',label:'GDPR & Privacy'},
     ];
 
@@ -15252,8 +15252,12 @@ const App = {
         var sr = await self.callAsync('getSLAConfig');
         var sla = (sr&&sr.success)?sr.config:{};
         var pC = {Critical:'var(--critical)',High:'var(--high)',Medium:'var(--accent)',Low:'var(--low)'};
+        var slaPoliciesR2 = await self.callAsync('getSlaPolicies');
+        var slaPolicies2 = (slaPoliciesR2&&slaPoliciesR2.policies)||[];
         content =
-          App._sSection('SLA Rules — Maximum Resolution Time',[
+          '<div style="margin-bottom:16px;"><h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">⏱ SLA Configuration</h3>'+
+          '<p style="margin:0;font-size:12px;color:var(--text-dim);">Set response time targets. <strong>Default SLA</strong> applies to all customers. <strong>Customer Policies</strong> override defaults for specific domains.</p></div>'+
+          App._sSection('📊 Default SLA — Applies to ALL customers',[
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;">'+
               ['Critical','High','Medium','Low'].map(function(p){
                 return '<div style="background:var(--bg-elevated);border:1.5px solid '+pC[p]+'44;border-radius:12px;padding:16px;text-align:center;">'+
@@ -15287,6 +15291,25 @@ const App = {
               '<button onclick="App.navigate(\'recurring\')" class="btn-secondary btn-sm">↺ Recurring Templates</button>'+
               '<button onclick="App.navigate(\'oncall\')" class="btn-secondary btn-sm">📞 On-Call Schedule</button>'+
             '</div>'
+          ])+
+          // ── CUSTOMER SLA POLICIES (merged from separate tab) ──────────────
+          App._sSection('🎯 Customer SLA Policies — Overrides for specific customers',[
+            '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:12px;">'+
+              'These override the default SLA above. Example: Enterprise clients on <code>acme.com</code> get Critical: 1h instead of 4h.'+
+            '</div>'+
+            '<button onclick="App._showSlaPolicyEditor(null)" class="btn-secondary btn-sm" style="margin-bottom:10px;">+ Add Customer Policy</button>'+
+            (slaPolicies2.length?
+              '<div style="display:flex;flex-direction:column;gap:6px;">'+
+              slaPolicies2.map(function(p){
+                return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-elevated);border-radius:8px;">'+
+                  '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(p.name)+'</div>'+
+                  '<div style="font-size:11px;color:var(--text-dim);">'+(p.domain?'Domain: <strong>'+p.domain+'</strong>':p.tier?'Tier: '+p.tier:'All customers')+'</div></div>'+
+                  '<div style="font-size:11px;color:var(--text-secondary);">Critical: <strong>'+p.critical+'h</strong> · High: <strong>'+p.high+'h</strong> · Medium: <strong>'+(p.medium||24)+'h</strong></div>'+
+                  '<button onclick="App.callAsync(\'deleteSlaPolicy\',\''+p.id+'\').then(()=>App.renderUnifiedSettings(\'sla\'))" class="btn-danger btn-sm">Remove</button>'+
+                '</div>';
+              }).join('')+
+              '</div>':
+              '<div style="font-size:12px;color:var(--text-dim);padding:8px 0;">No customer policies yet. Default SLA applies to everyone.</div>')
           ]);
       }
       else if (tid === 'integrations') {
@@ -15972,27 +15995,7 @@ const App = {
       }
 
       // ── SLA POLICIES ──────────────────────────────────────────────────────
-      else if (tid === 'sla-policies') {
-        var slaPoliciesR = await self.callAsync('getSlaPolicies');
-        var slaPolicies = (slaPoliciesR&&slaPoliciesR.policies)||[];
-        content =
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
-            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">📋 SLA Policies</h3>'+
-            '<p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Different SLA hours for different customer tiers or domains.</p></div>'+
-            '<button onclick="App._showSlaPolicyEditor(null)" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Policy</button>'+
-          '</div>'+
-          (slaPolicies.length===0?'<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text-dim);">No SLA policies. Default SLA from SLA & Workflow settings applies to everyone.</div>':
-          '<div style="display:flex;flex-direction:column;gap:8px;">'+
-            slaPolicies.map(function(p){
-              return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'+
-                '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(p.name)+'</div>'+
-                '<div style="font-size:11px;color:var(--text-dim);">'+(p.domain?'Domain: '+p.domain:p.tier?'Tier: '+p.tier:'All')+'</div></div>'+
-                '<div style="font-size:12px;color:var(--text-secondary);">Critical: '+p.critical+'h · High: '+p.high+'h</div>'+
-                '<button onclick="App.callAsync(\'deleteSlaPolicy\',\''+p.id+'\').then(()=>App.renderUnifiedSettings(\'sla-policies\'))" class="btn-danger btn-sm">Delete</button>'+
-              '</div>';
-            }).join('')+
-          '</div>');
-      }
+      // sla-policies merged into 'sla' tab above
 
       // ── GDPR & PRIVACY ────────────────────────────────────────────────────
       else if (tid === 'gdpr') {
