@@ -54,19 +54,68 @@ async function fireWebhook(url,payload){
 // ── Invite tokens ──────────────────────────────────────────────────────────────
 const inviteTokens={}; // { token: { brandSlug, brandName, expiresAt, role } }
 
+// ── TIER FEATURE DEFAULTS ──────────────────────────────────────────────────
+// Owner assigns tier per brand → tier sets what features are ON by default
+// Owner can then override individual features per brand via Owner Portal
+const _base={KANBAN_ENABLED:false,SPRINTS_ENABLED:false,AI_ENABLED:false,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:false,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:false,CUSTOM_FIELDS_ENABLED:false,RELEASE_NOTES_ENABLED:false,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:false,DEPENDENCY_GRAPH_ENABLED:false,WATCHERS_ENABLED:true,REACTIONS_ENABLED:false,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:false,BULK_ACTIONS_ENABLED:false,ANNOUNCEMENT_BAR_ENABLED:false,ISSUE_TEMPLATES_ENABLED:false,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:false,WORKLOAD_ENABLED:false,SLA_REPORT_ENABLED:false,
+  // New features
+  EMAIL_TICKETING_ENABLED:false,QUEUE_ENABLED:false,APPOINTMENT_BOOKING_ENABLED:false,KNOWLEDGE_BASE_ENABLED:false,ROADMAP_ENABLED:false,API_KEYS_ENABLED:false,TWO_FA_ENABLED:false,APPROVAL_WORKFLOWS_ENABLED:false,CUSTOMER_PORTAL_ENABLED:false,WIDGET_ENABLED:false,GDPR_TOOLS_ENABLED:false,SLA_POLICIES_ENABLED:false,COST_REPORT_ENABLED:false,AGENT_COACHING_ENABLED:false,IMPACT_SCORE_ENABLED:false};
+const _pro={...{KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:true,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true,
+  EMAIL_TICKETING_ENABLED:true,QUEUE_ENABLED:true,KNOWLEDGE_BASE_ENABLED:true,ROADMAP_ENABLED:true,TWO_FA_ENABLED:true,APPROVAL_WORKFLOWS_ENABLED:true,IMPACT_SCORE_ENABLED:true}};
 const TIER_FEATURES={
-  Free:{KANBAN_ENABLED:false,SPRINTS_ENABLED:false,AI_ENABLED:false,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:false,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:false,CUSTOM_FIELDS_ENABLED:false,RELEASE_NOTES_ENABLED:false,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:false,DEPENDENCY_GRAPH_ENABLED:false,WATCHERS_ENABLED:true,REACTIONS_ENABLED:false,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:false,BULK_ACTIONS_ENABLED:false,ANNOUNCEMENT_BAR_ENABLED:false,ISSUE_TEMPLATES_ENABLED:false,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:false,WORKLOAD_ENABLED:false,SLA_REPORT_ENABLED:false},
-  Pro:{KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:true,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true},
-  Enterprise:{KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,EMAIL_TRIAGE_ENABLED:true,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:true,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,API_INTEGRATION_ENABLED:true,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true},
-  Trial:{KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true}
+  Free:_base,
+  Pro:_pro,
+  Enterprise:{..._pro,EMAIL_TRIAGE_ENABLED:true,API_INTEGRATION_ENABLED:true,API_KEYS_ENABLED:true,APPOINTMENT_BOOKING_ENABLED:true,CUSTOMER_PORTAL_ENABLED:true,WIDGET_ENABLED:true,GDPR_TOOLS_ENABLED:true,SLA_POLICIES_ENABLED:true,COST_REPORT_ENABLED:true,AGENT_COACHING_ENABLED:true},
+  Trial:{..._pro,EMAIL_TRIAGE_ENABLED:false,API_INTEGRATION_ENABLED:false,API_KEYS_ENABLED:false,CUSTOMER_PORTAL_ENABLED:false,WIDGET_ENABLED:false,GDPR_TOOLS_ENABLED:false}
 };
 const FEATURE_META=[
-  {key:'KANBAN_ENABLED',label:'Kanban Board',group:'Workflow',tier:'Pro'},{key:'SPRINTS_ENABLED',label:'Sprints & Burndown',group:'Workflow',tier:'Pro'},{key:'BULK_ACTIONS_ENABLED',label:'Bulk Actions',group:'Workflow',tier:'Pro'},{key:'DEPENDENCY_GRAPH_ENABLED',label:'Dependencies',group:'Workflow',tier:'Pro'},{key:'ISSUE_TEMPLATES_ENABLED',label:'Issue Templates',group:'Workflow',tier:'Pro'},
-  {key:'AI_ENABLED',label:'AI / Gemini',group:'Intelligence',tier:'Pro'},{key:'EMAIL_TRIAGE_ENABLED',label:'Email Triage',group:'Intelligence',tier:'Enterprise'},{key:'FULL_TEXT_SEARCH_ENABLED',label:'Full Text Search',group:'Intelligence',tier:'Free'},
-  {key:'ANALYTICS_ENABLED',label:'Analytics',group:'Reporting',tier:'Pro'},{key:'WORKLOAD_ENABLED',label:'Workload View',group:'Reporting',tier:'Pro'},{key:'SLA_REPORT_ENABLED',label:'SLA Report',group:'Reporting',tier:'Pro'},{key:'RELEASE_NOTES_ENABLED',label:'Release Notes',group:'Reporting',tier:'Pro'},{key:'POSTMORTEM_ENABLED',label:'Post-Mortem',group:'Reporting',tier:'Pro'},
-  {key:'AUDIT_TRAIL_ENABLED',label:'Audit Trail',group:'Compliance',tier:'Free'},{key:'API_INTEGRATION_ENABLED',label:'API Integration',group:'Integrations',tier:'Enterprise'},
-  {key:'PEER_REVIEW_ENABLED',label:'Peer Review',group:'Collaboration',tier:'Pro'},{key:'ON_CALL_ENABLED',label:'On-Call Schedule',group:'Collaboration',tier:'Pro'},{key:'TIME_LOGGING_ENABLED',label:'Time Logging',group:'Collaboration',tier:'Pro'},{key:'WATCHERS_ENABLED',label:'Watchers',group:'Collaboration',tier:'Free'},
-  {key:'CUSTOM_FIELDS_ENABLED',label:'Custom Fields',group:'Customisation',tier:'Pro'},{key:'TAGS_ENABLED',label:'Issue Tags',group:'Customisation',tier:'Pro'},{key:'REACTIONS_ENABLED',label:'Comment Reactions',group:'Customisation',tier:'Pro'},{key:'PINNED_ISSUES_ENABLED',label:'Pinned Issues',group:'Customisation',tier:'Free'},{key:'ANNOUNCEMENT_BAR_ENABLED',label:'Announcement Bar',group:'Customisation',tier:'Pro'}
+  // Workflow
+  {key:'KANBAN_ENABLED',label:'Kanban Board',group:'Workflow',tier:'Pro'},
+  {key:'SPRINTS_ENABLED',label:'Sprints & Burndown',group:'Workflow',tier:'Pro'},
+  {key:'BULK_ACTIONS_ENABLED',label:'Bulk Actions',group:'Workflow',tier:'Pro'},
+  {key:'DEPENDENCY_GRAPH_ENABLED',label:'Dependencies',group:'Workflow',tier:'Pro'},
+  {key:'ISSUE_TEMPLATES_ENABLED',label:'Issue Templates',group:'Workflow',tier:'Pro'},
+  {key:'APPROVAL_WORKFLOWS_ENABLED',label:'Approval Workflows',group:'Workflow',tier:'Pro'},
+  // Intelligence
+  {key:'AI_ENABLED',label:'AI / Gemini',group:'Intelligence',tier:'Pro'},
+  {key:'EMAIL_TRIAGE_ENABLED',label:'Email Triage (AI)',group:'Intelligence',tier:'Enterprise'},
+  {key:'FULL_TEXT_SEARCH_ENABLED',label:'Full Text Search',group:'Intelligence',tier:'Free'},
+  {key:'IMPACT_SCORE_ENABLED',label:'Issue Impact Score',group:'Intelligence',tier:'Pro'},
+  // Email & Ticketing
+  {key:'EMAIL_TICKETING_ENABLED',label:'Email Ticketing Inbox',group:'Email & Support',tier:'Pro'},
+  {key:'QUEUE_ENABLED',label:'Smart Queue / Auto-assign',group:'Email & Support',tier:'Pro'},
+  {key:'KNOWLEDGE_BASE_ENABLED',label:'Knowledge Base',group:'Email & Support',tier:'Pro'},
+  {key:'APPOINTMENT_BOOKING_ENABLED',label:'Appointment Booking',group:'Email & Support',tier:'Enterprise'},
+  {key:'CUSTOMER_PORTAL_ENABLED',label:'Customer Self-Service Portal',group:'Email & Support',tier:'Enterprise'},
+  {key:'WIDGET_ENABLED',label:'Embeddable Feedback Widget',group:'Email & Support',tier:'Enterprise'},
+  // Reporting
+  {key:'ANALYTICS_ENABLED',label:'Analytics',group:'Reporting',tier:'Pro'},
+  {key:'WORKLOAD_ENABLED',label:'Workload View',group:'Reporting',tier:'Pro'},
+  {key:'SLA_REPORT_ENABLED',label:'SLA Report',group:'Reporting',tier:'Pro'},
+  {key:'RELEASE_NOTES_ENABLED',label:'Release Notes',group:'Reporting',tier:'Pro'},
+  {key:'POSTMORTEM_ENABLED',label:'Post-Mortems',group:'Reporting',tier:'Pro'},
+  {key:'COST_REPORT_ENABLED',label:'Cost Report',group:'Reporting',tier:'Enterprise'},
+  {key:'AGENT_COACHING_ENABLED',label:'Agent Coaching Dashboard',group:'Reporting',tier:'Enterprise'},
+  // Collaboration
+  {key:'PEER_REVIEW_ENABLED',label:'Peer Review',group:'Collaboration',tier:'Pro'},
+  {key:'ON_CALL_ENABLED',label:'On-Call Schedule',group:'Collaboration',tier:'Pro'},
+  {key:'TIME_LOGGING_ENABLED',label:'Time Logging',group:'Collaboration',tier:'Pro'},
+  {key:'WATCHERS_ENABLED',label:'Watchers',group:'Collaboration',tier:'Free'},
+  // Customisation
+  {key:'CUSTOM_FIELDS_ENABLED',label:'Custom Fields',group:'Customisation',tier:'Pro'},
+  {key:'TAGS_ENABLED',label:'Issue Tags',group:'Customisation',tier:'Pro'},
+  {key:'REACTIONS_ENABLED',label:'Comment Reactions',group:'Customisation',tier:'Pro'},
+  {key:'PINNED_ISSUES_ENABLED',label:'Pinned Issues',group:'Customisation',tier:'Free'},
+  {key:'ANNOUNCEMENT_BAR_ENABLED',label:'Announcement Bar',group:'Customisation',tier:'Pro'},
+  {key:'ROADMAP_ENABLED',label:'Public Roadmap',group:'Customisation',tier:'Pro'},
+  // Compliance & Security
+  {key:'AUDIT_TRAIL_ENABLED',label:'Audit Trail',group:'Compliance',tier:'Free'},
+  {key:'TWO_FA_ENABLED',label:'Two-Factor Auth (2FA)',group:'Compliance',tier:'Pro'},
+  {key:'GDPR_TOOLS_ENABLED',label:'GDPR / Data Erasure Tools',group:'Compliance',tier:'Enterprise'},
+  {key:'SLA_POLICIES_ENABLED',label:'Customer SLA Policies',group:'Compliance',tier:'Enterprise'},
+  // Integrations
+  {key:'API_INTEGRATION_ENABLED',label:'Jira/ServiceNow API Sync',group:'Integrations',tier:'Enterprise'},
+  {key:'API_KEYS_ENABLED',label:'API Key Access',group:'Integrations',tier:'Enterprise'},
 ];
 function resolveFeatureFlags(brand,adf){return{...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};}
 function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[];owner.auditLog.unshift({id:uuidv4().substring(0,8),action,details,by,timestamp:new Date().toISOString()});if(owner.auditLog.length>500)owner.auditLog=owner.auditLog.slice(0,500);}
