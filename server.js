@@ -4029,6 +4029,7 @@ app.get('/robots.txt',(req,res)=>{
   res.send('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /data/\nSitemap: '+BASE_URL+'/sitemap.xml\n');
 });
 
+app.get('/architecture',(req,res)=>res.sendFile('architecture.html',{root:path.join(__dirname,'public')}));
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
 

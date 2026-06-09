@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo — Product Architecture & Flowcharts</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#08090C;color:#F1F5F9;font-family:'Inter',sans-serif;line-height:1.6;padding:0;}
+nav{background:rgba(8,9,12,.95);border-bottom:1px solid rgba(255,255,255,.06);padding:14px 32px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.logo-r{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#22D3EE,#818CF8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#000;}
+.logo-t{font-size:15px;font-weight:800;background:linear-gradient(135deg,#22D3EE,#818CF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.tab-nav{display:flex;gap:4px;margin-left:32px;}
+.tab{padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:rgba(241,245,249,.4);transition:all .15s;}
+.tab.active{background:rgba(34,211,238,.1);color:#22D3EE;}
+.tab:hover{background:rgba(255,255,255,.06);color:var(--white,#F1F5F9);}
+.page{display:none;padding:40px 32px 80px;max-width:1200px;margin:0 auto;}
+.page.active{display:block;}
+h1{font-size:28px;font-weight:900;letter-spacing:-1px;margin-bottom:6px;}
+.sub{font-size:14px;color:#64748B;margin-bottom:40px;}
+/* Flow diagram styles */
+.flow-section{margin-bottom:56px;}
+.flow-title{font-size:16px;font-weight:800;color:#22D3EE;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.flow-title::before{content:'';width:20px;height:2px;background:#22D3EE;border-radius:2px;display:block;}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:0;}
+.flow-v{display:flex;flex-direction:column;align-items:center;gap:0;}
+.node{background:var(--nc,#111722);border:1.5px solid var(--nb,rgba(255,255,255,.1));border-radius:10px;padding:12px 18px;font-size:13px;font-weight:600;color:#F1F5F9;text-align:center;min-width:140px;position:relative;transition:all .2s;}
+.node:hover{border-color:rgba(34,211,238,.4);transform:translateY(-1px);}
+.node small{display:block;font-size:10px;font-weight:400;color:#64748B;margin-top:3px;}
+.node.start{background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(129,140,248,.1));border-color:rgba(34,211,238,.35);color:#22D3EE;}
+.node.end{background:linear-gradient(135deg,rgba(52,211,153,.12),rgba(16,185,129,.08));border-color:rgba(52,211,153,.35);color:#34D399;}
+.node.decision{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.35);color:#FBBF24;border-radius:6px;transform:rotate(0);padding:12px 20px;}
+.node.action{background:rgba(129,140,248,.08);border-color:rgba(129,140,248,.3);}
+.node.system{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:#FCA5A5;}
+.node.brand{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.3);color:#6EE7B7;}
+.node.owner{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3);color:#FCD34D;}
+.arr{font-size:20px;color:#334155;padding:0 8px;flex-shrink:0;}
+.arr-down{font-size:18px;color:#334155;padding:4px 0;text-align:center;}
+.arr-label{font-size:10px;color:#64748B;padding:0 4px;}
+.branch{display:flex;align-items:flex-start;gap:20px;margin-top:4px;}
+.branch-item{display:flex;flex-direction:column;align-items:center;gap:0;}
+.branch-label{font-size:10px;font-weight:700;color:#FBBF24;margin-bottom:4px;}
+/* Grid layouts */
+.arch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:20px;}
+.arch-card{background:#111722;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;}
+.arch-card h3{font-size:14px;font-weight:800;margin-bottom:10px;color:#22D3EE;}
+.arch-card ul{list-style:none;display:flex;flex-direction:column;gap:5px;}
+.arch-card li{font-size:12px;color:#94A3B8;display:flex;align-items:flex-start;gap:7px;}
+.arch-card li::before{content:'→';color:#22D3EE;flex-shrink:0;font-size:11px;margin-top:1px;}
+/* Data flow */
+.data-flow{background:#111722;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:24px;margin-top:20px;overflow-x:auto;}
+.df-row{display:flex;align-items:center;gap:0;margin-bottom:12px;flex-wrap:nowrap;}
+.df-box{background:var(--bg,#1A2235);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:8px 14px;font-size:12px;color:#94A3B8;white-space:nowrap;}
+.df-box.highlight{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.3);color:#22D3EE;font-weight:700;}
+.df-arr{color:#334155;padding:0 8px;font-size:14px;}
+/* Tier chart */
+.tier-chart{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px;}
+.tier-box{border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,.08);}
+.tier-name{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;}
+.tier-feat{font-size:11px;color:#94A3B8;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:6px;}
+.tier-feat::before{content:'✓';font-weight:800;flex-shrink:0;}
+.tier-feat.no::before{content:'×';color:#EF4444;}
+.tier-feat.no{color:#475569;}
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748B;}
+.legend-dot{width:12px;height:12px;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <div class="logo-r">R</div><span class="logo-t">resolvo</span>
+  </a>
+  <div class="tab-nav">
+    <button class="tab active" onclick="showPage('customer')">👤 Customer Journey</button>
+    <button class="tab" onclick="showPage('technical')">⚙️ Technical Architecture</button>
+    <button class="tab" onclick="showPage('data')">🗄 Data Flow</button>
+    <button class="tab" onclick="showPage('features')">⚡ Feature Tiers</button>
+    <button class="tab" onclick="showPage('email')">📧 Email Routing</button>
+  </div>
+  <a href="/" style="margin-left:auto;font-size:13px;color:#64748B;text-decoration:none;">← Back to App</a>
+</nav>
+
+<!-- ══ PAGE 1: CUSTOMER JOURNEY ══════════════════════════════════════════════ -->
+<div class="page active" id="page-customer">
+  <h1>Customer Journey Flowchart</h1>
+  <p class="sub">End-to-end experience for a brand's customer — from first contact to resolved issue</p>
+
+  <!-- Journey 1: Self-signup -->
+  <div class="flow-section">
+    <div class="flow-title">🚀 New Customer Self-Signup</div>
+    <div class="flow">
+      <div class="node start">Visitor lands on<br>/pitch<small>app.resolvogroup.com</small></div>
+      <div class="arr">→</div>
+      <div class="node action">Fills signup form<br><small>name + email + company</small></div>
+      <div class="arr">→</div>
+      <div class="node system">POST /api/signup<br><small>Brand auto-created</small></div>
+      <div class="arr">→</div>
+      <div class="node action">Welcome email sent<br><small>Login URL + password</small></div>
+      <div class="arr">→</div>
+      <div class="node end">First login<br><small>Onboarding checklist shown</small></div>
+    </div>
+  </div>
+
+  <!-- Journey 2: Support ticket -->
+  <div class="flow-section">
+    <div class="flow-title">📬 Customer Raises a Support Ticket</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#22D3EE;"></div>Customer action</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#818CF8;"></div>System action</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34D399;"></div>Agent action</div>
+    </div>
+    <div class="flow-v">
+      <div class="node start" style="width:260px">Customer sends email to brand inbox<br><small>support@company.com</small></div>
+      <div class="arr-down">↓</div>
+      <div class="node action" style="width:260px">System: Spam filter check<br><small>mailer-daemon, bounce, noreply → blocked</small></div>
+      <div class="arr-down">↓</div>
+      <div class="node decision" style="width:260px">⟡ Is spam?</div>
+      <div class="branch" style="margin-top:8px;">
+        <div class="branch-item">
+          <div class="branch-label">YES</div>
+          <div class="node system">Ticket blocked<br><small>logged, not created</small></div>
+        </div>
+        <div class="branch-item" style="margin-top:24px;">
+          <div class="branch-label">NO</div>
+          <div class="flow-v">
+            <div class="node" style="width:240px">Ticket created in inbox<br><small>Auto-detects priority from keywords</small></div>
+            <div class="arr-down">↓</div>
+            <div class="node decision" style="width:240px">⟡ VIP customer?</div>
+            <div class="branch" style="margin-top:8px;">
+              <div class="branch-item">
+                <div class="branch-label">YES</div>
+                <div class="node owner">⭐ VIP tag added<br><small>Admin notified instantly</small></div>
+              </div>
+              <div class="branch-item" style="margin-top:30px;">
+                <div class="branch-label">NO</div>
+                <div class="node">Standard ticket</div>
+              </div>
+            </div>
+            <div class="arr-down" style="margin-top:8px;">↓</div>
+            <div class="node action" style="width:240px">Queue auto-assigns to agent<br><small>Round robin / skill / domain routing</small></div>
+            <div class="arr-down">↓</div>
+            <div class="node brand" style="width:240px">Agent sees ticket in "My Tickets"<br><small>Inbox → My Queue section</small></div>
+            <div class="arr-down">↓</div>
+            <div class="node brand" style="width:240px">Agent replies<br><small>Email sent from brand's SMTP</small></div>
+            <div class="arr-down">↓</div>
+            <div class="node decision" style="width:240px">⟡ Issue resolved?</div>
+            <div class="branch" style="margin-top:8px;">
+              <div class="branch-item">
+                <div class="branch-label">NO</div>
+                <div class="node action">Back and forth<br><small>SLA pause if waiting for customer</small></div>
+              </div>
+              <div class="branch-item" style="margin-top:20px;">
+                <div class="branch-label">YES</div>
+                <div class="flow-v">
+                  <div class="node end" style="width:200px">Mark Resolved</div>
+                  <div class="arr-down">↓</div>
+                  <div class="node system" style="width:200px">Auto-send CSAT email<br><small>👍 Yes / 👎 No</small></div>
+                  <div class="arr-down">↓</div>
+                  <div class="node system" style="width:200px">Queue pulls next ticket<br><small>Fills agent bucket</small></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Journey 3: Customer Portal -->
+  <div class="flow-section">
+    <div class="flow-title">🌐 Customer Self-Service Portal</div>
+    <div class="flow">
+      <div class="node start">Customer visits<br>/portal/:brand</div>
+      <div class="arr">→</div>
+      <div class="node action">Enters email<br><small>OTP sent instantly</small></div>
+      <div class="arr">→</div>
+      <div class="node action">Enters 6-digit code<br><small>No password needed</small></div>
+      <div class="arr">→</div>
+      <div class="node brand">Sees all their tickets<br><small>Status, dates, history</small></div>
+      <div class="arr">→</div>
+      <div class="node brand">Can raise new request<br><small>Auto-creates ticket in inbox</small></div>
+    </div>
+  </div>
+
+  <!-- Journey 4: Appointment -->
+  <div class="flow-section">
+    <div class="flow-title">📅 Customer Books an Appointment</div>
+    <div class="flow">
+      <div class="node start">Customer visits<br>/book/:brand</div>
+      <div class="arr">→</div>
+      <div class="node action">Picks date + time slot<br><small>Blocked slots shown</small></div>
+      <div class="arr">→</div>
+      <div class="node action">Fills name/email/topic</div>
+      <div class="arr">→</div>
+      <div class="node system">Ticket auto-created<br><small>tagged "appointment"</small></div>
+      <div class="arr">→</div>
+      <div class="node end">Confirmation email sent<br><small>1h reminder auto-sent</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 2: TECHNICAL ARCHITECTURE ════════════════════════════════════════ -->
+<div class="page" id="page-technical">
+  <h1>Technical Architecture</h1>
+  <p class="sub">System components, request flow, and infrastructure overview</p>
+
+  <div class="flow-section">
+    <div class="flow-title">🏗 System Architecture</div>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h3>🌐 Client Layer</h3>
+        <ul>
+          <li>Single Page App (index.html ~1.4MB)</li>
+          <li>Vanilla JS — no framework</li>
+          <li>CSS design system (design tokens)</li>
+          <li>Progressive Web App (manifest.json)</li>
+          <li>GA4 analytics tracking</li>
+          <li>Session token in localStorage</li>
+        </ul>
+      </div>
+      <div class="arch-card">
+        <h3>⚙️ Server Layer</h3>
+        <ul>
+          <li>Node.js + Express (~5000 lines)</li>
+          <li>Single process, multi-tenant routing</li>
+          <li>Session tokens in memory (Map)</li>
+          <li>Password reset tokens in owner.json</li>
+          <li>Rate limiting: 5 attempts/15min/IP</li>
+          <li>Background jobs via node-cron</li>
+        </ul>
+      </div>
+      <div class="arch-card">
+        <h3>🗄 Data Layer</h3>
+        <ul>
+          <li>JSON file database (no SQL)</li>
+          <li>data/owner.json — platform owner</li>
+          <li>data/brands/:slug/db.json — per brand</li>
+          <li>Complete isolation between brands</li>
+          <li>Atomic writes (JSON.stringify)</li>
+          <li>Backup via /api/backup endpoint</li>
+        </ul>
+      </div>
+      <div class="arch-card">
+        <h3>📧 Email Layer</h3>
+        <ul>
+          <li>Nodemailer via Gmail SMTP</li>
+          <li>Owner email: contact@resolvogroup.com</li>
+          <li>Per-brand SMTP if configured</li>
+          <li>Falls back to owner SMTP</li>
+          <li>IMAP polling for ticket creation</li>
+          <li>Cron: reminders, nurture, digest</li>
+        </ul>
+      </div>
+      <div class="arch-card">
+        <h3>🔐 Auth Layer</h3>
+        <ul>
+          <li>bcrypt cost 10 for all passwords</li>
+          <li>UUID v4 session tokens</li>
+          <li>Owner vs Brand session types</li>
+          <li>Feature flags resolved at login</li>
+          <li>ownerOnly middleware for owner routes</li>
+          <li>Brand slug from session (no spoofing)</li>
+        </ul>
+      </div>
+      <div class="arch-card">
+        <h3>🚀 Deployment</h3>
+        <ul>
+          <li>Hostinger VPS (Ubuntu)</li>
+          <li>PM2 process manager</li>
+          <li>GitHub → manual git pull deploys</li>
+          <li>Nginx reverse proxy (optional)</li>
+          <li>Base URL: app.resolvogroup.com</li>
+          <li>Local: PORT=3000</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">🔄 Request Flow — API Call</div>
+    <div class="data-flow">
+      <div class="df-row">
+        <div class="df-box highlight">Browser</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">POST /api/call<br>{fn, args}</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">getSessionUser(req)<br>x-session-token header</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">resolveFeatureFlags<br>(tier + overrides)</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">aH[fn] or sH[fn]<br>(async or sync)</div>
+        <div class="df-arr">→</div>
+        <div class="df-box highlight">JSON Response</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">📬 Email Ticket Creation Flow</div>
+    <div class="data-flow">
+      <div class="df-row">
+        <div class="df-box highlight">Gmail Inbox</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">IMAP Poll<br>every 2 min</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">Spam Filter<br>15+ patterns</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">VIP Check<br>domains + emails</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">Auto-assign<br>Queue engine</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">Auto-resolve<br>rules check</div>
+        <div class="df-arr">→</div>
+        <div class="df-box highlight">Ticket in DB</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">🏗 Multi-Tenant Data Isolation</div>
+    <div class="data-flow">
+      <div class="df-row" style="align-items:flex-start;gap:16px;">
+        <div style="text-align:center;">
+          <div class="df-box highlight" style="margin-bottom:8px;">Owner</div>
+          <div class="df-box" style="font-size:11px;">data/owner.json<br>brands[], auditLog[]<br>referrals{}, prospects[]</div>
+        </div>
+        <div style="font-size:20px;color:#334155;padding-top:40px;">→</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div style="text-align:center;">
+            <div class="df-box" style="background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.2);margin-bottom:6px;font-size:11px;">Brand A</div>
+            <div class="df-box" style="font-size:11px;">data/brands/konnect/db.json</div>
+          </div>
+          <div style="text-align:center;">
+            <div class="df-box" style="background:rgba(129,140,248,.08);border-color:rgba(129,140,248,.2);margin-bottom:6px;font-size:11px;">Brand B</div>
+            <div class="df-box" style="font-size:11px;">data/brands/atomberg/db.json</div>
+          </div>
+          <div style="text-align:center;">
+            <div class="df-box" style="background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.2);margin-bottom:6px;font-size:11px;">Brand C</div>
+            <div class="df-box" style="font-size:11px;">data/brands/vinay/db.json</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:#64748B;">Each brand's db.json contains: users[], issues[], tickets[], comments[], settings{}, featureFlags{}, appointments[], knowledgeBase[], roadmapItems[]</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 3: DATA FLOW ══════════════════════════════════════════════════════ -->
+<div class="page" id="page-data">
+  <h1>Data Flow Diagrams</h1>
+  <p class="sub">How data moves through Resolvo for key operations</p>
+
+  <div class="flow-section">
+    <div class="flow-title">📊 Brand Admin Login Flow</div>
+    <div class="flow-v" style="align-items:flex-start;max-width:600px;">
+      <div class="node start" style="width:100%">POST /api/login<br><small>{email, password, slug}</small></div>
+      <div class="arr-down">↓</div>
+      <div class="node action" style="width:100%">Find brand by slug → find user by email</div>
+      <div class="arr-down">↓</div>
+      <div class="node decision" style="width:100%">⟡ bcrypt.compare(password, hash)</div>
+      <div class="branch" style="width:100%;margin-top:8px;">
+        <div class="branch-item" style="flex:1;">
+          <div class="branch-label">FAIL</div>
+          <div class="node system">Rate limit check<br><small>5 fails → 15min lockout</small></div>
+        </div>
+        <div class="branch-item" style="flex:2;margin-top:16px;">
+          <div class="branch-label">PASS</div>
+          <div class="flow-v" style="width:100%">
+            <div class="node" style="width:100%">resolveFeatureFlags(brand, db.featureFlags)</div>
+            <div class="arr-down">↓</div>
+            <div class="node brand" style="width:100%">Create session token (UUID v4)<br><small>Stored in sessions{} with all user data + resolved flags</small></div>
+            <div class="arr-down">↓</div>
+            <div class="node end" style="width:100%">Return token → stored in localStorage<br><small>8h TTL (30d with remember me)</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">🎫 Issue Creation & SLA</div>
+    <div class="flow">
+      <div class="node start">User creates issue<br><small>title, priority, module</small></div>
+      <div class="arr">→</div>
+      <div class="node action">Duplicate detection<br><small>fuzzy title match</small></div>
+      <div class="arr">→</div>
+      <div class="node system">SLA hours set<br><small>Critical:4h / High:8h</small></div>
+      <div class="arr">→</div>
+      <div class="node system">Regression check<br><small>was this fixed before?</small></div>
+      <div class="arr">→</div>
+      <div class="node action">Assign to developer<br><small>notification email sent</small></div>
+      <div class="arr">→</div>
+      <div class="node brand">Webhook fired<br><small>Slack/Jira/custom API</small></div>
+      <div class="arr">→</div>
+      <div class="node end">Issue in DB<br><small>SLA timer running</small></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">🔄 Smart Queue Assignment</div>
+    <div class="flow-v" style="max-width:500px;">
+      <div class="node start" style="width:100%">New ticket arrives (email or manual)</div>
+      <div class="arr-down">↓</div>
+      <div class="node decision" style="width:100%">⟡ Routing rules match? (keyword/domain/priority/time)</div>
+      <div class="branch" style="width:100%;margin-top:8px;">
+        <div class="branch-item" style="flex:1;">
+          <div class="branch-label">YES</div>
+          <div class="node brand">Assign to specific agent<br><small>from routing rule</small></div>
+        </div>
+        <div class="branch-item" style="flex:1;margin-top:20px;">
+          <div class="branch-label">NO</div>
+          <div class="flow-v" style="width:100%">
+            <div class="node decision" style="width:100%">⟡ Mode: Round Robin or Least Busy?</div>
+            <div class="branch" style="width:100%;margin-top:8px;">
+              <div class="branch-item"><div class="branch-label">RR</div><div class="node">Next in rotation<br><small>lastIndex++</small></div></div>
+              <div class="branch-item" style="margin-top:16px;"><div class="branch-label">LB</div><div class="node">Agent with most capacity<br><small>maxTickets - openCount</small></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="arr-down" style="margin-top:8px;">↓</div>
+      <div class="node decision" style="width:100%">⟡ Agent available + under capacity?</div>
+      <div class="branch" style="width:100%;margin-top:8px;">
+        <div class="branch-item"><div class="branch-label">YES</div><div class="node end">Ticket assigned → status: open</div></div>
+        <div class="branch-item" style="margin-top:16px;"><div class="branch-label">NO</div><div class="node system">Stays unassigned<br><small>Shown in queue dashboard</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">🔐 Feature Flag Resolution</div>
+    <div class="data-flow">
+      <div class="df-row">
+        <div class="df-box highlight">TIER_FEATURES[brand.tier]<br><small>Free/Pro/Enterprise defaults</small></div>
+        <div class="df-arr">+</div>
+        <div class="df-box">db.featureFlags<br><small>Admin's saved flags (blocked)</small></div>
+        <div class="df-arr">+</div>
+        <div class="df-box highlight">brand.featureOverrides<br><small>Owner's per-brand overrides</small></div>
+        <div class="df-arr">=</div>
+        <div class="df-box" style="background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.3);">Resolved Flags<br><small>Owner always wins</small></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:#64748B;">Merge order: Tier defaults ← Admin overrides ← Owner overrides (Owner always wins)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 4: FEATURE TIERS ════════════════════════════════════════════════ -->
+<div class="page" id="page-features">
+  <h1>Feature Tier Matrix</h1>
+  <p class="sub">What each plan includes — controlled by owner via Owner Portal</p>
+
+  <div class="tier-chart">
+    <div class="tier-box" style="background:rgba(100,116,139,.05);border-color:rgba(100,116,139,.2);">
+      <div class="tier-name" style="color:#94A3B8;">Free</div>
+      <div style="font-size:22px;font-weight:900;color:#F1F5F9;margin-bottom:4px;">₹0</div>
+      <div style="font-size:12px;color:#64748B;margin-bottom:14px;">forever</div>
+      <div class="tier-feat" style="color:#34D399;">Issue tracking + SLA</div>
+      <div class="tier-feat" style="color:#34D399;">Audit trail</div>
+      <div class="tier-feat" style="color:#34D399;">Watchers + pinned</div>
+      <div class="tier-feat" style="color:#34D399;">Full text search</div>
+      <div class="tier-feat no">Kanban / Sprints</div>
+      <div class="tier-feat no">Email ticketing</div>
+      <div class="tier-feat no">Smart queue</div>
+      <div class="tier-feat no">AI features</div>
+      <div class="tier-feat no">Reports</div>
+      <div class="tier-feat no">2FA / API Keys</div>
+    </div>
+    <div class="tier-box" style="background:rgba(34,211,238,.04);border-color:rgba(34,211,238,.25);">
+      <div class="tier-name" style="color:#22D3EE;">Pro</div>
+      <div style="font-size:22px;font-weight:900;color:#F1F5F9;margin-bottom:4px;">₹999</div>
+      <div style="font-size:12px;color:#64748B;margin-bottom:14px;">per month · whole team</div>
+      <div class="tier-feat" style="color:#34D399;">Everything in Free</div>
+      <div class="tier-feat" style="color:#34D399;">Kanban + Sprints</div>
+      <div class="tier-feat" style="color:#34D399;">Email Ticketing + Queue</div>
+      <div class="tier-feat" style="color:#34D399;">AI Triage (Gemini)</div>
+      <div class="tier-feat" style="color:#34D399;">Knowledge Base + Roadmap</div>
+      <div class="tier-feat" style="color:#34D399;">2FA + Approvals</div>
+      <div class="tier-feat" style="color:#34D399;">9 Report types</div>
+      <div class="tier-feat" style="color:#34D399;">Impact Score + Coaching</div>
+      <div class="tier-feat no">API Keys</div>
+      <div class="tier-feat no">Customer Portal</div>
+      <div class="tier-feat no">GDPR Tools</div>
+    </div>
+    <div class="tier-box" style="background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.25);">
+      <div class="tier-name" style="color:#FCD34D;">Enterprise</div>
+      <div style="font-size:22px;font-weight:900;color:#F1F5F9;margin-bottom:4px;">₹2,499</div>
+      <div style="font-size:12px;color:#64748B;margin-bottom:14px;">per month · unlimited users</div>
+      <div class="tier-feat" style="color:#34D399;">Everything in Pro</div>
+      <div class="tier-feat" style="color:#34D399;">API Keys (REST)</div>
+      <div class="tier-feat" style="color:#34D399;">Customer Portal</div>
+      <div class="tier-feat" style="color:#34D399;">Embed Widget</div>
+      <div class="tier-feat" style="color:#34D399;">Appointment Booking</div>
+      <div class="tier-feat" style="color:#34D399;">GDPR + SLA Policies</div>
+      <div class="tier-feat" style="color:#34D399;">Cost Report</div>
+      <div class="tier-feat" style="color:#34D399;">Owner Portal (30+ tools)</div>
+      <div class="tier-feat" style="color:#34D399;">Unlimited users</div>
+      <div class="tier-feat" style="color:#34D399;">Multi-tenant management</div>
+    </div>
+  </div>
+
+  <div class="flow-section" style="margin-top:40px;">
+    <div class="flow-title">👑 Owner Hierarchy</div>
+    <div class="flow-v" style="max-width:500px;">
+      <div class="node owner" style="width:100%">Platform Owner (Asif / Resolvo)<br><small>contact@resolvogroup.com — Full control</small></div>
+      <div class="arr-down">↓</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;">
+        <div class="node brand">Brand Admin<br><small>Konnect (Enterprise)</small></div>
+        <div class="node brand">Brand Admin<br><small>Atomberg (Pro)</small></div>
+        <div class="node brand">Brand Admin<br><small>Vinay (Free)</small></div>
+      </div>
+      <div class="arr-down">↓</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;">
+        <div class="node">Team Members<br><small>Developers, CS, QA</small></div>
+        <div class="node">Team Members<br><small>Developers, CS, QA</small></div>
+        <div class="node">Team Members<br><small>Developers, CS, QA</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 5: EMAIL ROUTING ══════════════════════════════════════════════════ -->
+<div class="page" id="page-email">
+  <h1>Email Routing Architecture</h1>
+  <p class="sub">Every email in Resolvo — where it sends from, where it goes</p>
+
+  <div class="flow-section">
+    <div class="flow-title">📧 sendBrandEmail vs sendEmail</div>
+    <div class="data-flow">
+      <div class="df-row" style="margin-bottom:20px;">
+        <div class="df-box highlight" style="min-width:160px;">sendBrandEmail(slug,...)</div>
+        <div class="df-arr">→</div>
+        <div class="df-box">Check brand's SMTP<br><small>db.settings.BRAND_NOTIFY_EMAIL</small></div>
+        <div class="df-arr">→</div>
+        <div class="df-box">Has credentials?</div>
+        <div class="df-arr">→ YES →</div>
+        <div class="df-box" style="background:rgba(52,211,153,.1)">From: brand@company.com<br><small>Brand's own Gmail</small></div>
+      </div>
+      <div class="df-row" style="margin-bottom:8px;">
+        <div style="width:160px;text-align:right;font-size:11px;color:#475569;">NO ↓</div>
+        <div style="font-size:11px;color:#475569;padding:0 8px;">Falls back to →</div>
+        <div class="df-box" style="background:rgba(245,158,11,.1)">sendEmail()<br><small>owner SMTP</small></div>
+        <div class="df-arr">→</div>
+        <div class="df-box">From: contact@resolvogroup.com<br><small>Resolvo's Gmail</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">📋 Complete Email Routing Table</div>
+    <div class="data-flow" style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:rgba(255,255,255,.04);">
+            <th style="padding:10px 12px;text-align:left;color:#64748B;font-weight:700;border-bottom:1px solid rgba(255,255,255,.06);">Email Type</th>
+            <th style="padding:10px 12px;text-align:left;color:#64748B;font-weight:700;border-bottom:1px solid rgba(255,255,255,.06);">Recipient</th>
+            <th style="padding:10px 12px;text-align:left;color:#64748B;font-weight:700;border-bottom:1px solid rgba(255,255,255,.06);">Sends From</th>
+            <th style="padding:10px 12px;text-align:left;color:#64748B;font-weight:700;border-bottom:1px solid rgba(255,255,255,.06);">Function</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Ticket reply to customer</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Customer email</td>
+            <td style="padding:9px 12px;color:#34D399;">Brand email</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendBrandEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">CSAT survey on resolve</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Customer email</td>
+            <td style="padding:9px 12px;color:#34D399;">Brand email</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendBrandEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Welcome new user</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">New team member</td>
+            <td style="padding:9px 12px;color:#34D399;">Brand email</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendBrandEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Password reset</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Brand user</td>
+            <td style="padding:9px 12px;color:#34D399;">Brand email</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendBrandEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Issue SLA alert</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Developer</td>
+            <td style="padding:9px 12px;color:#34D399;">Brand email</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendBrandEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Nurture sequence (Day 1,3,7,14)</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Brand admin</td>
+            <td style="padding:9px 12px;color:#34D399;">Brand email</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendBrandEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Self-signup welcome</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">New signup</td>
+            <td style="padding:9px 12px;color:#FCD34D;">contact@resolvogroup.com</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">New signup notification to owner</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Owner</td>
+            <td style="padding:9px 12px;color:#FCD34D;">contact@resolvogroup.com</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendEmail()</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:9px 12px;color:#94A3B8;">Demo request</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">Owner + Prospect</td>
+            <td style="padding:9px 12px;color:#FCD34D;">contact@resolvogroup.com</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendEmail()</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 12px;color:#94A3B8;">Owner bulk announcement</td>
+            <td style="padding:9px 12px;color:#F1F5F9;">All brand admins</td>
+            <td style="padding:9px 12px;color:#FCD34D;">contact@resolvogroup.com</td>
+            <td style="padding:9px 12px;font-family:monospace;color:#64748B;font-size:11px;">sendEmail()</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-title">📬 IMAP Email Polling</div>
+    <div class="flow">
+      <div class="node start">node-cron<br><small>every 2 minutes</small></div>
+      <div class="arr">→</div>
+      <div class="node action">pollBrandInbox(slug)<br><small>IMAP UNSEEN SINCE enabledAt</small></div>
+      <div class="arr">→</div>
+      <div class="node system">simpleParser()<br><small>parse raw email</small></div>
+      <div class="arr">→</div>
+      <div class="node decision">Dedup check<br><small>messageId seen?</small></div>
+      <div class="arr">→</div>
+      <div class="node system">Spam filter<br><small>15+ patterns</small></div>
+      <div class="arr">→</div>
+      <div class="node action">createTicketFromEmail()<br><small>VIP + priority + queue</small></div>
+      <div class="arr">→</div>
+      <div class="node end">Ticket in DB<br><small>+ auto-assign</small></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
