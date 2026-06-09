@@ -12,7 +12,8 @@ const OWNER_PATH=path.join(__dirname,'data','owner.json'),BRANDS_DIR=path.join(_
 // Auto-create data directories on fresh deploy (VPS without data/)
 const fs_init=require('fs');
 if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
-app.use(cors());app.use(express.json({limit:'20mb'}));app.use(express.static(path.join(__dirname,'public')));
+app.use(cors());app.use(express.json({limit:'20mb'}));
+app.use(express.static(path.join(__dirname,'public')));
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
 
 // ── Password helpers ──────────────────────────────────────────────────────────
@@ -3995,16 +3996,22 @@ app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
 app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));
 app.get('/signup',(req,res)=>res.sendFile(path.join(__dirname,'public','signup.html')));
 
-// ── SEO FILES ─────────────────────────────────────────────────────────────────
-app.get('/sitemap.xml',(req,res)=>res.sendFile(path.join(__dirname,'public','sitemap.xml')));
-app.get('/robots.txt',(req,res)=>{res.setHeader('Content-Type','text/plain');res.send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /data/\nSitemap: ${BASE_URL}/sitemap.xml`);});
-
-// ── BLOG ROUTES ────────────────────────────────────────────────────────────────
-app.get('/blog',(req,res)=>res.sendFile(path.join(__dirname,'public','blog','index.html')));
+// ── BLOG ROUTES ──────────────────────────────────────────────────────────────
+const BLOG_DIR=path.resolve(__dirname,'public');
+app.get('/blog',      (req,res)=>res.sendFile('blog-index.html',{root:BLOG_DIR}));
+app.get('/blog/',     (req,res)=>res.sendFile('blog-index.html',{root:BLOG_DIR}));
 app.get('/blog/:slug',(req,res)=>{
-  const p=path.join(__dirname,'public','blog',req.params.slug+'.html');
-  if(require('fs').existsSync(p))return res.sendFile(p);
-  res.redirect('/blog');
+  const f='blog-'+req.params.slug+'.html';
+  const p=path.join(BLOG_DIR,f);
+  if(fs.existsSync(p))return res.sendFile(f,{root:BLOG_DIR});
+  res.sendFile('blog-index.html',{root:BLOG_DIR});
+});
+
+// ── SEO FILES ─────────────────────────────────────────────────────────────────
+app.get('/sitemap.xml',(req,res)=>res.sendFile('sitemap.xml',{root:BLOG_DIR}));
+app.get('/robots.txt',(req,res)=>{
+  res.setHeader('Content-Type','text/plain');
+  res.send('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /data/\nSitemap: '+BASE_URL+'/sitemap.xml\n');
 });
 
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
