@@ -4,278 +4,529 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Resolvo — From Chaos to Clarity</title>
-<meta name="description" content="The AI-powered engineering & support platform. Issue tracking, smart queue, customer portal, 100+ features.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<meta name="description" content="The AI-powered engineering & support platform. Issue tracking, smart ticketing, customer portal — built for teams that ship.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+/* ══ RESET ══════════════════════════════════════════════════════════════════ */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+img,svg{display:block;}
+
+/* ══ DESIGN TOKENS — LINEAR-GRADE ══════════════════════════════════════════ */
 :root{
-  --bg:#030509;--s1:#06080F;--s2:#0A0E1A;--card:#0D1220;--glass:rgba(13,18,32,.6);
-  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);
-  --g:linear-gradient(135deg,#00FF94,#9D4EDD);
-  --green:#00FF94;--green2:#00D084;--violet:#9D4EDD;--blue:#4361EE;
-  --red:#FF3A5C;--amber:#FFB703;
-  --white:#F0F4FF;--gray:#7A8899;--dim:#3D4A5C;
-  --sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  /* Not pure black — the #1 premium signal */
+  --bg:       #08090A;
+  --bg-1:     #0D1117;
+  --bg-2:     #161B22;
+  --glass:    rgba(22,27,34,0.7);
+
+  /* Borders — hairline, almost invisible */
+  --b0: rgba(255,255,255,.04);
+  --b1: rgba(255,255,255,.07);
+  --b2: rgba(255,255,255,.12);
+  --b3: rgba(255,255,255,.20);
+
+  /* Brand */
+  --green:  #00E5A0;
+  --green2: #00FF94;
+  --violet: #8B5CF6;
+  --blue:   #3B82F6;
+  --amber:  #F59E0B;
+  --red:    #F43F5E;
+
+  /* Text */
+  --t1: #F0F6FF;
+  --t2: rgba(240,246,255,.65);
+  --t3: rgba(240,246,255,.35);
+  --t4: rgba(240,246,255,.18);
+
+  /* Gradient */
+  --g: linear-gradient(135deg,var(--green),var(--violet));
+
+  /* Type */
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
 }
-html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--white);font-family:var(--sans);overflow-x:hidden;line-height:1.6;cursor:none;}
 
-/* ── CUSTOM CURSOR ── */
-#cursor{position:fixed;width:12px;height:12px;background:var(--green);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:transform .1s,width .2s,height .2s,opacity .2s;mix-blend-mode:screen;}
-#cursor-ring{position:fixed;width:40px;height:40px;border:1px solid rgba(0,255,148,.3);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:transform .15s ease-out,width .3s,height .3s,opacity .3s;}
-body:hover #cursor{opacity:1;}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:var(--sans);
+  line-height:1.6;
+  overflow-x:hidden;
+  cursor:none;
+}
 
-/* ── GLOW ── */
-#glow{position:fixed;width:600px;height:600px;pointer-events:none;z-index:0;border-radius:50%;background:radial-gradient(circle,rgba(0,255,148,.04),transparent 70%);transform:translate(-50%,-50%);transition:transform .1s;}
+/* ══ NOISE GRAIN OVERLAY (premium depth cue) ═══════════════════════════════ */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  pointer-events:none;z-index:9999;
+  opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat:repeat;
+  mix-blend-mode:overlay;
+}
 
-/* ── NAV ── */
-nav{position:fixed;top:0;left:0;right:0;z-index:100;height:60px;display:flex;align-items:center;transition:background .3s,border-color .3s;}
-nav.scrolled{background:rgba(3,5,9,.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);}
-.nav-inner{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1200px;margin:0 auto;padding:0 28px;}
-.logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
-.logo-r{width:30px;height:30px;border-radius:8px;background:var(--g);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#000;flex-shrink:0;box-shadow:0 0 20px rgba(0,255,148,.3);}
-.logo-text{font-size:17px;font-weight:800;background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.nav-links{display:flex;gap:4px;list-style:none;}
-.nav-links a{color:var(--gray);text-decoration:none;font-size:13px;font-weight:500;padding:7px 14px;border-radius:7px;transition:all .15s;}
-.nav-links a:hover{color:var(--white);background:rgba(255,255,255,.07);}
-.nav-cta{padding:9px 22px;border-radius:9px;font-size:13px;font-weight:800;background:var(--g);color:#000;border:none;cursor:none;text-decoration:none;transition:all .2s;box-shadow:0 0 0 rgba(0,255,148,.4);}
-.nav-cta:hover{box-shadow:0 0 30px rgba(0,255,148,.4);transform:translateY(-1px);}
+/* ══ CURSOR ════════════════════════════════════════════════════════════════ */
+#c-dot{
+  position:fixed;width:8px;height:8px;
+  background:var(--green2);border-radius:50%;
+  pointer-events:none;z-index:99998;
+  transform:translate(-50%,-50%);
+  transition:width .2s,height .2s,background .2s;
+  box-shadow:0 0 10px var(--green2),0 0 20px rgba(0,255,148,.4);
+}
+#c-ring{
+  position:fixed;width:32px;height:32px;
+  border:1px solid rgba(0,229,160,.35);border-radius:50%;
+  pointer-events:none;z-index:99997;
+  transform:translate(-50%,-50%);
+  transition:width .3s,height .3s,border-color .3s;
+}
+body:has(a:hover,button:hover) #c-dot{width:14px;height:14px;}
+body:has(a:hover,button:hover) #c-ring{width:44px;height:44px;border-color:rgba(0,229,160,.6);}
 
-/* ── HERO ── */
-.hero{min-height:100vh;display:flex;align-items:center;padding:80px 0;position:relative;overflow:hidden;}
+/* ══ LAYOUT ════════════════════════════════════════════════════════════════ */
+.w{max-width:1160px;margin:0 auto;padding:0 28px;}
+.ws{max-width:720px;margin:0 auto;padding:0 28px;}
+section{padding:140px 0;}
 
-/* Animated grid */
-.hero-grid{position:absolute;inset:0;z-index:0;
-  background-image:linear-gradient(rgba(0,255,148,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,148,.04) 1px,transparent 1px);
-  background-size:80px 80px;
-  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black,transparent);
-  animation:gridPulse 8s ease-in-out infinite;}
-@keyframes gridPulse{0%,100%{opacity:.4;}50%{opacity:.8;}}
+/* ══ NAV ═══════════════════════════════════════════════════════════════════ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  height:58px;display:flex;align-items:center;
+  transition:background .4s,border-color .4s;
+  border-bottom:1px solid transparent;
+}
+nav.s{background:rgba(8,9,10,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom-color:var(--b1);}
+.nav-w{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1160px;margin:0 auto;padding:0 28px;}
+.nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;}
+.nav-logo-mark{
+  width:28px;height:28px;border-radius:7px;
+  background:var(--g);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:900;color:#000;
+  box-shadow:0 0 16px rgba(0,229,160,.25);
+}
+.nav-logo-text{font-size:15px;font-weight:700;letter-spacing:-.4px;color:var(--t1);}
+.nav-links{display:flex;gap:2px;list-style:none;}
+.nav-links a{
+  color:var(--t3);text-decoration:none;
+  font-size:13.5px;font-weight:500;
+  padding:6px 13px;border-radius:7px;
+  transition:color .15s,background .15s;
+}
+.nav-links a:hover{color:var(--t1);background:var(--b1);}
+.nav-r{display:flex;align-items:center;gap:8px;}
+.btn-nav{
+  padding:7px 18px;border-radius:8px;
+  font-size:13px;font-weight:700;
+  text-decoration:none;border:none;cursor:none;
+  font-family:var(--sans);transition:all .15s;
+}
+.btn-nav-ghost{
+  background:var(--b1);color:var(--t2);
+  border:1px solid var(--b2);
+}
+.btn-nav-ghost:hover{background:var(--b2);color:var(--t1);}
+.btn-nav-solid{
+  background:var(--t1);color:#08090A;
+  box-shadow:0 0 0 1px rgba(255,255,255,.15);
+}
+.btn-nav-solid:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.4);}
 
-/* Orbs */
-.orb{position:absolute;border-radius:50%;filter:blur(80px);animation:orbFloat 12s ease-in-out infinite;}
-.orb1{width:600px;height:600px;top:-200px;right:-100px;background:radial-gradient(circle,rgba(0,255,148,.08),transparent 65%);animation-delay:0s;}
-.orb2{width:500px;height:500px;bottom:-150px;left:-100px;background:radial-gradient(circle,rgba(157,78,221,.07),transparent 65%);animation-delay:-4s;}
-.orb3{width:400px;height:400px;top:40%;left:40%;background:radial-gradient(circle,rgba(67,97,238,.05),transparent 65%);animation-delay:-8s;}
-@keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(30px,-20px) scale(1.05);}66%{transform:translate(-20px,30px) scale(.95);};}
+/* ══ HERO ══════════════════════════════════════════════════════════════════ */
+.hero{
+  min-height:100vh;
+  display:flex;align-items:center;
+  padding:100px 0 80px;
+  position:relative;overflow:hidden;
+}
 
-.hero-inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 28px;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
+/* Grid — Vercel-style */
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(var(--b0) 1px,transparent 1px),
+    linear-gradient(90deg,var(--b0) 1px,transparent 1px);
+  background-size:52px 52px;
+  mask-image:radial-gradient(ellipse 100% 80% at 50% 0%,black 20%,transparent 80%);
+}
+
+/* Glow blobs */
+.g1,.g2,.g3{position:absolute;border-radius:50%;pointer-events:none;filter:blur(100px);}
+.g1{width:800px;height:800px;top:-300px;left:50%;transform:translateX(-50%);background:radial-gradient(circle,rgba(0,229,160,.07),transparent 65%);}
+.g2{width:500px;height:500px;top:20%;right:-150px;background:radial-gradient(circle,rgba(139,92,246,.06),transparent 65%);animation:drift 15s ease-in-out infinite;}
+.g3{width:400px;height:400px;bottom:0;left:-100px;background:radial-gradient(circle,rgba(59,130,246,.05),transparent 65%);animation:drift 18s ease-in-out infinite reverse;}
+@keyframes drift{0%,100%{transform:translate(0,0);}50%{transform:translate(40px,-30px);}}
+
+.hero-inner{
+  position:relative;z-index:1;
+  width:100%;max-width:1160px;margin:0 auto;padding:0 28px;
+  display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center;
+}
 .hero-left{}
-.hero-tag{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(0,255,148,.25);border-radius:100px;padding:5px 14px;margin-bottom:32px;background:rgba(0,255,148,.06);}
-.hero-tag-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 2s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 10px var(--green);}50%{opacity:.5;box-shadow:0 0 4px var(--green);};}
-.hero-tag span{font-size:11px;font-weight:700;color:var(--green);letter-spacing:.08em;text-transform:uppercase;}
 
-.hero-title{font-size:clamp(42px,5.5vw,76px);font-weight:900;line-height:1;letter-spacing:-3px;margin-bottom:22px;}
-.hero-title .line{display:block;overflow:hidden;}
-.hero-title .line span{display:block;animation:slideUp .8s cubic-bezier(.16,1,.3,1) both;}
-.hero-title .line:nth-child(1) span{animation-delay:.1s;}
-.hero-title .line:nth-child(2) span{animation-delay:.25s;}
-.hero-title .line:nth-child(3) span{animation-delay:.4s;}
-@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
-.hero-title .hl{background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+/* Announcement badge — Linear/Vercel signature */
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--b1);border:1px solid var(--b2);
+  border-radius:100px;padding:5px 13px 5px 7px;
+  margin-bottom:28px;text-decoration:none;
+  transition:border-color .2s;cursor:none;
+}
+.badge:hover{border-color:var(--b3);}
+.badge-pill{
+  background:var(--g);
+  color:#000;font-size:10px;font-weight:800;
+  letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 8px;border-radius:100px;
+}
+.badge-text{font-size:12.5px;color:var(--t3);font-weight:500;}
+.badge-arr{font-size:11px;color:var(--t4);}
 
-.hero-sub{font-size:17px;color:var(--gray);line-height:1.75;max-width:480px;margin-bottom:36px;animation:fadeIn .8s ease .6s both;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+/* Headline — the most important thing */
+.h1{
+  font-size:clamp(40px,5.5vw,72px);
+  font-weight:700;
+  letter-spacing:-0.035em; /* negative tracking = premium */
+  line-height:1.08;
+  margin-bottom:20px;
+}
+/* Gradient word */
+.gw{
+  background:linear-gradient(135deg,var(--green2) 0%,var(--violet) 60%,var(--blue) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  background-size:200%;
+  animation:gShift 6s ease-in-out infinite;
+}
+@keyframes gShift{0%,100%{background-position:0%;}50%{background-position:100%;}}
 
-.hero-cta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:52px;animation:fadeIn .8s ease .75s both;}
-.btn-g{display:inline-flex;align-items:center;gap:8px;background:var(--g);color:#000;padding:14px 30px;border-radius:10px;font-size:15px;font-weight:800;text-decoration:none;border:none;cursor:none;transition:all .2s;font-family:var(--sans);position:relative;overflow:hidden;}
-.btn-g::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.2),transparent);opacity:0;transition:opacity .2s;}
-.btn-g:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,255,148,.3);}
-.btn-g:hover::after{opacity:1;}
-.btn-ghost{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);color:var(--white);padding:14px 28px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--border2);transition:all .2s;cursor:none;}
-.btn-ghost:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.2);}
+/* Dim second line — dimension effect */
+.h1-dim{color:var(--t3);}
 
-.hero-metrics{display:flex;gap:0;border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeIn .8s ease .9s both;}
-.hm{padding:16px 24px;border-right:1px solid var(--border);flex:1;text-align:center;}
-.hm:last-child{border-right:none;}
-.hm-n{font-size:24px;font-weight:900;background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
-.hm-l{font-size:11px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.sub{
+  font-size:17px;color:var(--t2);line-height:1.75;
+  max-width:460px;margin-bottom:36px;
+  font-weight:400;letter-spacing:-.01em;
+}
 
-/* HERO RIGHT — Floating mockup */
-.hero-right{position:relative;animation:fadeIn 1s ease .3s both;}
-.hero-card{background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--border2);border-radius:16px;padding:20px;box-shadow:0 40px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04),0 0 60px rgba(0,255,148,.04);animation:float 6s ease-in-out infinite;}
-@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
-.hc-bar{display:flex;align-items:center;gap:6px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);}
-.hc-dot{width:9px;height:9px;border-radius:50%;}
-.hc-url{flex:1;background:rgba(255,255,255,.05);border-radius:5px;padding:4px 10px;font-size:10px;color:var(--dim);font-family:var(--mono);margin:0 10px;}
-.hc-kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
-.k{background:rgba(255,255,255,.04);border-radius:9px;padding:12px;border:1px solid var(--border);}
-.k-n{font-size:20px;font-weight:900;margin-bottom:2px;}
-.k-l{font-size:10px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
-.hc-row{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:8px;margin-bottom:5px;transition:background .2s;}
-.hc-row:hover{background:rgba(255,255,255,.06);}
-.hc-badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;flex-shrink:0;}
-.hc-t{font-size:11px;flex:1;}
-.hc-time{font-size:9px;color:var(--dim);font-family:var(--mono);}
+.ctas{display:flex;gap:10px;align-items:center;margin-bottom:52px;flex-wrap:wrap;}
+.btn-p{
+  display:inline-flex;align-items:center;gap:7px;
+  background:var(--t1);color:#08090A;
+  padding:12px 26px;border-radius:100px;
+  font-size:14px;font-weight:700;text-decoration:none;
+  border:none;cursor:none;font-family:var(--sans);
+  transition:transform .15s,box-shadow .15s;
+  letter-spacing:-.01em;
+}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.btn-p .arr{transition:transform .15s;}
+.btn-p:hover .arr{transform:translateX(3px);}
+.btn-s{
+  display:inline-flex;align-items:center;gap:7px;
+  background:transparent;color:var(--t2);
+  padding:12px 22px;border-radius:100px;
+  font-size:14px;font-weight:500;text-decoration:none;
+  border:1px solid var(--b2);cursor:none;font-family:var(--sans);
+  transition:all .15s;
+}
+.btn-s:hover{background:var(--b1);border-color:var(--b3);color:var(--t1);}
 
-/* floating chips */
-.chip{position:absolute;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--border2);border-radius:100px;padding:7px 14px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4);}
-.chip1{top:-20px;right:20px;color:var(--green);animation:float 5s ease-in-out infinite -1s;}
-.chip2{bottom:20px;left:-30px;color:var(--violet);animation:float 7s ease-in-out infinite -3s;}
-.chip3{top:45%;right:-40px;color:var(--amber);animation:float 6s ease-in-out infinite -2s;}
+/* Stats — minimal */
+.stats{display:flex;gap:0;border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
+.stat{padding:14px 24px;border-right:1px solid var(--b1);flex:1;text-align:center;}
+.stat:last-child{border-right:none;}
+.stat-n{font-size:22px;font-weight:800;letter-spacing:-.03em;
+  background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1;margin-bottom:2px;}
+.stat-l{font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.07em;font-weight:600;}
 
-/* ── SECTIONS ── */
-.sec{padding:110px 0;}
-.sec-dark{background:var(--s1);}
-.sec-black{background:var(--bg);}
-.wrap{max-width:1200px;margin:0 auto;padding:0 28px;}
-.wrap-sm{max-width:780px;margin:0 auto;padding:0 28px;}
-.eyebrow{font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
-.eyebrow::before{content:'';width:20px;height:2px;background:var(--green);border-radius:2px;display:block;}
-.big-title{font-size:clamp(30px,4vw,54px);font-weight:900;letter-spacing:-2px;line-height:1.05;margin-bottom:16px;}
-.hl{background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.lead{font-size:17px;color:var(--gray);line-height:1.8;max-width:540px;}
+/* ── Hero right: product card ── */
+.hero-right{position:relative;}
+.product-wrap{
+  position:relative;
+  background:var(--bg-1);
+  border:1px solid var(--b2);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:
+    0 0 0 1px var(--b0),
+    0 32px 80px rgba(0,0,0,.7),
+    0 0 80px rgba(0,229,160,.04);
+  animation:bob 7s ease-in-out infinite;
+}
+@keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
 
-/* ── REVEAL ── */
-.r{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);}
-.r.in{opacity:1;transform:translateY(0);}
-.r-d1{transition-delay:.1s;}
-.r-d2{transition-delay:.2s;}
-.r-d3{transition-delay:.3s;}
-.r-d4{transition-delay:.4s;}
+/* Glow edge on top (premium card signal) */
+.product-wrap::before{
+  content:'';position:absolute;top:0;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,229,160,.5),transparent);
+  z-index:10;
+}
+.pw-bar{
+  background:rgba(255,255,255,.03);
+  border-bottom:1px solid var(--b1);
+  padding:11px 16px;
+  display:flex;align-items:center;gap:7px;
+}
+.pw-d{width:9px;height:9px;border-radius:50%;}
+.pw-url{flex:1;background:var(--b0);border-radius:5px;padding:4px 10px;font-size:10px;color:var(--t4);font-family:var(--mono);margin:0 10px;}
+.pw-status{font-size:9px;color:var(--green);font-family:var(--mono);font-weight:500;}
+.pw-body{padding:16px;}
+.pw-kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+.kc{background:var(--b0);border:1px solid var(--b1);border-radius:9px;padding:12px;position:relative;overflow:hidden;}
+.kc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kc.k1::before{background:var(--red);}
+.kc.k2::before{background:var(--green);}
+.kc.k3::before{background:var(--amber);}
+.kc.k4::before{background:var(--violet);}
+.kc-n{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-bottom:3px;}
+.kc-l{font-size:9px;color:var(--t4);text-transform:uppercase;letter-spacing:.07em;font-weight:600;}
+.pw-row{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:7px;
+  border:1px solid var(--b1);background:var(--b0);
+  margin-bottom:5px;
+  transition:background .15s,border-color .15s;
+}
+.pw-row:hover{background:var(--b1);border-color:var(--b2);}
+.pr-badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;flex-shrink:0;}
+.pr-t{font-size:11px;color:var(--t1);flex:1;}
+.pr-time{font-size:9px;color:var(--t4);font-family:var(--mono);}
+.pw-queue{
+  background:rgba(0,229,160,.05);
+  border:1px solid rgba(0,229,160,.12);
+  border-radius:7px;padding:8px 10px;
+  font-size:10px;color:var(--green);
+  margin-top:4px;display:flex;align-items:center;gap:6px;
+}
 
-/* ── COUNTER ── */
-.counter{display:inline-block;}
+/* Floating chips */
+.chip{
+  position:absolute;
+  background:rgba(13,17,23,.9);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--b2);border-radius:100px;
+  padding:7px 13px;font-size:11px;font-weight:600;
+  white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.c1{top:-18px;right:24px;color:var(--green);animation:bob 5s ease-in-out infinite -1s;}
+.c2{bottom:24px;left:-36px;color:var(--violet);animation:bob 7s ease-in-out infinite -3s;}
+.c3{top:42%;right:-40px;color:var(--amber);animation:bob 6s ease-in-out infinite -2s;}
 
-/* ── NUMBERS BAR ── */
-.numbers{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
-.num-item{padding:36px 28px;border-right:1px solid var(--border);position:relative;overflow:hidden;}
-.num-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--g);transform:scaleX(0);transform-origin:left;transition:transform .6s ease;transition-delay:var(--d,0s);}
-.num-item.in::before{transform:scaleX(1);}
-.num-item:last-child{border-right:none;}
-.num-n{font-size:44px;font-weight:900;line-height:1;margin-bottom:6px;background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.num-l{font-size:14px;font-weight:700;margin-bottom:4px;}
-.num-s{font-size:12px;color:var(--dim);}
+/* ══ SECTIONS ══════════════════════════════════════════════════════════════ */
+.ey{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:700;color:var(--green);
+  text-transform:uppercase;letter-spacing:.1em;
+  margin-bottom:18px;
+}
+.ey::before{content:'';width:18px;height:1.5px;background:var(--green);border-radius:2px;}
+.ttl{
+  font-size:clamp(28px,3.8vw,52px);font-weight:700;
+  letter-spacing:-.03em;line-height:1.08;
+  margin-bottom:16px;
+}
+.lead{font-size:17px;color:var(--t2);line-height:1.78;max-width:520px;letter-spacing:-.005em;}
 
-/* ── PROBLEM ── */
-.prob-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-radius:16px;overflow:hidden;margin-top:56px;}
-.prob-item{background:var(--s1);padding:32px;transition:background .2s;cursor:default;position:relative;overflow:hidden;}
-.prob-item::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,255,148,.03),transparent);opacity:0;transition:opacity .3s;}
-.prob-item:hover::after{opacity:1;}
-.prob-item:hover{background:var(--card);}
-.prob-n{font-size:10px;color:var(--dim);font-family:var(--mono);margin-bottom:14px;font-weight:700;}
-.prob-i{font-size:22px;margin-bottom:12px;}
-.prob-t{font-size:15px;font-weight:800;margin-bottom:8px;}
-.prob-d{font-size:13px;color:var(--gray);line-height:1.65;}
+/* Numbers strip */
+.nums{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border:1px solid var(--b1);border-radius:14px;overflow:hidden;
+}
+.nu{padding:32px 24px;border-right:1px solid var(--b1);position:relative;}
+.nu:last-child{border-right:none;}
+.nu::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--g);transform:scaleX(0);transform-origin:left;transition:transform .8s cubic-bezier(.16,1,.3,1);}
+.nu.in::after{transform:scaleX(1);}
+.nu-n{font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1;margin-bottom:6px;
+  background:var(--g);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nu-l{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px;}
+.nu-s{font-size:12px;color:var(--t4);}
 
-/* ── FEATURE SHOWCASE ── */
-.showcase{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;padding:80px 0;border-bottom:1px solid var(--border);}
-.showcase.flip{direction:rtl;}
-.showcase.flip>*{direction:ltr;}
-.showcase:last-child{border-bottom:none;}
-.sc-label{font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.sc-label::before{content:'';width:14px;height:2px;background:var(--green);}
-.sc-title{font-size:clamp(26px,3.5vw,42px);font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:14px;}
-.sc-bullets{margin-top:20px;display:flex;flex-direction:column;gap:10px;}
-.sc-b{font-size:13px;color:var(--gray);display:flex;align-items:flex-start;gap:10px;line-height:1.6;}
-.sc-b-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:6px;box-shadow:0 0 8px var(--green);}
+/* Problem */
+.prob-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--b1);border-radius:14px;overflow:hidden;margin-top:52px;}
+.pi{
+  background:var(--bg-1);padding:28px;
+  transition:background .2s;position:relative;overflow:hidden;
+}
+.pi::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--b2),transparent);transform:scaleX(0);transition:transform .4s;}
+.pi:hover{background:var(--bg-2);}
+.pi:hover::before{transform:scaleX(1);}
+.pi-n{font-family:var(--mono);font-size:10px;color:var(--t4);margin-bottom:14px;font-weight:500;}
+.pi-t{font-size:14px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px;}
+.pi-d{font-size:12.5px;color:var(--t3);line-height:1.65;}
 
-/* ── MOCKUP WINDOW ── */
-.window{background:var(--card);border:1px solid var(--border2);border-radius:14px;overflow:hidden;box-shadow:0 30px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03);}
-.win-bar{background:rgba(255,255,255,.04);padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
-.win-d{width:9px;height:9px;border-radius:50%;}
-.win-title{font-size:11px;color:var(--dim);font-family:var(--mono);margin-left:8px;flex:1;}
+/* Feature showcase */
+.sc{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;padding:80px 0;border-bottom:1px solid var(--b1);}
+.sc.fl{direction:rtl;}
+.sc.fl>*{direction:ltr;}
+.sc:last-child{border-bottom:none;}
+.sc-ey{font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.sc-ey::before{content:'';width:14px;height:1.5px;background:var(--green);}
+.sc-t{font-size:clamp(24px,3.2vw,40px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:12px;}
+.sc-d{font-size:15px;color:var(--t2);line-height:1.75;max-width:420px;}
+.sc-bls{margin-top:22px;display:flex;flex-direction:column;gap:9px;}
+.sc-bl{font-size:13px;color:var(--t3);display:flex;align-items:flex-start;gap:9px;line-height:1.6;}
+.sc-bl::before{content:'—';color:var(--green);font-size:12px;flex-shrink:0;margin-top:2px;font-weight:700;}
+
+/* Window card */
+.win{
+  background:var(--bg-1);
+  border:1px solid var(--b2);
+  border-radius:14px;overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px var(--b0);
+  position:relative;
+}
+.win::before{content:'';position:absolute;top:0;left:15%;right:15%;height:1px;background:linear-gradient(90deg,transparent,var(--b3),transparent);}
+.win-bar{background:rgba(255,255,255,.03);border-bottom:1px solid var(--b1);padding:10px 15px;display:flex;align-items:center;gap:6px;}
+.wd{width:9px;height:9px;border-radius:50%;}
+.win-title{font-size:10.5px;color:var(--t4);font-family:var(--mono);margin-left:8px;flex:1;}
 .win-body{padding:14px;}
-.win-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;border:1px solid var(--border);margin-bottom:5px;background:rgba(255,255,255,.02);transition:background .15s;}
-.win-row:hover{background:rgba(255,255,255,.05);}
-.wbadge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;flex-shrink:0;}
-.wt{font-size:11px;flex:1;color:var(--white);}
-.wtag{font-size:9px;font-family:var(--mono);color:var(--dim);}
+.wr{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 10px;border-radius:7px;
+  border:1px solid var(--b1);background:var(--b0);
+  margin-bottom:5px;transition:background .15s;
+}
+.wr:hover{background:var(--b1);}
+.wb{font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;flex-shrink:0;}
+.wt{font-size:11px;color:var(--t1);flex:1;}
+.wt2{font-size:9px;color:var(--t4);font-family:var(--mono);}
 
-/* ── FEATURE CARDS GRID ── */
-.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-radius:16px;overflow:hidden;margin-top:52px;}
-.fc{background:var(--s1);padding:24px;transition:all .2s;cursor:default;position:relative;}
-.fc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--g);transform:scaleX(0);transform-origin:left;transition:transform .4s;}
-.fc:hover::before{transform:scaleX(1);}
-.fc:hover{background:var(--card);}
-.fc-i{font-size:20px;margin-bottom:12px;}
-.fc-t{font-size:13px;font-weight:800;margin-bottom:5px;}
-.fc-d{font-size:11px;color:var(--dim);line-height:1.6;}
-.new-tag{display:inline-block;font-size:9px;font-weight:800;background:var(--green);color:#000;padding:1px 6px;border-radius:4px;margin-left:5px;vertical-align:middle;}
+/* Features bento */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border-radius:16px;overflow:hidden;margin-top:52px;}
+.bc{
+  background:var(--bg-1);padding:24px;
+  transition:background .2s;position:relative;overflow:hidden;
+}
+.bc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--g);transform:scaleX(0);transform-origin:left;transition:transform .5s cubic-bezier(.16,1,.3,1);}
+.bc:hover{background:var(--bg-2);}
+.bc:hover::before{transform:scaleX(1);}
+.bc-i{font-size:18px;margin-bottom:10px;opacity:.85;}
+.bc-t{font-size:13px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px;}
+.bc-d{font-size:11.5px;color:var(--t3);line-height:1.6;}
+.new{display:inline-block;font-size:9px;font-weight:800;
+  background:var(--g);color:#000;
+  padding:1px 6px;border-radius:4px;margin-left:5px;vertical-align:middle;}
 
-/* ── PRICING ── */
-.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:52px;}
-.price-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;position:relative;transition:all .3s;overflow:hidden;}
-.price-card::before{content:'';position:absolute;inset:0;background:var(--g);opacity:0;transition:opacity .3s;}
-.price-card .price-inner{position:relative;z-index:1;}
-.price-card:hover{border-color:rgba(0,255,148,.3);transform:translateY(-4px);box-shadow:0 20px 60px rgba(0,0,0,.4);}
-.price-card.featured{border-color:rgba(0,255,148,.3);background:linear-gradient(135deg,rgba(0,255,148,.05),var(--card));}
-.price-pill{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--g);color:#000;font-size:10px;font-weight:900;padding:3px 16px;border-radius:20px;white-space:nowrap;}
-.p-tier{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;}
-.p-amount{font-size:48px;font-weight:900;line-height:1;margin-bottom:4px;}
-.p-period{font-size:13px;color:var(--dim);}
-.p-line{height:1px;background:var(--border);margin:20px 0;}
-.p-feats{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
-.p-feat{font-size:13px;color:var(--gray);display:flex;align-items:flex-start;gap:8px;}
-.p-yes{color:var(--green);font-weight:800;flex-shrink:0;}
-.p-no{color:var(--dim);flex-shrink:0;}
-.p-feat.off{opacity:.35;}
-.p-btn{display:block;text-align:center;padding:13px;border-radius:9px;font-size:14px;font-weight:800;text-decoration:none;transition:all .2s;cursor:none;}
-.p-btn-g{background:var(--g);color:#000;}
-.p-btn-g:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,255,148,.25);}
-.p-btn-ghost{background:rgba(255,255,255,.06);color:var(--white);border:1px solid var(--border2);}
-.p-btn-ghost:hover{background:rgba(255,255,255,.1);}
+/* Marquee */
+.mq-wrap{overflow:hidden;mask-image:linear-gradient(90deg,transparent,black 12%,black 88%,transparent);}
+.mq{display:flex;gap:10px;width:max-content;animation:mq 30s linear infinite;}
+.mq:hover{animation-play-state:paused;}
+@keyframes mq{to{transform:translateX(-50%);}}
+.ip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--b0);border:1px solid var(--b1);
+  border-radius:100px;padding:9px 18px;
+  font-size:13px;font-weight:500;color:var(--t3);
+  white-space:nowrap;flex-shrink:0;transition:all .2s;
+}
+.ip:hover{border-color:var(--b3);color:var(--t1);}
 
-/* ── INTEGRATIONS MARQUEE ── */
-.marquee-wrap{overflow:hidden;mask-image:linear-gradient(to right,transparent,black 15%,black 85%,transparent);margin-top:40px;}
-.marquee{display:flex;gap:14px;animation:marquee 25s linear infinite;width:max-content;}
-.marquee:hover{animation-play-state:paused;}
-@keyframes marquee{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
-.int-pill{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--border2);border-radius:100px;padding:10px 18px;white-space:nowrap;font-size:13px;font-weight:600;color:var(--gray);transition:all .2s;flex-shrink:0;}
-.int-pill:hover{border-color:rgba(0,255,148,.3);color:var(--white);}
-.int-pill span{font-size:16px;}
+/* Pricing */
+.pg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:52px;}
+.pc{
+  background:var(--bg-1);border:1px solid var(--b1);
+  border-radius:16px;padding:32px;position:relative;
+  transition:transform .2s,border-color .2s,box-shadow .2s;
+  overflow:hidden;
+}
+.pc::before{content:'';position:absolute;top:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,var(--b2),transparent);}
+.pc:hover{transform:translateY(-3px);border-color:var(--b2);box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.pc.feat{border-color:rgba(0,229,160,.25);background:linear-gradient(135deg,rgba(0,229,160,.04),var(--bg-1));}
+.pc.feat:hover{border-color:rgba(0,229,160,.4);}
+.pp{position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+  background:var(--g);color:#000;
+  font-size:10px;font-weight:800;padding:3px 14px;border-radius:100px;white-space:nowrap;}
+.pt{font-size:11px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;}
+.pa{font-size:46px;font-weight:800;letter-spacing:-.04em;line-height:1;margin-bottom:3px;}
+.pper{font-size:13px;color:var(--t4);}
+.pdesc{font-size:13px;color:var(--t2);margin:16px 0;line-height:1.6;}
+.pline{height:1px;background:var(--b1);margin:20px 0;}
+.pf{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+.pfi{font-size:13px;color:var(--t2);display:flex;align-items:flex-start;gap:7px;}
+.py{color:var(--green);font-weight:700;flex-shrink:0;}
+.pn{color:var(--t4);flex-shrink:0;}
+.pfi.off{opacity:.3;}
+.pbtn{display:block;text-align:center;padding:12px;border-radius:9px;font-size:14px;font-weight:700;text-decoration:none;transition:all .2s;cursor:none;font-family:var(--sans);letter-spacing:-.01em;}
+.pbtn-w{background:var(--t1);color:#08090A;}
+.pbtn-w:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.4);}
+.pbtn-g{background:var(--g);color:#000;}
+.pbtn-g:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,229,160,.25);}
+.pbtn-ghost{background:var(--b1);color:var(--t1);border:1px solid var(--b2);}
+.pbtn-ghost:hover{background:var(--b2);}
 
-/* ── CTA ── */
-.cta-wrap{background:var(--card);border:1px solid var(--border2);border-radius:24px;padding:80px;text-align:center;position:relative;overflow:hidden;}
-.cta-wrap::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:400px;height:400px;background:radial-gradient(circle,rgba(0,255,148,.07),transparent 60%);pointer-events:none;}
-.cta-wrap::after{content:'';position:absolute;bottom:-60px;right:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(157,78,221,.06),transparent 60%);pointer-events:none;}
-.cta-title{font-size:clamp(30px,5vw,58px);font-weight:900;letter-spacing:-2.5px;line-height:1.05;margin-bottom:14px;position:relative;z-index:1;}
-.cta-sub{font-size:17px;color:var(--gray);margin-bottom:36px;position:relative;z-index:1;}
-.cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;position:relative;z-index:1;}
-.cta-meta{font-size:13px;color:var(--dim);position:relative;z-index:1;}
+/* CTA */
+.cta-box{
+  background:var(--bg-1);border:1px solid var(--b1);
+  border-radius:20px;padding:80px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.cta-box::before{content:'';position:absolute;top:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--b2),transparent);}
+.cta-box::after{content:'';position:absolute;top:-150px;left:50%;transform:translateX(-50%);width:400px;height:400px;background:radial-gradient(circle,rgba(0,229,160,.06),transparent 60%);pointer-events:none;}
+.cta-t{font-size:clamp(28px,4.5vw,56px);font-weight:700;letter-spacing:-.04em;line-height:1.05;margin-bottom:14px;position:relative;z-index:1;}
+.cta-s{font-size:17px;color:var(--t2);margin-bottom:32px;position:relative;z-index:1;}
+.cta-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1;margin-bottom:16px;}
+.cta-meta{font-size:12px;color:var(--t4);position:relative;z-index:1;}
 .cta-meta a{color:var(--green);text-decoration:none;}
 
-/* ── FOOTER ── */
-footer{border-top:1px solid var(--border);padding:28px 0;}
-.foot-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
-.foot-links{display:flex;gap:22px;}
-.foot-links a{font-size:13px;color:var(--dim);text-decoration:none;transition:color .15s;}
-.foot-links a:hover{color:var(--gray);}
-.foot-copy{font-size:12px;color:var(--dim);}
+/* Footer */
+footer{border-top:1px solid var(--b1);padding:28px 0;}
+.fi{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+.fl a{font-size:13px;color:var(--t4);text-decoration:none;transition:color .15s;}
+.fl a:hover{color:var(--t2);}
+.fl{display:flex;gap:22px;}
+.fc{font-size:12px;color:var(--t4);}
 
-/* ── RESPONSIVE ── */
-@media(max-width:1000px){
-  .hero-inner{grid-template-columns:1fr;gap:50px;}
-  .hero-right{display:none;}
-  .showcase,.showcase.flip{grid-template-columns:1fr;direction:ltr;gap:40px;}
-  .feat-grid{grid-template-columns:repeat(2,1fr);}
-  .numbers{grid-template-columns:repeat(2,1fr);}
-  .price-grid,.prob-grid{grid-template-columns:1fr;}
-  nav .nav-links{display:none;}
-  .cta-wrap{padding:48px 24px;}
+/* ══ ANIMATIONS ════════════════════════════════════════════════════════════ */
+.r{
+  opacity:0;
+  transform:translateY(22px);
+  transition:opacity .65s cubic-bezier(.16,1,.3,1),transform .65s cubic-bezier(.16,1,.3,1);
 }
-@media(max-width:600px){
-  .feat-grid{grid-template-columns:1fr;}
-  .numbers{grid-template-columns:repeat(2,1fr);}
-  .hero-metrics{flex-direction:column;border:none;gap:16px;}
-  .hm{border-right:none;border-bottom:1px solid var(--border);}
+.r.in{opacity:1;transform:translateY(0);}
+.d1{transition-delay:.08s;}.d2{transition-delay:.16s;}.d3{transition-delay:.24s;}.d4{transition-delay:.32s;}
+
+/* Blur-in variant (Vercel-style) */
+.rb{opacity:0;filter:blur(8px);transform:translateY(16px);transition:opacity .6s ease,filter .6s ease,transform .6s ease;}
+.rb.in{opacity:1;filter:blur(0);transform:translateY(0);}
+
+/* ══ RESPONSIVE ════════════════════════════════════════════════════════════ */
+@media(max-width:960px){
+  nav .nav-links{display:none;}
+  .hero-inner{grid-template-columns:1fr;gap:48px;}
+  .hero-right{display:none;}
+  .sc,.sc.fl{grid-template-columns:1fr;direction:ltr;gap:40px;}
+  .nums,.prob-grid{grid-template-columns:repeat(2,1fr);}
+  .bento{grid-template-columns:repeat(2,1fr);}
+  .pg{grid-template-columns:1fr;}
+  .cta-box{padding:48px 24px;}
+  section{padding:100px 0;}
+}
+@media(max-width:560px){
+  .bento{grid-template-columns:1fr;}
+  .nums{grid-template-columns:repeat(2,1fr);}
+  .stats{flex-direction:column;}
+  .stat{border-right:none;border-bottom:1px solid var(--b1);}
+  .stat:last-child{border-bottom:none;}
 }
 </style>
 </head>
 <body>
 
-<!-- CURSOR -->
-<div id="cursor"></div>
-<div id="cursor-ring"></div>
-<div id="glow"></div>
+<div id="c-dot"></div>
+<div id="c-ring"></div>
 
-<!-- NAV -->
+<!-- ── NAV ── -->
 <nav id="nav">
-  <div class="nav-inner">
-    <a href="/pitch" class="logo">
-      <div class="logo-r">R</div>
-      <span class="logo-text">resolvo</span>
+  <div class="nav-w">
+    <a href="/pitch" class="nav-logo">
+      <div class="nav-logo-mark">R</div>
+      <span class="nav-logo-text">Resolvo</span>
     </a>
     <ul class="nav-links">
       <li><a href="#problem">Problem</a></li>
@@ -283,229 +534,209 @@ footer{border-top:1px solid var(--border);padding:28px 0;}
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="/learn" target="_blank">Docs</a></li>
     </ul>
-    <a href="/" class="nav-cta">Get started free →</a>
+    <div class="nav-r">
+      <a href="/" class="btn-nav btn-nav-ghost">Sign in</a>
+      <a href="/" class="btn-nav btn-nav-solid">Get started →</a>
+    </div>
   </div>
 </nav>
 
-<!-- HERO -->
+<!-- ── HERO ── -->
 <section class="hero">
   <div class="hero-grid"></div>
-  <div class="orb orb1"></div>
-  <div class="orb orb2"></div>
-  <div class="orb orb3"></div>
+  <div class="g1"></div><div class="g2"></div><div class="g3"></div>
   <div class="hero-inner">
+
     <div class="hero-left">
-      <div class="hero-tag">
-        <div class="hero-tag-dot"></div>
-        <span>AI-Powered · Multi-Tenant SaaS</span>
-      </div>
-      <h1 class="hero-title">
-        <span class="line"><span>Stop losing</span></span>
-        <span class="line"><span>issues. Start</span></span>
-        <span class="line"><span class="hl">resolving them.</span></span>
+      <a href="/" class="badge">
+        <span class="badge-pill">New</span>
+        <span class="badge-text">Customer portal + API keys shipped</span>
+        <span class="badge-arr">→</span>
+      </a>
+
+      <h1 class="h1">
+        <span>Stop losing issues.</span><br>
+        <span class="gw">Start resolving them.</span>
       </h1>
-      <p class="hero-sub">The complete engineering & support platform — issue tracking, AI email ticketing, smart queue, customer portal, and 100+ features. Built for teams that ship.</p>
-      <div class="hero-cta">
-        <a href="/" class="btn-g">Start free — no card needed →</a>
-        <a href="#features" class="btn-ghost">See all features</a>
+
+      <p class="sub">The complete engineering &amp; support platform. Issue tracking, smart email ticketing, AI queue, customer portal — everything connected, nothing missed.</p>
+
+      <div class="ctas">
+        <a href="/" class="btn-p">Get started free <span class="arr">→</span></a>
+        <a href="#features" class="btn-s">See all features</a>
       </div>
-      <div class="hero-metrics">
-        <div class="hm"><div class="hm-n"><span class="counter" data-target="87">0</span>%</div><div class="hm-l">SLA compliance</div></div>
-        <div class="hm"><div class="hm-n"><span class="counter" data-target="3">0</span>×</div><div class="hm-l">Faster resolution</div></div>
-        <div class="hm"><div class="hm-n"><span class="counter" data-target="100">0</span>+</div><div class="hm-l">Features</div></div>
-        <div class="hm"><div class="hm-n">∞</div><div class="hm-l">Brands</div></div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-n" data-count="87">0</div><div class="stat-l">SLA compliance</div></div>
+        <div class="stat"><div class="stat-n">3×</div><div class="stat-l">Faster resolution</div></div>
+        <div class="stat"><div class="stat-n">100+</div><div class="stat-l">Features</div></div>
+        <div class="stat"><div class="stat-n">∞</div><div class="stat-l">Brands</div></div>
       </div>
     </div>
+
     <div class="hero-right">
-      <div class="chip chip1">🔄 Auto-assigned to Dev</div>
-      <div class="chip chip2">⭐ VIP customer detected</div>
-      <div class="chip chip3">🚨 SLA breach — 1h left</div>
-      <div class="hero-card">
-        <div class="hc-bar">
-          <div class="hc-dot" style="background:#FF5F57"></div>
-          <div class="hc-dot" style="background:#FFBD2E"></div>
-          <div class="hc-dot" style="background:#28CA42"></div>
-          <div class="hc-url">app.resolvogroup.com</div>
-          <div style="font-size:9px;color:var(--green);font-family:var(--mono);">● LIVE</div>
+      <div class="chip c1">🟢 Auto-assigned to Dev</div>
+      <div class="chip c2">⭐ VIP customer flagged</div>
+      <div class="chip c3">⚠️ SLA — 1h 12m left</div>
+      <div class="product-wrap">
+        <div class="pw-bar">
+          <div class="pw-d" style="background:#FF5F57"></div>
+          <div class="pw-d" style="background:#FFBD2E"></div>
+          <div class="pw-d" style="background:#28CA42"></div>
+          <div class="pw-url">app.resolvogroup.com</div>
+          <div class="pw-status">● Live</div>
         </div>
-        <div class="hc-kpi">
-          <div class="k"><div class="k-n" style="color:var(--red)">3</div><div class="k-l">Critical</div></div>
-          <div class="k"><div class="k-n" style="color:var(--green)">87%</div><div class="k-l">SLA OK</div></div>
-          <div class="k"><div class="k-n" style="color:var(--violet)">12</div><div class="k-l">Open</div></div>
-          <div class="k"><div class="k-n" style="color:var(--amber)">5</div><div class="k-l">Tickets</div></div>
-        </div>
-        <div class="hc-row">
-          <div class="hc-badge" style="background:#FF3A5C20;color:#FF3A5C">Critical</div>
-          <div class="hc-t">Login page 500 error on mobile</div>
-          <div class="hc-time">1h left</div>
-        </div>
-        <div class="hc-row">
-          <div class="hc-badge" style="background:#FFB70320;color:#FFB703">High</div>
-          <div class="hc-t">Dashboard slow — large datasets</div>
-          <div class="hc-time">4h left</div>
-        </div>
-        <div class="hc-row" style="background:rgba(0,255,148,.04);border-color:rgba(0,255,148,.15)">
-          <div class="hc-badge" style="background:#00FF9420;color:#00FF94">Queue</div>
-          <div class="hc-t" style="color:var(--green)">Auto-assigned: Dev (3/10) · Asif (2/10)</div>
-          <div class="hc-time" style="color:var(--green)">now</div>
+        <div class="pw-body">
+          <div class="pw-kpi">
+            <div class="kc k1"><div class="kc-n" style="color:var(--red)">3</div><div class="kc-l">Critical open</div></div>
+            <div class="kc k2"><div class="kc-n" style="color:var(--green)">87%</div><div class="kc-l">SLA compliance</div></div>
+            <div class="kc k3"><div class="kc-n" style="color:var(--amber)">5</div><div class="kc-l">New tickets</div></div>
+            <div class="kc k4"><div class="kc-n" style="color:var(--violet)">12</div><div class="kc-l">Total open</div></div>
+          </div>
+          <div class="pw-row"><div class="pr-badge" style="background:rgba(244,63,94,.15);color:var(--red)">Critical</div><div class="pr-t">Login 500 error on mobile</div><div class="pr-time">1h left</div></div>
+          <div class="pw-row"><div class="pr-badge" style="background:rgba(245,158,11,.12);color:var(--amber)">High</div><div class="pr-t">Dashboard slow — large datasets</div><div class="pr-time">4h left</div></div>
+          <div class="pw-queue">
+            <span>🔄</span>
+            <span>Queue: Dev 3/10 · Asif 2/10 — auto-assigned</span>
+          </div>
         </div>
       </div>
     </div>
+
   </div>
 </section>
 
-<!-- NUMBERS -->
-<section class="sec-dark" style="padding:60px 0;">
-  <div class="wrap">
-    <div class="numbers r">
-      <div class="num-item r" style="--d:0s"><div class="num-n"><span class="counter" data-target="87">0</span>%</div><div class="num-l">SLA Compliance Rate</div><div class="num-s">Teams hit SLA targets consistently</div></div>
-      <div class="num-item r r-d1" style="--d:.1s"><div class="num-n"><span class="counter" data-target="3">0</span>×</div><div class="num-l">Faster Resolution</div><div class="num-s">18h average → 5.8h average</div></div>
-      <div class="num-item r r-d2" style="--d:.2s"><div class="num-n"><span class="counter" data-target="100">0</span>+</div><div class="num-l">Features Shipped</div><div class="num-s">All out of the box. Zero setup.</div></div>
-      <div class="num-item r r-d3" style="--d:.3s"><div class="num-n">0</div><div class="num-l">"Where's my bug?" calls</div><div class="num-s">Full visibility for everyone</div></div>
+<!-- ── NUMBERS ── -->
+<div style="background:var(--bg-1);border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:60px 0;">
+  <div class="w">
+    <div class="nums">
+      <div class="nu r" style="--delay:0ms"><div class="nu-n" data-count="87">0</div><div class="nu-l">SLA Compliance</div><div class="nu-s">Average across teams</div></div>
+      <div class="nu r d1" style="--delay:80ms"><div class="nu-n">3×</div><div class="nu-l">Faster Resolution</div><div class="nu-s">18h → 5.8h average</div></div>
+      <div class="nu r d2" style="--delay:160ms"><div class="nu-n">100+</div><div class="nu-l">Features</div><div class="nu-s">All out of the box</div></div>
+      <div class="nu r d3" style="--delay:240ms"><div class="nu-n">0</div><div class="nu-l">"Where's my bug?" calls</div><div class="nu-s">Full visibility for everyone</div></div>
     </div>
   </div>
-</section>
+</div>
 
-<!-- PROBLEM -->
-<section class="sec sec-black" id="problem">
-  <div class="wrap">
-    <div class="r"><span class="eyebrow">The Problem</span></div>
-    <h2 class="big-title r r-d1" style="max-width:600px;">Your team drowns in<br><span class="hl">scattered chaos</span> every day</h2>
-    <p class="lead r r-d2">Bugs via WhatsApp. Tickets in Gmail. Status in spreadsheets. Nothing connects. Everything gets missed.</p>
+<!-- ── PROBLEM ── -->
+<section id="problem" style="padding:120px 0;">
+  <div class="w">
+    <div class="r"><span class="ey">The problem</span></div>
+    <h2 class="ttl r d1">Your team is drowning<br>in scattered chaos.</h2>
+    <p class="lead r d2">Bugs via WhatsApp. Tickets in Gmail. Status in spreadsheets. Nothing connects. Everything gets missed.</p>
     <div class="prob-grid">
-      <div class="prob-item r"><div class="prob-n">01</div><div class="prob-i">📱</div><div class="prob-t">Scattered Reports</div><div class="prob-d">Issues arrive via WhatsApp, Gmail, Slack, spreadsheets — lost before anyone sees them.</div></div>
-      <div class="prob-item r r-d1"><div class="prob-n">02</div><div class="prob-i">⏰</div><div class="prob-t">SLA Blindness</div><div class="prob-d">No deadline tracking. Critical bugs resolved days late. Zero early warning.</div></div>
-      <div class="prob-item r r-d2"><div class="prob-n">03</div><div class="prob-i">🔍</div><div class="prob-t">Zero Visibility</div><div class="prob-d">CS reports a bug but never knows if it's seen, assigned, or being worked on.</div></div>
-      <div class="prob-item r r-d1"><div class="prob-n">04</div><div class="prob-i">📬</div><div class="prob-t">Inbox Chaos</div><div class="prob-d">Support emails sit unread for days. No routing, no SLA, no accountability.</div></div>
-      <div class="prob-item r r-d2"><div class="prob-n">05</div><div class="prob-i">📊</div><div class="prob-t">No Accountability</div><div class="prob-d">Who's overloaded? Who missed SLA? No history, no audit trail.</div></div>
-      <div class="prob-item r r-d3"><div class="prob-n">06</div><div class="prob-i">🏢</div><div class="prob-t">Multi-Client Chaos</div><div class="prob-d">Managing issues for multiple clients from one place? Impossible without Resolvo.</div></div>
+      <div class="pi r"><div class="pi-n">01 — ISSUE</div><div class="pi-t">Scattered Reports</div><div class="pi-d">Issues arrive via WhatsApp, Gmail, Slack, spreadsheets — lost before anyone sees them.</div></div>
+      <div class="pi r d1"><div class="pi-n">02 — ISSUE</div><div class="pi-t">SLA Blindness</div><div class="pi-d">No deadline tracking. Critical bugs resolved days late. Zero early warning signals.</div></div>
+      <div class="pi r d2"><div class="pi-n">03 — ISSUE</div><div class="pi-t">Zero Visibility</div><div class="pi-d">CS reports a bug, never knows if it's been seen, assigned, or worked on.</div></div>
+      <div class="pi r"><div class="pi-n">04 — ISSUE</div><div class="pi-t">Inbox Chaos</div><div class="pi-d">Support emails sit unread for days. No routing, no SLA, no accountability.</div></div>
+      <div class="pi r d1"><div class="pi-n">05 — ISSUE</div><div class="pi-t">No Accountability</div><div class="pi-d">Who's overloaded? Who missed SLA? No history, no audit trail to improve from.</div></div>
+      <div class="pi r d2"><div class="pi-n">06 — ISSUE</div><div class="pi-t">Multi-Client Chaos</div><div class="pi-d">Managing issues across multiple clients from one place? Completely impossible.</div></div>
     </div>
   </div>
 </section>
 
-<!-- FEATURE SHOWCASES -->
-<section class="sec sec-dark" id="features">
-  <div class="wrap">
-    <div class="r"><span class="eyebrow">The Solution</span></div>
-    <h2 class="big-title r r-d1">Everything connected.<br><span class="hl">Nothing missed.</span></h2>
+<!-- ── FEATURES ── -->
+<section id="features" style="background:var(--bg-1);padding:120px 0;">
+  <div class="w">
+    <div class="r"><span class="ey">Product</span></div>
+    <h2 class="ttl r d1">Everything connected.<br><span class="gw">Nothing missed.</span></h2>
 
-    <!-- Email Ticketing -->
-    <div class="showcase">
+    <!-- Showcase 1 -->
+    <div class="sc">
       <div>
-        <div class="sc-label r">Email & Ticketing</div>
-        <h3 class="sc-title r">A full helpdesk,<br>built right in.</h3>
-        <p class="lead r" style="font-size:15px;">Gmail connects → tickets appear → agents reply. No extra tool, no extra login.</p>
-        <div class="sc-bullets r">
-          <div class="sc-b"><div class="sc-b-dot"></div>Smart Queue auto-assigns using round robin, skills, domain, or keyword routing</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Canned responses — type / to instantly insert pre-written replies</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>1-Click CSAT 👍/👎 sent automatically on every resolution</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Ticket DNA — full audit timeline of every action, forever</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>VIP customer routing with instant admin notification</div>
+        <div class="sc-ey r">Email &amp; Ticketing</div>
+        <h3 class="sc-t r">A full helpdesk,<br>built right in.</h3>
+        <p class="sc-d r">Gmail connects → tickets appear automatically → agents reply from one inbox. No extra tools. No extra logins.</p>
+        <div class="sc-bls r">
+          <div class="sc-bl">Smart Queue auto-assigns tickets via round robin, skill, domain, or keyword routing</div>
+          <div class="sc-bl">Canned responses — type / and insert pre-written replies in 2 seconds</div>
+          <div class="sc-bl">1-Click CSAT 👍/👎 sent automatically on every ticket resolution</div>
+          <div class="sc-bl">Ticket DNA — full audit timeline of every action, forever</div>
+          <div class="sc-bl">VIP customer routing with instant admin notification</div>
         </div>
       </div>
-      <div class="window r">
-        <div class="win-bar"><div class="win-d" style="background:#FF5F57"></div><div class="win-d" style="background:#FFBD2E"></div><div class="win-d" style="background:#28CA42"></div><div class="win-title">Support Inbox — My Tickets (3)</div></div>
+      <div class="win r">
+        <div class="win-bar"><div class="wd" style="background:#FF5F57"></div><div class="wd" style="background:#FFBD2E"></div><div class="wd" style="background:#28CA42"></div><div class="win-title">Support Inbox — My Tickets</div></div>
         <div class="win-body">
           <div style="display:flex;gap:6px;margin-bottom:10px;">
-            <div style="flex:1;background:rgba(0,255,148,.08);border:1px solid rgba(0,255,148,.2);border-radius:6px;padding:5px 10px;font-size:10px;color:var(--green);font-weight:700;">👤 My Tickets — 3</div>
-            <div style="flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:10px;color:var(--dim);">Unassigned — 7</div>
+            <div style="flex:1;background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.15);border-radius:6px;padding:5px 10px;font-size:10px;color:var(--green);font-weight:700;">My Queue — 3</div>
+            <div style="flex:1;background:var(--b0);border:1px solid var(--b1);border-radius:6px;padding:5px 10px;font-size:10px;color:var(--t4);">Unassigned — 7</div>
           </div>
-          <div class="win-row" style="border-left:2px solid var(--violet);">
-            <div class="wbadge" style="background:#9D4EDD20;color:#9D4EDD">NEW</div>
+          <div class="wr" style="border-left:2px solid var(--violet);">
+            <div class="wb" style="background:rgba(139,92,246,.15);color:var(--violet)">NEW</div>
             <div class="wt">Cannot login to account</div>
             <div style="font-size:9px;color:var(--violet);">⭐ VIP</div>
-            <div class="wtag">5m</div>
+            <div class="wt2">5m</div>
           </div>
-          <div class="win-row">
-            <div class="wbadge" style="background:#4361EE20;color:#4361EE">OPEN</div>
-            <div class="wt">Invoice not downloading</div>
-            <div class="wtag">1h</div>
-          </div>
-          <div class="win-row">
-            <div class="wbadge" style="background:#00FF9420;color:#00FF94">OPEN</div>
-            <div class="wt">API returning 403 errors</div>
-            <div class="wtag">2h</div>
-          </div>
-          <div style="background:rgba(0,255,148,.05);border:1px solid rgba(0,255,148,.1);border-radius:7px;padding:8px 10px;margin-top:8px;font-size:10px;color:var(--green);">
-            🔄 Queue: Dev 3/10 · Asif 2/10 · Auto-assigned ✓
+          <div class="wr"><div class="wb" style="background:rgba(59,130,246,.12);color:var(--blue)">OPEN</div><div class="wt">Invoice not downloading</div><div class="wt2">1h</div></div>
+          <div class="wr"><div class="wb" style="background:rgba(0,229,160,.1);color:var(--green)">OPEN</div><div class="wt">API returning 403 errors</div><div class="wt2">2h</div></div>
+          <div style="background:rgba(0,229,160,.05);border:1px solid rgba(0,229,160,.1);border-radius:7px;padding:8px 10px;margin-top:6px;font-size:10px;color:var(--green);">
+            🔄 Queue active — Dev 3/10 · Asif 2/10 · routing ✓
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Issue Tracking -->
-    <div class="showcase flip">
+    <!-- Showcase 2 -->
+    <div class="sc fl">
       <div>
-        <div class="sc-label r">Issue Tracking</div>
-        <h3 class="sc-title r">SLA-enforced.<br>Fully visible.</h3>
-        <p class="lead r" style="font-size:15px;">Every issue gets an automatic SLA countdown. Every change is logged. No more "where's my bug?" calls.</p>
-        <div class="sc-bullets r">
-          <div class="sc-b"><div class="sc-b-dot"></div>Kanban + Sprints + Burndown with velocity tracking</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Issue Impact Score — priority + age + revenue + SLA combined</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Approval workflows for critical issues before resolution</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Revenue Impact dashboard — tag issues with ₹ at risk</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>AI Triage — smart priority, module, assignee suggestions via Gemini</div>
+        <div class="sc-ey r">Issue Tracking</div>
+        <h3 class="sc-t r">SLA-enforced.<br>Fully accountable.</h3>
+        <p class="sc-d r">Every issue gets an automatic SLA countdown. Every change is logged forever. No more "where's my bug?" calls.</p>
+        <div class="sc-bls r">
+          <div class="sc-bl">Kanban + Sprints + Burndown with velocity tracking</div>
+          <div class="sc-bl">Issue Impact Score — priority + age + revenue + SLA combined</div>
+          <div class="sc-bl">Approval workflows — require sign-off before resolving</div>
+          <div class="sc-bl">Revenue Impact dashboard — tag issues with ₹ at risk</div>
+          <div class="sc-bl">AI Triage via Gemini — smart priority and module suggestions</div>
         </div>
       </div>
-      <div class="window r">
-        <div class="win-bar"><div class="win-d" style="background:#FF5F57"></div><div class="win-d" style="background:#FFBD2E"></div><div class="win-d" style="background:#28CA42"></div><div class="win-title">ISS-0042 — Login error</div></div>
+      <div class="win r">
+        <div class="win-bar"><div class="wd" style="background:#FF5F57"></div><div class="wd" style="background:#FFBD2E"></div><div class="wd" style="background:#28CA42"></div><div class="win-title">ISS-0042 — Critical</div></div>
         <div class="win-body">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-            <div style="font-size:10px;background:#FF3A5C20;color:#FF3A5C;padding:2px 8px;border-radius:5px;font-weight:700;">● Critical</div>
-            <div style="font-size:10px;background:rgba(255,255,255,.05);color:var(--dim);padding:2px 8px;border-radius:5px;">Auth</div>
-            <div style="font-size:10px;background:#FF3A5C20;color:#FF3A5C;padding:2px 8px;border-radius:5px;">⚠ SLA: 1h 23m</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
+            <span style="font-size:9px;background:rgba(244,63,94,.12);color:var(--red);padding:2px 8px;border-radius:4px;font-weight:800;">● Critical</span>
+            <span style="font-size:9px;background:var(--b0);color:var(--t4);padding:2px 8px;border-radius:4px;">Authentication</span>
+            <span style="font-size:9px;background:rgba(244,63,94,.1);color:var(--red);padding:2px 8px;border-radius:4px;font-weight:700;">⚠ SLA 1h 23m</span>
           </div>
-          <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:10px;margin-bottom:8px;">
-            <div style="font-size:10px;color:var(--dim);margin-bottom:5px;font-weight:700;">IMPACT SCORE</div>
-            <div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:6px;background:var(--border);border-radius:3px;"><div style="width:82%;height:6px;background:linear-gradient(90deg,#FF3A5C,#FF7B5F);border-radius:3px;"></div></div><span style="font-size:14px;font-weight:900;color:var(--red);">82</span></div>
+          <div style="background:var(--b0);border:1px solid var(--b1);border-radius:8px;padding:10px;margin-bottom:8px;">
+            <div style="font-size:9px;color:var(--t4);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Impact Score</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;height:5px;background:var(--b1);border-radius:3px;"><div style="width:82%;height:5px;background:linear-gradient(90deg,var(--red),#FF8A6B);border-radius:3px;"></div></div>
+              <span style="font-size:13px;font-weight:800;color:var(--red);">82</span>
+            </div>
           </div>
-          <div style="font-size:10px;color:var(--dim);font-family:var(--mono);line-height:1.8;">
-            <div>→ <span style="color:var(--green)">Status → WIP</span> · dev@... · 10m</div>
-            <div>→ <span style="color:var(--blue)">Assigned to dev</span> · admin@... · 25m</div>
-            <div>→ <span style="color:var(--gray)">Issue created</span> · cs@... · 35m</div>
+          <div style="font-size:10px;color:var(--t4);font-family:var(--mono);line-height:2;background:var(--b0);border-radius:7px;padding:8px 10px;border:1px solid var(--b1);">
+            → <span style="color:var(--green)">Status → WIP</span> · dev@ · 10m<br>
+            → <span style="color:var(--blue)">Assigned to dev</span> · admin@ · 25m<br>
+            → <span style="color:var(--t3)">Issue created</span> · cs@ · 35m
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Multi-Tenant -->
-    <div class="showcase">
+    <!-- Showcase 3 -->
+    <div class="sc">
       <div>
-        <div class="sc-label r">Multi-Tenant Platform</div>
-        <h3 class="sc-title r">You run the platform.<br><span class="hl">We give you control.</span></h3>
-        <p class="lead r" style="font-size:15px;">You're the owner. Every client gets a completely isolated workspace. You control every feature, every brand, from one command center.</p>
-        <div class="sc-bullets r">
-          <div class="sc-b"><div class="sc-b-dot"></div>Owner → Brand → Users with complete per-brand data isolation</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>35 feature flags — control exactly what each brand can access</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Customer Portal per brand at /portal/:brand</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>Per-brand email, theme, SLA policies, and feature tiers</div>
-          <div class="sc-b"><div class="sc-b-dot"></div>30+ owner tools: MRR, churn risk, health scores, maintenance mode</div>
+        <div class="sc-ey r">Multi-Tenant Platform</div>
+        <h3 class="sc-t r">You own the platform.<br><span class="gw">Total control.</span></h3>
+        <p class="sc-d r">Every client gets a completely isolated workspace. You control every feature, every brand, from one owner dashboard.</p>
+        <div class="sc-bls r">
+          <div class="sc-bl">35 feature flags — owner controls exactly what each brand accesses</div>
+          <div class="sc-bl">Customer Portal per brand at /portal/:brand</div>
+          <div class="sc-bl">Embeddable widget — one script tag → floating support chat</div>
+          <div class="sc-bl">Per-brand email profile, theme, SLA policies</div>
+          <div class="sc-bl">Owner portal: MRR, churn risk, health scores, 30+ tools</div>
         </div>
       </div>
-      <div class="window r">
-        <div class="win-bar"><div class="win-d" style="background:#FF5F57"></div><div class="win-d" style="background:#FFBD2E"></div><div class="win-d" style="background:#28CA42"></div><div class="win-title">Owner Dashboard — 4 brands</div></div>
+      <div class="win r">
+        <div class="win-bar"><div class="wd" style="background:#FF5F57"></div><div class="wd" style="background:#FFBD2E"></div><div class="wd" style="background:#28CA42"></div><div class="win-title">Owner Dashboard — 4 brands</div></div>
         <div class="win-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
-            <div style="background:rgba(0,255,148,.05);border:1px solid rgba(0,255,148,.15);border-radius:8px;padding:10px;">
-              <div style="font-size:12px;font-weight:700;margin-bottom:3px;">Acme Corp</div>
-              <div style="font-size:10px;color:var(--dim);">Enterprise · 12 users</div>
-              <div style="font-size:10px;color:var(--green);margin-top:4px;font-weight:700;">● Active — A grade</div>
-            </div>
-            <div style="background:rgba(255,183,3,.05);border:1px solid rgba(255,183,3,.15);border-radius:8px;padding:10px;">
-              <div style="font-size:12px;font-weight:700;margin-bottom:3px;">Startup Inc</div>
-              <div style="font-size:10px;color:var(--dim);">Pro · 5 users</div>
-              <div style="font-size:10px;color:var(--amber);margin-top:4px;font-weight:700;">⚠ Trial expires 3d</div>
-            </div>
-            <div style="background:rgba(157,78,221,.05);border:1px solid rgba(157,78,221,.15);border-radius:8px;padding:10px;">
-              <div style="font-size:12px;font-weight:700;margin-bottom:3px;">TechCo Ltd</div>
-              <div style="font-size:10px;color:var(--dim);">Enterprise · 8 users</div>
-              <div style="font-size:10px;color:var(--violet);margin-top:4px;font-weight:700;">● Active — B grade</div>
-            </div>
-            <div style="background:rgba(67,97,238,.05);border:1px solid rgba(67,97,238,.15);border-radius:8px;padding:10px;">
-              <div style="font-size:12px;font-weight:700;margin-bottom:3px;">DevAgency</div>
-              <div style="font-size:10px;color:var(--dim);">Free · 3 users</div>
-              <div style="font-size:10px;color:var(--blue);margin-top:4px;font-weight:700;">→ Upgrade to Pro</div>
-            </div>
+            <div style="background:rgba(0,229,160,.04);border:1px solid rgba(0,229,160,.12);border-radius:8px;padding:10px;"><div style="font-size:12px;font-weight:700;margin-bottom:3px;letter-spacing:-.02em;">Acme Corp</div><div style="font-size:10px;color:var(--t4);">Enterprise · 12 users</div><div style="font-size:9px;color:var(--green);margin-top:4px;font-weight:700;">● Active — Grade A</div></div>
+            <div style="background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.12);border-radius:8px;padding:10px;"><div style="font-size:12px;font-weight:700;margin-bottom:3px;letter-spacing:-.02em;">Startup Inc</div><div style="font-size:10px;color:var(--t4);">Pro · 5 users</div><div style="font-size:9px;color:var(--amber);margin-top:4px;font-weight:700;">⚠ Trial expires 3d</div></div>
+            <div style="background:rgba(139,92,246,.04);border:1px solid rgba(139,92,246,.12);border-radius:8px;padding:10px;"><div style="font-size:12px;font-weight:700;margin-bottom:3px;letter-spacing:-.02em;">TechCo Ltd</div><div style="font-size:10px;color:var(--t4);">Enterprise · 8 users</div><div style="font-size:9px;color:var(--violet);margin-top:4px;font-weight:700;">● Active — Grade B</div></div>
+            <div style="background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.12);border-radius:8px;padding:10px;"><div style="font-size:12px;font-weight:700;margin-bottom:3px;letter-spacing:-.02em;">DevAgency</div><div style="font-size:10px;color:var(--t4);">Free · 3 users</div><div style="font-size:9px;color:var(--blue);margin-top:4px;font-weight:700;">→ Upgrade suggested</div></div>
           </div>
         </div>
       </div>
@@ -513,136 +744,121 @@ footer{border-top:1px solid var(--border);padding:28px 0;}
   </div>
 </section>
 
-<!-- ALL FEATURES -->
-<section class="sec sec-black">
-  <div class="wrap">
-    <div class="r"><span class="eyebrow">100+ Features</span></div>
-    <h2 class="big-title r r-d1">Everything. Out of the box.</h2>
-    <p class="lead r r-d2">No plugins. No add-ons. No setup marathons.</p>
-    <div class="feat-grid">
-      <div class="fc r"><div class="fc-i">🧬</div><div class="fc-t">Ticket DNA</div><div class="fc-d">Full audit timeline of every action forever</div></div>
-      <div class="fc r r-d1"><div class="fc-i">🌐</div><div class="fc-t">Customer Portal<span class="new-tag">New</span></div><div class="fc-d">Self-service at /portal/:brand with OTP login</div></div>
-      <div class="fc r r-d2"><div class="fc-i">💬</div><div class="fc-t">Embed Widget<span class="new-tag">New</span></div><div class="fc-d">1 script tag → floating chat → auto ticket</div></div>
-      <div class="fc r r-d3"><div class="fc-i">📖</div><div class="fc-t">Knowledge Base<span class="new-tag">New</span></div><div class="fc-d">Public FAQ. Reduces ticket volume 30-40%.</div></div>
-      <div class="fc r"><div class="fc-i">🗺</div><div class="fc-t">Public Roadmap<span class="new-tag">New</span></div><div class="fc-d">Customers vote. Planned→Shipped.</div></div>
-      <div class="fc r r-d1"><div class="fc-i">🔑</div><div class="fc-t">API Keys<span class="new-tag">New</span></div><div class="fc-d">REST API with Bearer token auth</div></div>
-      <div class="fc r r-d2"><div class="fc-i">🔒</div><div class="fc-t">Two-Factor Auth<span class="new-tag">New</span></div><div class="fc-d">TOTP via Google Authenticator. 60s setup.</div></div>
-      <div class="fc r r-d3"><div class="fc-i">✅</div><div class="fc-t">Approval Workflows<span class="new-tag">New</span></div><div class="fc-d">Require sign-off before resolving issues</div></div>
-      <div class="fc r"><div class="fc-i">💥</div><div class="fc-t">Impact Score<span class="new-tag">New</span></div><div class="fc-d">Priority + age + revenue + SLA = 0-100</div></div>
-      <div class="fc r r-d1"><div class="fc-i">🎯</div><div class="fc-t">Agent Coaching<span class="new-tag">New</span></div><div class="fc-d">CSAT trends, FRT, coaching per agent</div></div>
-      <div class="fc r r-d2"><div class="fc-i">🛡</div><div class="fc-t">GDPR Tools<span class="new-tag">New</span></div><div class="fc-d">Right to erasure + data export. Compliant.</div></div>
-      <div class="fc r r-d3"><div class="fc-i">📱</div><div class="fc-t">PWA<span class="new-tag">New</span></div><div class="fc-d">Install on any phone. No app store needed.</div></div>
-      <div class="fc r"><div class="fc-i">📅</div><div class="fc-t">Appointments</div><div class="fc-d">Shareable /book page. 1h auto-reminder.</div></div>
-      <div class="fc r r-d1"><div class="fc-i">⚡</div><div class="fc-t">Canned Responses</div><div class="fc-d">Type / → search → insert in 2 seconds</div></div>
-      <div class="fc r r-d2"><div class="fc-i">👍</div><div class="fc-t">1-Click CSAT</div><div class="fc-d">Auto-send 👍/👎 on every resolution</div></div>
-      <div class="fc r r-d3"><div class="fc-i">📦</div><div class="fc-t">Data Export</div><div class="fc-d">Issues, tickets, users — CSV 21 columns</div></div>
+<!-- ── ALL FEATURES BENTO ── -->
+<section style="background:var(--bg);padding:120px 0;">
+  <div class="w">
+    <div class="r"><span class="ey">100+ Features</span></div>
+    <h2 class="ttl r d1">Everything ships<br>out of the box.</h2>
+    <p class="lead r d2">No plugins. No add-ons. No setup marathons.</p>
+    <div class="bento">
+      <div class="bc r"><div class="bc-i">🧬</div><div class="bc-t">Ticket DNA Timeline</div><div class="bc-d">Full audit of every action on every ticket, forever</div></div>
+      <div class="bc r d1"><div class="bc-i">🌐</div><div class="bc-t">Customer Portal<span class="new">New</span></div><div class="bc-d">/portal/:brand — OTP login, self-service</div></div>
+      <div class="bc r d2"><div class="bc-i">💬</div><div class="bc-t">Embed Widget<span class="new">New</span></div><div class="bc-d">1 script tag → floating chat → auto ticket</div></div>
+      <div class="bc r d3"><div class="bc-i">📖</div><div class="bc-t">Knowledge Base<span class="new">New</span></div><div class="bc-d">Public FAQ. Cuts ticket volume 30-40%.</div></div>
+      <div class="bc r"><div class="bc-i">🗺</div><div class="bc-t">Public Roadmap<span class="new">New</span></div><div class="bc-d">Customers vote. Planned → In Progress → Shipped.</div></div>
+      <div class="bc r d1"><div class="bc-i">🔑</div><div class="bc-t">API Keys<span class="new">New</span></div><div class="bc-d">REST API with Bearer token. Integrate anything.</div></div>
+      <div class="bc r d2"><div class="bc-i">🔒</div><div class="bc-t">Two-Factor Auth<span class="new">New</span></div><div class="bc-d">TOTP via Google Authenticator. 60s setup.</div></div>
+      <div class="bc r d3"><div class="bc-i">✅</div><div class="bc-t">Approval Workflows<span class="new">New</span></div><div class="bc-d">Require sign-off before resolving critical issues</div></div>
+      <div class="bc r"><div class="bc-i">💥</div><div class="bc-t">Impact Score<span class="new">New</span></div><div class="bc-d">Priority + age + revenue + SLA = 0-100 rank</div></div>
+      <div class="bc r d1"><div class="bc-i">🎯</div><div class="bc-t">Agent Coaching<span class="new">New</span></div><div class="bc-d">CSAT trends, FRT, coaching per agent</div></div>
+      <div class="bc r d2"><div class="bc-i">🛡</div><div class="bc-t">GDPR Tools<span class="new">New</span></div><div class="bc-d">Right to erasure + data export. Fully compliant.</div></div>
+      <div class="bc r d3"><div class="bc-i">📱</div><div class="bc-t">PWA<span class="new">New</span></div><div class="bc-d">Install on any device. No app store needed.</div></div>
     </div>
   </div>
 </section>
 
-<!-- INTEGRATIONS MARQUEE -->
-<section class="sec-dark" style="padding:60px 0;border-top:1px solid var(--border);">
-  <div class="wrap-sm" style="text-align:center;margin-bottom:32px;">
-    <span class="eyebrow" style="justify-content:center;">Integrations</span>
-    <h3 style="font-size:26px;font-weight:800;letter-spacing:-1px;" class="r">Connects to your entire stack</h3>
+<!-- ── INTEGRATIONS ── -->
+<div style="background:var(--bg-1);border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:52px 0;">
+  <div class="ws" style="text-align:center;margin-bottom:28px;">
+    <span class="ey" style="justify-content:center;" class="r">Integrations</span>
+    <h3 class="r" style="font-size:26px;font-weight:700;letter-spacing:-.03em;">Connects to your stack</h3>
   </div>
-  <div class="marquee-wrap">
-    <div class="marquee" id="marquee">
-      <div class="int-pill"><span>🔷</span> Jira</div>
-      <div class="int-pill"><span>🐙</span> GitHub</div>
-      <div class="int-pill"><span>💬</span> Slack</div>
-      <div class="int-pill"><span>🤖</span> Gemini AI</div>
-      <div class="int-pill"><span>📧</span> Gmail / SMTP</div>
-      <div class="int-pill"><span>🔔</span> ServiceNow</div>
-      <div class="int-pill"><span>🔗</span> Custom REST API</div>
-      <div class="int-pill"><span>⚡</span> Webhooks / Zapier</div>
-      <div class="int-pill"><span>📊</span> n8n Automation</div>
-      <div class="int-pill"><span>🔷</span> Jira</div>
-      <div class="int-pill"><span>🐙</span> GitHub</div>
-      <div class="int-pill"><span>💬</span> Slack</div>
-      <div class="int-pill"><span>🤖</span> Gemini AI</div>
-      <div class="int-pill"><span>📧</span> Gmail / SMTP</div>
-      <div class="int-pill"><span>🔔</span> ServiceNow</div>
-      <div class="int-pill"><span>🔗</span> Custom REST API</div>
-      <div class="int-pill"><span>⚡</span> Webhooks / Zapier</div>
-      <div class="int-pill"><span>📊</span> n8n Automation</div>
+  <div class="mq-wrap">
+    <div class="mq">
+      <div class="ip">🔷 Jira</div><div class="ip">🐙 GitHub</div><div class="ip">💬 Slack</div>
+      <div class="ip">🤖 Google Gemini</div><div class="ip">📧 Gmail / SMTP</div>
+      <div class="ip">🔔 ServiceNow</div><div class="ip">🔗 REST API</div>
+      <div class="ip">⚡ Webhooks</div><div class="ip">📊 Zapier / n8n</div>
+      <div class="ip">🔷 Jira</div><div class="ip">🐙 GitHub</div><div class="ip">💬 Slack</div>
+      <div class="ip">🤖 Google Gemini</div><div class="ip">📧 Gmail / SMTP</div>
+      <div class="ip">🔔 ServiceNow</div><div class="ip">🔗 REST API</div>
+      <div class="ip">⚡ Webhooks</div><div class="ip">📊 Zapier / n8n</div>
     </div>
   </div>
-</section>
+</div>
 
-<!-- PRICING -->
-<section class="sec sec-black" id="pricing">
-  <div class="wrap">
-    <div class="r"><span class="eyebrow">Pricing</span></div>
-    <h2 class="big-title r r-d1">Simple. Transparent.<br><span class="hl">Owner controls access.</span></h2>
-    <p class="lead r r-d2">Owner assigns tier per brand. Override individual features at any time.</p>
-    <div class="price-grid">
-      <div class="price-card r">
-        <div class="price-inner">
-          <div class="p-tier">Free</div>
-          <div class="p-amount">₹0</div>
-          <div class="p-period">forever · no card</div>
-          <div class="p-line"></div>
-          <div class="p-feats">
-            <div class="p-feat"><span class="p-yes">✓</span>Issue tracking + SLA timers</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Audit trail + full-text search</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Watchers + pinned issues</div>
-            <div class="p-feat off"><span class="p-no">–</span>Kanban / Sprints</div>
-            <div class="p-feat off"><span class="p-no">–</span>Email ticketing + queue</div>
-            <div class="p-feat off"><span class="p-no">–</span>AI features</div>
-          </div>
-          <a href="/" class="p-btn p-btn-ghost">Get started free</a>
+<!-- ── PRICING ── -->
+<section id="pricing" style="background:var(--bg);padding:120px 0;">
+  <div class="w">
+    <div class="r"><span class="ey">Pricing</span></div>
+    <h2 class="ttl r d1">Simple pricing.<br>Owner controls access.</h2>
+    <p class="lead r d2">Assign tiers per brand. Override individual features any time.</p>
+    <div class="pg">
+      <div class="pc r">
+        <div class="pt">Free</div>
+        <div class="pa">₹0</div>
+        <div class="pper">forever · no card needed</div>
+        <div class="pdesc">Core issue tracking for teams getting started.</div>
+        <div class="pline"></div>
+        <div class="pf">
+          <div class="pfi"><span class="py">✓</span>Issue tracking + SLA timers</div>
+          <div class="pfi"><span class="py">✓</span>Audit trail + full-text search</div>
+          <div class="pfi"><span class="py">✓</span>Watchers + pinned issues</div>
+          <div class="pfi off"><span class="pn">–</span>Kanban / Sprints</div>
+          <div class="pfi off"><span class="pn">–</span>Email ticketing + queue</div>
+          <div class="pfi off"><span class="pn">–</span>AI features</div>
         </div>
+        <a href="/" class="pbtn pbtn-ghost">Get started free</a>
       </div>
-      <div class="price-card featured r r-d1">
-        <div class="price-pill">Most Popular</div>
-        <div class="price-inner">
-          <div class="p-tier">Pro</div>
-          <div class="p-amount">₹999</div>
-          <div class="p-period">per month</div>
-          <div class="p-line"></div>
-          <div class="p-feats">
-            <div class="p-feat"><span class="p-yes">✓</span>Everything in Free</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Kanban + Sprints + Burndown</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Email Ticketing + Smart Queue</div>
-            <div class="p-feat"><span class="p-yes">✓</span>AI Triage (Gemini)</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Knowledge Base + Roadmap</div>
-            <div class="p-feat"><span class="p-yes">✓</span>2FA + Approval Workflows</div>
-            <div class="p-feat"><span class="p-yes">✓</span>9 report types + forecasting</div>
-          </div>
-          <a href="/" class="p-btn p-btn-g">Start Pro trial →</a>
+
+      <div class="pc feat r d1">
+        <div class="pp">Most Popular</div>
+        <div class="pt">Pro</div>
+        <div class="pa">₹999</div>
+        <div class="pper">per month</div>
+        <div class="pdesc">Everything a growing engineering team needs.</div>
+        <div class="pline"></div>
+        <div class="pf">
+          <div class="pfi"><span class="py">✓</span>Everything in Free</div>
+          <div class="pfi"><span class="py">✓</span>Kanban + Sprints + Burndown</div>
+          <div class="pfi"><span class="py">✓</span>Email Ticketing + Smart Queue</div>
+          <div class="pfi"><span class="py">✓</span>AI Triage (Gemini)</div>
+          <div class="pfi"><span class="py">✓</span>Knowledge Base + Roadmap</div>
+          <div class="pfi"><span class="py">✓</span>2FA + Approval Workflows</div>
+          <div class="pfi"><span class="py">✓</span>9 report types + forecasting</div>
         </div>
+        <a href="/" class="pbtn pbtn-g">Start Pro trial →</a>
       </div>
-      <div class="price-card r r-d2">
-        <div class="price-inner">
-          <div class="p-tier">Enterprise</div>
-          <div class="p-amount">₹2,499</div>
-          <div class="p-period">per month · unlimited users</div>
-          <div class="p-line"></div>
-          <div class="p-feats">
-            <div class="p-feat"><span class="p-yes">✓</span>Everything in Pro</div>
-            <div class="p-feat"><span class="p-yes">✓</span>API Keys + REST access</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Customer Portal + Widget</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Appointment Booking</div>
-            <div class="p-feat"><span class="p-yes">✓</span>GDPR + SLA per customer</div>
-            <div class="p-feat"><span class="p-yes">✓</span>Owner portal (30+ tools)</div>
-          </div>
-          <a href="mailto:contact@resolvogroup.com?subject=Enterprise Demo" class="p-btn p-btn-ghost">Book a demo →</a>
+
+      <div class="pc r d2">
+        <div class="pt">Enterprise</div>
+        <div class="pa">₹2,499</div>
+        <div class="pper">per month · unlimited users</div>
+        <div class="pdesc">Full platform for multi-team, multi-client operations.</div>
+        <div class="pline"></div>
+        <div class="pf">
+          <div class="pfi"><span class="py">✓</span>Everything in Pro</div>
+          <div class="pfi"><span class="py">✓</span>API Keys + REST access</div>
+          <div class="pfi"><span class="py">✓</span>Customer Portal + Widget</div>
+          <div class="pfi"><span class="py">✓</span>Appointment Booking</div>
+          <div class="pfi"><span class="py">✓</span>GDPR + per-customer SLA</div>
+          <div class="pfi"><span class="py">✓</span>Owner portal (30+ tools)</div>
         </div>
+        <a href="mailto:contact@resolvogroup.com?subject=Enterprise Demo" class="pbtn pbtn-w">Book a demo →</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- CTA -->
-<section class="sec sec-dark">
-  <div class="wrap">
-    <div class="cta-wrap r">
-      <div class="cta-title">Ready to resolve<br><span class="hl">everything?</span></div>
-      <p class="cta-sub">Free to start. No credit card. Running in 5 minutes.</p>
+<!-- ── CTA ── -->
+<section style="background:var(--bg-1);padding:120px 0;">
+  <div class="w">
+    <div class="cta-box r">
+      <div class="cta-t">Ready to<br><span class="gw">resolve everything?</span></div>
+      <p class="cta-s">Free to start. No credit card. Running in 5 minutes.</p>
       <div class="cta-btns">
-        <a href="/" class="btn-g" style="font-size:16px;padding:16px 40px;">Open Resolvo free →</a>
-        <a href="/learn" class="btn-ghost" style="font-size:16px;padding:16px 36px;">Read the docs</a>
+        <a href="/" class="btn-p" style="font-size:15px;padding:14px 36px;">Open Resolvo free <span class="arr">→</span></a>
+        <a href="/learn" class="btn-s" style="font-size:15px;padding:14px 32px;">Read the docs</a>
       </div>
       <div class="cta-meta">
         🌐 <a href="https://website.resolvogroup.com" target="_blank">website.resolvogroup.com</a>
@@ -653,108 +869,108 @@ footer{border-top:1px solid var(--border);padding:28px 0;}
   </div>
 </section>
 
-<!-- FOOTER -->
+<!-- ── FOOTER ── -->
 <footer>
-  <div class="wrap">
-    <div class="foot-inner">
-      <a href="/pitch" class="logo">
-        <div class="logo-r">R</div>
-        <span class="logo-text">resolvo</span>
+  <div class="w">
+    <div class="fi">
+      <a href="/pitch" class="nav-logo">
+        <div class="nav-logo-mark">R</div>
+        <span class="nav-logo-text">Resolvo</span>
       </a>
-      <div class="foot-links">
+      <div class="fl">
         <a href="/learn">Docs</a>
         <a href="/roadmap/konnect">Roadmap</a>
         <a href="/portal/konnect">Portal</a>
         <a href="mailto:contact@resolvogroup.com">Contact</a>
       </div>
-      <div class="foot-copy">© 2025 Resolvo · contact@resolvogroup.com</div>
+      <div class="fc">© 2025 Resolvo · contact@resolvogroup.com</div>
     </div>
   </div>
 </footer>
 
 <script>
-// ── CUSTOM CURSOR
-const cur = document.getElementById('cursor');
-const ring = document.getElementById('cursor-ring');
-const glow = document.getElementById('glow');
-let mx = 0, my = 0, rx = 0, ry = 0;
+// ── CURSOR ──────────────────────────────────────────────────────────────────
+const dot = document.getElementById('c-dot');
+const ring = document.getElementById('c-ring');
+let mx=0,my=0,rx=0,ry=0;
+
 document.addEventListener('mousemove', e => {
   mx = e.clientX; my = e.clientY;
-  cur.style.left = mx + 'px'; cur.style.top = my + 'px';
-  glow.style.left = mx + 'px'; glow.style.top = my + 'px';
-});
-function animRing() {
-  rx += (mx - rx) * 0.12;
-  ry += (my - ry) * 0.12;
-  ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
-  requestAnimationFrame(animRing);
-}
-animRing();
-document.querySelectorAll('a,button,.fc,.prob-item,.hc-row,.win-row,.int-pill,.price-card').forEach(el => {
-  el.addEventListener('mouseenter', () => { cur.style.width = '20px'; cur.style.height = '20px'; ring.style.width = '56px'; ring.style.height = '56px'; ring.style.borderColor = 'rgba(0,255,148,.5)'; });
-  el.addEventListener('mouseleave', () => { cur.style.width = '12px'; cur.style.height = '12px'; ring.style.width = '40px'; ring.style.height = '40px'; ring.style.borderColor = 'rgba(0,255,148,.3)'; });
-});
+  dot.style.left = mx+'px'; dot.style.top = my+'px';
+}, {passive:true});
 
-// ── NAV SCROLL
+(function loop(){
+  rx += (mx-rx)*.12; ry += (my-ry)*.12;
+  ring.style.left = rx+'px'; ring.style.top = ry+'px';
+  requestAnimationFrame(loop);
+})();
+
+// ── NAV SCROLL ──────────────────────────────────────────────────────────────
 const nav = document.getElementById('nav');
-window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 50), {passive: true});
+const onScroll = () => nav.classList.toggle('s', scrollY > 40);
+addEventListener('scroll', onScroll, {passive:true});
+onScroll();
 
-// ── REVEAL ON SCROLL
-const revObs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (e.isIntersecting) { e.target.classList.add('in'); }
-  });
-}, { threshold: 0.06, rootMargin: '0px 0px -40px 0px' });
-document.querySelectorAll('.r').forEach(el => revObs.observe(el));
+// ── REVEAL ON SCROLL ────────────────────────────────────────────────────────
+const ro = new IntersectionObserver(es => {
+  es.forEach(e => { if(e.isIntersecting) e.target.classList.add('in'); });
+}, {threshold:.08, rootMargin:'0px 0px -36px 0px'});
+document.querySelectorAll('.r,.rb,.nu,.pi').forEach(el => ro.observe(el));
 
-// ── NUMBERS — also reveal border top on scroll
-const numObs = new IntersectionObserver(entries => {
-  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
-}, { threshold: 0.3 });
-document.querySelectorAll('.num-item').forEach(el => numObs.observe(el));
-
-// ── COUNTER ANIMATION
-const counterObs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
+// ── COUNTER ─────────────────────────────────────────────────────────────────
+const co = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if(!e.isIntersecting) return;
     const el = e.target;
-    const target = parseInt(el.dataset.target);
-    const dur = 1800;
-    const start = performance.now();
-    function tick(now) {
-      const p = Math.min((now - start) / dur, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      el.textContent = Math.floor(ease * target);
-      if (p < 1) requestAnimationFrame(tick);
-      else el.textContent = target;
-    }
+    const t = parseInt(el.dataset.count);
+    if(!t) return;
+    const dur = 1600, s = performance.now();
+    const tick = now => {
+      const p = Math.min((now-s)/dur, 1);
+      const ease = p < .5 ? 2*p*p : -1+(4-2*p)*p;
+      el.textContent = Math.round(ease*t) + (el.closest('.stat-n') ? '%' : '');
+      if(p<1) requestAnimationFrame(tick);
+    };
     requestAnimationFrame(tick);
-    counterObs.unobserve(el);
+    co.unobserve(el);
   });
-}, { threshold: 0.5 });
-document.querySelectorAll('.counter').forEach(el => counterObs.observe(el));
+}, {threshold:.6});
+document.querySelectorAll('[data-count]').forEach(el => co.observe(el));
 
-// ── SMOOTH SCROLL
+// ── SMOOTH SCROLL ───────────────────────────────────────────────────────────
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
     e.preventDefault();
-    const t = document.querySelector(a.getAttribute('href'));
-    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector(a.getAttribute('href'))?.scrollIntoView({behavior:'smooth',block:'start'});
   });
 });
 
-// ── 3D TILT on feature cards
-document.querySelectorAll('.fc,.price-card,.platform-card').forEach(card => {
+// ── 3D TILT ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.bc,.pc,.pi').forEach(card => {
   card.addEventListener('mousemove', e => {
     const r = card.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - 0.5;
-    const y = (e.clientY - r.top) / r.height - 0.5;
-    card.style.transform = `perspective(600px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg) translateZ(4px)`;
+    const x = ((e.clientX-r.left)/r.width-.5)*7;
+    const y = ((e.clientY-r.top)/r.height-.5)*7;
+    card.style.transform = `perspective(800px) rotateY(${x}deg) rotateX(${-y}deg) scale(1.01)`;
+    card.style.transition = 'transform .05s';
   });
   card.addEventListener('mouseleave', () => {
     card.style.transform = '';
-    card.style.transition = 'transform .4s ease';
-    setTimeout(() => card.style.transition = '', 400);
+    card.style.transition = 'transform .4s cubic-bezier(.16,1,.3,1)';
+  });
+});
+
+// ── MAGNETIC BUTTONS ────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-p,.btn-s').forEach(btn => {
+  btn.addEventListener('mousemove', e => {
+    const r = btn.getBoundingClientRect();
+    const x = (e.clientX-r.left-r.width/2)*.18;
+    const y = (e.clientY-r.top-r.height/2)*.18;
+    btn.style.transform = `translate(${x}px,${y}px) translateY(-2px)`;
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = '';
+    btn.style.transition = 'transform .4s cubic-bezier(.16,1,.3,1)';
   });
 });
 </script>
