@@ -8,7 +8,10 @@
   <url><loc>https://app.resolvogroup.com/blog/how-to-set-up-email-ticketing</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/blog/engineering-issue-tracking-sla</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/blog/reduce-support-ticket-volume</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://app.resolvogroup.com/vs/jira</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://app.resolvogroup.com/vs/jira</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/vs/freshdesk</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/vs/zendesk</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/vs/linear</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/freshdesk</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/zendesk</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/linear</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
