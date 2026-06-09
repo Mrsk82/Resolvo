@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Customer Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#f0f4f8;font-family:'Inter',sans-serif;min-height:100vh;}
+:root{--accent:#10B981;--accent-dim:rgba(16,185,129,.1);}
+.header{background:var(--accent);padding:20px 24px;color:#fff;display:flex;align-items:center;gap:12px;}
+.header h1{font-size:18px;font-weight:800;}
+.container{max-width:700px;margin:0 auto;padding:24px 16px;}
+.card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:16px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:inherit;}
+.btn-primary{background:var(--accent);color:#fff;width:100%;}
+.btn-primary:hover{opacity:.9;}
+.input{width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+label{font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;}
+.ticket-row{display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px;transition:border-color .15s;}
+.ticket-row:hover{border-color:var(--accent);}
+.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;}
+.badge-new{background:#7c3aed18;color:#7c3aed;}
+.badge-open{background:#2563eb18;color:#2563eb;}
+.badge-resolved{background:#16a34a18;color:#16a34a;}
+.badge-closed{background:#9ca3af18;color:#9ca3af;}
+.badge-pending{background:#d9770618;color:#d97706;}
+#loginSection,#portalSection{display:none;}
+</style>
+</head>
+<body>
+
+<div id="headerDiv" class="header">
+  <div style="font-size:28px;">🏢</div>
+  <div>
+    <h1 id="brandNameEl">Customer Portal</h1>
+    <div style="font-size:12px;opacity:.8;">View and manage your support requests</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="loginSection" class="card">
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:6px;">Sign In</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">Enter your email to receive a one-time login code.</p>
+    <div id="emailStep">
+      <div style="margin-bottom:14px;"><label>Email Address</label><input id="emailInput" class="input" type="email" placeholder="your@email.com"></div>
+      <button class="btn btn-primary" onclick="sendOTP()">Send Login Code →</button>
+    </div>
+    <div id="otpStep" style="display:none;">
+      <div style="background:var(--accent-dim);border-radius:8px;padding:12px 14px;font-size:13px;color:#065f46;margin-bottom:14px;">📧 Code sent to <strong id="sentToEmail"></strong></div>
+      <div style="margin-bottom:14px;"><label>6-Digit Code</label><input id="otpInput" class="input" type="number" placeholder="123456" maxlength="6"></div>
+      <button class="btn btn-primary" onclick="verifyOTP()">Verify Code →</button>
+      <button onclick="document.getElementById('emailStep').style.display='';document.getElementById('otpStep').style.display='none';" style="width:100%;margin-top:8px;background:none;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:13px;cursor:pointer;font-family:inherit;">← Back</button>
+    </div>
+    <div id="loginError" style="display:none;color:#dc2626;font-size:12px;margin-top:10px;"></div>
+  </div>
+
+  <!-- PORTAL CONTENT -->
+  <div id="portalSection">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;">
+      <div style="font-size:13px;color:#6b7280;">Logged in as <strong id="userEmailEl" style="color:#111827;"></strong></div>
+      <button onclick="logout()" style="font-size:12px;color:#6b7280;background:none;border:1px solid #e5e7eb;border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;">Sign Out</button>
+    </div>
+
+    <!-- New Ticket Button -->
+    <button class="btn btn-primary" onclick="showNewTicket()" style="margin-bottom:16px;">+ Submit New Request</button>
+
+    <!-- New Ticket Form -->
+    <div id="newTicketForm" class="card" style="display:none;">
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:14px;">New Support Request</h3>
+      <div style="margin-bottom:12px;"><label>Subject *</label><input id="nt_subject" class="input" placeholder="Brief description of your issue"></div>
+      <div style="margin-bottom:12px;"><label>Message *</label><textarea id="nt_body" class="input" rows="4" style="resize:vertical;" placeholder="Describe your issue in detail..."></textarea></div>
+      <div style="margin-bottom:14px;"><label>Priority</label>
+        <select id="nt_priority" class="input">
+          <option value="Low">Low — General question</option>
+          <option value="Medium" selected>Medium — Something not working</option>
+          <option value="High">High — Blocking my work</option>
+          <option value="Critical">Critical — System down</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="document.getElementById('newTicketForm').style.display='none'" style="background:#f3f4f6;color:#374151;flex:1;">Cancel</button>
+        <button class="btn btn-primary" onclick="submitTicket()" style="flex:2;">Submit Request →</button>
+      </div>
+      <div id="nt_success" style="display:none;text-align:center;padding:16px;color:#16a34a;font-weight:600;">✅ Request submitted! We'll get back to you soon.</div>
+    </div>
+
+    <!-- Ticket List -->
+    <div class="card">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:14px;">Your Requests</h3>
+      <div id="ticketList"><div style="text-align:center;padding:24px;color:#9ca3af;">Loading your tickets...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var SLUG = window.location.pathname.split('/')[2] || '';
+var portalToken = localStorage.getItem('portal_token_'+SLUG);
+var userEmail = localStorage.getItem('portal_email_'+SLUG);
+
+// Load brand info
+fetch('/portal/'+SLUG+'/auth').then(r=>r.json()).then(function(d){
+  if(d.brand){
+    document.querySelector('.header').style.background = d.brand.accentColor||'#10B981';
+    document.documentElement.style.setProperty('--accent', d.brand.accentColor||'#10B981');
+    document.getElementById('brandNameEl').textContent = (d.brand.name||'Support')+' Portal';
+    document.title = (d.brand.name||'Support') + ' Customer Portal';
+  }
+});
+
+// Check if already logged in
+if(portalToken && userEmail){
+  showPortal();
+} else {
+  document.getElementById('loginSection').style.display = 'block';
+}
+
+function sendOTP(){
+  var email = document.getElementById('emailInput').value.trim();
+  if(!email||!email.includes('@')){showError('Please enter a valid email');return;}
+  fetch('/portal/'+SLUG+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})})
+  .then(r=>r.json()).then(function(d){
+    if(d.otpSent){
+      document.getElementById('sentToEmail').textContent=email;
+      document.getElementById('emailStep').style.display='none';
+      document.getElementById('otpStep').style.display='block';
+    }else showError(d.error||'Failed to send code');
+  });
+}
+
+function verifyOTP(){
+  var email = document.getElementById('emailInput').value.trim();
+  var otp = document.getElementById('otpInput').value.trim();
+  fetch('/portal/'+SLUG+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,otp:otp})})
+  .then(r=>r.json()).then(function(d){
+    if(d.success){
+      localStorage.setItem('portal_token_'+SLUG,d.token);
+      localStorage.setItem('portal_email_'+SLUG,d.email);
+      portalToken=d.token;userEmail=d.email;
+      showPortal();
+    }else showError(d.error||'Invalid code');
+  });
+}
+
+function showPortal(){
+  document.getElementById('loginSection').style.display='none';
+  document.getElementById('portalSection').style.display='block';
+  document.getElementById('userEmailEl').textContent=userEmail||'';
+  loadTickets();
+}
+
+function loadTickets(){
+  fetch('/portal/'+SLUG+'/tickets',{headers:{'x-portal-token':portalToken}})
+  .then(r=>r.json()).then(function(d){
+    var el=document.getElementById('ticketList');
+    if(!d.success){el.innerHTML='<div style="text-align:center;padding:20px;color:#9ca3af;">Session expired. <a href="javascript:logout()" style="color:var(--accent);">Sign in again</a></div>';return;}
+    if(!d.tickets||!d.tickets.length){el.innerHTML='<div style="text-align:center;padding:24px;color:#9ca3af;"><div style="font-size:36px;margin-bottom:8px;">📭</div><div>No requests yet.</div></div>';return;}
+    el.innerHTML=d.tickets.map(function(t){
+      var sc={new:'badge-new',open:'badge-open',resolved:'badge-resolved',closed:'badge-closed',pending:'badge-pending'}[t.status]||'badge-open';
+      return '<div class="ticket-row"><div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#111827;">'+t.subject+'</div><div style="font-size:11px;color:#9ca3af;margin-top:3px;">'+t.id+' · '+t.createdDate.split('T')[0]+'</div></div><span class="badge '+sc+'">'+t.status+'</span></div>';
+    }).join('');
+  });
+}
+
+function showNewTicket(){
+  var f=document.getElementById('newTicketForm');
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+
+function submitTicket(){
+  var subject=document.getElementById('nt_subject').value.trim();
+  var body=document.getElementById('nt_body').value.trim();
+  var priority=document.getElementById('nt_priority').value;
+  if(!subject||!body){alert('Please fill in all fields');return;}
+  fetch('/api/widget/'+SLUG+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:subject+'\n\n'+body,email:userEmail,subject:subject})})
+  .then(r=>r.json()).then(function(d){
+    if(d.success){
+      document.getElementById('nt_success').style.display='block';
+      document.getElementById('nt_subject').value='';
+      document.getElementById('nt_body').value='';
+      setTimeout(function(){document.getElementById('nt_success').style.display='none';document.getElementById('newTicketForm').style.display='none';loadTickets();},2000);
+    }
+  });
+}
+
+function logout(){
+  localStorage.removeItem('portal_token_'+SLUG);
+  localStorage.removeItem('portal_email_'+SLUG);
+  location.reload();
+}
+
+function showError(msg){
+  var el=document.getElementById('loginError');el.textContent=msg;el.style.display='block';
+  setTimeout(function(){el.style.display='none';},4000);
+}
+</script>
+</body>
+</html>

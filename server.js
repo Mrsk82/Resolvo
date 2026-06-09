@@ -1318,7 +1318,11 @@ app.post('/api/call',async(req,res)=>{
     getPinnedIssues:()=>{const db=rDB(),now=new Date();return{success:true,issues:(db.pinnedIssues||[]).filter(p=>p.email===su.email).map(p=>{const issue=(db.issues||[]).find(i=>i.id===p.issueId);if(!issue)return null;const d=new Date(new Date(issue.createdDate).getTime()+issue.slaHours*3600000);return{...issue,slaBreached:now>d};}).filter(Boolean)};},
     fullTextSearch:q=>{const db=rDB(),ql=(q||'').toLowerCase();return{success:true,results:(db.issues||[]).filter(i=>i.title.toLowerCase().includes(ql)||(i.description||'').toLowerCase().includes(ql)||i.id.toLowerCase().includes(ql)).slice(0,20)};},
     getAllFeatureFlags:()=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(brand)return{success:true,flags:resolveFeatureFlags(brand,db.featureFlags||{}),tier:brand.tier,overrides:brand.featureOverrides||{}};return{success:true,flags:db.featureFlags||{}};},
-    updateFeatureFlags:fo=>{const db=rDB();db.featureFlags={...(db.featureFlags||{}),...fo};wDB(db);return{success:true};},
+    // Feature flags are OWNER-controlled only — brand admins cannot change them
+    updateFeatureFlags:fo=>{
+      // Block brand admin from changing feature flags — owner portal only
+      return{success:false,error:'Feature access is managed by the platform administrator. Contact your admin to enable features.'};
+    },
     isFeatureEnabled:key=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(brand)return{success:true,enabled:resolveFeatureFlags(brand,db.featureFlags||{})[key]===true};return{success:true,enabled:(db.featureFlags||{})[key]===true};},
     getBrandFeatureAccess:()=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(!brand)return{success:false,error:'Not found'};return{success:true,resolved:resolveFeatureFlags(brand,db.featureFlags||{}),tier:brand.tier,meta:FEATURE_META,overrides:brand.featureOverrides||{}};},
     getModuleHealthScores:()=>{const db=rDB(),mc={},mcc={};(db.issues||[]).filter(i=>!['Resolved','Release Required'].includes(i.status)).forEach(i=>{if(i.module){mc[i.module]=(mc[i.module]||0)+1;if(i.priority==='Critical')mcc[i.module]=(mcc[i.module]||0)+1;}});return{success:true,scores:Object.keys(mc).map(m=>({module:m,open:mc[m],critical:mcc[m]||0,health:Math.max(0,100-mc[m]*5-(mcc[m]||0)*20)}))};},
@@ -3227,6 +3231,386 @@ app.post('/api/call',async(req,res)=>{
     markAsRegression:(issueId)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].isRegression=true;logActivity(db,issueId,'Marked as regression',su.email);wDB(db);return{success:true};},
     deleteAnnouncement:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=(db.announcements||[]).filter(a=>a.id!==id);wDB(db);return{success:true};},
 
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP A: IN-APP NOTIFICATIONS (#8)
+    // DB CHANGE: adds db.notifications — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getInAppNotifications:()=>{
+      const db=rDB();const now=new Date();
+      const notes=db.notifications||[];
+      // Add system-generated notifications
+      const sysNotes=[];
+      // SLA at risk (assigned to me)
+      (db.issues||[]).filter(i=>i.assignedTo===su.email&&!['Resolved','Release Required','Closed'].includes(i.status)).forEach(i=>{
+        const sla=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000+(i.slaExtraMs||0));
+        const hr=(sla-now)/3600000;
+        if(hr<0)sysNotes.push({id:'sla_'+i.id,type:'sla_breach',title:'SLA Breached',body:i.title,issueId:i.id,at:now.toISOString(),read:false,icon:'🔴'});
+        else if(hr<2)sysNotes.push({id:'slar_'+i.id,type:'sla_risk',title:'SLA at Risk',body:`${i.id}: ${i.title.substring(0,50)} — ${Math.round(hr*60)}m left`,issueId:i.id,at:now.toISOString(),read:false,icon:'🟡'});
+      });
+      // Follow-ups due today
+      const today=now.toISOString().split('T')[0];
+      (db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===su.email).forEach(t=>{
+        sysNotes.push({id:'fu_'+t.id,type:'follow_up',title:'Follow-up Due',body:t.subject.substring(0,60),ticketId:t.id,at:t.followUpAt,read:false,icon:'⏰'});
+      });
+      const all=[...sysNotes,...notes.filter(n=>n.userId===su.email||n.global)].slice(0,30);
+      return{success:true,notifications:all,unread:all.filter(n=>!n.read).length};
+    },
+    markNotificationRead:(nId)=>{
+      const db=rDB();db.notifications=db.notifications||[];
+      const idx=db.notifications.findIndex(n=>n.id===nId);
+      if(idx>=0){db.notifications[idx].read=true;wDB(db);}
+      return{success:true};
+    },
+    markAllNotificationsRead:()=>{
+      const db=rDB();db.notifications=db.notifications||[];
+      db.notifications.filter(n=>n.userId===su.email).forEach(n=>{n.read=true;});
+      wDB(db);return{success:true};
+    },
+    pushNotification:(userId,type,title,body,meta)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.notifications=db.notifications||[];
+      db.notifications.unshift({id:generateId('NOT'),userId,type,title,body,meta:meta||{},at:new Date().toISOString(),read:false,icon:'🔔'});
+      // Keep last 200 per brand
+      db.notifications=db.notifications.slice(0,200);
+      wDB(db);return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP A: API KEYS (#10)
+    // DB CHANGE: adds db.apiKeys — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getApiKeys:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      return{success:true,keys:(db.apiKeys||[]).map(k=>({...k,key:k.key.substring(0,8)+'••••••••'+k.key.slice(-4)}))};
+    },
+    createApiKey:(name,permissions)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.apiKeys=db.apiKeys||[];
+      const key='rslv_'+slug+'_'+require('crypto').randomBytes(24).toString('hex');
+      const apiKey={id:generateId('KEY'),name:name||'API Key',key,permissions:permissions||['read'],createdBy:su.email,createdAt:new Date().toISOString(),lastUsed:null,active:true};
+      db.apiKeys.push(apiKey);wDB(db);
+      return{success:true,key,id:apiKey.id,warning:'Save this key — it will only be shown once!'};
+    },
+    revokeApiKey:(id)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const idx=(db.apiKeys||[]).findIndex(k=>k.id===id);
+      if(idx>=0){db.apiKeys[idx].active=false;wDB(db);}
+      return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP B: KNOWLEDGE BASE (#3)
+    // DB CHANGE: adds db.knowledgeBase — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getKBArticles:(categoryId,search)=>{
+      const db=rDB();let articles=db.knowledgeBase||[];
+      if(categoryId)articles=articles.filter(a=>a.categoryId===categoryId);
+      if(search){const q=search.toLowerCase();articles=articles.filter(a=>a.title.toLowerCase().includes(q)||(a.content||'').toLowerCase().includes(q));}
+      articles=articles.filter(a=>a.published||su.role==='Admin');
+      return{success:true,articles:articles.sort((a,b)=>b.views-a.views||new Date(b.updatedAt)-new Date(a.updatedAt))};
+    },
+    getKBCategories:()=>{const db=rDB();return{success:true,categories:db.kbCategories||[]};},
+    saveKBArticle:(article)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.knowledgeBase=db.knowledgeBase||[];
+      const id=article.id||generateId('KB');const idx=db.knowledgeBase.findIndex(a=>a.id===id);
+      const now=new Date().toISOString();
+      const saved={...article,id,updatedAt:now,updatedBy:su.email,views:article.views||0};
+      if(!saved.createdAt)saved.createdAt=now;
+      if(idx>=0)db.knowledgeBase[idx]=saved;else db.knowledgeBase.push(saved);
+      wDB(db);return{success:true,id};
+    },
+    deleteKBArticle:(id)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.knowledgeBase=(db.knowledgeBase||[]).filter(a=>a.id!==id);wDB(db);return{success:true};
+    },
+    saveKBCategory:(cat)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.kbCategories=db.kbCategories||[];
+      const id=cat.id||generateId('KBC');const idx=db.kbCategories.findIndex(c=>c.id===id);
+      if(idx>=0)db.kbCategories[idx]={...cat,id};else db.kbCategories.push({...cat,id,createdAt:new Date().toISOString()});
+      wDB(db);return{success:true,id};
+    },
+    incrementKBViews:(id)=>{
+      const db=rDB();const idx=(db.knowledgeBase||[]).findIndex(a=>a.id===id);
+      if(idx>=0){db.knowledgeBase[idx].views=(db.knowledgeBase[idx].views||0)+1;wDB(db);}
+      return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP B: PUBLIC ROADMAP (#9)
+    // DB CHANGE: adds db.roadmapItems — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getRoadmapItems:(status)=>{
+      const db=rDB();let items=db.roadmapItems||[];
+      if(status)items=items.filter(i=>i.status===status);
+      // Only show public items to non-admins
+      if(su.role!=='Admin')items=items.filter(i=>i.public!==false);
+      return{success:true,items:items.sort((a,b)=>b.votes-a.votes||new Date(b.updatedAt)-new Date(a.updatedAt))};
+    },
+    saveRoadmapItem:(item)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.roadmapItems=db.roadmapItems||[];
+      const id=item.id||generateId('RM');const idx=db.roadmapItems.findIndex(r=>r.id===id);
+      const now=new Date().toISOString();
+      const saved={...item,id,updatedAt:now,updatedBy:su.email,votes:item.votes||0};
+      if(!saved.createdAt)saved.createdAt=now;
+      if(idx>=0)db.roadmapItems[idx]=saved;else db.roadmapItems.push(saved);
+      wDB(db);return{success:true,id};
+    },
+    voteRoadmapItem:(id)=>{
+      const db=rDB();const idx=(db.roadmapItems||[]).findIndex(r=>r.id===id);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.roadmapItems[idx].voters=db.roadmapItems[idx].voters||[];
+      if(db.roadmapItems[idx].voters.includes(su.email))return{success:false,error:'Already voted'};
+      db.roadmapItems[idx].voters.push(su.email);
+      db.roadmapItems[idx].votes=(db.roadmapItems[idx].votes||0)+1;
+      wDB(db);return{success:true,votes:db.roadmapItems[idx].votes};
+    },
+    deleteRoadmapItem:(id)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.roadmapItems=(db.roadmapItems||[]).filter(r=>r.id!==id);wDB(db);return{success:true};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP C: APPROVAL WORKFLOWS (#6)
+    // DB CHANGE: adds db.approvalRules, issue.approvalStatus — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getApprovalRules:()=>{const db=rDB();return{success:true,rules:db.approvalRules||[]};},
+    saveApprovalRule:(rule)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.approvalRules=db.approvalRules||[];
+      const id=rule.id||generateId('APR');const idx=db.approvalRules.findIndex(r=>r.id===id);
+      if(idx>=0)db.approvalRules[idx]={...rule,id};else db.approvalRules.push({...rule,id,createdAt:new Date().toISOString()});
+      wDB(db);return{success:true,id};
+    },
+    requestApproval:(issueId,approverEmail,note)=>{
+      const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.issues[idx].approvalStatus='pending';
+      db.issues[idx].approvalRequestedBy=su.email;
+      db.issues[idx].approvalRequestedAt=new Date().toISOString();
+      db.issues[idx].approvalRequestedTo=approverEmail;
+      db.issues[idx].approvalNote=note||'';
+      logActivity(db,issueId,`Approval requested from ${approverEmail}`,su.email);
+      wDB(db);
+      // Notify approver
+      sendBrandEmail(slug,approverEmail,`Approval Required: ${issueId}`,`<p>Hi,</p><p>${su.name||su.email} is requesting your approval to resolve issue <strong>${issueId}</strong>.</p>${note?'<p>Note: '+note+'</p>':''}<a href="${BASE_URL}">Review in Resolvo →</a>`,'Approval required').catch(()=>{});
+      return{success:true};
+    },
+    approveIssue:(issueId,approved,comment)=>{
+      const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      // Check if approver
+      if(db.issues[idx].approvalRequestedTo!==su.email&&su.role!=='Admin')return{success:false,error:'Not authorized to approve'};
+      db.issues[idx].approvalStatus=approved?'approved':'rejected';
+      db.issues[idx].approvalBy=su.email;db.issues[idx].approvalAt=new Date().toISOString();
+      db.issues[idx].approvalComment=comment||'';
+      if(approved)db.issues[idx].status='Resolved';
+      logActivity(db,issueId,`${approved?'Approved':'Rejected'} by ${su.email}${comment?': '+comment:''}`,su.email);
+      wDB(db);
+      // Notify requester
+      const requester=db.issues[idx].approvalRequestedBy;
+      if(requester)sendBrandEmail(slug,requester,`Issue ${issueId} ${approved?'Approved ✅':'Rejected ❌'}`,`<p>${su.name||su.email} has ${approved?'approved':'rejected'} issue ${issueId}.${comment?'<br>Comment: '+comment:''}</p>`,`Issue ${issueId} ${approved?'approved':'rejected'}`).catch(()=>{});
+      return{success:true};
+    },
+    getPendingApprovals:()=>{
+      const db=rDB();
+      const mine=(db.issues||[]).filter(i=>i.approvalStatus==='pending'&&(i.approvalRequestedTo===su.email||su.role==='Admin'));
+      return{success:true,approvals:mine.map(i=>({id:i.id,title:i.title,requestedBy:i.approvalRequestedBy,requestedAt:i.approvalRequestedAt,note:i.approvalNote}))};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP C: 2FA / TWO-FACTOR AUTH (#16)
+    // DB CHANGE: adds user.twoFA — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    setup2FA:()=>{
+      const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===su.email);
+      if(idx===-1)return{success:false,error:'Not found'};
+      // Generate a TOTP secret (simplified — in production use speakeasy)
+      const secret=require('crypto').randomBytes(20).toString('base64').replace(/[^A-Z2-7]/gi,'').substring(0,32).toUpperCase();
+      db.users[idx].twoFASecret=secret;db.users[idx].twoFAPending=true;
+      wDB(db);
+      const otpauthUrl=`otpauth://totp/Resolvo:${su.email}?secret=${secret}&issuer=Resolvo`;
+      return{success:true,secret,otpauthUrl,qrUrl:`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`};
+    },
+    verify2FA:(token)=>{
+      const db=rDB();const user=(db.users||[]).find(u=>u.email===su.email);
+      if(!user||!user.twoFASecret)return{success:false,error:'2FA not set up'};
+      // Simple TOTP verification (30-second window, base32 secret)
+      try{
+        const time=Math.floor(Date.now()/30000);
+        const crypto=require('crypto');
+        const verify=(t)=>{
+          const msg=Buffer.alloc(8);msg.writeBigInt64BE(BigInt(t),0);
+          const key=Buffer.from(user.twoFASecret,'base32');
+          const hmac=crypto.createHmac('sha1',key).update(msg).digest();
+          const offset=hmac[hmac.length-1]&0xf;
+          const code=((hmac[offset]&0x7f)<<24|(hmac[offset+1]&0xff)<<16|(hmac[offset+2]&0xff)<<8|(hmac[offset+3]&0xff))%1000000;
+          return code===parseInt(token);
+        };
+        const valid=verify(time)||verify(time-1)||verify(time+1);
+        if(valid){
+          const idx=(db.users||[]).findIndex(u=>u.email===su.email);
+          db.users[idx].twoFAEnabled=true;db.users[idx].twoFAPending=false;wDB(db);
+          return{success:true,enabled:true};
+        }
+        return{success:false,error:'Invalid token. Please try again.'};
+      }catch(e){return{success:false,error:'Verification failed: '+e.message};}
+    },
+    disable2FA:(password)=>{
+      const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===su.email);
+      if(idx===-1)return{success:false,error:'Not found'};
+      const user=db.users[idx];
+      if(!checkPwd(password,user.passwordHash))return{success:false,error:'Incorrect password'};
+      db.users[idx].twoFAEnabled=false;db.users[idx].twoFASecret=null;
+      wDB(db);return{success:true};
+    },
+    get2FAStatus:()=>{
+      const db=rDB();const user=(db.users||[]).find(u=>u.email===su.email);
+      return{success:true,enabled:!!(user&&user.twoFAEnabled),pending:!!(user&&user.twoFAPending)};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP D: ISSUE IMPACT SCORE (#23)
+    // Calculated from: customer count, revenue, age, priority
+    // ══════════════════════════════════════════════════════════════════════
+    getIssueImpactScore:(issueId)=>{
+      const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);
+      if(!issue)return{success:false,error:'Not found'};
+      const now=new Date();
+      const ageHours=(now-new Date(issue.createdDate))/3600000;
+      const sla=new Date(new Date(issue.createdDate).getTime()+(issue.slaHours||24)*3600000);
+      const breached=now>sla&&!['Resolved','Release Required','Closed'].includes(issue.status);
+      const priorityScore={Critical:40,High:25,Medium:10,Low:5}[issue.priority]||10;
+      const ageScore=Math.min(30,Math.round(ageHours/24*5));
+      const revenueScore=Math.min(20,(issue.revenueImpact||0)/1000);
+      const slaScore=breached?10:0;
+      const score=Math.min(100,priorityScore+ageScore+revenueScore+slaScore);
+      return{success:true,score,breakdown:{priority:priorityScore,age:ageScore,revenue:revenueScore,sla:slaScore},label:score>=80?'Critical Impact':score>=50?'High Impact':score>=25?'Medium Impact':'Low Impact'};
+    },
+    getTopImpactIssues:(limit)=>{
+      const db=rDB();const now=new Date();
+      const open=(db.issues||[]).filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
+      const scored=open.map(issue=>{
+        const ageHours=(now-new Date(issue.createdDate))/3600000;
+        const sla=new Date(new Date(issue.createdDate).getTime()+(issue.slaHours||24)*3600000);
+        const breached=now>sla;
+        const s={Critical:40,High:25,Medium:10,Low:5}[issue.priority]||10;
+        const score=Math.min(100,s+Math.min(30,Math.round(ageHours/24*5))+Math.min(20,(issue.revenueImpact||0)/1000)+(breached?10:0));
+        return{...issue,impactScore:score};
+      }).sort((a,b)=>b.impactScore-a.impactScore).slice(0,parseInt(limit)||10);
+      return{success:true,issues:scored};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP D: COST CALCULATOR (#21)
+    // ══════════════════════════════════════════════════════════════════════
+    getCostReport:(hourlyRate,dateFrom,dateTo)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const rate=parseFloat(hourlyRate)||500;
+      const from=dateFrom?new Date(dateFrom):new Date(Date.now()-30*86400000);
+      const to=dateTo?new Date(dateTo+'T23:59:59'):new Date();
+      const logs=(db.timeLogs||[]).filter(l=>new Date(l.date||l.createdAt)>=from&&new Date(l.date||l.createdAt)<=to);
+      const totalHours=Math.round(logs.reduce((s,l)=>s+(parseFloat(l.hours)||0),0)*10)/10;
+      const totalCost=Math.round(totalHours*rate);
+      // By user
+      const byUser={};logs.forEach(l=>{byUser[l.loggedBy]=(byUser[l.loggedBy]||0)+(parseFloat(l.hours)||0);});
+      // By module
+      const byModule={};logs.forEach(l=>{const issue=(db.issues||[]).find(i=>i.id===l.issueId);const m=(issue&&issue.module)||'Unknown';byModule[m]=(byModule[m]||0)+(parseFloat(l.hours)||0);});
+      return{success:true,totalHours,totalCost,rate,currency:'INR',
+        byUser:Object.entries(byUser).map(([email,hours])=>({email,hours:Math.round(hours*10)/10,cost:Math.round(hours*rate)})).sort((a,b)=>b.cost-a.cost),
+        byModule:Object.entries(byModule).map(([module,hours])=>({module,hours:Math.round(hours*10)/10,cost:Math.round(hours*rate)})).sort((a,b)=>b.cost-a.cost),
+        dateRange:{from:from.toISOString().split('T')[0],to:to.toISOString().split('T')[0]}
+      };
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP D: AGENT COACHING DASHBOARD (#22)
+    // ══════════════════════════════════════════════════════════════════════
+    getAgentCoachingData:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const tickets=db.tickets||[];const issues=db.issues||[];
+      const agents=(db.users||[]).filter(u=>u.active);
+      const coaching=agents.map(agent=>{
+        const myTickets=tickets.filter(t=>t.assignedTo===agent.email);
+        const resolved=myTickets.filter(t=>t.status==='resolved'||t.status==='closed');
+        const csatScores=resolved.filter(t=>t.csatScore!=null).map(t=>t.csatScore);
+        const avgCSAT=csatScores.length?Math.round(csatScores.reduce((a,b)=>a+b,0)/csatScores.length):null;
+        const frTimes=myTickets.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
+        const avgFRT=frTimes.length?Math.round(frTimes.reduce((a,b)=>a+b,0)/frTimes.length):null;
+        const myIssues=issues.filter(i=>i.assignedTo===agent.email);
+        const resolvedIssues=myIssues.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
+        const avgResHours=resolvedIssues.length?Math.round(resolvedIssues.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolvedIssues.length*10)/10:null;
+        // Coaching insights
+        const insights=[];
+        if(avgFRT&&avgFRT>120)insights.push({type:'warning',text:`First response avg ${avgFRT}m — aim for under 60m`});
+        if(avgCSAT&&avgCSAT<70)insights.push({type:'warning',text:`CSAT ${avgCSAT}% — needs improvement`});
+        if(myTickets.filter(t=>!['resolved','closed'].includes(t.status)&&(Date.now()-new Date(t.createdDate).getTime())>48*3600000).length>3)insights.push({type:'warning',text:'Several tickets stale >48h — check queue'});
+        if(avgCSAT&&avgCSAT>=90)insights.push({type:'good',text:`Excellent CSAT ${avgCSAT}% — great customer service!`});
+        if(avgFRT&&avgFRT<30)insights.push({type:'good',text:`Lightning fast ${avgFRT}m first response!`});
+        return{email:agent.email,name:agent.name||agent.email,role:agent.role,avgCSAT,avgFirstResponseMin:avgFRT,avgIssueResolutionHours:avgResHours,ticketsResolved:resolved.length,issuesResolved:resolvedIssues.length,openTickets:myTickets.filter(t=>!['resolved','closed'].includes(t.status)).length,insights};
+      });
+      return{success:true,coaching:coaching.sort((a,b)=>(b.ticketsResolved||0)-(a.ticketsResolved||0))};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP D: CUSTOMER SENTIMENT TREND (#12)
+    // ══════════════════════════════════════════════════════════════════════
+    getCustomerSentimentTrend:(email)=>{
+      const db=rDB();
+      const customerTickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===(email||'').toLowerCase())
+        .sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+      const trends=customerTickets.map(t=>({ticketId:t.id,date:t.createdDate,sentiment:t.sentimentScore,level:t.sentimentLevel,csat:t.csatRating}));
+      const recent5=trends.slice(-5);
+      const avgSentiment=recent5.length?Math.round(recent5.reduce((s,t)=>s+(t.sentiment||60),0)/recent5.length):null;
+      const trending=recent5.length>=3?(recent5[recent5.length-1].sentiment||60)-(recent5[0].sentiment||60):0;
+      const churnRisk=avgSentiment&&avgSentiment<35?'high':avgSentiment&&avgSentiment<55?'medium':'low';
+      return{success:true,email,trends,avgSentiment,trending,churnRisk,totalTickets:customerTickets.length,recommendation:churnRisk==='high'?'Proactive outreach recommended — customer showing frustration pattern':churnRisk==='medium'?'Monitor closely — sentiment declining':null};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP E: GDPR / DATA COMPLIANCE (#19)
+    // ══════════════════════════════════════════════════════════════════════
+    gdprErasure:(customerEmail)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();let erasedCount=0;
+      // Anonymize tickets from that email
+      (db.tickets||[]).forEach((t,i)=>{
+        if(t.from&&t.from.toLowerCase()===customerEmail.toLowerCase()){
+          db.tickets[i].from='[deleted]';db.tickets[i].fromName='[deleted]';
+          db.tickets[i].thread=(t.thread||[]).map(m=>({...m,from:m.from===t.from?'[deleted]':m.from,fromName:m.fromName===t.fromName?'[deleted]':m.fromName}));
+          if(db.customerNotes)delete db.customerNotes[customerEmail.toLowerCase()];
+          erasedCount++;
+        }
+      });
+      wDB(db);
+      return{success:true,erased:erasedCount,message:`Erased ${erasedCount} records for ${customerEmail}`};
+    },
+    gdprExport:(customerEmail)=>{
+      const db=rDB();
+      const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===customerEmail.toLowerCase());
+      const notes=(db.customerNotes||{})[customerEmail.toLowerCase()]||[];
+      const appointments=(db.appointments||[]).filter(a=>a.customerEmail&&a.customerEmail.toLowerCase()===customerEmail.toLowerCase());
+      return{success:true,email:customerEmail,exportedAt:new Date().toISOString(),data:{tickets:tickets.map(t=>({id:t.id,subject:t.subject,status:t.status,date:t.createdDate})),notes,appointments}};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // GROUP E: SLA POLICIES PER CUSTOMER (#18)
+    // DB CHANGE: adds db.slaPolicies — backward safe
+    // ══════════════════════════════════════════════════════════════════════
+    getSlaPolicies:()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();return{success:true,policies:db.slaPolicies||[]};},
+    saveSlaPolicy:(policy)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.slaPolicies=db.slaPolicies||[];
+      const id=policy.id||generateId('SLP');const idx=db.slaPolicies.findIndex(p=>p.id===id);
+      if(idx>=0)db.slaPolicies[idx]={...policy,id};else db.slaPolicies.push({...policy,id,createdAt:new Date().toISOString()});
+      wDB(db);return{success:true,id};
+    },
+    deleteSlaPolicy:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.slaPolicies=(db.slaPolicies||[]).filter(p=>p.id!==id);wDB(db);return{success:true};},
+
     // Stubs
     syncIssuesToCalendar:()=>({success:false,error:'Not available.'}),getCalendarStatus:()=>({success:true,configured:false}),getEmailTimeline:()=>({success:true,timeline:[]}),getEmailSummary:()=>({success:true,summary:null}),getEmailParticipants:()=>({success:true,participants:[]}),getInboundRules:()=>({success:true,rules:[]}),saveInboundRule:()=>({success:true}),deleteInboundRule:()=>({success:true}),exportIssueToPDF:()=>({success:false,error:'Use browser Print > Save as PDF.'}),exportDashboardReport:()=>({success:false,error:'Use browser print.'}),getAutoTagRules:()=>({success:true,rules:[]}),saveAutoTagRule:()=>({success:true}),deleteAutoTagRule:()=>({success:true}),checkDueDateReminders:()=>({success:true}),runSmartEscalation:()=>({success:true}),runEscalationCheck:()=>({success:true,escalated:0}),
   };
@@ -3406,6 +3790,134 @@ app.get('/csat-ticket',(req,res)=>{
 
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
+
+// ── PUBLIC ROADMAP (/roadmap/:slug) ────────────────────────────────────────
+app.get('/roadmap/:slug',(req,res)=>{
+  const db=readBrandDB(req.params.slug);
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===req.params.slug)||{};
+  const accent=brand.accentColor||'#10B981';const brandName=brand.name||'Roadmap';
+  const items=(db.roadmapItems||[]).filter(i=>i.public!==false);
+  const planned=items.filter(i=>i.status==='planned').sort((a,b)=>b.votes-a.votes);
+  const inprogress=items.filter(i=>i.status==='in-progress');
+  const shipped=items.filter(i=>i.status==='shipped').slice(0,10);
+  const card=(item,canVote)=>`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;">
+    <div style="text-align:center;min-width:48px;"><button onclick="voteItem('${item.id}',this)" style="background:${accent}18;border:1px solid ${accent}44;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;color:${accent};font-size:13px;">▲<br><span>${item.votes||0}</span></button></div>
+    <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#111827;">${item.title||''}</div>${item.description?'<div style="font-size:13px;color:#6b7280;margin-top:4px;">'+item.description+'</div>':''}<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">${(item.tags||[]).map(t=>'<span style="font-size:11px;background:#f3f4f6;padding:2px 8px;border-radius:12px;color:#374151;">'+t+'</span>').join('')}</div></div></div>`;
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${brandName} Roadmap</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:-apple-system,Arial,sans-serif;color:#111827;}.container{max-width:800px;margin:0 auto;padding:24px 16px;}.header{background:linear-gradient(135deg,${accent},${accent}cc);padding:32px;border-radius:16px;color:#fff;margin-bottom:28px;}.header h1{font-size:28px;font-weight:800;margin-bottom:6px;}.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}.tab{padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid #e5e7eb;background:#fff;transition:all .15s;}.tab.active{background:${accent};color:#fff;border-color:${accent};}section{display:none;}.section.active{display:block;}h2{font-size:16px;font-weight:700;margin-bottom:12px;color:#374151;}</style></head>
+<body><div class="container">
+<div class="header"><div style="font-size:28px;margin-bottom:8px;">🗺</div><h1>${brandName} Roadmap</h1><p style="opacity:.85;">What we're building. Vote for what matters most.</p></div>
+<div class="tabs"><button class="tab active" onclick="showTab('planned')">📋 Planned (${planned.length})</button><button class="tab" onclick="showTab('progress')">🚀 In Progress (${inprogress.length})</button><button class="tab" onclick="showTab('shipped')">✅ Shipped (${shipped.length})</button></div>
+<section id="tab-planned" class="section active"><h2>Planned Features</h2>${planned.map(i=>card(i,true)).join('')||'<p style="color:#9ca3af;padding:20px;text-align:center;">No planned items yet.</p>'}</section>
+<section id="tab-progress" class="section"><h2>In Progress</h2>${inprogress.map(i=>card(i,false)).join('')||'<p style="color:#9ca3af;padding:20px;text-align:center;">Nothing in progress right now.</p>'}</section>
+<section id="tab-shipped" class="section"><h2>Recently Shipped</h2>${shipped.map(i=>'<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6;"><span style="font-size:18px;">✅</span><div><div style="font-size:14px;font-weight:600;">'+(i.title||'')+'</div><div style="font-size:12px;color:#9ca3af;">'+(i.shippedAt||'').split('T')[0]+'</div></div></div>').join('')||'<p style="color:#9ca3af;padding:20px;text-align:center;">Nothing shipped yet.</p>'}</section>
+</div>
+<script>function showTab(t){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.tab').forEach(s=>s.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');event.target.classList.add('active');}
+function voteItem(id,btn){fetch('/api/roadmap-vote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:'${req.params.slug}',id})}).then(r=>r.json()).then(d=>{if(d.success){const n=btn.querySelector('span');if(n)n.textContent=d.votes;btn.disabled=true;btn.style.opacity='.5';}else alert(d.error||'Already voted');});}</script>
+</body></html>`);
+});
+
+// Roadmap vote (public endpoint)
+app.post('/api/roadmap-vote',(req,res)=>{
+  const{slug,id}=req.body;
+  if(!slug||!id)return res.json({success:false,error:'Missing params'});
+  const db=readBrandDB(slug);
+  const idx=(db.roadmapItems||[]).findIndex(r=>r.id===id);
+  if(idx===-1)return res.json({success:false,error:'Not found'});
+  const ip=req.ip||'anon';
+  db.roadmapItems[idx].ipVoters=db.roadmapItems[idx].ipVoters||[];
+  if(db.roadmapItems[idx].ipVoters.includes(ip))return res.json({success:false,error:'Already voted from this device'});
+  db.roadmapItems[idx].ipVoters.push(ip);
+  db.roadmapItems[idx].votes=(db.roadmapItems[idx].votes||0)+1;
+  writeBrandDB(slug,db);
+  res.json({success:true,votes:db.roadmapItems[idx].votes});
+});
+
+// ── CUSTOMER PORTAL (/portal/:slug) ────────────────────────────────────────
+app.get('/portal/:slug',(req,res)=>res.sendFile(path.join(__dirname,'public','portal.html')));
+app.get('/portal/:slug/auth',(req,res)=>{
+  const db=readBrandDB(req.params.slug);
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===req.params.slug)||{};
+  res.json({success:true,brand:{name:brand.name,accentColor:brand.accentColor,logoUrl:brand.logoUrl}});
+});
+app.post('/portal/:slug/login',(req,res)=>{
+  const{email,otp}=req.body;const slug=req.params.slug;
+  if(!email)return res.json({success:false,error:'Email required'});
+  const db=readBrandDB(slug);
+  // Check if this email has tickets
+  const hasTickets=(db.tickets||[]).some(t=>t.from&&t.from.toLowerCase()===email.toLowerCase());
+  if(!otp){
+    // Send OTP
+    const otpCode=Math.floor(100000+Math.random()*900000).toString();
+    const portalOtps=global._portalOtps=global._portalOtps||{};
+    portalOtps[slug+'_'+email]=otpCode;setTimeout(()=>delete portalOtps[slug+'_'+email],600000);
+    sendBrandEmail(slug,email,'Your Resolvo Portal Login Code',`<p>Your one-time login code is: <strong style="font-size:24px;letter-spacing:4px;">${otpCode}</strong></p><p>Valid for 10 minutes.</p>`,'Login code: '+otpCode).catch(()=>{});
+    return res.json({success:true,otpSent:true});
+  }
+  // Verify OTP
+  const portalOtps=global._portalOtps||{};
+  const key=slug+'_'+email;
+  if(portalOtps[key]!==otp)return res.json({success:false,error:'Invalid or expired code'});
+  delete portalOtps[key];
+  const token=generateId('PTK');
+  global._portalTokens=global._portalTokens||{};
+  global._portalTokens[token]={email,slug,createdAt:Date.now()};
+  res.json({success:true,token,email});
+});
+app.get('/portal/:slug/tickets',(req,res)=>{
+  const token=req.headers['x-portal-token'];
+  const session=(global._portalTokens||{})[token];
+  if(!session||session.slug!==req.params.slug)return res.status(401).json({error:'Unauthorized'});
+  const db=readBrandDB(req.params.slug);
+  const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===session.email.toLowerCase())
+    .sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate))
+    .map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,resolvedDate:t.resolvedDate,threadCount:(t.thread||[]).length,csatRating:t.csatRating}));
+  res.json({success:true,tickets,email:session.email});
+});
+
+// ── EMBEDDABLE WIDGET (script tag) ─────────────────────────────────────────
+app.get('/widget/:slug/embed.js',(req,res)=>{
+  const slug=req.params.slug;
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+  const accent=brand.accentColor||'#10B981';const brandName=brand.name||'Support';
+  res.setHeader('Content-Type','application/javascript');
+  res.send(`
+(function(){
+  if(document.getElementById('resolvo-widget-btn'))return;
+  var btn=document.createElement('div');
+  btn.id='resolvo-widget-btn';
+  btn.innerHTML='💬';
+  btn.style.cssText='position:fixed;bottom:24px;right:24px;width:52px;height:52px;background:${accent};border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:99999;transition:all .2s;';
+  btn.onmouseover=function(){btn.style.transform='scale(1.1)';};
+  btn.onmouseout=function(){btn.style.transform='';};
+  var panel=document.createElement('div');
+  panel.id='resolvo-widget-panel';
+  panel.style.cssText='position:fixed;bottom:88px;right:24px;width:340px;height:480px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.15);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:-apple-system,Arial,sans-serif;';
+  panel.innerHTML='<div style="background:${accent};padding:16px 18px;color:#fff;"><div style="font-size:16px;font-weight:700;">${brandName} Support</div><div style="font-size:12px;opacity:.85;">We reply within 1h</div></div><div style="flex:1;padding:16px;overflow-y:auto;"><textarea id="rslv-msg" style="width:100%;height:80px;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px;font-size:13px;resize:none;margin-bottom:10px;" placeholder="Describe your issue..."></textarea><input id="rslv-email" style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:10px;" placeholder="Your email address"><button onclick="resolvoSubmit()" style="width:100%;background:${accent};color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">Send Message →</button><div id="rslv-success" style="display:none;text-align:center;padding:20px;color:#16a34a;font-weight:600;">✅ Message sent! We\'ll reply to your email.</div></div>';
+  document.body.appendChild(btn);document.body.appendChild(panel);
+  btn.onclick=function(){panel.style.display=panel.style.display==='none'?'flex':'none';};
+  window.resolvoSubmit=function(){
+    var msg=document.getElementById('rslv-msg').value.trim();
+    var email=document.getElementById('rslv-email').value.trim();
+    if(!msg||!email){alert('Please fill in both fields.');return;}
+    fetch('${BASE_URL}/api/widget/${slug}/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,email:email,url:window.location.href,userAgent:navigator.userAgent})})
+    .then(r=>r.json()).then(function(){document.getElementById('rslv-success').style.display='block';document.getElementById('rslv-msg').style.display='none';document.getElementById('rslv-email').style.display='none';document.querySelector('#resolvo-widget-panel button').style.display='none';});
+  };
+})();
+`);
+});
+
+// Widget ticket submission
+app.post('/api/widget/:slug/submit',(req,res)=>{
+  const{message,email,url,userAgent}=req.body;const slug=req.params.slug;
+  if(!message||!email)return res.json({success:false,error:'Missing fields'});
+  const db=readBrandDB(slug);
+  const ticketId=generateTicketId(slug);const now=new Date().toISOString();
+  db.tickets=db.tickets||[];
+  db.tickets.unshift({id:ticketId,subject:'Website Feedback: '+message.substring(0,60),from:email,fromName:email,status:'new',priority:'Medium',createdDate:now,lastActivity:now,source:'widget',tags:['widget'],thread:[{id:generateId('MSG'),type:'incoming',from:email,fromName:email,body:`${message}\n\n---\nPage: ${url||'unknown'}\nBrowser: ${(userAgent||'').substring(0,80)}`,timestamp:now}]});
+  writeBrandDB(slug,db);
+  res.json({success:true,ticketId});
+});
 app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ══════════════════════════════════════════════════════════════════════════════

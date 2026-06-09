@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#f5a623">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Resolvo — Engineering Issue System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -7834,7 +7838,7 @@ tbody tr.row-selected {
 
             <!-- Notification centre -->
             <div class="notif-bell-wrap" id="notifWrap" style="position:relative">
-              <button class="notif-bell-btn" id="notifBellBtn" onclick="Notif.toggle()" title="Notifications" aria-label="Toggle notifications panel" style="font-size:17px;">
+              <button class="notif-bell-btn" id="notifBellBtn" onclick="App._showNotifPanel();App._loadNotificationBell();" title="Notifications" aria-label="Toggle notifications panel" style="font-size:17px;position:relative;">
                 &#x1F514;
                 <span class="notif-count" id="notifCount" style="display:none">0</span>
               </button>
@@ -11229,6 +11233,9 @@ const App = {
     // Check SLA alerts
     this.checkSLAAlerts();
     setInterval(() => this.checkSLAAlerts(), 60000);
+    // Load in-app notifications
+    this._loadNotificationBell();
+    setInterval(() => this._loadNotificationBell(), 120000);
   },
 
   // ============================================================
@@ -15124,6 +15131,13 @@ const App = {
       {id:'queue-config',icon:'🔄',label:'Assignment Queue'},
       {id:'vip-config',icon:'⭐',label:'VIP Customers'},
       {id:'booking-config',icon:'📅',label:'Appointment Booking'},
+      {id:'knowledge-base',icon:'📖',label:'Knowledge Base'},
+      {id:'roadmap',icon:'🗺',label:'Roadmap'},
+      {id:'api-keys',icon:'🔑',label:'API Keys'},
+      {id:'two-fa',icon:'🔒',label:'Two-Factor Auth'},
+      {id:'approval-rules',icon:'✅',label:'Approval Workflows'},
+      {id:'sla-policies',icon:'📋',label:'SLA Policies'},
+      {id:'gdpr',icon:'🛡',label:'GDPR & Privacy'},
     ];
 
     var tabsHtml = TABS.map(function(t){
@@ -15373,21 +15387,22 @@ const App = {
               '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Contact your platform owner to change plan</div></div>'+
             '</div>'
           ])+
-          App._sSection('Feature Toggles',[
+          // Feature flags are OWNER-controlled — read only for brand admin
+          App._sSection('Feature Access',[
+            '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+
+              '🔐 <strong>Feature access is managed by your platform administrator.</strong> Contact them to enable or disable features for your account.'+
+            '</div>'+
             fGroups.map(function(g){
               return '<div style="margin-bottom:14px;">'+
                 '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:5px;">'+g.l+'</div>'+
                 g.f.map(function(k){
                   var on=flags[k]===true||flags[k]==='true';
-                  var locked=k in overrides;
                   return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;background:var(--bg-elevated);margin-bottom:3px;">'+
-                    '<div style="flex:1;">'+
+                    '<div style="flex:1;display:flex;align-items:center;gap:8px;">'+
+                      '<span style="font-size:16px;">'+(on?'✅':'⛔')+'</span>'+
                       '<span style="font-size:13px;color:var(--text-primary);">'+(fnm[k]||k)+'</span>'+
-                      (locked?'<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--accent-dim);color:var(--accent);margin-left:6px;">OWNER SET</span>':'')+
                     '</div>'+
-                    (locked
-                      ?'<span style="font-size:12px;font-weight:700;color:'+(on?'var(--low)':'var(--critical)')+';">'+(on?'On':'Off')+'</span>'
-                      :'<input type="checkbox"'+(on?' checked':'')+' onchange="App.toggleFeatureFlag(\''+k+'\',this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">')+
+                    '<span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:10px;background:'+(on?'var(--low-dim)':'var(--critical-dim)')+';color:'+(on?'var(--low)':'var(--critical)')+';">'+(on?'Enabled':'Disabled')+'</span>'+
                   '</div>';
                 }).join('')+
               '</div>';
@@ -15839,6 +15854,166 @@ const App = {
             '</div>'
           ])+
           '<div style="text-align:right;"><button onclick="App._saveBookingConfig()" class="btn-primary">Save Booking Config</button></div>';
+      }
+
+      // ── KNOWLEDGE BASE ────────────────────────────────────────────────────
+      else if (tid === 'knowledge-base') {
+        var kbr = await self.callAsync('getKBArticles',null,'');
+        var kbCats = await self.callAsync('getKBCategories');
+        var articles = (kbr&&kbr.articles)||[];
+        var cats = (kbCats&&kbCats.categories)||[];
+        content =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">📖 Knowledge Base</h3>'+
+            '<p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Public at: <code style="color:var(--accent);">'+location.origin+'/kb/'+((self.currentUser&&self.currentUser.brandSlug)||'your-brand')+'</code></p></div>'+
+            '<button onclick="App._showKBArticleEditor(null)" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Article</button>'+
+          '</div>'+
+          (articles.length===0?'<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text-dim);">No articles yet. Create your first FAQ article.</div>':
+          '<div style="display:flex;flex-direction:column;gap:8px;">'+
+            articles.map(function(a){
+              return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'+
+                '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(a.title)+'</div>'+
+                '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">👁 '+a.views+' views · '+(a.published?'<span style="color:var(--low);">Published</span>':'<span style="color:var(--medium);">Draft</span>')+'</div></div>'+
+                '<button onclick="App._showKBArticleEditor(\''+a.id+'\')" class="btn-secondary btn-sm">Edit</button>'+
+                '<button onclick="App.callAsync(\'deleteKBArticle\',\''+a.id+'\').then(()=>App.renderUnifiedSettings(\'knowledge-base\'))" class="btn-danger btn-sm">Delete</button>'+
+              '</div>';
+            }).join('')+
+          '</div>');
+      }
+
+      // ── ROADMAP ───────────────────────────────────────────────────────────
+      else if (tid === 'roadmap') {
+        var rmr = await self.callAsync('getRoadmapItems',null);
+        var items = (rmr&&rmr.items)||[];
+        var slug2 = (self.currentUser&&self.currentUser.brandSlug)||'your-brand';
+        content =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">🗺 Public Roadmap</h3>'+
+            '<p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Public at: <a href="/roadmap/'+slug2+'" target="_blank" style="color:var(--accent);">/roadmap/'+slug2+'</a></p></div>'+
+            '<button onclick="App._showRoadmapEditor(null)" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ Add Item</button>'+
+          '</div>'+
+          ['planned','in-progress','shipped'].map(function(status){
+            var statusItems=items.filter(function(i){return i.status===status;});
+            var statusLabel={planned:'📋 Planned',inprogress:'🚀 In Progress','in-progress':'🚀 In Progress',shipped:'✅ Shipped'}[status]||status;
+            return '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;">'+statusLabel+' ('+statusItems.length+')</div>'+
+              (statusItems.length?statusItems.map(function(item){
+                return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">'+
+                  '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(item.title||'')+'</div>'+
+                  '<div style="font-size:11px;color:var(--text-dim);">'+item.votes+' votes</div></div>'+
+                  '<button onclick="App._showRoadmapEditor(\''+item.id+'\')" class="btn-secondary btn-sm">Edit</button>'+
+                  '<button onclick="App.callAsync(\'deleteRoadmapItem\',\''+item.id+'\').then(()=>App.renderUnifiedSettings(\'roadmap\'))" class="btn-danger btn-sm">Del</button>'+
+                '</div>';
+              }).join(''):'<div style="font-size:12px;color:var(--text-dim);padding:8px;">None</div>')+
+            '</div>';
+          }).join('');
+      }
+
+      // ── API KEYS ──────────────────────────────────────────────────────────
+      else if (tid === 'api-keys') {
+        var akr = await self.callAsync('getApiKeys');
+        var keys = (akr&&akr.keys)||[];
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔑 API Keys</h3>'+
+          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Use API keys to integrate Resolvo with external tools. Keys have read/write permissions.</p>'+
+          '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+
+            '🔗 Base URL: <code style="color:var(--accent);">'+location.origin+'/api/v1/</code> · Pass key as <code style="color:var(--accent);">Authorization: Bearer YOUR_KEY</code>'+
+          '</div>'+
+          App._sSection('Your API Keys',[
+            '<button onclick="App._createApiKey()" class="btn-primary btn-sm" style="margin-bottom:12px;">+ Create New Key</button>'+
+            (keys.length?keys.map(function(k){
+              return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-elevated);border-radius:8px;margin-bottom:6px;">'+
+                '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(k.name)+'</div>'+
+                '<div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);">'+App._esc(k.key)+'</div></div>'+
+                '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:'+(k.active?'var(--low-dim)':'var(--critical-dim)')+';color:'+(k.active?'var(--low)':'var(--critical)')+';">'+(k.active?'Active':'Revoked')+'</span>'+
+                (k.active?'<button onclick="App.callAsync(\'revokeApiKey\',\''+k.id+'\').then(r=>{if(r&&r.success){App.showToast(\'Key revoked\',\'success\');App.renderUnifiedSettings(\'api-keys\');}else App.showToast(\'Failed\',\'error\');})" class="btn-danger btn-sm">Revoke</button>':'')+
+              '</div>';
+            }).join(''):'<div style="font-size:12px;color:var(--text-dim);">No API keys yet.</div>')
+          ]);
+      }
+
+      // ── TWO-FACTOR AUTH ───────────────────────────────────────────────────
+      else if (tid === 'two-fa') {
+        var tfar = await self.callAsync('get2FAStatus');
+        var tfaEnabled = tfar&&tfar.enabled;
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔒 Two-Factor Authentication</h3>'+
+          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Add an extra layer of security to your account.</p>'+
+          App._sSection('2FA Status',[
+            '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">'+
+              '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary);">Authenticator App</div>'+
+              '<div style="font-size:12px;color:var(--text-dim);">Google Authenticator, Authy, or any TOTP app</div></div>'+
+              '<span style="font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px;background:'+(tfaEnabled?'var(--low-dim)':'var(--bg-elevated)')+';color:'+(tfaEnabled?'var(--low)':'var(--text-muted)')+';">'+(tfaEnabled?'✅ Enabled':'Not enabled')+'</span>'+
+            '</div>'+
+            (!tfaEnabled?
+              '<button onclick="App._setup2FA()" class="btn-primary">Enable 2FA →</button>':
+              '<button onclick="App._disable2FA()" class="btn-danger">Disable 2FA</button>')
+          ]);
+      }
+
+      // ── APPROVAL WORKFLOWS ────────────────────────────────────────────────
+      else if (tid === 'approval-rules') {
+        var apr = await self.callAsync('getApprovalRules');
+        var aprRules = (apr&&apr.rules)||[];
+        var pending = await self.callAsync('getPendingApprovals');
+        var pendingList = (pending&&pending.approvals)||[];
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">✅ Approval Workflows</h3>'+
+          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Require approval before issues can be resolved.</p>'+
+          (pendingList.length?
+            '<div style="background:var(--medium-dim);border:1px solid var(--medium)44;border-radius:8px;padding:12px 14px;margin-bottom:14px;">'+
+              '<div style="font-size:12px;font-weight:700;color:var(--medium);margin-bottom:8px;">⏳ Pending Your Approval ('+pendingList.length+')</div>'+
+              pendingList.map(function(a){return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">'+
+                '<div style="flex:1;"><div style="font-size:12px;font-weight:600;color:var(--text-primary);">'+App._esc(a.id)+': '+App._esc((a.title||'').substring(0,50))+'</div>'+
+                '<div style="font-size:11px;color:var(--text-dim);">From: '+App._esc(a.requestedBy||'')+(a.note?' · '+App._esc(a.note.substring(0,40)):'')+'</div></div>'+
+                '<button onclick="App.callAsync(\'approveIssue\',\''+a.id+'\',true,\'\').then(r=>{if(r&&r.success){App.showToast(\'✅ Approved\',\'success\');App.renderUnifiedSettings(\'approval-rules\');}else App.showToast(r?.error||\'Failed\',\'error\');})" class="btn-primary btn-sm">Approve</button>'+
+                '<button onclick="App.callAsync(\'approveIssue\',\''+a.id+'\',false,prompt(\'Reason for rejection:\')??\'Rejected\').then(r=>{if(r&&r.success){App.showToast(\'Rejected\',\'success\');App.renderUnifiedSettings(\'approval-rules\');}else App.showToast(r?.error||\'Failed\',\'error\');})" class="btn-danger btn-sm">Reject</button>'+
+              '</div>';}).join('')+
+            '</div>':'');
+      }
+
+      // ── SLA POLICIES ──────────────────────────────────────────────────────
+      else if (tid === 'sla-policies') {
+        var slaPoliciesR = await self.callAsync('getSlaPolicies');
+        var slaPolicies = (slaPoliciesR&&slaPoliciesR.policies)||[];
+        content =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">📋 SLA Policies</h3>'+
+            '<p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Different SLA hours for different customer tiers or domains.</p></div>'+
+            '<button onclick="App._showSlaPolicyEditor(null)" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Policy</button>'+
+          '</div>'+
+          (slaPolicies.length===0?'<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text-dim);">No SLA policies. Default SLA from SLA & Workflow settings applies to everyone.</div>':
+          '<div style="display:flex;flex-direction:column;gap:8px;">'+
+            slaPolicies.map(function(p){
+              return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'+
+                '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(p.name)+'</div>'+
+                '<div style="font-size:11px;color:var(--text-dim);">'+(p.domain?'Domain: '+p.domain:p.tier?'Tier: '+p.tier:'All')+'</div></div>'+
+                '<div style="font-size:12px;color:var(--text-secondary);">Critical: '+p.critical+'h · High: '+p.high+'h</div>'+
+                '<button onclick="App.callAsync(\'deleteSlaPolicy\',\''+p.id+'\').then(()=>App.renderUnifiedSettings(\'sla-policies\'))" class="btn-danger btn-sm">Delete</button>'+
+              '</div>';
+            }).join('')+
+          '</div>');
+      }
+
+      // ── GDPR & PRIVACY ────────────────────────────────────────────────────
+      else if (tid === 'gdpr') {
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🛡 GDPR & Privacy</h3>'+
+          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Manage customer data rights and compliance.</p>'+
+          App._sSection('Right to Erasure',[
+            '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Permanently anonymize all data for a specific customer email address.</div>'+
+            '<div style="display:flex;gap:8px;align-items:flex-end;">'+
+              '<div style="flex:1;"><label class="form-label">Customer Email</label><input id="gdpr_email" class="form-input" placeholder="customer@company.com"></div>'+
+              '<button onclick="App._gdprErase()" class="btn-danger" style="padding:9px 16px;">Erase Data</button>'+
+            '</div>'+
+            '<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">⚠ This action is irreversible. All ticket data from this email will be anonymized.</div>'
+          ])+
+          App._sSection('Data Export (Customer)',[
+            '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Export all data held for a specific customer.</div>'+
+            '<div style="display:flex;gap:8px;align-items:flex-end;">'+
+              '<div style="flex:1;"><label class="form-label">Customer Email</label><input id="gdpr_export_email" class="form-input" placeholder="customer@company.com"></div>'+
+              '<button onclick="App._gdprExport()" class="btn-secondary">Export Data</button>'+
+            '</div>'
+          ]);
       }
 
     } catch(err) {
@@ -16671,6 +16846,198 @@ const App = {
     if(r&&r.success){btn.closest('div[style*="border-radius:7px"]')?.remove();App.showToast('Note deleted','success');}
   },
   _closeAllModals: function() { document.querySelectorAll('.modal-overlay').forEach(function(m){m.remove();}); },
+
+  // ── API KEYS ────────────────────────────────────────────────────────────────
+  _createApiKey: async function() {
+    var name = prompt('API Key name (e.g. "Zapier Integration"):');
+    if(!name)return;
+    var r = await App.callAsync('createApiKey', name, ['read','write']);
+    if(r&&r.success){
+      App.showToast('✅ Key created — save it now!', 'success');
+      alert('Your new API Key (save this — shown only once!):\n\n'+r.key+'\n\n'+r.warning);
+      App.renderUnifiedSettings('api-keys');
+    } else App.showToast('Failed: '+(r?.error||''), 'error');
+  },
+
+  // ── 2FA ─────────────────────────────────────────────────────────────────────
+  _setup2FA: async function() {
+    var r = await App.callAsync('setup2FA');
+    if(!r||!r.success){App.showToast('Failed: '+(r?.error||''),'error');return;}
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:420px">'+
+      '<div class="modal-header"><span class="modal-title">🔒 Enable Two-Factor Auth</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="text-align:center;">'+
+        '<p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">Scan this QR code with Google Authenticator or Authy</p>'+
+        '<img src="'+r.qrUrl+'" alt="QR Code" style="width:200px;height:200px;border-radius:8px;margin-bottom:12px;">'+
+        '<div style="font-size:11px;color:var(--text-dim);margin-bottom:14px;">Or enter manually: <code style="color:var(--accent);">'+r.secret+'</code></div>'+
+        '<div><label class="form-label">Enter 6-digit code to verify</label><input id="tfa_code" class="form-input" type="number" placeholder="123456" maxlength="6" style="text-align:center;font-size:18px;letter-spacing:6px;"></div>'+
+      '</div>'+
+      '<div class="modal-footer"><button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+      '<button class="btn-primary" onclick="App._verify2FA()">Verify & Enable</button></div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(function(){document.getElementById('tfa_code')?.focus();},100);
+  },
+  _verify2FA: async function() {
+    var code = document.getElementById('tfa_code')?.value?.trim();
+    if(!code){App.showToast('Enter the 6-digit code','warning');return;}
+    var r = await App.callAsync('verify2FA', code);
+    if(r&&r.success){App.showToast('✅ 2FA enabled successfully!','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderUnifiedSettings('two-fa');}
+    else App.showToast('Failed: '+(r?.error||'Invalid code'),'error');
+  },
+  _disable2FA: async function() {
+    var pwd = prompt('Enter your password to disable 2FA:');
+    if(!pwd)return;
+    var r = await App.callAsync('disable2FA', pwd);
+    if(r&&r.success){App.showToast('2FA disabled','success');App.renderUnifiedSettings('two-fa');}
+    else App.showToast('Failed: '+(r?.error||'Incorrect password'),'error');
+  },
+
+  // ── KNOWLEDGE BASE ───────────────────────────────────────────────────────────
+  _showKBArticleEditor: async function(id) {
+    var existing = null;
+    if(id){var kbr=await App.callAsync('getKBArticles',null,'');existing=(kbr&&kbr.articles||[]).find(function(a){return a.id===id;});}
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:600px">'+
+      '<div class="modal-header"><span class="modal-title">📖 '+(id?'Edit':'New')+' Article</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label class="form-label">Title *</label><input id="kb_title" class="form-input" value="'+App._esc(existing?.title||'')+'"></div>'+
+        '<div><label class="form-label">Content *</label><textarea id="kb_content" class="form-textarea" style="min-height:160px;">'+App._esc(existing?.content||'')+'</textarea></div>'+
+        '<div style="display:flex;gap:12px;"><div style="flex:1;"><label class="form-label">Category</label><input id="kb_cat" class="form-input" value="'+App._esc(existing?.category||'')+'" placeholder="e.g. Getting Started"></div>'+
+        '<div><label class="form-label">Status</label><select id="kb_pub" class="form-select"><option value="true" '+(existing?.published!==false?'selected':'')+'>Published</option><option value="false" '+(existing?.published===false?'selected':'')+'>Draft</option></select></div></div>'+
+      '</div>'+
+      '<div class="modal-footer"><button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+      '<button class="btn-primary" onclick="App._saveKBArticle(\''+  (id||'')+'\')">Save Article</button></div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _saveKBArticle: async function(id) {
+    var title = document.getElementById('kb_title')?.value?.trim();
+    var content = document.getElementById('kb_content')?.value?.trim();
+    var category = document.getElementById('kb_cat')?.value?.trim()||'General';
+    var published = document.getElementById('kb_pub')?.value === 'true';
+    if(!title||!content){App.showToast('Title and content required','warning');return;}
+    var r = await App.callAsync('saveKBArticle',{id:id||null,title,content,category,published});
+    if(r&&r.success){App.showToast('Article saved','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderUnifiedSettings('knowledge-base');}
+    else App.showToast('Failed','error');
+  },
+
+  // ── ROADMAP ──────────────────────────────────────────────────────────────────
+  _showRoadmapEditor: async function(id) {
+    var existing = null;
+    if(id){var rmr=await App.callAsync('getRoadmapItems',null);existing=(rmr&&rmr.items||[]).find(function(i){return i.id===id;});}
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:480px">'+
+      '<div class="modal-header"><span class="modal-title">🗺 '+(id?'Edit':'New')+' Roadmap Item</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label class="form-label">Title *</label><input id="rm_title" class="form-input" value="'+App._esc(existing?.title||'')+'"></div>'+
+        '<div><label class="form-label">Description</label><textarea id="rm_desc" class="form-textarea" style="min-height:80px;">'+App._esc(existing?.description||'')+'</textarea></div>'+
+        '<div style="display:flex;gap:12px;">'+
+          '<div style="flex:1;"><label class="form-label">Status</label><select id="rm_status" class="form-select">'+
+            ['planned','in-progress','shipped'].map(function(s){return '<option value="'+s+'"'+(existing?.status===s?' selected':'')+'>'+s+'</option>';}).join('')+
+          '</select></div>'+
+          '<div><label class="form-label">Public</label><select id="rm_public" class="form-select"><option value="true" '+(existing?.public!==false?'selected':'')+'>Yes</option><option value="false" '+(existing?.public===false?'selected':'')+'>No</option></select></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="modal-footer"><button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+      '<button class="btn-primary" onclick="App._saveRoadmapItem(\''+  (id||'')+'\')">Save</button></div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _saveRoadmapItem: async function(id) {
+    var title = document.getElementById('rm_title')?.value?.trim();
+    var description = document.getElementById('rm_desc')?.value?.trim()||'';
+    var status = document.getElementById('rm_status')?.value||'planned';
+    var isPublic = document.getElementById('rm_public')?.value !== 'false';
+    if(!title){App.showToast('Title required','warning');return;}
+    var r = await App.callAsync('saveRoadmapItem',{id:id||null,title,description,status,public:isPublic});
+    if(r&&r.success){App.showToast('Saved','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderUnifiedSettings('roadmap');}
+    else App.showToast('Failed','error');
+  },
+
+  // ── SLA POLICY ───────────────────────────────────────────────────────────────
+  _showSlaPolicyEditor: function(id) {
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:440px">'+
+      '<div class="modal-header"><span class="modal-title">📋 SLA Policy</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label class="form-label">Policy Name *</label><input id="slap_name" class="form-input" placeholder="e.g. Enterprise Tier"></div>'+
+        '<div><label class="form-label">Apply to Domain (optional)</label><input id="slap_domain" class="form-input" placeholder="enterprise.com"></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
+          '<div><label class="form-label">Critical (hours)</label><input type="number" id="slap_critical" class="form-input" value="2" min="1"></div>'+
+          '<div><label class="form-label">High (hours)</label><input type="number" id="slap_high" class="form-input" value="4" min="1"></div>'+
+          '<div><label class="form-label">Medium (hours)</label><input type="number" id="slap_medium" class="form-input" value="12" min="1"></div>'+
+          '<div><label class="form-label">Low (hours)</label><input type="number" id="slap_low" class="form-input" value="48" min="1"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="modal-footer"><button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+      '<button class="btn-primary" onclick="App._saveSlaPolicy()">Save Policy</button></div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _saveSlaPolicy: async function() {
+    var name = document.getElementById('slap_name')?.value?.trim();
+    var domain = document.getElementById('slap_domain')?.value?.trim()||'';
+    var critical = parseInt(document.getElementById('slap_critical')?.value||2);
+    var high = parseInt(document.getElementById('slap_high')?.value||4);
+    var medium = parseInt(document.getElementById('slap_medium')?.value||12);
+    var low = parseInt(document.getElementById('slap_low')?.value||48);
+    if(!name){App.showToast('Name required','warning');return;}
+    var r = await App.callAsync('saveSlaPolicy',{name,domain,critical,high,medium,low});
+    if(r&&r.success){App.showToast('SLA Policy saved','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderUnifiedSettings('sla-policies');}
+    else App.showToast('Failed','error');
+  },
+
+  // ── GDPR ─────────────────────────────────────────────────────────────────────
+  _gdprErase: async function() {
+    var email = document.getElementById('gdpr_email')?.value?.trim();
+    if(!email||!email.includes('@')){App.showToast('Enter a valid email','warning');return;}
+    if(!confirm('PERMANENTLY anonymize all data for '+email+'? This cannot be undone.'))return;
+    var r = await App.callAsync('gdprErasure', email);
+    if(r&&r.success){App.showToast('✅ '+r.erased+' records erased for '+email,'success');}
+    else App.showToast('Failed: '+(r?.error||''),'error');
+  },
+  _gdprExport: async function() {
+    var email = document.getElementById('gdpr_export_email')?.value?.trim();
+    if(!email||!email.includes('@')){App.showToast('Enter a valid email','warning');return;}
+    var r = await App.callAsync('gdprExport', email);
+    if(r&&r.success){
+      var blob = new Blob([JSON.stringify(r.data,null,2)],{type:'application/json'});
+      var a = document.createElement('a');a.href=URL.createObjectURL(blob);a.download='gdpr-export-'+email+'.json';a.click();
+      App.showToast('Data exported','success');
+    } else App.showToast('Failed','error');
+  },
+
+  // ── NOTIFICATION BELL ────────────────────────────────────────────────────────
+  _loadNotificationBell: async function() {
+    var r = await App.callAsync('getInAppNotifications');
+    var unread = (r&&r.unread)||0;
+    var bell = document.getElementById('notifBellBtn');
+    var badge = document.getElementById('notifBadge');
+    if(badge){badge.textContent=unread>0?unread:'';badge.style.display=unread>0?'':'none';}
+    // Store for panel
+    App._notifications = (r&&r.notifications)||[];
+  },
+  _showNotifPanel: function() {
+    var notes = App._notifications||[];
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:420px;max-height:80vh;">'+
+      '<div class="modal-header"><span class="modal-title">🔔 Notifications</span>'+
+        '<div style="display:flex;gap:8px;align-items:center;">'+
+          '<button onclick="App.callAsync(\'markAllNotificationsRead\').then(()=>{App._loadNotificationBell();this.closest(\'.modal-overlay\').remove();})" style="font-size:11px;color:var(--text-dim);background:none;border:none;cursor:pointer;">Mark all read</button>'+
+          '<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button>'+
+        '</div>'+
+      '</div>'+
+      '<div style="max-height:calc(80vh - 60px);overflow-y:auto;">'+
+      (notes.length===0?'<div style="padding:28px;text-align:center;color:var(--text-dim);">✅ All caught up!</div>':
+      notes.map(function(n){
+        return '<div style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:'+(n.read?'':'var(--accent-dim)')+';">'+
+          '<span style="font-size:18px;flex-shrink:0;">'+n.icon+'</span>'+
+          '<div style="flex:1;min-width:0;">'+
+            '<div style="font-size:13px;font-weight:'+(n.read?500:700)+';color:var(--text-primary);">'+App._esc(n.title)+'</div>'+
+            '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+App._esc(n.body||'')+'</div>'+
+            '<div style="font-size:10px;color:var(--text-dim);margin-top:3px;">'+((n.at||'').replace('T',' ').substring(0,16))+'</div>'+
+          '</div>'+
+          (n.issueId?'<button onclick="App.navigate(\'issue-detail\',{id:\''+n.issueId+'\'});this.closest(\'.modal-overlay\').remove();" style="font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--accent);cursor:pointer;flex-shrink:0;">View</button>':'')+'</div>';
+      }).join(''))+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
 
   _quickAddTeam: async function() {
     var name = (document.getElementById('newTeamName')||{}).value?.trim();
@@ -17699,6 +18066,10 @@ const App = {
       {id:'queue-report', icon:'🔄', label:'Queue Performance',     adminOnly:true},
       {id:'follow-ups',   icon:'⏰', label:'Follow-ups Due',         adminOnly:false},
       {id:'appointments', icon:'📅', label:'Appointments',           adminOnly:false},
+      {id:'impact',       icon:'💥', label:'Issue Impact',           adminOnly:true},
+      {id:'coaching',     icon:'🎯', label:'Agent Coaching',         adminOnly:true},
+      {id:'cost',         icon:'💰', label:'Cost Report',            adminOnly:true},
+      {id:'approvals',    icon:'✅', label:'Pending Approvals',      adminOnly:false},
     ].filter(function(t){return !t.adminOnly || isAdmin;});
 
     var tabsHtml = TABS.map(function(t){
@@ -18313,6 +18684,110 @@ const App = {
             }).join('')+
             (apts.length===0?'<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--text-dim);">No appointments yet. Enable booking in Settings → 📅 Appointment Booking.</td></tr>':'')+
             '</tbody></table></div>';
+      }
+
+      // ── ISSUE IMPACT SCORE ────────────────────────────────────────────────
+      else if (tid === 'impact') {
+        var ir = await self.callAsync('getTopImpactIssues', 20);
+        var issues3 = (ir&&ir.issues)||[];
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">💥 Issue Impact Scores</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Ranked by combined impact: priority + age + revenue + SLA breach</div></div>'+
+          '<div class="data-table-wrap"><table class="data-table"><thead><tr>'+
+            '<th>Issue</th><th>Priority</th><th>Impact Score</th><th>Age</th><th>Revenue</th><th>SLA</th>'+
+          '</tr></thead><tbody>'+
+          issues3.map(function(i){
+            var sc=i.impactScore>=80?'var(--critical)':i.impactScore>=50?'var(--medium)':'var(--low)';
+            var ageH=Math.round((Date.now()-new Date(i.createdDate).getTime())/3600000);
+            return '<tr onclick="App.navigate(\'issue-detail\',{id:\''+i.id+'\'})" style="cursor:pointer;">'+
+              '<td><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(i.title.substring(0,55))+'</div><div style="font-size:11px;color:var(--text-dim);">'+i.id+'</div></td>'+
+              '<td><span class="badge badge-'+i.priority.toLowerCase()+'">'+i.priority+'</span></td>'+
+              '<td><div style="display:flex;align-items:center;gap:8px;"><div style="width:60px;height:6px;background:var(--border);border-radius:3px;"><div style="width:'+i.impactScore+'%;height:6px;background:'+sc+';border-radius:3px;"></div></div><span style="font-size:13px;font-weight:800;color:'+sc+';">'+i.impactScore+'</span></div></td>'+
+              '<td style="font-size:12px;color:var(--text-secondary);">'+(ageH<24?ageH+'h':Math.floor(ageH/24)+'d')+'</td>'+
+              '<td style="font-size:12px;color:var(--text-secondary);">'+(i.revenueImpact?'₹'+i.revenueImpact.toLocaleString():'—')+'</td>'+
+              '<td>'+(new Date()>new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000)?'<span style="color:var(--critical);font-size:11px;font-weight:700;">BREACHED</span>':'<span style="color:var(--low);font-size:11px;">OK</span>')+'</td>'+
+            '</tr>';
+          }).join('')+
+          (issues3.length===0?'<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-dim);">No open issues found.</td></tr>':'')+
+          '</tbody></table></div>';
+      }
+
+      // ── AGENT COACHING ────────────────────────────────────────────────────
+      else if (tid === 'coaching') {
+        var cr = await self.callAsync('getAgentCoachingData');
+        var coaching = (cr&&cr.coaching)||[];
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">🎯 Agent Coaching</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Performance insights and coaching recommendations per agent</div></div>'+
+          '<div style="display:flex;flex-direction:column;gap:14px;">'+
+          coaching.map(function(a){
+            return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;">'+
+              '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">'+
+                '<div><div style="font-size:15px;font-weight:700;color:var(--text-primary);">'+App._esc(a.name)+'</div>'+
+                '<div style="font-size:12px;color:var(--text-dim);">'+App._esc(a.role||'')+'</div></div>'+
+                '<div style="display:flex;gap:10px;text-align:center;">'+
+                  '<div><div style="font-size:18px;font-weight:900;color:'+(a.avgCSAT&&a.avgCSAT>=80?'var(--low)':a.avgCSAT?'var(--medium)':'var(--text-dim)')+';">'+(a.avgCSAT!=null?a.avgCSAT+'%':'—')+'</div><div style="font-size:10px;color:var(--text-dim);">CSAT</div></div>'+
+                  '<div><div style="font-size:18px;font-weight:900;color:'+(a.avgFirstResponseMin&&a.avgFirstResponseMin<=60?'var(--low)':a.avgFirstResponseMin?'var(--medium)':'var(--text-dim)')+';">'+(a.avgFirstResponseMin!=null?(a.avgFirstResponseMin<60?a.avgFirstResponseMin+'m':Math.round(a.avgFirstResponseMin/60*10)/10+'h'):'—')+'</div><div style="font-size:10px;color:var(--text-dim);">FRT</div></div>'+
+                  '<div><div style="font-size:18px;font-weight:900;color:var(--accent);">'+a.ticketsResolved+'</div><div style="font-size:10px;color:var(--text-dim);">Resolved</div></div>'+
+                '</div>'+
+              '</div>'+
+              (a.insights&&a.insights.length?'<div style="display:flex;flex-direction:column;gap:5px;">'+
+                a.insights.map(function(ins){return '<div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:'+(ins.type==='good'?'var(--low)':'var(--medium)')+';">'+
+                  '<span>'+(ins.type==='good'?'✅':'⚠')+'</span><span>'+App._esc(ins.text)+'</span></div>';}).join('')+
+              '</div>':'')+
+            '</div>';
+          }).join('')+
+          (coaching.length===0?'<div style="text-align:center;padding:28px;color:var(--text-dim);">No agent data yet.</div>':'');
+      }
+
+      // ── COST REPORT ───────────────────────────────────────────────────────
+      else if (tid === 'cost') {
+        var rate = App._costRate||500;
+        var costR = await self.callAsync('getCostReport', rate, rptFilters.dateFrom||'', rptFilters.dateTo||'');
+        var cost = costR||{};
+        reportEl.innerHTML =
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">'+
+            '<div><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">💰 Cost Report</h2>'+
+            '<div style="font-size:12px;color:var(--text-muted);">Support cost based on time logs × hourly rate</div></div>'+
+            '<div style="display:flex;align-items:center;gap:8px;">'+
+              '<label style="font-size:12px;color:var(--text-dim);">₹/hour:</label>'+
+              '<input type="number" id="costRate" class="filter-select" value="'+rate+'" style="width:80px;" onchange="App._costRate=parseInt(this.value)||500;App.renderReports(\'cost\')">'+
+            '</div>'+
+          '</div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">'+
+            statCard('⏱','Total Hours',(cost.totalHours||0)+'h','logged in period','var(--accent)')+
+            statCard('💰','Total Cost','₹'+((cost.totalCost||0).toLocaleString()),'at ₹'+rate+'/h','var(--low)')+
+          '</div>'+
+          (cost.byModule&&cost.byModule.length?
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">'+
+          '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Agent</th><th>Hours</th><th>Cost</th></tr></thead><tbody>'+
+          (cost.byUser||[]).map(function(u){return '<tr><td style="font-size:12px;">'+App._esc(u.email.split('@')[0])+'</td><td style="font-size:12px;">'+u.hours+'h</td><td style="font-size:12px;font-weight:700;color:var(--accent);">₹'+u.cost.toLocaleString()+'</td></tr>';}).join('')+
+          '</tbody></table></div>'+
+          '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Module</th><th>Hours</th><th>Cost</th></tr></thead><tbody>'+
+          (cost.byModule||[]).map(function(m){return '<tr><td style="font-size:12px;">'+App._esc(m.module)+'</td><td style="font-size:12px;">'+m.hours+'h</td><td style="font-size:12px;font-weight:700;color:var(--accent);">₹'+m.cost.toLocaleString()+'</td></tr>';}).join('')+
+          '</tbody></table></div></div>':
+          '<div style="text-align:center;padding:28px;color:var(--text-dim);">No time logs found. Log time on issues to see cost breakdown.</div>');
+      }
+
+      // ── PENDING APPROVALS ─────────────────────────────────────────────────
+      else if (tid === 'approvals') {
+        var par = await self.callAsync('getPendingApprovals');
+        var approvals = (par&&par.approvals)||[];
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">✅ Pending Approvals</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Issues awaiting your approval before they can be resolved</div></div>'+
+          (approvals.length===0?App._emptyState('✅','No pending approvals','All issues are up to date. Nothing needs your approval right now.','',''):'<div style="display:flex;flex-direction:column;gap:10px;">'+
+          approvals.map(function(a){
+            return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:flex-start;gap:14px;">'+
+              '<div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--text-primary);">'+App._esc(a.title||'')+'</div>'+
+              '<div style="font-size:12px;color:var(--text-dim);margin-top:3px;">'+App._esc(a.id)+' · Requested by '+App._esc(a.requestedBy||'')+(a.note?' · "'+App._esc(a.note.substring(0,60))+'"':'')+'</div></div>'+
+              '<div style="display:flex;gap:6px;flex-shrink:0;">'+
+                '<button onclick="App.callAsync(\'approveIssue\',\''+a.id+'\',true,\'\').then(r=>{if(r&&r.success){App.showToast(\'✅ Approved\',\'success\');App.renderReports(\'approvals\');}else App.showToast(r?.error||\'Failed\',\'error\');})" class="btn-primary btn-sm">✅ Approve</button>'+
+                '<button onclick="App.callAsync(\'approveIssue\',\''+a.id+'\',false,prompt(\'Reason:\')??\'Rejected\').then(r=>{if(r&&r.success){App.showToast(\'Rejected\',\'success\');App.renderReports(\'approvals\');}else App.showToast(r?.error||\'Failed\',\'error\');})" class="btn-danger btn-sm">❌ Reject</button>'+
+              '</div>'+
+            '</div>';
+          }).join('')+
+          '</div>');
       }
 
     } catch(err) {
