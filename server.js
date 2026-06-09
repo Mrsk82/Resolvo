@@ -43,7 +43,13 @@ function getSessionUser(req){
 }
 
 // ── Password reset tokens (in-memory, 1h TTL) ─────────────────────────────────
-const pwdResetTokens={}; // { token: { email, brandSlug, expiresAt } }
+// Password reset tokens — stored in owner.json so they survive server restarts
+// DB CHANGE: adds owner.pwdResetTokens — backward safe
+function getPwdResetTokens(){const o=readOwner();return o.pwdResetTokens||{};}
+function savePwdResetToken(token,data){const o=readOwner();o.pwdResetTokens=o.pwdResetTokens||{};o.pwdResetTokens[token]=data;// Clean expired tokens
+Object.keys(o.pwdResetTokens).forEach(k=>{if(o.pwdResetTokens[k].expiresAt<Date.now())delete o.pwdResetTokens[k];});writeOwner(o);}
+function deletePwdResetToken(token){const o=readOwner();if(o.pwdResetTokens)delete o.pwdResetTokens[token];writeOwner(o);}
+const pwdResetTokens={}; // kept for legacy compat
 
 // ── Webhook helper ─────────────────────────────────────────────────────────────
 async function fireWebhook(url,payload){
@@ -288,7 +294,8 @@ app.post('/api/forgot-password',async(req,res)=>{
     const user=(db.users||[]).find(u=>u.email===email&&u.active);
     if(!user)continue;
     const resetToken=uuidv4();
-    pwdResetTokens[resetToken]={email,brandSlug:brand.slug,expiresAt:Date.now()+3600000};
+    // Store in owner.json so token survives server restarts
+    savePwdResetToken(resetToken,{email,brandSlug:brand.slug,expiresAt:Date.now()+3600000});
     const resetUrl=`${BASE_URL}/reset-password?token=${resetToken}`;
     await sendBrandEmail(brand.slug,email,'Reset Your Password — '+brand.name,
       `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:40px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,#f5a623,#ff6b35);padding:40px;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">🔑</div><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Password Reset</h1><p style="margin:10px 0 0;color:rgba(255,255,255,0.85);">Click below to set a new password. Link expires in 1 hour.</p></div><div style="padding:32px 40px;"><p style="color:#374151;">Hi <strong>${user.name||user.email}</strong>, we received a request to reset your password for <strong>${brand.name}</strong>.</p><div style="text-align:center;margin:24px 0;"><a href="${resetUrl}" style="display:inline-block;padding:14px 44px;border-radius:10px;background:#f5a623;color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Reset Password →</a></div><p style="font-size:12px;color:#9ca3af;">If you didn't request this, ignore this email. Your password won't change.</p><p style="font-size:11px;color:#d1d5db;word-break:break-all;">Link: ${resetUrl}</p></div></div></body></html>`,
@@ -304,16 +311,23 @@ app.post('/api/forgot-password',async(req,res)=>{
 app.post('/api/reset-password',(req,res)=>{
   const{token,newPassword}=req.body;
   if(!token||!newPassword||newPassword.length<6)return res.json({success:false,error:'Token and new password (min 6 chars) required.'});
-  const entry=pwdResetTokens[token];
-  if(!entry||Date.now()>entry.expiresAt){delete pwdResetTokens[token];return res.json({success:false,error:'Reset link expired or invalid.'});}
+  // Check both in-memory (legacy) and persistent storage
+  const entry=pwdResetTokens[token]||getPwdResetTokens()[token];
+  if(!entry||Date.now()>entry.expiresAt){
+    delete pwdResetTokens[token];
+    deletePwdResetToken(token);
+    return res.json({success:false,error:'Reset link expired or invalid. Please request a new one.'});
+  }
   const db=readBrandDB(entry.brandSlug);
   const idx=(db.users||[]).findIndex(u=>u.email===entry.email);
   if(idx<0)return res.json({success:false,error:'User not found.'});
   db.users[idx].passwordHash=hashPwd(newPassword);
   db.users[idx].mustChangePassword=false;
+  db.users[idx].firstLogin=false;
   writeBrandDB(entry.brandSlug,db);
   delete pwdResetTokens[token];
-  res.json({success:true,message:'Password updated. You can now log in.'});
+  deletePwdResetToken(token);
+  res.json({success:true,message:'Password updated successfully. You can now log in.'});
 });
 
 // ── Brand invitation link ──────────────────────────────────────────────────────
@@ -4145,6 +4159,9 @@ app.post('/api/widget/:slug/submit',(req,res)=>{
   writeBrandDB(slug,db);
   res.json({success:true,ticketId});
 });
+// Reset password page — serve index.html so SPA handles the token
+app.get('/reset-password',(req,res)=>res.sendFile('index.html',{root:path.join(__dirname,'public')}));
+app.get('/join',(req,res)=>res.sendFile('index.html',{root:path.join(__dirname,'public')}));
 app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ══════════════════════════════════════════════════════════════════════════════
