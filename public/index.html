@@ -9349,30 +9349,67 @@ const App = {
   },
 
   _showForgotPassword: function() {
-    var html = `<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:380px">
-      <div class="modal-header"><span class="modal-title">🔑 Forgot Password</span><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button></div>
-      <div class="modal-body">
-        <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">Enter your email and we'll send you a reset link.</p>
-        <div class="form-group"><label class="form-label">Email Address</label><input id="forgotEmail" type="email" class="form-input" placeholder="your@email.com"></div>
-        <div id="forgotMsg" style="display:none;padding:10px;border-radius:6px;font-size:12px;margin-top:8px;"></div>
+    // z-index 99999 — must be above login screen (z-index:9999)
+    var html = `<div class="modal-overlay" style="z-index:99999!important;" onclick="if(event.target===this)this.remove()">
+      <div class="modal" style="max-width:400px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="background:linear-gradient(135deg,#f5a623,#ff6b35);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#fff;">🔑 Forgot Password</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">We'll send a reset link to your email</div>
+          </div>
+          <button onclick="this.closest('.modal-overlay').remove()" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;color:#fff;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:24px;">
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Email Address</label>
+            <input id="forgotEmail" type="email" placeholder="your@email.com" style="width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#e5e7eb'">
+          </div>
+          <div id="forgotMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+          <button onclick="App._submitForgotPassword()" id="forgotBtn" style="width:100%;padding:12px;border-radius:10px;background:#f5a623;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Send Reset Link →</button>
+          <button onclick="this.closest('.modal-overlay').remove()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:none;border:1px solid #e5e7eb;font-size:13px;cursor:pointer;color:#6b7280;font-family:inherit;">Cancel</button>
+        </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-        <button class="btn-primary" onclick="App._submitForgotPassword()">Send Reset Link</button>
-      </div>
-    </div></div>`;
+    </div>`;
     document.body.insertAdjacentHTML('beforeend', html);
     setTimeout(() => { const el = document.getElementById('forgotEmail'); if(el) el.focus(); }, 100);
+    // Allow Enter key
+    setTimeout(() => {
+      const input = document.getElementById('forgotEmail');
+      if(input) input.addEventListener('keydown', e => { if(e.key==='Enter') App._submitForgotPassword(); });
+    }, 150);
   },
 
   _submitForgotPassword: async function() {
     var email = (document.getElementById('forgotEmail')||{}).value?.trim();
     var msgEl = document.getElementById('forgotMsg');
-    if (!email) { if(msgEl){msgEl.style.display='block';msgEl.style.background='#fef2f2';msgEl.style.color='#dc2626';msgEl.textContent='Enter your email.';} return; }
+    var btn = document.getElementById('forgotBtn');
+    if (!email || !email.includes('@')) {
+      if(msgEl){msgEl.style.display='block';msgEl.style.background='#fef2f2';msgEl.style.border='1px solid #fecaca';msgEl.style.color='#dc2626';msgEl.textContent='Please enter a valid email address.';}
+      return;
+    }
+    if(btn){btn.textContent='Sending...';btn.disabled=true;}
     try {
-      var r = await fetch('/api/forgot-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email}) }).then(x=>x.json());
-      if(msgEl){msgEl.style.display='block';msgEl.style.background=r.success?'#d1fae5':'#fef2f2';msgEl.style.color=r.success?'#065f46':'#dc2626';msgEl.textContent=r.message||r.error||'Done';}
-    } catch(e) { if(msgEl){msgEl.style.display='block';msgEl.textContent='Error: '+e.message;} }
+      var r = await fetch('/api/forgot-password', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email})
+      }).then(x=>x.json());
+      if(msgEl){
+        msgEl.style.display='block';
+        if(r.success){
+          msgEl.style.background='#d1fae5';msgEl.style.border='1px solid #6ee7b7';msgEl.style.color='#065f46';
+          msgEl.textContent='✅ Reset link sent! Check your email inbox (and spam folder).';
+          if(btn){btn.textContent='Email Sent ✓';btn.style.background='#10B981';}
+        } else {
+          msgEl.style.background='#fef2f2';msgEl.style.border='1px solid #fecaca';msgEl.style.color='#dc2626';
+          msgEl.textContent=r.error||'Something went wrong. Try again.';
+          if(btn){btn.textContent='Send Reset Link →';btn.disabled=false;}
+        }
+      }
+    } catch(e) {
+      if(msgEl){msgEl.style.display='block';msgEl.style.background='#fef2f2';msgEl.style.color='#dc2626';msgEl.textContent='Network error. Please try again.';}
+      if(btn){btn.textContent='Send Reset Link →';btn.disabled=false;}
+    }
   },
 
   _showMustChangePassword: function() {
