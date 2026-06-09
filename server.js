@@ -148,10 +148,26 @@ function getMailer(){
   try{const nm=require('nodemailer');_mailer=nm.createTransport({service:'gmail',auth:{user,pass}});console.log('[Email] Ready:',user);return _mailer;}
   catch(e){console.error('[Email] Failed:',e.message);return null;}
 }
+// Owner FROM address — always shows contact@resolvogroup.com
+// regardless of which Gmail account is actually sending
+const OWNER_FROM_EMAIL = process.env.OWNER_EMAIL || 'contact@resolvogroup.com';
+const OWNER_FROM = `"Resolvo" <${OWNER_FROM_EMAIL}>`;
+
 async function sendEmail(to,subject,html,text,fromOverride){
   const t=getMailer();if(!t){console.log('[Email] SKIPPED:',to);return;}
-  const fromAddr=fromOverride||`"Resolvo" <${process.env.EMAIL_USER}>`;
-  try{await t.sendMail({from:fromAddr,to,subject,text:text||subject,html});console.log('[Email] ✓:',to);}
+  // Always show contact@resolvogroup.com as sender for owner emails
+  const fromAddr=fromOverride||OWNER_FROM;
+  try{
+    await t.sendMail({
+      from:fromAddr,
+      to,
+      subject,
+      text:text||subject,
+      html,
+      replyTo:OWNER_FROM_EMAIL // replies go to contact@resolvogroup.com
+    });
+    console.log('[Email] ✓:',to);
+  }
   catch(e){console.error('[Email] ✗',e.message);_mailer=null;}
 }
 // Feature A: Per-brand mailer — uses brand's own SMTP email if configured
