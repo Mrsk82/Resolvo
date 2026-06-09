@@ -14,52 +14,306 @@
    ============================================================ */
 
 :root {
+  /* ── COLORS ── */
   --bg-base: #0d0e14;
   --bg-surface: #13141d;
   --bg-card: #1a1b27;
   --bg-elevated: #1f2133;
   --bg-hover: #252740;
-  
+
   --accent: #f5a623;
-  --accent-dim: rgba(245, 166, 35, 0.15);
-  --accent-glow: rgba(245, 166, 35, 0.4);
-  
-  --critical: #ff4757;
-  --critical-dim: rgba(255, 71, 87, 0.15);
-  --high: #ff6b35;
-  --high-dim: rgba(255, 107, 53, 0.15);
-  --medium: #f5a623;
-  --medium-dim: rgba(245, 166, 35, 0.15);
-  --low: #2ed573;
-  --low-dim: rgba(46, 213, 115, 0.15);
-  
-  --status-open: #a29bfe;
-  --status-ack: #74b9ff;
-  --status-progress: #f5a623;
-  --status-testing: #fd79a8;
-  --status-resolved: #2ed573;
-  --status-closed: #636e72;
+  --accent-dim: rgba(245,166,35,0.15);
+  --accent-glow: rgba(245,166,35,0.4);
+
+  --critical: #ff4757; --critical-dim: rgba(255,71,87,0.12);
+  --high: #ff6b35;    --high-dim: rgba(255,107,53,0.12);
+  --medium: #f5a623;  --medium-dim: rgba(245,166,35,0.12);
+  --low: #2ed573;     --low-dim: rgba(46,213,115,0.12);
+
+  --status-open: #a29bfe; --status-ack: #74b9ff;
+  --status-progress: #f5a623; --status-testing: #fd79a8;
+  --status-resolved: #2ed573; --status-closed: #636e72;
   --status-blocked: #ff4757;
-  
-  --text-primary: #e8eaf6;
-  --text-secondary: #9fa8da;
-  --text-muted: #5c6bc0;
-  --text-dim: #3d4574;
-  
+
+  --text-primary: #e8eaf6; --text-secondary: #9fa8da;
+  --text-muted: #5c6bc0;   --text-dim: #3d4574;
+
   --border: rgba(255,255,255,0.06);
-  --border-accent: rgba(245, 166, 35, 0.3);
-  
+  --border-accent: rgba(245,166,35,0.3);
+
+  /* ── LAYOUT ── */
   --sidebar-width: 240px;
-  --topbar-height: 64px;
-  
+  --topbar-height: 60px;
+  --content-max: 1280px;
+
+  /* ── TYPOGRAPHY SCALE (6 sizes only) ── */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   15px;
+  --text-lg:   18px;
+  --text-xl:   24px;
+  --text-2xl:  32px;
   --font-display: 'Bricolage Grotesque', sans-serif;
   --font-mono: 'DM Mono', monospace;
-  
+
+  /* ── SPACING SCALE ── */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-5: 20px; --space-6: 24px;
+  --space-8: 32px; --space-10: 40px;
+
+  /* ── BORDER RADIUS ── */
+  --radius-sm: 5px;
   --radius: 8px;
+  --radius-md: 10px;
   --radius-lg: 14px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  --shadow-accent: 0 4px 24px rgba(245, 166, 35, 0.15);
+  --radius-xl: 18px;
+
+  /* ── SHADOWS ── */
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.2);
+  --shadow: 0 4px 16px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
+  --shadow-accent: 0 4px 24px rgba(245,166,35,0.15);
+
+  /* ── Z-INDEX LAYERS ── */
+  --z-base: 1;
+  --z-sticky: 50;
+  --z-sidebar: 100;
+  --z-topbar: 110;
+  --z-dropdown: 200;
+  --z-modal: 500;
+  --z-toast: 600;
+  --z-loading: 900;
 }
+
+/* ============================================================
+   DESIGN SYSTEM PATCH — Applied globally
+   Fixes typography, spacing, buttons, cards, z-index, focus,
+   responsive, skeleton loading, empty states
+   ============================================================ */
+
+/* ── Z-INDEX SYSTEM FIX ── */
+.sidebar { z-index: var(--z-sidebar) !important; }
+.topbar  { z-index: var(--z-topbar) !important; position: sticky; top: 0; }
+.modal-overlay, #modal { z-index: var(--z-modal) !important; }
+.toast-container { z-index: var(--z-toast) !important; }
+#loading-screen { z-index: var(--z-loading) !important; }
+.theme-picker { z-index: var(--z-dropdown); }
+.cmd-palette-overlay { z-index: var(--z-modal); }
+.search-backdrop { z-index: calc(var(--z-modal) - 1); }
+.fab-btn, .fab { z-index: var(--z-sticky); }
+.context-menu { z-index: var(--z-dropdown); }
+.notif-panel { z-index: var(--z-dropdown); }
+.tooltip { z-index: var(--z-toast); }
+
+/* ── TYPOGRAPHY SYSTEM ── */
+.text-xs   { font-size: var(--text-xs);   }
+.text-sm   { font-size: var(--text-sm);   }
+.text-base { font-size: var(--text-base); }
+.text-md   { font-size: var(--text-md);   }
+.text-lg   { font-size: var(--text-lg);   }
+.text-xl   { font-size: var(--text-xl);   }
+.text-2xl  { font-size: var(--text-2xl);  }
+.font-mono { font-family: var(--font-mono); }
+
+/* Globally consistent page title */
+.page-title { font-size: var(--text-lg) !important; font-weight: 700 !important; letter-spacing: -0.3px; }
+.page-subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-top: 2px; }
+
+/* Section headers - consistent everywhere */
+.section-header { font-size: var(--text-md); font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-4); }
+.section-label  { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+
+/* ── BUTTON SYSTEM (3 variants, consistent padding) ── */
+.btn-primary, .btn-secondary, .btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-weight: 600; cursor: pointer; border-radius: var(--radius);
+  transition: all 0.15s ease; white-space: nowrap; font-family: inherit;
+  font-size: var(--text-base); line-height: 1;
+}
+.btn-primary   { padding: 9px 18px; background: var(--accent); color: #0d0e14; border: none; }
+.btn-primary:hover  { opacity: 0.9; transform: translateY(-1px); box-shadow: var(--shadow-accent); }
+.btn-secondary { padding: 8px 16px; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.btn-danger    { padding: 8px 16px; background: var(--critical-dim); color: var(--critical); border: 1px solid transparent; }
+.btn-danger:hover { background: var(--critical-dim); border-color: var(--critical); }
+.btn-sm { padding: 5px 11px !important; font-size: var(--text-sm) !important; }
+.btn-xs { padding: 3px 8px !important;  font-size: var(--text-xs) !important; }
+
+/* Focus — keyboard accessibility */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ── CARD SYSTEM (2 sizes) ── */
+.card       { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); }
+.card-sm    { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); }
+.card-hover { transition: border-color 0.15s, box-shadow 0.15s; }
+.card-hover:hover { border-color: var(--accent); box-shadow: var(--shadow-accent); }
+
+/* ── CONTENT LAYOUT ── */
+.content-area, .main-content .content-area { max-width: var(--content-max); }
+.page-container { padding: var(--space-6); max-width: var(--content-max); }
+
+/* ── ISSUE DETAIL GRID (was missing CSS) ── */
+.issue-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--space-4);
+  align-items: start;
+  min-height: 0;
+}
+@media (max-width: 1100px) {
+  .issue-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* ── SKELETON LOADING STATES ── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius);
+}
+.skeleton-text  { height: 13px; width: 100%; margin-bottom: 8px; }
+.skeleton-title { height: 20px; width: 60%; margin-bottom: 12px; }
+.skeleton-card  { height: 80px; width: 100%; margin-bottom: 12px; }
+.skeleton-row   { display: flex; gap: 12px; margin-bottom: 12px; }
+.skeleton-avatar{ width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── EMPTY STATES ── */
+.empty-state-v2 {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: var(--space-10) var(--space-6); text-align: center; gap: var(--space-3);
+}
+.empty-state-v2 .empty-icon { font-size: 48px; margin-bottom: var(--space-2); opacity: 0.6; }
+.empty-state-v2 .empty-title { font-size: var(--text-lg); font-weight: 700; color: var(--text-secondary); }
+.empty-state-v2 .empty-sub   { font-size: var(--text-sm); color: var(--text-dim); max-width: 360px; line-height: 1.6; }
+
+/* ── BADGE SYSTEM (using CSS vars, not hardcoded colors) ── */
+.badge        { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: var(--text-xs); font-weight: 700; white-space: nowrap; }
+.badge-critical  { background: var(--critical-dim);  color: var(--critical); }
+.badge-high      { background: var(--high-dim);      color: var(--high); }
+.badge-medium    { background: var(--medium-dim);    color: var(--medium); }
+.badge-low       { background: var(--low-dim);       color: var(--low); }
+.badge-accent    { background: var(--accent-dim);    color: var(--accent); }
+.badge-muted     { background: var(--bg-elevated);   color: var(--text-muted); }
+
+/* ── FORM SYSTEM ── */
+.form-group  { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-4); }
+.form-label  { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+.form-input, .form-select, .form-textarea {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text-primary); font-size: var(--text-base); font-family: inherit;
+  padding: 9px 13px; width: 100%; transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.form-textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+
+/* ── TABLE SYSTEM ── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  padding: 10px 14px; text-align: left; font-size: var(--text-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.data-table td {
+  padding: 11px 14px; border-bottom: 1px solid var(--border);
+  font-size: var(--text-base); color: var(--text-secondary); vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--bg-hover); transition: background 0.1s; }
+.data-table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; overflow-x: auto; }
+
+/* ── STAT CARD SYSTEM ── */
+.stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); text-align: center; position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); opacity: 0.6; }
+.stat-card .stat-n { font-size: var(--text-2xl); font-weight: 900; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+.stat-card .stat-l { font-size: var(--text-xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.stat-card .stat-sub { font-size: var(--text-xs); color: var(--text-dim); margin-top: 4px; }
+
+/* ── RESPONSIVE — Tablet + Mobile ── */
+@media (max-width: 1200px) {
+  :root { --sidebar-width: 220px; }
+  .page-container { padding: var(--space-4); }
+}
+@media (max-width: 900px) {
+  :root { --sidebar-width: 200px; }
+  .issue-detail-grid { grid-template-columns: 1fr; }
+  .kpi-grid-modern { grid-template-columns: repeat(2,1fr) !important; }
+  .data-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 768px) {
+  :root { --sidebar-width: 0px; --topbar-height: 56px; }
+  .sidebar { transform: translateX(-100%); width: 240px !important; z-index: var(--z-modal); transition: transform 0.25s ease; }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .main-content { margin-left: 0 !important; }
+  .topbar { padding: 0 var(--space-3); }
+  .page-container { padding: var(--space-3); }
+  .kpi-grid-modern { grid-template-columns: 1fr 1fr !important; gap: var(--space-2) !important; }
+  .stat-card .stat-n { font-size: var(--text-xl); }
+  .data-table th, .data-table td { padding: 8px 10px; }
+  .btn-primary, .btn-secondary { padding: 8px 14px; }
+  .modal { margin: var(--space-3); max-width: calc(100vw - 24px) !important; }
+  .content-area { padding: var(--space-3) !important; }
+}
+@media (max-width: 480px) {
+  .kpi-grid-modern { grid-template-columns: 1fr !important; }
+  .topbar-right .agent-status-badge { display: none; }
+}
+
+/* ── SCROLLBAR STYLING ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── REMOVE DUPLICATE ANIMATIONS — keep only one definition ── */
+@keyframes slideInFromTop { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+
+/* ── TOPBAR IMPROVEMENTS ── */
+.topbar { backdrop-filter: blur(12px); background: rgba(var(--bg-surface-rgb,19,20,29),0.95) !important; }
+.topbar .page-title { font-size: var(--text-lg) !important; font-weight: 700 !important; }
+.breadcrumb { font-size: var(--text-xs); color: var(--text-dim); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+
+/* ── SIDEBAR IMPROVEMENTS ── */
+.nav-section { padding: var(--space-2) 0; }
+.nav-label { font-size: var(--text-xs) !important; font-weight: 700; letter-spacing: 0.1em; }
+.nav-item { border-radius: 0 var(--radius) var(--radius) 0; margin-right: var(--space-2); transition: all 0.12s; }
+.nav-item.active { background: var(--accent-dim) !important; color: var(--accent) !important; }
+
+/* ── REPORTS TABS — horizontal scroll ── */
+.reports-tabs-container { overflow-x: auto; scrollbar-width: none; -webkit-scrollbar-width: none; position: relative; }
+.reports-tabs-container::-webkit-scrollbar { display: none; }
+
+/* ── SETTINGS SIDEBAR — visual grouping ── */
+.settings-group-label { font-size: var(--text-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); padding: var(--space-3) var(--space-4) var(--space-1); margin-top: var(--space-2); }
+
+/* ── TICKET INBOX IMPROVEMENTS ── */
+.ticket-row { transition: background 0.1s; }
+.ticket-row:hover { background: var(--bg-hover) !important; }
+
+/* ── DASHBOARD ALIGNMENT FIX ── */
+.tt-dash-container { max-width: var(--content-max) !important; margin: 0 auto; }
+.kpi-grid-modern   { max-width: var(--content-max); }
+
+/* ── STATUS BAR (OPEN • IN PROGRESS etc.) ── */
+.status-bar { display: flex; align-items: center; gap: var(--space-4); padding: 8px var(--space-6); border-bottom: 1px solid var(--border); background: var(--bg-surface); flex-wrap: wrap; }
+.status-bar-item { display: flex; align-items: center; gap: 5px; font-size: var(--text-xs); font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.status-bar-dot  { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── FILTER ROW ── */
+.filter-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.filter-select { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-secondary); font-size: var(--text-sm); padding: 6px 10px; font-family: inherit; cursor: pointer; }
+.filter-select:focus { border-color: var(--accent); outline: none; }
 
 /* ============================================================
    THEMES
@@ -1420,27 +1674,7 @@ select:focus-visible,
   animation: fadeInUp 0.8s ease-out 0.4s both;
 }
 
-@keyframes slideInFromTop {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* slideInFromTop + fadeInUp defined in design system above */
 
 .kpi-content {
   flex: 1;
@@ -1484,30 +1718,7 @@ select:focus-visible,
   animation: fadeInUp 0.8s ease-out 0.4s both;
 }
 
-@keyframes slideInFromTop {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-
-
+/* Duplicate animations removed — defined in design system */
 
 
 
@@ -8924,6 +9135,16 @@ const App = {
   users: [],
   modules: [],
 
+  // ── DESIGN SYSTEM HELPERS ──────────────────────────────────────────────────
+  _skeleton(rows=3,type='list'){
+    if(type==='kpi')return'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">'+Array(4).fill('<div class="skeleton skeleton-card"></div>').join('')+'</div>';
+    if(type==='table')return'<div class="data-table-wrap"><div style="padding:16px;">'+Array(rows).fill('<div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div style="flex:1;"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:60%;"></div></div></div>').join('')+'</div></div>';
+    return Array(rows).fill('<div class="skeleton skeleton-card" style="height:60px;margin-bottom:8px;"></div>').join('');
+  },
+  _emptyState(icon,title,sub,btnText,btnAction){
+    return'<div class="empty-state-v2"><div class="empty-icon">'+icon+'</div><div class="empty-title">'+title+'</div><div class="empty-sub">'+sub+'</div>'+(btnText&&btnAction?'<button class="btn-primary" style="margin-top:8px;" onclick="'+btnAction+'">'+btnText+'</button>':'')+'</div>';
+  },
+
   // ============================================================
   // INIT
   // ============================================================
@@ -11969,7 +12190,7 @@ const App = {
     
     const container = document.getElementById('issueTableBody');
     if (filtered.length === 0) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">No Issues</div><p>No issues match your filters</p></div>`;
+      container.innerHTML = App._emptyState('🎫','No issues found','No issues match your current filters. Try adjusting the filters or create a new issue.','+ New Issue',"App.navigate('create-issue')");
       return;
     }
     
@@ -13362,7 +13583,7 @@ const App = {
     var self = this;
     self.setPage('Escalation Rules','Admin / Escalations');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getEscalationRules');
     if (!r||!r.success) { self.showPageError(area, r&&r.error?r.error:'Failed'); return; }
     var rules = r.rules||[];
@@ -13434,7 +13655,7 @@ const App = {
     var self = this;
     self.setPage('Recurring Templates','Admin / Recurring');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getRecurringTemplates');
     if (!r||!r.success) { self.showPageError(area, r&&r.error?r.error:'Failed'); return; }
     var templates = r.templates||[];
@@ -13512,7 +13733,7 @@ const App = {
     if (self.currentUser.role !== 'Admin') { self.showToast('Admin access required', 'error'); return; }
     self.setPage('Announcements', 'Admin / Announcements');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
 
     var r = await self.callAsync('getActiveAnnouncements');
     var announcements = (r && r.success) ? (r.announcements || []) : [];
@@ -13560,7 +13781,7 @@ const App = {
     if (self.currentUser.role !== 'Admin') { self.showToast('Admin access required', 'error'); return; }
     self.setPage('Teams', 'Admin / Teams');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
 
     var [teamsRes, usersRes] = await Promise.all([self.callAsync('getTeams'), self.callAsync('getUsers', true)]);
     var teams = (teamsRes && teamsRes.success) ? (teamsRes.teams || []) : [];
@@ -13717,7 +13938,7 @@ const App = {
     var self = this;
     self.setPage('Plan & Features', 'Admin / Plan & Features');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
 
     var r = await self.callAsync('getBrandFeatureAccess');
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load feature access</p></div>'; return; }
@@ -14005,7 +14226,7 @@ const App = {
     var self = this;
     self.setPage('Support Inbox', 'Support / Tickets');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading support inbox...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
 
     var [r, cfgR, allR] = await Promise.all([
       self.callAsync('getTickets', { status: self._ticketFilter || 'all' }),
@@ -14315,7 +14536,7 @@ const App = {
     if (!ticketId) { self.navigate('ticket-inbox'); return; }
     self.setPage('Ticket', 'Support / Tickets / ' + ticketId);
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading ticket...</p></div>';
+    area.innerHTML = App._skeleton(3,'list');
 
     var [tRes, usersRes, devsRes] = await Promise.all([
       self.callAsync('getTicketById', ticketId),
@@ -16961,7 +17182,7 @@ const App = {
     var self = this;
     self.setPage('Integrations','Admin / Integrations');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var settingsR = await self.callAsync('getSettings');
     var calR      = await self.callAsync('getCalendarStatus');
     var s = (settingsR&&settingsR.success) ? settingsR.settings : {};
@@ -17488,7 +17709,7 @@ const App = {
     }).join('');
 
     area.innerHTML =
-      '<div style="border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:0;overflow-x:auto;">'+tabsHtml+'</div>'+
+      '<div class="reports-tabs-container" style="border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:0;">'+tabsHtml+'</div>'+
       // Feature 1: Global date range picker for ALL report tabs
       '<div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;">'+
         '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📅 Date Range:</span>'+
@@ -17499,7 +17720,7 @@ const App = {
         '<button onclick="App._rptFrom=\'\';App._rptTo=\'\';document.getElementById(\'rpt_from\').value=\'\';document.getElementById(\'rpt_to\').value=\'\';App.renderReports(App._reportTab)" class="btn-secondary btn-sm">Clear</button>'+
         '<span style="font-size:11px;color:var(--text-dim);margin-left:auto;">'+(self._rptFrom&&self._rptTo?self._rptFrom+' → '+self._rptTo:'All time')+'</span>'+
       '</div>'+
-      '<div id="reportContent"><div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-dim);">Loading report...</div></div>';
+      '<div id="reportContent">'+App._skeleton(4,'table')+'</div>';
 
     var reportEl = document.getElementById('reportContent');
     var tid = self._reportTab;
@@ -18418,7 +18639,7 @@ const App = {
     var self = this;
     self.setPage('Revenue Impact', 'Intelligence / Revenue Impact');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getRevenueDashboard');
     if (!r||!r.success){area.innerHTML='<div style="color:var(--critical);padding:20px;">Failed</div>';return;}
     var d=r;
@@ -18468,7 +18689,7 @@ const App = {
     var self = this;
     self.setPage('Customer Health', 'Intelligence / Customer Health');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getCustomerHealthScores');
     if (!r||!r.success){area.innerHTML='<div style="color:var(--critical);padding:20px;">Failed</div>';return;}
     var d=r;
@@ -18650,7 +18871,7 @@ const App = {
     var self = this;
     self.setPage('On-Call Schedule', 'Admin / On-Call');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getOnCallSchedule');
     var curR = await self.callAsync('getCurrentOnCall');
     var schedule = (r && r.success) ? r.schedule : [];
@@ -18721,7 +18942,7 @@ const App = {
     var self = this;
     self.setPage('Custom Fields', 'Admin / Custom Fields');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getCustomFields');
     var fields = (r && r.success) ? r.fields : [];
         var typeLabel = { text:'Text', number:'Number', dropdown:'Dropdown', date:'Date', checkbox:'Checkbox' };
@@ -18795,7 +19016,7 @@ const App = {
     var self = this;
     self.setPage('Release Notes', 'Admin / Release Notes');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
         var fromDate = new Date(Date.now() - 7*24*3600000).toISOString().split('T')[0];
     var toDate   = new Date().toISOString().split('T')[0];
     var html = '<div style="max-width:800px">';
@@ -19723,7 +19944,7 @@ const App = {
     var self = this;
     self.setPage('Dev Leaderboard', 'Analytics / Leaderboard');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getDevLeaderboard');
     if (!r || !r.success) { self.showPageError(area, r && r.error ? r.error : 'Failed'); return; }
     var medals = ['&#x1F947;','&#x1F948;','&#x1F949;'];
@@ -19794,7 +20015,7 @@ const App = {
     var self = this;
     self.setPage('Repeat Offenders', 'Analytics / Repeat Offenders');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+    area.innerHTML = App._skeleton(4,'table');
     var r = await self.callAsync('getRepeatOffenders');
     if (!r || !r.success) { self.showPageError(area, r && r.error ? r.error : 'Failed'); return; }
     var offenders = r.offenders || [];
