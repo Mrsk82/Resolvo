@@ -3,189 +3,246 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Resolvo — The Complete Engineering & Support Platform</title>
-<meta name="description" content="AI-powered issue tracking, smart email ticketing, and team management built for engineering teams. From chaos to clarity.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<title>Resolvo — Engineering Issue & Support Platform</title>
+<meta name="description" content="The AI-powered platform for engineering teams. Issue tracking, email ticketing, smart queue, customer portal — all in one.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
-:root{
-  --bg:#0A0D16;--surface:#0F1420;--card:#141B2D;--elevated:#1A2235;--border:#1E2A3D;
-  --green:#10B981;--green-dim:rgba(16,185,129,.1);--green-glow:rgba(16,185,129,.25);
-  --indigo:#6366F1;--amber:#F59E0B;--red:#EF4444;--blue:#3B82F6;--purple:#8B5CF6;
-  --white:#F1F5F9;--muted:#94A3B8;--dim:#475569;--r:12px;
-  --gradient:linear-gradient(135deg,#10B981,#6366F1);
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --black: #030509;
+  --dark: #080B12;
+  --surface: #0D1117;
+  --card: #111827;
+  --elevated: #1C2433;
+  --border: rgba(255,255,255,.07);
+  --border-bright: rgba(255,255,255,.12);
+  --green: #00D084;
+  --green-dim: rgba(0,208,132,.1);
+  --green-glow: rgba(0,208,132,.2);
+  --violet: #7C5CFC;
+  --blue: #3B82F6;
+  --amber: #F59E0B;
+  --red: #FF4757;
+  --white: #F8FAFC;
+  --gray: #94A3B8;
+  --dim: #4B5563;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', system-ui, sans-serif;
 }
-body{background:var(--bg);color:var(--white);font-family:'Inter',sans-serif;line-height:1.6;overflow-x:hidden;}
 
-/* NAV */
-nav{position:fixed;top:0;left:0;right:0;z-index:200;backdrop-filter:blur(24px);background:rgba(10,13,22,.85);border-bottom:1px solid var(--border);height:64px;display:flex;align-items:center;padding:0 6%;justify-content:space-between;}
-.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
-.nav-links{display:flex;gap:28px;list-style:none;}
-.nav-links a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
-.nav-links a:hover{color:var(--white);}
-.nav-right{display:flex;align-items:center;gap:12px;}
-#themeToggle{background:var(--elevated);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;}
-.nav-cta{background:var(--green);color:#0A0D16;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:800;text-decoration:none;transition:all .2s;border:none;cursor:pointer;}
-.nav-cta:hover{transform:translateY(-1px);box-shadow:0 6px 24px var(--green-glow);}
+html { scroll-behavior: smooth; }
+body { background: var(--dark); color: var(--white); font-family: var(--sans); overflow-x: hidden; line-height: 1.6; }
 
-/* HERO */
-.hero{min-height:100vh;display:flex;align-items:center;padding:100px 6% 60px;position:relative;overflow:hidden;}
-.hero-bg{position:absolute;inset:0;pointer-events:none;}
-.hero-bg::before{content:'';position:absolute;right:-15%;top:-20%;width:900px;height:900px;background:radial-gradient(circle,rgba(16,185,129,.06),transparent 65%);}
-.hero-bg::after{content:'';position:absolute;left:-10%;bottom:-10%;width:700px;height:700px;background:radial-gradient(circle,rgba(99,102,241,.06),transparent 65%);}
-.grid-pattern{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);background-size:60px 60px;}
-.hero-content{max-width:660px;position:relative;z-index:1;}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--green-dim);border:1px solid rgba(16,185,129,.2);border-radius:20px;padding:6px 16px;font-size:11px;font-weight:700;color:var(--green);letter-spacing:.08em;text-transform:uppercase;margin-bottom:28px;}
-.hero h1{font-size:clamp(40px,6vw,72px);font-weight:900;line-height:1.03;letter-spacing:-2.5px;margin-bottom:22px;}
-.hero h1 .accent{background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.hero p{font-size:18px;color:var(--muted);line-height:1.8;margin-bottom:36px;max-width:520px;}
-.hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:52px;}
-.btn-hero{padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;display:inline-block;transition:all .2s;border:none;cursor:pointer;}
-.btn-hero-primary{background:var(--green);color:#0A0D16;}
-.btn-hero-primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px var(--green-glow);}
-.btn-hero-ghost{background:var(--elevated);color:var(--white);border:1px solid var(--border);}
-.btn-hero-ghost:hover{border-color:var(--green);color:var(--green);}
-.hero-meta{display:flex;gap:32px;flex-wrap:wrap;}
-.hero-meta-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);}
-.hero-meta-item span{color:var(--green);font-weight:700;}
+/* ── TYPOGRAPHY ── */
+.display { font-size: clamp(44px, 7vw, 88px); font-weight: 900; line-height: 1; letter-spacing: -3px; }
+.display-md { font-size: clamp(32px, 4.5vw, 56px); font-weight: 900; line-height: 1.05; letter-spacing: -2px; }
+.h2 { font-size: clamp(24px, 3vw, 40px); font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+.body-lg { font-size: 18px; color: var(--gray); line-height: 1.8; }
+.body { font-size: 15px; color: var(--gray); line-height: 1.7; }
+.caption { font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.mono { font-family: var(--mono); }
+.green { color: var(--green); }
+.violet { color: var(--violet); }
+.gradient { background: linear-gradient(135deg, var(--green), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
-/* HERO VISUAL */
-.hero-visual{position:absolute;right:4%;top:50%;transform:translateY(-50%);width:44%;max-width:560px;z-index:1;}
-.mockup{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.5),0 0 80px rgba(16,185,129,.05);}
-.mock-bar{background:var(--elevated);padding:10px 16px;display:flex;align-items:center;gap:8px;}
-.mock-dot{width:10px;height:10px;border-radius:50%;}
-.mock-body{padding:14px;}
-.mock-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
-.mock-kpi-item{background:var(--card);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border);}
-.mock-kpi-n{font-size:18px;font-weight:900;color:var(--green);}
-.mock-kpi-l{font-size:10px;color:var(--muted);margin-top:2px;}
-.mock-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;background:var(--card);border:1px solid var(--border);margin-bottom:5px;}
-.mock-badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:6px;}
+/* ── LAYOUT ── */
+.container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+.container-sm { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+section { padding: 110px 0; }
 
-/* LOGOS / TRUST */
-.trust-bar{padding:40px 6%;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);}
-.trust-label{text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:24px;}
-.trust-logos{display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;opacity:.5;}
-.trust-logo{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:.06em;}
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+  height: 62px; display: flex; align-items: center;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  background: rgba(8,11,18,.8);
+}
+.nav-inner { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+.nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.nav-logo-mark { width: 28px; height: 28px; background: linear-gradient(135deg, var(--green), var(--violet)); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #000; flex-shrink: 0; }
+.nav-logo-text { font-size: 16px; font-weight: 800; color: var(--white); letter-spacing: -.3px; }
+.nav-links { display: flex; gap: 6px; list-style: none; }
+.nav-links a { color: var(--gray); text-decoration: none; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 7px; transition: all .15s; }
+.nav-links a:hover { color: var(--white); background: rgba(255,255,255,.06); }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.btn-nav { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; font-family: var(--sans); transition: all .15s; }
+.btn-nav-ghost { background: rgba(255,255,255,.06); color: var(--white); border: 1px solid var(--border-bright); }
+.btn-nav-ghost:hover { background: rgba(255,255,255,.1); }
+.btn-nav-primary { background: var(--green); color: #000; }
+.btn-nav-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--green-glow); }
 
-/* SECTIONS */
-section{padding:96px 6%;}
-.s-surface{background:var(--surface);}
-.s-dark{background:var(--bg);}
-.tag{display:inline-flex;align-items:center;gap:6px;background:var(--green-dim);border:1px solid rgba(16,185,129,.2);color:var(--green);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:20px;}
-h2.title{font-size:clamp(28px,4vw,48px);font-weight:900;line-height:1.1;letter-spacing:-1.5px;margin-bottom:16px;}
-h2.title .accent{background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.sub{font-size:17px;color:var(--muted);max-width:560px;line-height:1.75;}
-.section-header{margin-bottom:52px;}
-.section-header-center{margin-bottom:52px;text-align:center;}
-.section-header-center .sub{margin:0 auto;}
+/* ── HERO ── */
+.hero {
+  min-height: 100vh; display: flex; align-items: center;
+  padding: 120px 0 80px;
+  position: relative; overflow: hidden;
+}
+.hero-noise {
+  position: absolute; inset: 0; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.hero-glow { position: absolute; top: -200px; right: -200px; width: 700px; height: 700px; background: radial-gradient(circle, rgba(0,208,132,.06) 0%, transparent 65%); pointer-events: none; }
+.hero-glow-2 { position: absolute; bottom: -200px; left: -200px; width: 600px; height: 600px; background: radial-gradient(circle, rgba(124,92,252,.05) 0%, transparent 65%); pointer-events: none; }
+.hero-content { position: relative; z-index: 1; max-width: 780px; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dim); border: 1px solid rgba(0,208,132,.2); border-radius: 100px; padding: 5px 14px; margin-bottom: 28px; }
+.hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.hero-eyebrow span { font-size: 12px; font-weight: 700; color: var(--green); letter-spacing: .06em; text-transform: uppercase; }
+.hero h1 { margin-bottom: 24px; }
+.hero-desc { font-size: 19px; color: var(--gray); line-height: 1.75; max-width: 580px; margin-bottom: 40px; }
+.hero-cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 64px; }
+.btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--green); color: #000; padding: 13px 28px; border-radius: 10px; font-size: 15px; font-weight: 800; text-decoration: none; transition: all .2s; border: none; cursor: pointer; font-family: var(--sans); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--green-glow); }
+.btn-secondary { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,.06); color: var(--white); padding: 13px 28px; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; border: 1px solid var(--border-bright); transition: all .2s; }
+.btn-secondary:hover { background: rgba(255,255,255,.1); }
+.hero-stats { display: flex; gap: 40px; }
+.hero-stat-n { font-size: 28px; font-weight: 900; color: var(--white); line-height: 1; margin-bottom: 2px; }
+.hero-stat-l { font-size: 12px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
 
-/* PROBLEM */
-.problem-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:52px;}
-.prob-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:24px;position:relative;overflow:hidden;transition:all .2s;}
-.prob-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--red);}
-.prob-card:hover{transform:translateY(-3px);border-color:rgba(239,68,68,.3);}
-.prob-icon{font-size:28px;margin-bottom:14px;}
-.prob-title{font-size:15px;font-weight:700;margin-bottom:8px;}
-.prob-desc{font-size:13px;color:var(--muted);line-height:1.65;}
+/* ── PRODUCT PREVIEW ── */
+.preview-section { padding: 0 0 110px; }
+.preview-wrap {
+  border: 1px solid var(--border-bright);
+  border-radius: 20px; overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 40px 80px rgba(0,0,0,.5), 0 0 80px rgba(0,208,132,.04);
+}
+.preview-bar { background: var(--card); padding: 12px 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+.prev-dot { width: 10px; height: 10px; border-radius: 50%; }
+.prev-url { flex: 1; background: var(--elevated); border-radius: 6px; padding: 5px 12px; font-size: 11px; color: var(--dim); font-family: var(--mono); margin: 0 12px; }
+.preview-body { padding: 20px; }
+.preview-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.pkpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; position: relative; overflow: hidden; }
+.pkpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.pkpi.c1::before { background: var(--red); }
+.pkpi.c2::before { background: var(--violet); }
+.pkpi.c3::before { background: var(--amber); }
+.pkpi.c4::before { background: var(--green); }
+.pkpi-n { font-size: 24px; font-weight: 900; margin-bottom: 2px; }
+.pkpi-l { font-size: 11px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.preview-row { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+.prev-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
+.prev-title { font-size: 12px; color: var(--white); flex: 1; }
+.prev-tag { font-size: 10px; color: var(--dim); font-family: var(--mono); }
 
-/* SOLUTION PILLARS */
-.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-top:52px;}
-.pillar{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:28px;transition:all .2s;position:relative;overflow:hidden;}
-.pillar::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
-.pillar.green::before{background:var(--green);}
-.pillar.blue::before{background:var(--blue);}
-.pillar.purple::before{background:var(--purple);}
-.pillar.amber::before{background:var(--amber);}
-.pillar:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.3);}
-.pillar-icon{font-size:32px;margin-bottom:14px;}
-.pillar-title{font-size:17px;font-weight:800;margin-bottom:8px;}
-.pillar-desc{font-size:13px;color:var(--muted);line-height:1.7;}
-.pillar-features{margin-top:16px;display:flex;flex-direction:column;gap:5px;}
-.pillar-feat{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px;}
-.pillar-feat::before{content:'→';color:var(--green);font-size:11px;}
+/* ── NUMBERS ── */
+.numbers-section { background: var(--black); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.numbers-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); }
+.number-item { background: var(--black); padding: 40px 32px; }
+.number-n { font-size: 48px; font-weight: 900; line-height: 1; margin-bottom: 6px; }
+.number-l { font-size: 14px; font-weight: 600; color: var(--gray); margin-bottom: 4px; }
+.number-sub { font-size: 12px; color: var(--dim); }
 
-/* FEATURES GRID */
-.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:52px;}
-.feat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;transition:all .2s;position:relative;}
-.feat-card:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,.08);}
-.feat-card-icon{font-size:24px;margin-bottom:10px;}
-.feat-card-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:5px;}
-.feat-card-desc{font-size:12px;color:var(--muted);line-height:1.6;}
-.feat-new{position:absolute;top:10px;right:10px;font-size:9px;font-weight:800;background:var(--green);color:#0A0D16;padding:2px 7px;border-radius:8px;}
+/* ── PROBLEM ── */
+.prob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border-radius: 16px; overflow: hidden; margin-top: 52px; }
+.prob-item { background: var(--surface); padding: 32px; }
+.prob-item:hover { background: var(--card); }
+.prob-num { font-size: 11px; font-weight: 700; color: var(--dim); font-family: var(--mono); margin-bottom: 16px; }
+.prob-title { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+.prob-desc { font-size: 13px; color: var(--gray); line-height: 1.65; }
+.prob-icon { font-size: 24px; margin-bottom: 16px; }
 
-/* SHOWCASE — 3 column */
-.showcase{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:52px;}
-@media(max-width:900px){.showcase{grid-template-columns:1fr;}}
-.showcase-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;transition:all .2s;}
-.showcase-card:hover{border-color:rgba(99,102,241,.35);box-shadow:0 10px 40px rgba(99,102,241,.08);}
-.showcase-num{font-size:48px;font-weight:900;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:10px;}
-.showcase-label{font-size:16px;font-weight:700;margin-bottom:8px;}
-.showcase-desc{font-size:13px;color:var(--muted);line-height:1.7;}
+/* ── FEATURES — BIG 3 ── */
+.big-feature { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; padding: 80px 0; border-bottom: 1px solid var(--border); }
+.big-feature.reverse { direction: rtl; }
+.big-feature.reverse > * { direction: ltr; }
+.big-feature:last-child { border-bottom: none; }
+.feature-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 18px; }
+.feature-label::before { content: ''; width: 20px; height: 2px; background: var(--green); border-radius: 2px; }
+.feature-bullets { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.feature-bullet { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--gray); }
+.feature-bullet::before { content: '→'; color: var(--green); font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 2px; }
+.feature-visual { background: var(--surface); border: 1px solid var(--border-bright); border-radius: 16px; overflow: hidden; }
+.feature-visual-bar { background: var(--card); padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+.fv-dot { width: 8px; height: 8px; border-radius: 50%; }
+.feature-visual-body { padding: 16px; }
 
-/* OWNER PORTAL */
-.owner-features{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:32px;}
-.owner-feat{background:var(--elevated);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);}
-.owner-feat::before{content:'✓';color:var(--amber);font-weight:800;font-size:13px;flex-shrink:0;}
+/* ── FEATURE GRID ── */
+.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border-radius: 16px; overflow: hidden; margin-top: 52px; }
+.fg-item { background: var(--surface); padding: 28px; transition: background .15s; cursor: default; }
+.fg-item:hover { background: var(--card); }
+.fg-icon { font-size: 20px; margin-bottom: 12px; }
+.fg-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.fg-desc { font-size: 12px; color: var(--dim); line-height: 1.6; }
+.fg-new { display: inline-block; font-size: 9px; font-weight: 800; background: var(--green); color: #000; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
 
-/* INTEGRATIONS */
-.int-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:48px;}
-.int-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;display:flex;align-items:center;gap:14px;transition:all .2s;}
-.int-card:hover{border-color:var(--green);transform:translateY(-2px);}
-.int-icon{font-size:28px;flex-shrink:0;}
-.int-name{font-size:14px;font-weight:700;}
-.int-desc{font-size:12px;color:var(--muted);margin-top:3px;}
+/* ── PLATFORM ── */
+.platform-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 52px; }
+.platform-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; transition: all .2s; }
+.platform-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+.platform-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px; }
+.platform-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+.platform-desc { font-size: 13px; color: var(--gray); line-height: 1.65; margin-bottom: 16px; }
+.platform-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.platform-tag { font-size: 11px; font-weight: 600; color: var(--dim); background: var(--elevated); padding: 3px 9px; border-radius: 20px; }
 
-/* TIERS */
-.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-top:52px;}
-.tier{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;position:relative;transition:all .2s;}
-.tier.featured{border-color:var(--green);background:linear-gradient(135deg,rgba(16,185,129,.05),var(--card));}
-.tier.featured::before{content:'Most Popular';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green);color:#0A0D16;font-size:11px;font-weight:800;padding:3px 16px;border-radius:20px;white-space:nowrap;}
-.tier-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;}
-.tier-price{font-size:40px;font-weight:900;color:var(--white);margin-bottom:4px;line-height:1;}
-.tier-period{font-size:13px;color:var(--muted);}
-.tier-desc{font-size:13px;color:var(--muted);margin:16px 0;line-height:1.6;}
-.tier-feats{list-style:none;display:flex;flex-direction:column;gap:9px;margin:24px 0;}
-.tier-feats li{font-size:13px;color:var(--muted);display:flex;align-items:flex-start;gap:8px;}
-.tier-feats li::before{content:'✓';color:var(--green);font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;}
-.tier-feats li.dim::before{content:'·';color:var(--dim);}
-.tier-cta{display:block;text-align:center;padding:12px;border-radius:9px;font-size:14px;font-weight:700;text-decoration:none;transition:all .2s;margin-top:16px;}
-.tier-cta-primary{background:var(--green);color:#0A0D16;}
-.tier-cta-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px var(--green-glow);}
-.tier-cta-ghost{background:var(--elevated);color:var(--white);border:1px solid var(--border);}
-.tier-cta-ghost:hover{border-color:var(--green);}
+/* ── PRICING ── */
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 52px; }
+.price-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; position: relative; transition: all .2s; }
+.price-card:hover { border-color: var(--border-bright); }
+.price-card.featured { background: linear-gradient(135deg, rgba(0,208,132,.06), var(--surface)); border-color: rgba(0,208,132,.3); }
+.price-pill { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--green); color: #000; font-size: 11px; font-weight: 800; padding: 3px 16px; border-radius: 20px; white-space: nowrap; }
+.price-tier { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); margin-bottom: 12px; }
+.price-amount { font-size: 44px; font-weight: 900; line-height: 1; margin-bottom: 4px; }
+.price-period { font-size: 13px; color: var(--dim); }
+.price-desc { font-size: 13px; color: var(--gray); margin: 16px 0; line-height: 1.6; }
+.price-line { width: 100%; height: 1px; background: var(--border); margin: 20px 0; }
+.price-feats { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.price-feat { font-size: 13px; color: var(--gray); display: flex; align-items: flex-start; gap: 8px; }
+.price-feat-yes { color: var(--green); flex-shrink: 0; font-weight: 700; }
+.price-feat-no { color: var(--dim); flex-shrink: 0; }
+.price-feat.off { opacity: .4; }
+.price-btn { display: block; text-align: center; padding: 12px; border-radius: 9px; font-size: 14px; font-weight: 700; text-decoration: none; transition: all .2s; }
+.price-btn-primary { background: var(--green); color: #000; }
+.price-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--green-glow); }
+.price-btn-ghost { background: rgba(255,255,255,.06); color: var(--white); border: 1px solid var(--border-bright); }
+.price-btn-ghost:hover { background: rgba(255,255,255,.1); }
 
-/* RESULTS */
-.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-top:48px;}
-.result{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:28px;text-align:center;}
-.result-n{font-size:44px;font-weight:900;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:8px;}
-.result-l{font-size:14px;font-weight:700;margin-bottom:6px;}
-.result-sub{font-size:12px;color:var(--dim);}
+/* ── CTA ── */
+.cta-section { padding: 110px 0; }
+.cta-inner { background: linear-gradient(135deg, rgba(0,208,132,.07), rgba(124,92,252,.07)); border: 1px solid rgba(0,208,132,.15); border-radius: 24px; padding: 80px; text-align: center; position: relative; overflow: hidden; }
+.cta-inner::before { content: ''; position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 400px; height: 400px; background: radial-gradient(circle, rgba(0,208,132,.08) 0%, transparent 60%); }
+.cta-inner > * { position: relative; z-index: 1; }
+.cta-title { font-size: clamp(28px, 4vw, 52px); font-weight: 900; letter-spacing: -2px; line-height: 1.05; margin-bottom: 16px; }
+.cta-desc { font-size: 17px; color: var(--gray); margin-bottom: 36px; }
+.cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+.cta-meta { font-size: 13px; color: var(--dim); }
+.cta-meta a { color: var(--green); text-decoration: none; }
+.cta-meta a:hover { text-decoration: underline; }
 
-/* CTA */
-.cta-section{background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(99,102,241,.08));border:1px solid rgba(16,185,129,.15);border-radius:20px;padding:64px;text-align:center;margin:0 6% 80px;}
-.cta-section h2{font-size:clamp(28px,4vw,44px);font-weight:900;letter-spacing:-1.5px;margin-bottom:14px;}
-.cta-section p{font-size:17px;color:var(--muted);margin-bottom:32px;}
-.cta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
-.cta-meta{margin-top:20px;font-size:13px;color:var(--dim);}
+/* ── FOOTER ── */
+footer { border-top: 1px solid var(--border); padding: 32px 0; }
+.footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 13px; color: var(--dim); text-decoration: none; transition: color .15s; }
+.footer-links a:hover { color: var(--gray); }
+.footer-copy { font-size: 12px; color: var(--dim); }
 
-/* FOOTER */
-footer{padding:32px 6%;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
-.footer-links{display:flex;gap:20px;}
-.footer-links a{font-size:13px;color:var(--dim);text-decoration:none;}
-.footer-links a:hover{color:var(--green);}
+/* ── ANIMATIONS ── */
+.reveal { opacity: 0; transform: translateY(20px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.in { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: .1s; }
+.reveal-delay-2 { transition-delay: .2s; }
+.reveal-delay-3 { transition-delay: .3s; }
 
-/* LIGHT THEME */
-body.light{--bg:#F8FAFC;--surface:#F0F4F8;--card:#FFFFFF;--elevated:#E8EFF6;--border:#E2E8F0;--white:#0F172A;--muted:#475569;--dim:#94A3B8;--green-dim:rgba(16,185,129,.08);}
-body.light nav{background:rgba(248,250,252,.92);}
-body.light .trust-bar,.light .s-surface{background:var(--surface);}
+/* ── DIVIDER ── */
+.divider { height: 1px; background: var(--border); margin: 0; }
+.section-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 20px; }
+.section-tag::before { content: ''; width: 16px; height: 2px; background: var(--green); border-radius: 2px; display: block; }
 
-@media(max-width:900px){
-  .hero-visual{display:none;}
-  .hero-content{max-width:100%;}
-  nav .nav-links{display:none;}
-  .showcase{grid-template-columns:1fr;}
-  .cta-section{padding:40px 24px;margin:0 4% 60px;}
+@media (max-width: 900px) {
+  .big-feature, .big-feature.reverse { grid-template-columns: 1fr; direction: ltr; gap: 40px; }
+  .feature-grid, .prob-grid { grid-template-columns: 1fr; }
+  .numbers-grid { grid-template-columns: repeat(2, 1fr); }
+  .pricing-grid, .platform-grid { grid-template-columns: 1fr; }
+  .preview-grid { grid-template-columns: 1fr; }
+  .preview-kpi { grid-template-columns: repeat(2, 1fr); }
+  nav .nav-links { display: none; }
+  .cta-inner { padding: 40px 24px; }
+  .hero-stats { gap: 24px; }
 }
 </style>
 </head>
@@ -193,467 +250,445 @@ body.light .trust-bar,.light .s-surface{background:var(--surface);}
 
 <!-- NAV -->
 <nav>
-  <a href="/pitch" class="nav-logo">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 50" width="110" height="auto">
-      <rect width="100%" height="100%" rx="5" fill="transparent"/>
-      <g transform="translate(4,-4)">
-        <path d="M 14,18 C 20,18 22,22 27,25" fill="none" stroke="#FF4B4B" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="14" cy="18" r="2" fill="#FF4B4B"/>
-        <path d="M 12,30 L 27,30" fill="none" stroke="#FF4B4B" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5"/>
-        <path d="M 14,42 C 20,42 22,38 27,35" fill="none" stroke="#FF4B4B" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="14" cy="42" r="2" fill="#FF4B4B"/>
-        <defs><linearGradient id="lg-n" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6366F1"/><stop offset="100%" stop-color="#10B981"/></linearGradient></defs>
-        <polygon points="26,30 31,26 36,30 31,34" fill="url(#lg-n)"/>
-        <path d="M 36,30 L 40,34 L 48,22" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </g>
-      <text x="62" y="32" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="currentColor">resolv</text>
-      <text x="116" y="32" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="#10B981">o</text>
-    </svg>
-  </a>
-  <ul class="nav-links">
-    <li><a href="#problem">Problem</a></li>
-    <li><a href="#solution">Solution</a></li>
-    <li><a href="#features">Features</a></li>
-    <li><a href="#pricing">Pricing</a></li>
-    <li><a href="/learn" target="_blank">Docs</a></li>
-  </ul>
-  <div class="nav-right">
-    <button id="themeToggle" onclick="toggleTheme()">🌙 Dark</button>
-    <a href="/" class="nav-cta">Open App →</a>
+  <div class="nav-inner">
+    <a href="/pitch" class="nav-logo">
+      <div class="nav-logo-mark">R</div>
+      <span class="nav-logo-text">resolvo</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#product">Product</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="/learn" target="_blank">Docs</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="/" class="btn-nav btn-nav-ghost">Sign in</a>
+      <a href="/" class="btn-nav btn-nav-primary">Get started free</a>
+    </div>
   </div>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-bg"><div class="grid-pattern"></div></div>
-  <div class="hero-content">
-    <div class="hero-badge">⚡ AI-Powered · Multi-Tenant SaaS</div>
-    <h1>From <span class="accent">Chaos</span> to <span class="accent">Clarity</span></h1>
-    <p>The complete engineering & support platform. Issue tracking, AI-powered email ticketing, smart queues, customer portal, and 100+ features — all in one place.</p>
-    <div class="hero-actions">
-      <a href="/" class="btn-hero btn-hero-primary">Start Free →</a>
-      <a href="#features" class="btn-hero btn-hero-ghost">See All Features</a>
-    </div>
-    <div class="hero-meta">
-      <div class="hero-meta-item">🎫 <span>Issue Tracking + SLA</span></div>
-      <div class="hero-meta-item">📬 <span>Email Ticketing</span></div>
-      <div class="hero-meta-item">🧠 <span>AI Intelligence</span></div>
-      <div class="hero-meta-item">🏗 <span>Multi-Tenant</span></div>
-    </div>
-  </div>
-
-  <div class="hero-visual">
-    <div class="mockup">
-      <div class="mock-bar">
-        <div class="mock-dot" style="background:#EF4444"></div>
-        <div class="mock-dot" style="background:#F59E0B"></div>
-        <div class="mock-dot" style="background:#10B981"></div>
-        <span style="font-size:11px;color:var(--muted);margin-left:8px;font-family:monospace;">resolvo — dashboard</span>
+  <div class="hero-glow"></div>
+  <div class="hero-glow-2"></div>
+  <div class="hero-noise"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <div class="hero-eyebrow-dot"></div>
+        <span>AI-Powered · Multi-Tenant SaaS Platform</span>
       </div>
-      <div class="mock-body">
-        <div class="mock-kpi">
-          <div class="mock-kpi-item"><div class="mock-kpi-n" style="color:#EF4444">3</div><div class="mock-kpi-l">Critical</div></div>
-          <div class="mock-kpi-item"><div class="mock-kpi-n">12</div><div class="mock-kpi-l">Open</div></div>
-          <div class="mock-kpi-item"><div class="mock-kpi-n" style="color:#F59E0B">2</div><div class="mock-kpi-l">SLA Risk</div></div>
-          <div class="mock-kpi-item"><div class="mock-kpi-n">87%</div><div class="mock-kpi-l">Compliance</div></div>
+      <h1 class="display reveal">
+        Stop losing issues.<br>
+        <span class="gradient">Start resolving them.</span>
+      </h1>
+      <p class="hero-desc reveal reveal-delay-1">
+        The complete engineering & support platform. Issue tracking with SLA, AI-powered email ticketing, smart queues, customer portal — everything your team needs in one place.
+      </p>
+      <div class="hero-cta reveal reveal-delay-2">
+        <a href="/" class="btn-primary">Start free — no credit card →</a>
+        <a href="#product" class="btn-secondary">See how it works</a>
+      </div>
+      <div class="hero-stats reveal reveal-delay-3">
+        <div>
+          <div class="hero-stat-n gradient">100+</div>
+          <div class="hero-stat-l">Features</div>
         </div>
-        <div class="mock-row"><div class="mock-badge" style="background:#EF444420;color:#EF4444">Critical</div><span style="font-size:12px;color:#F1F5F9;flex:1;">Login page 500 error on mobile</span><span style="font-size:10px;color:#EF4444">1h left</span></div>
-        <div class="mock-row"><div class="mock-badge" style="background:#F59E0B20;color:#F59E0B">High</div><span style="font-size:12px;color:#F1F5F9;flex:1;">Dashboard slow on large datasets</span><span style="font-size:10px;color:#F59E0B">4h left</span></div>
-        <div class="mock-row"><div class="mock-badge" style="background:#10B98120;color:#10B981">Medium</div><span style="font-size:12px;color:#F1F5F9;flex:1;">Export CSV missing columns</span><span style="font-size:10px;color:#10B981">OK</span></div>
-        <div style="margin-top:10px;padding:8px;background:rgba(16,185,129,.06);border-radius:7px;display:flex;align-items:center;gap:8px;">
-          <div style="width:6px;height:6px;border-radius:50%;background:#10B981;"></div>
-          <span style="font-size:11px;color:#94A3B8;">📬 3 new tickets · 🔄 Queue: Dev (2/10) · Asif (0/10)</span>
+        <div>
+          <div class="hero-stat-n gradient">35</div>
+          <div class="hero-stat-l">Feature flags</div>
+        </div>
+        <div>
+          <div class="hero-stat-n gradient">∞</div>
+          <div class="hero-stat-l">Brands</div>
+        </div>
+        <div>
+          <div class="hero-stat-n gradient">AI</div>
+          <div class="hero-stat-l">Powered</div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- TRUST BAR -->
-<div class="trust-bar">
-  <div class="trust-label">Trusted by engineering teams</div>
-  <div class="trust-logos">
-    <div class="trust-logo">KONNECT INSIGHTS</div>
-    <div class="trust-logo">ATOMBERG</div>
-    <div class="trust-logo">ENTERPRISE READY</div>
-    <div class="trust-logo">MULTI-TENANT SAAS</div>
-    <div class="trust-logo">100+ FEATURES</div>
+<!-- PRODUCT PREVIEW -->
+<div class="preview-section" id="product">
+  <div class="container">
+    <div class="preview-wrap reveal">
+      <div class="preview-bar">
+        <div class="prev-dot" style="background:#FF5F57"></div>
+        <div class="prev-dot" style="background:#FFBD2E"></div>
+        <div class="prev-dot" style="background:#28CA42"></div>
+        <div class="prev-url">app.resolvogroup.com — Dashboard</div>
+        <div style="font-size:10px;color:var(--dim);font-family:var(--mono);">● Available</div>
+      </div>
+      <div class="preview-body">
+        <div class="preview-kpi">
+          <div class="pkpi c1"><div class="pkpi-n" style="color:#FF4757">3</div><div class="pkpi-l">Critical Open</div></div>
+          <div class="pkpi c2"><div class="pkpi-n" style="color:var(--violet)">12</div><div class="pkpi-l">Total Open</div></div>
+          <div class="pkpi c3"><div class="pkpi-n" style="color:var(--amber)">2</div><div class="pkpi-l">SLA at Risk</div></div>
+          <div class="pkpi c4"><div class="pkpi-n" style="color:var(--green)">87%</div><div class="pkpi-l">SLA Compliance</div></div>
+        </div>
+        <div class="preview-grid">
+          <div>
+            <div style="font-size:11px;color:var(--dim);margin-bottom:8px;font-family:var(--mono);">ISSUES</div>
+            <div class="preview-row"><div class="prev-badge" style="background:#FF475720;color:#FF4757">Critical</div><div class="prev-title">Login page 500 error on mobile</div><div class="prev-tag">2h left</div></div>
+            <div class="preview-row"><div class="prev-badge" style="background:#F59E0B20;color:#F59E0B">High</div><div class="prev-title">Dashboard slow on large datasets</div><div class="prev-tag">5h left</div></div>
+            <div class="preview-row"><div class="prev-badge" style="background:#00D08420;color:#00D084">Medium</div><div class="prev-title">Export CSV missing columns</div><div class="prev-tag">OK</div></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--dim);margin-bottom:8px;font-family:var(--mono);">SUPPORT INBOX</div>
+            <div class="preview-row"><div class="prev-badge" style="background:#7C5CFC20;color:#7C5CFC">NEW</div><div class="prev-title">Cannot login — Rajesh Kumar</div><div class="prev-tag">5m ago</div></div>
+            <div class="preview-row"><div class="prev-badge" style="background:#3B82F620;color:#3B82F6">OPEN</div><div class="prev-title">Invoice download broken — Priya</div><div class="prev-tag">1h ago</div></div>
+            <div class="preview-row" style="background:rgba(0,208,132,.04);border-color:rgba(0,208,132,.15)"><div class="prev-badge" style="background:#00D08420;color:#00D084">QUEUE</div><div class="prev-title" style="color:var(--green)">Auto-assigned → Dev · Asif</div><div class="prev-tag">now</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NUMBERS -->
+<div class="numbers-section">
+  <div class="container" style="padding:0;">
+    <div class="numbers-grid">
+      <div class="number-item reveal">
+        <div class="number-n gradient">87%</div>
+        <div class="number-l">SLA Compliance</div>
+        <div class="number-sub">Average across teams using Resolvo</div>
+      </div>
+      <div class="number-item reveal reveal-delay-1">
+        <div class="number-n gradient">3×</div>
+        <div class="number-l">Faster Resolution</div>
+        <div class="number-sub">18h average → 5.8h average</div>
+      </div>
+      <div class="number-item reveal reveal-delay-2">
+        <div class="number-n gradient">100+</div>
+        <div class="number-l">Features</div>
+        <div class="number-sub">All out of the box, no plugins</div>
+      </div>
+      <div class="number-item reveal reveal-delay-3">
+        <div class="number-n gradient">0</div>
+        <div class="number-l">"Where's my bug?" calls</div>
+        <div class="number-sub">Full visibility for everyone</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- PROBLEM -->
-<section id="problem" class="s-dark">
-  <div class="section-header">
-    <div class="tag">The Problem</div>
-    <h2 class="title">Your team is losing<br>hours every single day</h2>
-    <p class="sub">Bugs via WhatsApp. Tickets in email. Status in spreadsheets. Nothing connected. Everything missed.</p>
-  </div>
-  <div class="problem-grid">
-    <div class="prob-card">
-      <div class="prob-icon">📱</div>
-      <div class="prob-title">Scattered Reports</div>
-      <div class="prob-desc">Bugs arrive via WhatsApp, Gmail, Slack, spreadsheets — lost before anyone sees them.</div>
-    </div>
-    <div class="prob-card">
-      <div class="prob-icon">⏰</div>
-      <div class="prob-title">SLA Blindness</div>
-      <div class="prob-desc">No deadline tracking. Critical bugs resolved days late. Zero warning until it's too late.</div>
-    </div>
-    <div class="prob-card">
-      <div class="prob-icon">🔍</div>
-      <div class="prob-title">Zero Visibility</div>
-      <div class="prob-desc">CS reports a bug but never knows if it's seen, assigned, or fixed. Constant follow-ups.</div>
-    </div>
-    <div class="prob-card">
-      <div class="prob-icon">📊</div>
-      <div class="prob-title">No Accountability</div>
-      <div class="prob-desc">Who's overloaded? Who missed SLA? No history, no audit trail, no data to improve.</div>
-    </div>
-    <div class="prob-card">
-      <div class="prob-icon">📬</div>
-      <div class="prob-title">Inbox Chaos</div>
-      <div class="prob-desc">Support emails sit unread for days. No queuing, no routing, no SLA on customer requests.</div>
-    </div>
-    <div class="prob-card">
-      <div class="prob-icon">🏢</div>
-      <div class="prob-title">Multi-Brand Chaos</div>
-      <div class="prob-desc">Managing issues across multiple clients from one place? Completely impossible.</div>
+<section>
+  <div class="container">
+    <div class="section-tag">The Problem</div>
+    <h2 class="display-md reveal" style="max-width:600px;margin-bottom:16px;">Your team is drowning in scattered chaos</h2>
+    <p class="body-lg reveal" style="max-width:500px;">Bugs via WhatsApp. Tickets in Gmail. Status in spreadsheets. Nothing connects. Everything gets missed.</p>
+    <div class="prob-grid">
+      <div class="prob-item reveal"><div class="prob-icon">📱</div><div class="prob-num">01</div><div class="prob-title">Scattered Reports</div><div class="prob-desc">Issues arrive via WhatsApp, Gmail, Slack, spreadsheets — lost before anyone reads them.</div></div>
+      <div class="prob-item reveal reveal-delay-1"><div class="prob-icon">⏰</div><div class="prob-num">02</div><div class="prob-title">SLA Blindness</div><div class="prob-desc">No deadline tracking. Critical bugs resolved days late. Zero warning until customers escalate.</div></div>
+      <div class="prob-item reveal reveal-delay-2"><div class="prob-icon">🔍</div><div class="prob-num">03</div><div class="prob-title">Zero Visibility</div><div class="prob-desc">CS reports a bug but never knows if it's been seen, assigned, or being worked on.</div></div>
+      <div class="prob-item reveal"><div class="prob-icon">📬</div><div class="prob-num">04</div><div class="prob-title">Inbox Chaos</div><div class="prob-desc">Support emails sit unread for days. No routing, no SLA, no accountability on customer requests.</div></div>
+      <div class="prob-item reveal reveal-delay-1"><div class="prob-icon">📊</div><div class="prob-num">05</div><div class="prob-title">No Accountability</div><div class="prob-desc">Who's overloaded? Who missed SLA? No history, no audit trail, no data to improve anything.</div></div>
+      <div class="prob-item reveal reveal-delay-2"><div class="prob-icon">🏢</div><div class="prob-num">06</div><div class="prob-title">Multi-Client Chaos</div><div class="prob-desc">Managing issues across multiple clients from one dashboard? Completely impossible.</div></div>
     </div>
   </div>
 </section>
 
-<!-- SOLUTION PILLARS -->
-<section id="solution" class="s-surface">
-  <div class="section-header-center">
-    <div class="tag">The Solution</div>
-    <h2 class="title">One platform. <span class="accent">Everything</span> connected.</h2>
-    <p class="sub">Resolvo unifies every piece of your engineering and support workflow in a single, powerful platform.</p>
-  </div>
-  <div class="pillars">
-    <div class="pillar green">
-      <div class="pillar-icon">🎯</div>
-      <div class="pillar-title">Issue Tracking</div>
-      <div class="pillar-desc">Full lifecycle from report to resolution with automatic SLA enforcement.</div>
-      <div class="pillar-features">
-        <div class="pillar-feat">Kanban + Sprints + Burndown</div>
-        <div class="pillar-feat">Auto SLA timers per priority</div>
-        <div class="pillar-feat">Post-mortems + Peer review</div>
-        <div class="pillar-feat">Issue Impact Score</div>
-        <div class="pillar-feat">Revenue impact tracking</div>
+<!-- BIG FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-tag">Features</div>
+    <h2 class="display-md reveal" style="max-width:560px;margin-bottom:60px;">Everything your team needs.<br><span class="gradient">Nothing you don't.</span></h2>
+
+    <!-- Email Ticketing -->
+    <div class="big-feature">
+      <div>
+        <div class="feature-label">Email Ticketing</div>
+        <h3 class="h2 reveal" style="margin-bottom:16px;">A full helpdesk,<br>built right in</h3>
+        <p class="body reveal">Gmail connects → tickets appear automatically → your team replies from one inbox. Customers get beautiful email responses. No extra tools.</p>
+        <div class="feature-bullets reveal">
+          <div class="feature-bullet">Smart Queue auto-assigns to available agents using round robin or skill-based routing</div>
+          <div class="feature-bullet">Canned responses — type / to search and insert pre-written replies in 2 seconds</div>
+          <div class="feature-bullet">1-Click CSAT surveys automatically sent on every resolution</div>
+          <div class="feature-bullet">Ticket DNA — full audit timeline of every action, forever</div>
+          <div class="feature-bullet">VIP customer routing — priority queue + instant admin alert</div>
+        </div>
+      </div>
+      <div class="feature-visual reveal">
+        <div class="feature-visual-bar">
+          <div class="fv-dot" style="background:#FF5F57"></div><div class="fv-dot" style="background:#FFBD2E"></div><div class="fv-dot" style="background:#28CA42"></div>
+          <span style="font-size:11px;color:var(--dim);margin-left:8px;font-family:var(--mono);">Support Inbox</span>
+        </div>
+        <div class="feature-visual-body">
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;background:var(--card);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--dim);">My Tickets <span style="color:var(--green);font-weight:800;margin-left:4px;">3</span></div>
+            <div style="flex:1;background:var(--elevated);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--dim);">Unassigned <span style="color:var(--red);font-weight:800;margin-left:4px;">7</span></div>
+          </div>
+          <div style="background:var(--card);border-radius:7px;padding:10px 12px;margin-bottom:6px;border-left:2px solid var(--violet);">
+            <div style="font-size:12px;font-weight:700;color:var(--white);margin-bottom:2px;">Cannot login to my account</div>
+            <div style="font-size:10px;color:var(--dim);">rajesh@acme.com · 5 min ago · <span style="color:var(--violet)">⭐ VIP</span></div>
+          </div>
+          <div style="background:var(--card);border-radius:7px;padding:10px 12px;margin-bottom:6px;">
+            <div style="font-size:12px;font-weight:700;color:var(--white);margin-bottom:2px;">Invoice not downloading</div>
+            <div style="font-size:10px;color:var(--dim);">priya@startup.in · 1h ago</div>
+          </div>
+          <div style="background:rgba(0,208,132,.05);border:1px solid rgba(0,208,132,.15);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--green);">
+            🔄 Auto-assigned 2 tickets → Dev (3/10) · Asif (2/10)
+          </div>
+        </div>
       </div>
     </div>
-    <div class="pillar blue">
-      <div class="pillar-icon">📬</div>
-      <div class="pillar-title">Email Ticketing</div>
-      <div class="pillar-desc">A full Zendesk-style helpdesk — automatic, smart, and CSAT-ready.</div>
-      <div class="pillar-features">
-        <div class="pillar-feat">Gmail → tickets automatically</div>
-        <div class="pillar-feat">Smart Queue with routing rules</div>
-        <div class="pillar-feat">Canned responses + CC threading</div>
-        <div class="pillar-feat">1-Click CSAT surveys</div>
-        <div class="pillar-feat">VIP customer routing</div>
+
+    <!-- Issue Tracking -->
+    <div class="big-feature reverse">
+      <div>
+        <div class="feature-label">Issue Tracking</div>
+        <h3 class="h2 reveal" style="margin-bottom:16px;">SLA-enforced.<br>Fully accountable.</h3>
+        <p class="body reveal">Every issue gets an automatic SLA countdown based on priority. Red when breached. Charts show who's overloaded. Every change is logged forever.</p>
+        <div class="feature-bullets reveal">
+          <div class="feature-bullet">Kanban board + Sprints + Burndown charts with velocity tracking</div>
+          <div class="feature-bullet">Issue Impact Score — priority + age + revenue + SLA combined</div>
+          <div class="feature-bullet">Post-mortems, Peer review, Approval workflows</div>
+          <div class="feature-bullet">Revenue Impact dashboard — tag issues with ₹ at risk</div>
+          <div class="feature-bullet">AI Triage — smart priority, module, and assignee suggestions</div>
+        </div>
+      </div>
+      <div class="feature-visual reveal">
+        <div class="feature-visual-bar">
+          <div class="fv-dot" style="background:#FF5F57"></div><div class="fv-dot" style="background:#FFBD2E"></div><div class="fv-dot" style="background:#28CA42"></div>
+          <span style="font-size:11px;color:var(--dim);margin-left:8px;font-family:var(--mono);">ISS-0042 — Critical</span>
+        </div>
+        <div class="feature-visual-body">
+          <div style="font-size:15px;font-weight:800;color:var(--white);margin-bottom:8px;">Login page 500 error on mobile</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+            <span style="font-size:10px;background:#FF475720;color:#FF4757;padding:2px 8px;border-radius:5px;font-weight:700;">● Critical</span>
+            <span style="font-size:10px;background:var(--elevated);color:var(--dim);padding:2px 8px;border-radius:5px;">Auth</span>
+            <span style="font-size:10px;background:#FF475720;color:#FF4757;padding:2px 8px;border-radius:5px;">SLA: 1h 23m left ⚠</span>
+          </div>
+          <div style="background:var(--card);border-radius:7px;padding:10px 12px;margin-bottom:6px;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Impact Score</div>
+            <div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:6px;background:var(--elevated);border-radius:3px;"><div style="width:82%;height:6px;background:var(--red);border-radius:3px;"></div></div><span style="font-size:14px;font-weight:900;color:var(--red);">82</span></div>
+          </div>
+          <div style="font-size:11px;color:var(--dim);font-family:var(--mono);padding:8px;background:var(--card);border-radius:6px;">
+            → Status changed WIP by dev@... · 10m ago<br>
+            → Assigned to dev@... · 25m ago<br>
+            → Issue created · raisedby@... · 35m ago
+          </div>
+        </div>
       </div>
     </div>
-    <div class="pillar purple">
-      <div class="pillar-icon">🧠</div>
-      <div class="pillar-title">AI Intelligence</div>
-      <div class="pillar-desc">Gemini-powered insights that prevent problems before they escalate.</div>
-      <div class="pillar-features">
-        <div class="pillar-feat">Root cause clustering</div>
-        <div class="pillar-feat">Regression detection</div>
-        <div class="pillar-feat">Customer sentiment trends</div>
-        <div class="pillar-feat">Volume forecasting</div>
-        <div class="pillar-feat">Smart reply suggestions</div>
+
+    <!-- Multi-Tenant -->
+    <div class="big-feature">
+      <div>
+        <div class="feature-label">Multi-Tenant Platform</div>
+        <h3 class="h2 reveal" style="margin-bottom:16px;">One platform.<br>Unlimited clients.</h3>
+        <p class="body reveal">You're the platform owner. Each client gets their own completely isolated workspace with their own data, team, features, and branding.</p>
+        <div class="feature-bullets reveal">
+          <div class="feature-bullet">Owner → Brand → Users hierarchy with complete data isolation</div>
+          <div class="feature-bullet">35 feature flags — owner controls exactly what each brand can access</div>
+          <div class="feature-bullet">Customer Portal per brand at /portal/:brand</div>
+          <div class="feature-bullet">Per-brand email profile, theme, accent color, custom SLA policies</div>
+          <div class="feature-bullet">Owner portal: 30+ tools for analytics, billing, health scores, maintenance</div>
+        </div>
+      </div>
+      <div class="feature-visual reveal">
+        <div class="feature-visual-bar">
+          <div class="fv-dot" style="background:#FF5F57"></div><div class="fv-dot" style="background:#FFBD2E"></div><div class="fv-dot" style="background:#28CA42"></div>
+          <span style="font-size:11px;color:var(--dim);margin-left:8px;font-family:var(--mono);">Owner Dashboard</span>
+        </div>
+        <div class="feature-visual-body">
+          <div style="font-size:10px;color:var(--dim);font-family:var(--mono);margin-bottom:8px;">BRANDS (4 active)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div style="background:var(--card);border-radius:7px;padding:10px;border-left:2px solid var(--green);"><div style="font-size:12px;font-weight:700;margin-bottom:3px;">Acme Corp</div><div style="font-size:10px;color:var(--dim);">Enterprise · 12 users</div><div style="font-size:10px;color:var(--green);margin-top:3px;">● Active · A grade</div></div>
+            <div style="background:var(--card);border-radius:7px;padding:10px;border-left:2px solid var(--amber);"><div style="font-size:12px;font-weight:700;margin-bottom:3px;">Startup Inc</div><div style="font-size:10px;color:var(--dim);">Pro · 5 users</div><div style="font-size:10px;color:var(--amber);margin-top:3px;">⚠ Trial expires 3d</div></div>
+            <div style="background:var(--card);border-radius:7px;padding:10px;border-left:2px solid var(--violet);"><div style="font-size:12px;font-weight:700;margin-bottom:3px;">TechCo Ltd</div><div style="font-size:10px;color:var(--dim);">Enterprise · 8 users</div><div style="font-size:10px;color:var(--violet);margin-top:3px;">● Active · B grade</div></div>
+            <div style="background:var(--card);border-radius:7px;padding:10px;border-left:2px solid var(--blue);"><div style="font-size:12px;font-weight:700;margin-bottom:3px;">DevAgency</div><div style="font-size:10px;color:var(--dim);">Free · 3 users</div><div style="font-size:10px;color:var(--blue);margin-top:3px;">→ Upgrade suggested</div></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="pillar amber">
-      <div class="pillar-icon">🏗</div>
-      <div class="pillar-title">Multi-Tenant SaaS</div>
-      <div class="pillar-desc">One platform, unlimited brands. Complete data isolation per client.</div>
-      <div class="pillar-features">
-        <div class="pillar-feat">Owner → Brand → Users hierarchy</div>
-        <div class="pillar-feat">Per-brand feature flags</div>
-        <div class="pillar-feat">Customer Portal per brand</div>
-        <div class="pillar-feat">White-label ready</div>
-        <div class="pillar-feat">Cross-brand analytics</div>
+  </div>
+</section>
+
+<!-- FULL FEATURE GRID -->
+<section style="background:var(--black);padding:80px 0;">
+  <div class="container">
+    <div class="section-tag" style="margin-bottom:12px;">All Features</div>
+    <h2 class="h2 reveal" style="margin-bottom:8px;">100+ features. Zero setup.</h2>
+    <p class="body reveal" style="margin-bottom:40px;">Everything ships out of the box.</p>
+    <div class="feature-grid">
+      <div class="fg-item reveal"><div class="fg-icon">🔄</div><div class="fg-title">Smart Queue Engine</div><div class="fg-desc">Round robin, skill-based, domain, keyword, time routing</div></div>
+      <div class="fg-item reveal reveal-delay-1"><div class="fg-icon">📅</div><div class="fg-title">Appointment Booking<span class="fg-new">New</span></div><div class="fg-desc">Shareable /book page, auto-confirmation, 1h reminder</div></div>
+      <div class="fg-item reveal reveal-delay-2"><div class="fg-icon">🌐</div><div class="fg-title">Customer Portal<span class="fg-new">New</span></div><div class="fg-desc">Self-service at /portal/:brand. OTP login. Raise requests.</div></div>
+      <div class="fg-item reveal"><div class="fg-icon">💬</div><div class="fg-title">Embeddable Widget<span class="fg-new">New</span></div><div class="fg-desc">One script tag → floating chat → auto-creates ticket</div></div>
+      <div class="fg-item reveal reveal-delay-1"><div class="fg-icon">📖</div><div class="fg-title">Knowledge Base<span class="fg-new">New</span></div><div class="fg-desc">Public FAQ articles. Reduces ticket volume by 30-40%.</div></div>
+      <div class="fg-item reveal reveal-delay-2"><div class="fg-icon">🗺</div><div class="fg-title">Public Roadmap<span class="fg-new">New</span></div><div class="fg-desc">Customers vote. Planned → In Progress → Shipped.</div></div>
+      <div class="fg-item reveal"><div class="fg-icon">🔑</div><div class="fg-title">API Keys<span class="fg-new">New</span></div><div class="fg-desc">REST API with Bearer token auth. Integrate anything.</div></div>
+      <div class="fg-item reveal reveal-delay-1"><div class="fg-icon">🔒</div><div class="fg-title">Two-Factor Auth<span class="fg-new">New</span></div><div class="fg-desc">TOTP via Google Authenticator. QR code setup in 60s.</div></div>
+      <div class="fg-item reveal reveal-delay-2"><div class="fg-icon">✅</div><div class="fg-title">Approval Workflows<span class="fg-new">New</span></div><div class="fg-desc">Require sign-off before resolving critical issues.</div></div>
+      <div class="fg-item reveal"><div class="fg-icon">💥</div><div class="fg-title">Issue Impact Score<span class="fg-new">New</span></div><div class="fg-desc">Priority + age + revenue + SLA. Always work on what matters most.</div></div>
+      <div class="fg-item reveal reveal-delay-1"><div class="fg-icon">🎯</div><div class="fg-title">Agent Coaching<span class="fg-new">New</span></div><div class="fg-desc">Performance insights + coaching recommendations per agent.</div></div>
+      <div class="fg-item reveal reveal-delay-2"><div class="fg-icon">🛡</div><div class="fg-title">GDPR Tools<span class="fg-new">New</span></div><div class="fg-desc">Right to erasure, data export. Full compliance.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORM -->
+<section>
+  <div class="container">
+    <div class="section-tag">Platform</div>
+    <h2 class="display-md reveal" style="margin-bottom:16px;">Built for scale.<br><span class="gradient">Ready for enterprise.</span></h2>
+    <p class="body-lg reveal" style="max-width:500px;margin-bottom:0;">Every architectural decision was made to support real enterprise workloads.</p>
+    <div class="platform-grid">
+      <div class="platform-card reveal">
+        <div class="platform-icon" style="background:var(--green-dim);">🏗</div>
+        <div class="platform-title">Multi-Tenant Architecture</div>
+        <div class="platform-desc">Complete data isolation per brand. Each client's JSON database is separate. No cross-brand data leakage possible.</div>
+        <div class="platform-tags"><span class="platform-tag">Per-brand DB</span><span class="platform-tag">Session isolation</span><span class="platform-tag">Feature flags</span></div>
+      </div>
+      <div class="platform-card reveal reveal-delay-1">
+        <div class="platform-icon" style="background:rgba(124,92,252,.1);">🔐</div>
+        <div class="platform-title">Enterprise Security</div>
+        <div class="platform-desc">bcrypt passwords, rate limiting (5/15min), session expiry, 2FA, API keys, audit trail on every action.</div>
+        <div class="platform-tags"><span class="platform-tag">bcrypt</span><span class="platform-tag">2FA TOTP</span><span class="platform-tag">Rate limiting</span><span class="platform-tag">GDPR</span></div>
+      </div>
+      <div class="platform-card reveal">
+        <div class="platform-icon" style="background:rgba(59,130,246,.1);">📱</div>
+        <div class="platform-title">Progressive Web App</div>
+        <div class="platform-desc">Install Resolvo on any phone or desktop. Works offline. No app store. Push notifications for SLA alerts.</div>
+        <div class="platform-tags"><span class="platform-tag">PWA</span><span class="platform-tag">Installable</span><span class="platform-tag">Offline</span></div>
+      </div>
+      <div class="platform-card reveal reveal-delay-1">
+        <div class="platform-icon" style="background:rgba(245,158,11,.1);">⚡</div>
+        <div class="platform-title">Owner-Controlled Features</div>
+        <div class="platform-desc">35 feature flags. Owner sets tier and per-feature access for each brand. Brand admins see read-only.</div>
+        <div class="platform-tags"><span class="platform-tag">35 flags</span><span class="platform-tag">Tier system</span><span class="platform-tag">Per-brand</span></div>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- FEATURES GRID -->
-<section id="features" class="s-dark">
-  <div class="section-header-center">
-    <div class="tag">Features</div>
-    <h2 class="title">100+ features. <span class="accent">Zero setup.</span></h2>
-    <p class="sub">Everything ships out of the box. No plugins, no add-ons, no marathon configuration sessions.</p>
-  </div>
-
-  <!-- Feature Category: Issue Tracking -->
-  <div style="margin-bottom:48px;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--green);margin-bottom:18px;">🎫 Issue Tracking & SLA</div>
-    <div class="feat-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
-      <div class="feat-card"><div class="feat-card-icon">⏱</div><div class="feat-card-title">Auto SLA Timers</div><div class="feat-card-desc">Countdown per priority. Red badge when breached. Never miss a deadline.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🗂</div><div class="feat-card-title">Kanban + Sprints</div><div class="feat-card-desc">Drag-drop board, burndown charts, velocity tracking, sprint goals.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">💥</div><div class="feat-card-title">Issue Impact Score</div><div class="feat-card-desc">Combined score: priority + age + revenue + SLA breach. Work on what matters.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">✅</div><div class="feat-card-title">Approval Workflows</div><div class="feat-card-desc">Require sign-off before resolving critical issues. Multi-step chains.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">💰</div><div class="feat-card-title">Revenue Impact</div><div class="feat-card-desc">Tag issues with ₹ at risk. Dashboard shows total exposure vs protected.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📜</div><div class="feat-card-title">Post-Mortems</div><div class="feat-card-desc">Structured incident reports with root cause, timeline, prevention steps.</div></div>
-    </div>
-  </div>
-
-  <!-- Feature Category: Email & Support -->
-  <div style="margin-bottom:48px;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:18px;">📬 Email Ticketing & Support</div>
-    <div class="feat-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
-      <div class="feat-card"><div class="feat-card-icon">🔄</div><div class="feat-card-title">Smart Queue Engine</div><div class="feat-card-desc">Round robin, skill-based, domain, keyword, time-based routing — fully automated.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">⭐</div><div class="feat-card-title">VIP Customer Routing</div><div class="feat-card-desc">Mark domains as VIP. Tickets jump the queue, admin gets instant alert.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">⚡</div><div class="feat-card-title">Canned Responses</div><div class="feat-card-desc">Type / to search pre-written replies. Insert in 2 seconds.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🧬</div><div class="feat-card-title">Ticket DNA Timeline</div><div class="feat-card-desc">Full audit trail of every action. Every reply, status change, SLA pause — forever.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">👍</div><div class="feat-card-title">1-Click CSAT</div><div class="feat-card-desc">Auto-send 👍/👎 on every resolution. No survey page needed.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">⏸</div><div class="feat-card-title">SLA Pause on Wait</div><div class="feat-card-desc">Pause SLA timer while waiting for customer reply. Fair, accurate metrics.</div></div>
-    </div>
-  </div>
-
-  <!-- Feature Category: Customer -->
-  <div style="margin-bottom:48px;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--purple);margin-bottom:18px;">👤 Customer Features</div>
-    <div class="feat-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
-      <div class="feat-card"><div class="feat-card-icon">🌐</div><div class="feat-card-title">Customer Portal</div><div class="feat-card-desc">Self-service portal at /portal/:brand. Customers see their tickets, raise requests.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">💬</div><div class="feat-card-title">Embeddable Widget</div><div class="feat-card-desc">One &lt;script&gt; tag on your product. Floating chat → auto-creates ticket.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📅</div><div class="feat-card-title">Appointment Booking</div><div class="feat-card-desc">Shareable /book page. Customers pick slots. Confirmation + reminder auto-sent.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📖</div><div class="feat-card-title">Knowledge Base</div><div class="feat-card-desc">Public FAQ articles. Reduces ticket volume by 30-40%.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🗺</div><div class="feat-card-title">Public Roadmap</div><div class="feat-card-desc">Customers vote on features. Planned → In Progress → Shipped.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📅</div><div class="feat-card-title">SLA Promise</div><div class="feat-card-desc">Send a committed resolution date to customer. Email confirmation sent instantly.</div></div>
-    </div>
-  </div>
-
-  <!-- Feature Category: Analytics -->
-  <div style="margin-bottom:48px;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin-bottom:18px;">📊 Reports & Analytics</div>
-    <div class="feat-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
-      <div class="feat-card"><div class="feat-card-icon">🏆</div><div class="feat-card-title">Agent Leaderboard</div><div class="feat-card-desc">Weekly rankings: tickets resolved, CSAT score, first response time.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📈</div><div class="feat-card-title">Volume Forecast</div><div class="feat-card-desc">Predict next week's ticket count from 8 weeks of history. Plan staffing.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🗓</div><div class="feat-card-title">Ticket Heatmap</div><div class="feat-card-desc">90-day calendar. See your busiest support days at a glance.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🎯</div><div class="feat-card-title">Agent Coaching</div><div class="feat-card-desc">Performance insights per agent: what to improve, what to celebrate.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">💰</div><div class="feat-card-title">Cost Report</div><div class="feat-card-desc">Time logs × hourly rate = real support cost by agent and module.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">⏱</div><div class="feat-card-title">First Response Time</div><div class="feat-card-desc">Avg, median, weekly trend. Under 1h? Under 4h? Know your numbers.</div></div>
-    </div>
-  </div>
-
-  <!-- Feature Category: Platform -->
-  <div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:18px;">🏗 Platform & Security</div>
-    <div class="feat-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
-      <div class="feat-card"><div class="feat-card-icon">🔑</div><div class="feat-card-title">API Keys</div><div class="feat-card-desc">Integrate with any external tool via Bearer token REST API.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🔒</div><div class="feat-card-title">Two-Factor Auth</div><div class="feat-card-desc">TOTP via Google Authenticator or Authy. QR code setup in 60 seconds.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🛡</div><div class="feat-card-title">GDPR Tools</div><div class="feat-card-desc">Right to erasure, data export per customer. Compliance-ready.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📦</div><div class="feat-card-title">Data Export</div><div class="feat-card-desc">Issues, tickets, users, audit trail — CSV with 21 columns each.</div></div>
-      <div class="feat-card"><div class="feat-card-icon">📱</div><div class="feat-card-title">Progressive Web App</div><div class="feat-card-desc">Install on any phone or desktop. Works offline. No app store needed.</div><div class="feat-new">New</div></div>
-      <div class="feat-card"><div class="feat-card-icon">🎨</div><div class="feat-card-title">5 Themes</div><div class="feat-card-desc">Midnight · Arctic · Forest · Ocean · Nova. Per-brand customization.</div></div>
-    </div>
-  </div>
-</section>
-
-<!-- OWNER PORTAL -->
-<section class="s-surface">
-  <div class="section-header">
-    <div class="tag">Owner Portal</div>
-    <h2 class="title">You run the platform.<br><span class="accent">We give you the controls.</span></h2>
-    <p class="sub">As the platform owner, you get 30+ exclusive tools to manage every brand, every client, and every feature from one command center.</p>
-  </div>
-  <div class="owner-features">
-    <div class="owner-feat">Cross-brand analytics</div>
-    <div class="owner-feat">MRR dashboard</div>
-    <div class="owner-feat">Brand health scores</div>
-    <div class="owner-feat">Churn risk detection</div>
-    <div class="owner-feat">Feature flags per brand</div>
-    <div class="owner-feat">Maintenance mode</div>
-    <div class="owner-feat">Ghost admin (impersonate)</div>
-    <div class="owner-feat">Trial management</div>
-    <div class="owner-feat">Billing & invoicing</div>
-    <div class="owner-feat">Force logout sessions</div>
-    <div class="owner-feat">Config cloning</div>
-    <div class="owner-feat">Bulk announcements</div>
-    <div class="owner-feat">DB size monitoring</div>
-    <div class="owner-feat">Retention policies</div>
-    <div class="owner-feat">CRM notes per brand</div>
-    <div class="owner-feat">Tier upgrade suggestions</div>
-    <div class="owner-feat">SLA league table</div>
-    <div class="owner-feat">Cohort analytics</div>
-    <div class="owner-feat">Feature usage heatmap</div>
-    <div class="owner-feat">Global webhook</div>
-  </div>
-</section>
-
-<!-- NUMBERS -->
-<section class="s-dark">
-  <div class="section-header-center">
-    <div class="tag">By the Numbers</div>
-    <h2 class="title">What teams achieve<br><span class="accent">after switching</span></h2>
-  </div>
-  <div class="showcase">
-    <div class="showcase-card">
-      <div class="showcase-num">87%</div>
-      <div class="showcase-label">SLA Compliance Rate</div>
-      <div class="showcase-desc">Teams hit their SLA targets consistently once they can actually see the countdown and get early warnings.</div>
-    </div>
-    <div class="showcase-card">
-      <div class="showcase-num">3×</div>
-      <div class="showcase-label">Faster Resolution</div>
-      <div class="showcase-desc">Average resolution time drops from 18h to 5.8h when issues are properly tracked and assigned.</div>
-    </div>
-    <div class="showcase-card">
-      <div class="showcase-num">0</div>
-      <div class="showcase-label">"Where is my bug?" calls</div>
-      <div class="showcase-desc">CS has full visibility. Customers have a portal. Everyone knows what's happening in real time.</div>
-    </div>
-  </div>
-  <div class="results" style="margin-top:24px;">
-    <div class="result"><div class="result-n">100+</div><div class="result-l">Features</div><div class="result-sub">All out of the box</div></div>
-    <div class="result"><div class="result-n">35</div><div class="result-l">Feature Flags</div><div class="result-sub">Owner-controlled per brand</div></div>
-    <div class="result"><div class="result-n">∞</div><div class="result-l">Brands</div><div class="result-sub">Full multi-tenant isolation</div></div>
-    <div class="result"><div class="result-n">9</div><div class="result-l">Report Types</div><div class="result-sub">With date range filters</div></div>
-  </div>
-</section>
-
-<!-- INTEGRATIONS -->
-<section class="s-surface">
-  <div class="section-header-center">
-    <div class="tag">Integrations</div>
-    <h2 class="title">Connects to your <span class="accent">entire stack</span></h2>
-    <p class="sub">Push to Jira, sync GitHub, alert Slack, power AI with Gemini — automatically.</p>
-  </div>
-  <div class="int-grid">
-    <div class="int-card"><div class="int-icon">🔷</div><div><div class="int-name">Jira</div><div class="int-desc">Auto-create + 2-way sync</div></div></div>
-    <div class="int-card"><div class="int-icon">🐙</div><div><div class="int-name">GitHub</div><div class="int-desc">Link commits, auto-close</div></div></div>
-    <div class="int-card"><div class="int-icon">💬</div><div><div class="int-name">Slack</div><div class="int-desc">Critical alerts + SLA breaches</div></div></div>
-    <div class="int-card"><div class="int-icon">🤖</div><div><div class="int-name">Google Gemini</div><div class="int-desc">AI triage + summaries</div></div></div>
-    <div class="int-card"><div class="int-icon">📧</div><div><div class="int-name">Gmail / SMTP</div><div class="int-desc">Per-brand email profile</div></div></div>
-    <div class="int-card"><div class="int-icon">🔗</div><div><div class="int-name">REST API</div><div class="int-desc">API Keys + webhook support</div></div></div>
-    <div class="int-card"><div class="int-icon">📋</div><div><div class="int-name">ServiceNow</div><div class="int-desc">ITSM incident mapping</div></div></div>
-    <div class="int-card"><div class="int-icon">🔔</div><div><div class="int-name">Webhooks</div><div class="int-desc">Zapier / n8n triggers</div></div></div>
   </div>
 </section>
 
 <!-- PRICING -->
-<section id="pricing" class="s-dark">
-  <div class="section-header-center">
-    <div class="tag">Pricing</div>
-    <h2 class="title">Simple, transparent pricing</h2>
-    <p class="sub">Start free. Scale when you need to. Owner controls which features each brand gets.</p>
-  </div>
-  <div class="tiers">
-    <div class="tier">
-      <div class="tier-name">Free</div>
-      <div class="tier-price">₹0</div>
-      <div class="tier-period">forever</div>
-      <div class="tier-desc">Core issue tracking for small teams getting started.</div>
-      <ul class="tier-feats">
-        <li>Issue tracking + SLA</li>
-        <li>Audit trail</li>
-        <li>Watchers + Pinned issues</li>
-        <li>Full text search</li>
-        <li>Up to 5 users</li>
-        <li class="dim">Kanban / Sprints</li>
-        <li class="dim">Email ticketing</li>
-        <li class="dim">AI features</li>
-      </ul>
-      <a href="/" class="tier-cta tier-cta-ghost">Get Started Free</a>
-    </div>
+<section id="pricing" style="background:var(--black);">
+  <div class="container">
+    <div class="section-tag">Pricing</div>
+    <h2 class="display-md reveal" style="margin-bottom:14px;">Simple pricing.</h2>
+    <p class="body-lg reveal" style="margin-bottom:0;">Start free. Owner controls which features each brand accesses.</p>
+    <div class="pricing-grid">
+      <div class="price-card reveal">
+        <div class="price-tier">Free</div>
+        <div class="price-amount">₹0</div>
+        <div class="price-period">forever</div>
+        <div class="price-desc">Core issue tracking for teams just getting started.</div>
+        <div class="price-line"></div>
+        <div class="price-feats">
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Issue tracking + SLA timers</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Audit trail + full-text search</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Watchers + Pinned issues</div>
+          <div class="price-feat off"><span class="price-feat-no">–</span>Kanban / Sprints</div>
+          <div class="price-feat off"><span class="price-feat-no">–</span>Email ticketing</div>
+          <div class="price-feat off"><span class="price-feat-no">–</span>AI features</div>
+        </div>
+        <a href="/" class="price-btn price-btn-ghost">Get started free</a>
+      </div>
 
-    <div class="tier featured">
-      <div class="tier-name">Pro</div>
-      <div class="tier-price">₹999</div>
-      <div class="tier-period">per month</div>
-      <div class="tier-desc">Everything a growing engineering team needs.</div>
-      <ul class="tier-feats">
-        <li>Everything in Free</li>
-        <li>Kanban + Sprints + Burndown</li>
-        <li>Email Ticketing Inbox</li>
-        <li>Smart Queue + AI routing</li>
-        <li>Knowledge Base + Roadmap</li>
-        <li>2FA + Approval workflows</li>
-        <li>AI Triage (Gemini)</li>
-        <li>8+ report types</li>
-        <li>Up to 25 users</li>
-      </ul>
-      <a href="/" class="tier-cta tier-cta-primary">Start Pro Trial</a>
-    </div>
+      <div class="price-card featured reveal reveal-delay-1">
+        <div class="price-pill">Most Popular</div>
+        <div class="price-tier">Pro</div>
+        <div class="price-amount">₹999</div>
+        <div class="price-period">per month</div>
+        <div class="price-desc">Everything a growing engineering team needs.</div>
+        <div class="price-line"></div>
+        <div class="price-feats">
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Everything in Free</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Kanban + Sprints + Burndown</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Email Ticketing + Smart Queue</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>AI Triage (Gemini)</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Knowledge Base + Roadmap</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>2FA + Approval Workflows</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>9 report types</div>
+          <div class="price-feat off"><span class="price-feat-no">–</span>API Keys / Customer Portal</div>
+        </div>
+        <a href="/" class="price-btn price-btn-primary">Start Pro trial</a>
+      </div>
 
-    <div class="tier">
-      <div class="tier-name">Enterprise</div>
-      <div class="tier-price">₹2,499</div>
-      <div class="tier-period">per month</div>
-      <div class="tier-desc">Full platform for multiple teams and clients.</div>
-      <ul class="tier-feats">
-        <li>Everything in Pro</li>
-        <li>API Keys + REST access</li>
-        <li>Customer Portal (/portal)</li>
-        <li>Embeddable widget</li>
-        <li>Appointment booking</li>
-        <li>GDPR tools + data erasure</li>
-        <li>SLA policies per customer</li>
-        <li>Agent coaching + cost reports</li>
-        <li>Multi-tenant owner portal</li>
-        <li>Unlimited users</li>
-      </ul>
-      <a href="mailto:contact@resolvogroup.com?subject=Enterprise Demo" class="tier-cta tier-cta-ghost">Book a Demo →</a>
+      <div class="price-card reveal reveal-delay-2">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount">₹2,499</div>
+        <div class="price-period">per month</div>
+        <div class="price-desc">Full platform for multi-team, multi-client operations.</div>
+        <div class="price-line"></div>
+        <div class="price-feats">
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Everything in Pro</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>API Keys + REST access</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Customer Portal + Widget</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Appointment Booking</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>GDPR + SLA policies</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Agent coaching + Cost reports</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Owner portal (30+ tools)</div>
+          <div class="price-feat"><span class="price-feat-yes">✓</span>Unlimited users</div>
+        </div>
+        <a href="mailto:contact@resolvogroup.com?subject=Enterprise Demo" class="price-btn price-btn-ghost">Book a demo →</a>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- CTA -->
-<div class="cta-section" id="cta">
-  <div class="tag" style="margin:0 auto 20px;display:inline-flex;">🚀 Get Started Today</div>
-  <h2>Ready to stop losing issues<br>and start resolving them?</h2>
-  <p>Free to start. No credit card. No setup. Up and running in 5 minutes.</p>
-  <div class="cta-actions">
-    <a href="/" class="btn-hero btn-hero-primary" style="font-size:16px;padding:16px 44px;">Enter Resolvo →</a>
-    <a href="mailto:contact@resolvogroup.com?subject=Resolvo Demo Request" class="btn-hero btn-hero-ghost" style="font-size:16px;padding:16px 44px;">Book a Demo</a>
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <div class="section-tag" style="margin-bottom:20px;justify-content:center;">Get Started</div>
+      <div class="cta-title">Ready to resolve everything<br>in <span class="gradient">one place?</span></div>
+      <p class="cta-desc">Free forever to start. No credit card. No setup. 5 minutes to first issue.</p>
+      <div class="cta-btns">
+        <a href="/" class="btn-primary" style="font-size:16px;padding:15px 36px;">Open Resolvo free →</a>
+        <a href="/learn" class="btn-secondary" style="font-size:16px;padding:15px 36px;">Read the docs</a>
+      </div>
+      <div class="cta-meta">
+        🌐 <a href="https://website.resolvogroup.com" target="_blank">website.resolvogroup.com</a>
+        &nbsp;·&nbsp;
+        📧 <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a>
+      </div>
+    </div>
   </div>
-  <div class="cta-meta">
-    🌐 <a href="https://website.resolvogroup.com" target="_blank" style="color:var(--green);text-decoration:none;">website.resolvogroup.com</a>
-    &nbsp;·&nbsp;
-    📧 <a href="mailto:contact@resolvogroup.com" style="color:var(--green);text-decoration:none;">contact@resolvogroup.com</a>
-  </div>
-</div>
+</section>
 
 <!-- FOOTER -->
 <footer>
-  <a href="/pitch" style="text-decoration:none;display:flex;align-items:center;gap:8px;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 30" width="100" height="auto">
-      <text x="0" y="22" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="currentColor">resolv</text>
-      <text x="64" y="22" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="#10B981">o</text>
-    </svg>
-  </a>
-  <div style="font-size:12px;color:var(--dim);">AI-Powered Issue & Support Platform · Free · Pro · Enterprise</div>
-  <div class="footer-links">
-    <a href="/learn">Docs</a>
-    <a href="/roadmap/konnect">Roadmap</a>
-    <a href="mailto:contact@resolvogroup.com">Contact</a>
-    <a href="https://website.resolvogroup.com" target="_blank">Website</a>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="/pitch" class="nav-logo">
+        <div class="nav-logo-mark">R</div>
+        <span class="nav-logo-text">resolvo</span>
+      </a>
+      <div class="footer-links">
+        <a href="/learn">Docs</a>
+        <a href="/roadmap/konnect">Roadmap</a>
+        <a href="/portal/konnect">Customer Portal</a>
+        <a href="mailto:contact@resolvogroup.com">Contact</a>
+      </div>
+      <div class="footer-copy">© 2025 Resolvo · contact@resolvogroup.com</div>
+    </div>
   </div>
 </footer>
 
 <script>
-// Scroll animations
-const obs=new IntersectionObserver(e=>e.forEach(x=>{if(x.isIntersecting)x.target.style.opacity='1';}),{threshold:.08,rootMargin:'0px 0px -40px 0px'});
-document.querySelectorAll('.prob-card,.pillar,.feat-card,.int-card,.tier,.result,.showcase-card,.owner-feat').forEach(el=>{el.style.opacity='0';el.style.transition='opacity .5s ease';obs.observe(el);});
+// Reveal on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.06, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
 // Smooth scroll
-document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});});});
-
-// Theme
-const btn=document.getElementById('themeToggle');
-const saved=localStorage.getItem('resolvo_pitch_theme')||'dark';
-function applyTheme(t){
-  if(t==='light'){document.body.classList.add('light');btn.innerHTML='☀️ Light';}
-  else{document.body.classList.remove('light');btn.innerHTML='🌙 Dark';}
-  localStorage.setItem('resolvo_pitch_theme',t);
-}
-function toggleTheme(){applyTheme(document.body.classList.contains('light')?'dark':'light');}
-applyTheme(saved);
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
 </script>
 </body>
 </html>

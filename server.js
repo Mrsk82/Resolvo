@@ -118,6 +118,11 @@ const FEATURE_META=[
   {key:'API_KEYS_ENABLED',label:'API Key Access',group:'Integrations',tier:'Enterprise'},
 ];
 function resolveFeatureFlags(brand,adf){return{...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};}
+// Server-side feature gate — returns error object if feature disabled
+function requireFeature(flags,key){
+  if(!flags[key])return{success:false,error:`Feature not available on your plan. Contact your platform admin to enable ${key}.`,featureRequired:key};
+  return null;
+}
 function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[];owner.auditLog.unshift({id:uuidv4().substring(0,8),action,details,by,timestamp:new Date().toISOString()});if(owner.auditLog.length>500)owner.auditLog=owner.auditLog.slice(0,500);}
 function readOwner(){return JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}
 function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf8');}
@@ -1048,6 +1053,8 @@ app.post('/api/call',async(req,res)=>{
   const{fn,args=[]}=req.body;const su=getSessionUser(req);
   if(!su||su.isOwner)return res.json({success:false,error:'Brand session required.'});
   const slug=su.brandSlug,rDB=()=>readBrandDB(slug),wDB=d=>writeBrandDB(slug,d);
+  // Resolved feature flags for this brand (owner always has all flags)
+  const ff=su.isOwner?Object.fromEntries(Object.keys(TIER_FEATURES.Enterprise).map(k=>[k,true])):su.resolvedFeatureFlags||{};
 
   const aH={
     addUser:async ud=>{
@@ -1396,6 +1403,7 @@ app.post('/api/call',async(req,res)=>{
     getBrandProfile:()=>{const owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);return{success:true,brand:brand||{}};},
     // ── SUPPORT TICKETS (Freshdesk-style) ────────────────────────────────────────
     getTickets:(filters)=>{
+      const gate=requireFeature(ff,'EMAIL_TICKETING_ENABLED');if(gate)return gate;
       const db=rDB();
       let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.lastActivity||b.createdDate)-new Date(a.lastActivity||a.createdDate));
       if(filters){
@@ -2418,6 +2426,7 @@ app.post('/api/call',async(req,res)=>{
     // DB CHANGE: adds db.queueConfig — backward safe
     getQueueConfig:()=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const gate=requireFeature(ff,'QUEUE_ENABLED');if(gate)return gate;
       const db=rDB();
       // Include ALL active users in queue (any role can receive tickets)
       const users=(db.users||[]).filter(u=>u.active);
@@ -2995,6 +3004,7 @@ app.post('/api/call',async(req,res)=>{
     // ══════════════════════════════════════════════════════════════════════
     getBookingConfig:()=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const gate=requireFeature(ff,'APPOINTMENT_BOOKING_ENABLED');if(gate)return gate;
       const db=rDB();
       return{success:true,config:db.bookingConfig||{
         enabled:false,title:'Book an Appointment',slotDuration:30,buffer:15,maxPerDay:10,
@@ -3331,6 +3341,7 @@ app.post('/api/call',async(req,res)=>{
     // ══════════════════════════════════════════════════════════════════════
     getApiKeys:()=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const gate=requireFeature(ff,'API_KEYS_ENABLED');if(gate)return gate;
       const db=rDB();
       return{success:true,keys:(db.apiKeys||[]).map(k=>({...k,key:k.key.substring(0,8)+'••••••••'+k.key.slice(-4)}))};
     },
@@ -3354,6 +3365,7 @@ app.post('/api/call',async(req,res)=>{
     // DB CHANGE: adds db.knowledgeBase — backward safe
     // ══════════════════════════════════════════════════════════════════════
     getKBArticles:(categoryId,search)=>{
+      const gate=requireFeature(ff,'KNOWLEDGE_BASE_ENABLED');if(gate)return gate;
       const db=rDB();let articles=db.knowledgeBase||[];
       if(categoryId)articles=articles.filter(a=>a.categoryId===categoryId);
       if(search){const q=search.toLowerCase();articles=articles.filter(a=>a.title.toLowerCase().includes(q)||(a.content||'').toLowerCase().includes(q));}
@@ -3559,6 +3571,7 @@ app.post('/api/call',async(req,res)=>{
     // ══════════════════════════════════════════════════════════════════════
     getCostReport:(hourlyRate,dateFrom,dateTo)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const gate=requireFeature(ff,'COST_REPORT_ENABLED');if(gate)return gate;
       const db=rDB();const rate=parseFloat(hourlyRate)||500;
       const from=dateFrom?new Date(dateFrom):new Date(Date.now()-30*86400000);
       const to=dateTo?new Date(dateTo+'T23:59:59'):new Date();
