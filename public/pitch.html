@@ -73,17 +73,19 @@ body::after{
 
 /* ══ CURSOR ════════════════════════════════════════════════════════════════ */
 #c-dot{
-  position:fixed;width:8px;height:8px;
+  position:fixed;top:0;left:0;width:8px;height:8px;
   background:var(--green2);border-radius:50%;
   pointer-events:none;z-index:99998;
+  will-change:transform;
   transform:translate(-50%,-50%);
   transition:width .2s,height .2s,background .2s;
   box-shadow:0 0 10px var(--green2),0 0 20px rgba(0,255,148,.4);
 }
 #c-ring{
-  position:fixed;width:32px;height:32px;
+  position:fixed;top:0;left:0;width:32px;height:32px;
   border:1px solid rgba(0,229,160,.35);border-radius:50%;
   pointer-events:none;z-index:99997;
+  will-change:transform;
   transform:translate(-50%,-50%);
   transition:width .3s,height .3s,border-color .3s;
 }
@@ -848,18 +850,24 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
 // ── CURSOR ──────────────────────────────────────────────────────────────────
 const dot = document.getElementById('c-dot');
 const ring = document.getElementById('c-ring');
-let mx=0,my=0,rx=0,ry=0;
+let mx=0,my=0,rx=0,ry=0,rafId=null;
+
+function loop(){
+  const dx=mx-rx, dy=my-ry;
+  if(Math.abs(dx)>.1||Math.abs(dy)>.1){
+    rx+=dx*.12; ry+=dy*.12;
+    ring.style.transform='translate('+rx+'px,'+ry+'px)';
+    rafId=requestAnimationFrame(loop);
+  } else {
+    rafId=null;
+  }
+}
 
 document.addEventListener('mousemove', e => {
-  mx = e.clientX; my = e.clientY;
-  dot.style.left = mx+'px'; dot.style.top = my+'px';
+  mx=e.clientX; my=e.clientY;
+  dot.style.transform='translate('+mx+'px,'+my+'px)';
+  if(!rafId) rafId=requestAnimationFrame(loop);
 }, {passive:true});
-
-(function loop(){
-  rx += (mx-rx)*.12; ry += (my-ry)*.12;
-  ring.style.left = rx+'px'; ring.style.top = ry+'px';
-  requestAnimationFrame(loop);
-})();
 
 // ── NAV SCROLL ──────────────────────────────────────────────────────────────
 const nav = document.getElementById('nav');
