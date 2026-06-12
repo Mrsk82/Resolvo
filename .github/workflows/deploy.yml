@@ -17,7 +17,7 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            cd /var/www/resolvo
+            cd /root/Resolvo
 
             echo "=== Pulling latest code ==="
             git pull origin main
