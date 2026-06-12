@@ -200,8 +200,12 @@ async function sendBrandEmail(slug,to,subject,html,text){
     try{await bm.mailer.sendMail({from:bm.from,to,subject,text:text||subject,html});console.log('[BrandEmail] ✓:',to);return;}
     catch(e){console.error('[BrandEmail] ✗',e.message);}
   }
-  // Fallback to owner mailer
-  await sendEmail(to,subject,html,text);
+  // Fallback: use owner SMTP but show brand name as sender display name
+  try{
+    const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+    const brandFrom=`"${brand.name||'Support'}" <${OWNER_FROM_EMAIL}>`;
+    await sendEmail(to,subject,html,text,brandFrom);
+  }catch(e){await sendEmail(to,subject,html,text);}
 }
 function cr(label,val,vs){return`<tr><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;width:110px;font-size:11px;font-weight:700;text-transform:uppercase;color:#9ca3af;">${label}</td><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;font-size:14px;${vs||'color:#111827;'}">${val}</td></tr>`;}
 function shell(c){return`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 16px;"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">${c}<tr><td style="padding:24px 0;text-align:center;"><p style="margin:0;font-size:12px;color:#9ca3af;">Powered by <strong>TechTrack</strong> · Do not reply</p></td></tr></table></td></tr></table></body></html>`;}
@@ -4642,8 +4646,8 @@ async function createTicketFromEmail(slug, emailData) {
     }
   } catch(e) { console.error('[AutoResolve]', e.message); }
 
-  // Send acknowledgement
-  if (emailData.from && config.sendAckEmail !== false) {
+  // Send acknowledgement — respect both sendAckEmail and sendAutoReply toggle
+  if (emailData.from && config.sendAckEmail !== false && config.sendAutoReply !== false) {
     const brand = (readOwner().brands || []).find(b => b.slug === slug) || {};
     const brandName = brand.name || 'Support';
     const brandColor = brand.accentColor || '#F5A623';
@@ -5154,67 +5158,59 @@ app.get('/api/owner/tables',ownerOnly,(req,res)=>{
   ]});
 });
 
-// Serve the query console + monitor page
+// Serve the owner console (search + SQL + monitor)
 app.get('/owner-console',(req,res)=>{
   res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner Console — Resolvo</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
-.topbar{background:#1a1d27;border-bottom:1px solid #2d3748;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
-.topbar h1{font-size:16px;font-weight:700;color:#f5a623;letter-spacing:.5px}
-.topbar .badge{font-size:11px;background:#2d3748;color:#94a3b8;padding:4px 10px;border-radius:20px}
-.tabs{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid #2d3748}
-.tab{padding:10px 20px;font-size:13px;font-weight:600;border-radius:8px 8px 0 0;cursor:pointer;border:none;background:transparent;color:#64748b}
+.topbar{background:#1a1d27;border-bottom:1px solid #2d3748;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.topbar h1{font-size:16px;font-weight:700;color:#f5a623}
+.badge{font-size:11px;background:#2d3748;color:#94a3b8;padding:4px 10px;border-radius:20px}
+.tabs{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid #2d3748;overflow-x:auto}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;border-radius:8px 8px 0 0;cursor:pointer;border:none;background:transparent;color:#64748b;white-space:nowrap}
 .tab.active{background:#1e2330;color:#f5a623;border:1px solid #2d3748;border-bottom:1px solid #1e2330}
-.panel{display:none;padding:24px}.panel.active{display:block}
-/* Query console */
-.query-area{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;overflow:hidden;margin-bottom:16px}
-.query-label{padding:8px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;background:#161920;border-bottom:1px solid #2d3748}
-textarea{width:100%;background:#1a1d27;color:#e2e8f0;border:none;padding:16px;font-family:'Courier New',monospace;font-size:14px;resize:vertical;min-height:100px;outline:none;line-height:1.6}
-.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600}
+.panel{display:none;padding:20px}.panel.active{display:block}
+.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:opacity .15s}
+.btn:hover{opacity:.85}
 .btn-primary{background:#f5a623;color:#000}
-.btn-primary:hover{background:#e09510}
 .btn-ghost{background:#1e2330;color:#94a3b8;border:1px solid #2d3748}
-.btn-ghost:hover{background:#2d3748;color:#e2e8f0}
-.btn-danger{background:#dc2626;color:#fff}
-.examples{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.example-btn{padding:5px 12px;font-size:12px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer;font-family:'Courier New',monospace}
-.example-btn:hover{background:#2d3748;color:#e2e8f0}
-.results-meta{font-size:12px;color:#64748b;margin-bottom:10px;padding:8px 12px;background:#161920;border-radius:6px;display:flex;gap:16px}
-.results-meta span{color:#f5a623;font-weight:700}
-.table-wrap{overflow:auto;border-radius:10px;border:1px solid #2d3748;max-height:60vh}
+.card{background:#1a1d27;border:1px solid #2d3748;border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+select,input[type=text]{background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;outline:none;min-width:140px}
+select:focus,input[type=text]:focus{border-color:#f5a623}
+label{font-size:12px;color:#64748b;display:block;margin-bottom:5px}
+.presets{display:flex;gap:8px;flex-wrap:wrap}
+.preset{padding:7px 14px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.preset:hover{background:#f5a623;color:#000;border-color:#f5a623}
+.meta{font-size:12px;color:#64748b;padding:8px 12px;background:#161920;border-radius:6px;margin-bottom:10px;display:flex;gap:16px}
+.meta b{color:#f5a623}
+.table-wrap{overflow:auto;border-radius:10px;border:1px solid #2d3748;max-height:58vh}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#1a1d27;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid #2d3748}
-td{padding:9px 14px;border-bottom:1px solid #1e2330;color:#e2e8f0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th{background:#1a1d27;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid #2d3748;cursor:pointer}
+th:hover{color:#f5a623}
+td{padding:9px 14px;border-bottom:1px solid #1e2330;color:#e2e8f0;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 tr:hover td{background:#1e2330}
-.null-val{color:#4a5568;font-style:italic}
-.error-box{background:#2d1515;border:1px solid #dc2626;color:#fca5a5;padding:14px 18px;border-radius:8px;font-size:13px}
-/* Monitor */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
-.stat-card{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;padding:16px 20px}
-.stat-label{font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px}
-.stat-value{font-size:28px;font-weight:800;color:#f5a623}
-.stat-value.red{color:#ef4444}.stat-value.green{color:#22c55e}.stat-value.yellow{color:#f59e0b}
-.log-filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.filter-btn{padding:6px 14px;font-size:12px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer}
-.filter-btn.active{background:#f5a623;color:#000;border-color:#f5a623}
-.log-list{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;max-height:65vh;overflow-y:auto}
-.log-entry{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #161920;align-items:flex-start;font-size:12px}
-.log-entry:last-child{border-bottom:none}
-.log-level{padding:2px 8px;border-radius:4px;font-weight:700;font-size:10px;text-transform:uppercase;flex-shrink:0;margin-top:1px}
-.level-error{background:#2d1515;color:#ef4444}
-.level-warn{background:#2d2010;color:#f59e0b}
-.level-info{background:#0d2340;color:#3b82f6}
-.log-cat{color:#64748b;width:60px;flex-shrink:0}
-.log-msg{color:#e2e8f0;flex:1}
-.log-ts{color:#4a5568;flex-shrink:0;white-space:nowrap}
-.no-logs{padding:40px;text-align:center;color:#4a5568}
-.search-box{width:100%;background:#1a1d27;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:12px}
-.search-box:focus{border-color:#f5a623}
-</style>
-</head>
-<body>
+.nv{color:#4a5568;font-style:italic}
+.err{background:#2d1515;border:1px solid #dc2626;color:#fca5a5;padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;padding:16px}
+.stat-l{font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px}
+.stat-v{font-size:26px;font-weight:800;color:#f5a623}
+.stat-v.red{color:#ef4444}.stat-v.green{color:#22c55e}
+.log-list{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;max-height:60vh;overflow-y:auto}
+.log-entry{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid #161920;font-size:12px;align-items:flex-start}
+.lv{padding:2px 7px;border-radius:4px;font-weight:700;font-size:10px;text-transform:uppercase;flex-shrink:0}
+.lv-error{background:#2d1515;color:#ef4444}.lv-warn{background:#2d2010;color:#f59e0b}.lv-info{background:#0d2340;color:#3b82f6}
+.lc{color:#64748b;width:55px;flex-shrink:0}.lm{color:#e2e8f0;flex:1}.lt{color:#4a5568;flex-shrink:0;white-space:nowrap}
+.no-data{padding:40px;text-align:center;color:#4a5568;font-size:14px}
+.search{width:100%;background:#1a1d27;border:1px solid #2d3748;border-radius:8px;padding:9px 14px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:12px}
+.search:focus{border-color:#f5a623}
+.fbtns{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.fb{padding:6px 14px;font-size:12px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer}
+.fb.active{background:#f5a623;color:#000;border-color:#f5a623}
+</style></head><body>
 <div class="topbar">
   <h1>⚡ Owner Console</h1>
   <div style="display:flex;gap:10px;align-items:center">
@@ -5223,57 +5219,140 @@ tr:hover td{background:#1e2330}
   </div>
 </div>
 <div class="tabs">
-  <button class="tab active" onclick="switchTab('query',this)">🗄️ Query Console</button>
+  <button class="tab active" onclick="switchTab('browse',this)">📋 Browse Data</button>
   <button class="tab" onclick="switchTab('monitor',this)">📊 Live Monitor</button>
 </div>
 
-<!-- QUERY PANEL -->
-<div id="panel-query" class="panel active">
-  <div class="query-area">
-    <div class="query-label">SQL Query</div>
-    <textarea id="sqlInput" placeholder="SELECT * FROM brands WHERE status = 'active'" spellcheck="false" onkeydown="handleKey(event)"></textarea>
+<!-- BROWSE PANEL -->
+<div id="panel-browse" class="panel active">
+  <div class="card">
+    <div class="card-title">Quick Reports — click any button to load instantly</div>
+    <div class="presets">
+      <button class="preset" onclick="runPreset('SELECT * FROM brands')">🏢 All Brands</button>
+      <button class="preset" onclick="runPreset(&quot;SELECT * FROM brands WHERE status = 'active'&quot;)">✅ Active Brands</button>
+      <button class="preset" onclick="runPreset(&quot;SELECT * FROM brands WHERE tier = 'Pro'&quot;)">⭐ Pro Brands</button>
+      <button class="preset" onclick="runPreset('SELECT * FROM users')">👥 All Users</button>
+      <button class="preset" onclick="runPreset(&quot;SELECT * FROM users WHERE role = 'Admin'&quot;)">🔑 All Admins</button>
+      <button class="preset" onclick="runPreset('SELECT * FROM tickets')">🎫 All Tickets</button>
+      <button class="preset" onclick="runPreset(&quot;SELECT * FROM tickets WHERE status = 'open'&quot;)">🔴 Open Tickets</button>
+      <button class="preset" onclick="runPreset(&quot;SELECT * FROM issues WHERE priority = 'Critical'&quot;)">🚨 Critical Issues</button>
+      <button class="preset" onclick="runPreset('SELECT * FROM appointments')">📅 Appointments</button>
+      <button class="preset" onclick="runPreset(&quot;SELECT * FROM appointments WHERE status = 'confirmed'&quot;)">✅ Confirmed Appts</button>
+      <button class="preset" onclick="runPreset('SELECT COUNT(*) FROM tickets')">📊 Count Tickets</button>
+      <button class="preset" onclick="runPreset('SELECT COUNT(*) FROM users')">📊 Count Users</button>
+    </div>
   </div>
-  <div class="toolbar">
-    <button class="btn btn-primary" onclick="runQuery()">▶ Run Query &nbsp;<kbd style="font-size:10px;opacity:.7">Ctrl+Enter</kbd></button>
-    <button class="btn btn-ghost" onclick="clearQuery()">Clear</button>
-    <button class="btn btn-ghost" onclick="loadTables()">📋 Show Tables</button>
-    <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+
+  <div class="card">
+    <div class="card-title">Custom Filter — choose what you want to see</div>
+    <div class="row">
+      <div>
+        <label>Show me</label>
+        <select id="selTable" onchange="updateFields()">
+          <option value="brands">🏢 Brands</option>
+          <option value="users">👥 Users</option>
+          <option value="tickets">🎫 Tickets</option>
+          <option value="issues">🐛 Issues</option>
+          <option value="appointments">📅 Appointments</option>
+          <option value="support_tickets">📩 Support Tickets</option>
+        </select>
+      </div>
+      <div>
+        <label>Where field</label>
+        <select id="selField"><option value="">— no filter —</option></select>
+      </div>
+      <div>
+        <label>Is / contains</label>
+        <select id="selOp">
+          <option value="=">equals</option>
+          <option value="LIKE">contains</option>
+          <option value="!=">not equal to</option>
+          <option value=">">greater than</option>
+          <option value="<">less than</option>
+        </select>
+      </div>
+      <div>
+        <label>Value</label>
+        <input type="text" id="filterVal" placeholder="e.g. active" style="width:160px">
+      </div>
+      <div>
+        <label>Sort by</label>
+        <select id="selSort"><option value="">— none —</option></select>
+      </div>
+      <div>
+        <label>Order</label>
+        <select id="selOrder"><option value="DESC">Newest first</option><option value="ASC">Oldest first</option></select>
+      </div>
+      <div>
+        <label>Max rows</label>
+        <select id="selLimit">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+          <option value="9999">All</option>
+        </select>
+      </div>
+      <div style="padding-bottom:1px">
+        <button class="btn btn-primary" onclick="runBuilder()">▶ Show Results</button>
+      </div>
+    </div>
   </div>
-  <div style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:8px">Quick Examples</div>
-    <div class="examples" id="examples"></div>
+
+  <div id="qErr" style="display:none" class="err"></div>
+  <div id="qMeta" style="display:none" class="meta"></div>
+  <div style="display:flex;gap:10px;margin-bottom:10px">
+    <button class="btn btn-ghost" id="exportBtn" style="display:none" onclick="exportCSV()">⬇ Export CSV</button>
   </div>
-  <div id="queryMeta" style="display:none" class="results-meta"></div>
-  <div id="queryError" style="display:none" class="error-box"></div>
   <div id="tableWrap" class="table-wrap" style="display:none"></div>
 </div>
 
 <!-- MONITOR PANEL -->
 <div id="panel-monitor" class="panel">
-  <div class="stats-grid" id="monitorStats"></div>
-  <input class="search-box" id="logSearch" placeholder="Search logs..." oninput="filterLogs()">
-  <div class="log-filters">
-    <button class="filter-btn active" onclick="setFilter('',this)">All</button>
-    <button class="filter-btn" onclick="setFilter('error',this)">Errors</button>
-    <button class="filter-btn" onclick="setFilter('warn',this)">Warnings</button>
-    <button class="filter-btn" onclick="setFilter('info',this)">Info</button>
-    <button class="filter-btn" style="margin-left:auto" onclick="loadMonitor()">🔄 Refresh</button>
+  <div class="stats-grid" id="monStats"></div>
+  <input class="search" id="logSearch" placeholder="Search events..." oninput="filterLogs()">
+  <div class="fbtns">
+    <button class="fb active" onclick="setFilter('',this)">All</button>
+    <button class="fb" onclick="setFilter('error',this)">🔴 Errors only</button>
+    <button class="fb" onclick="setFilter('warn',this)">🟡 Warnings</button>
+    <button class="fb" onclick="setFilter('info',this)">🔵 Info</button>
+    <button class="fb" style="margin-left:auto" onclick="loadMonitor()">🔄 Refresh</button>
   </div>
-  <div class="log-list" id="logList"><div class="no-logs">Loading...</div></div>
+  <div class="log-list" id="logList"><div class="no-data">Loading...</div></div>
 </div>
 
-<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;align-items:center;justify-content:center">
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;align-items:center;justify-content:center">
   <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:32px;width:340px">
     <div style="font-size:20px;font-weight:800;color:#f5a623;margin-bottom:6px">⚡ Owner Login</div>
-    <div style="font-size:13px;color:#64748b;margin-bottom:24px">Sign in with your owner account</div>
-    <input id="loginEmail" type="email" placeholder="Email" value="contact@resolvogroup.com" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:10px">
-    <input id="loginPass" type="password" placeholder="Password" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:10px" onkeydown="if(event.key==='Enter')doLogin()">
-    <div id="loginErr" style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px"></div>
-    <button onclick="doLogin()" style="width:100%;background:#f5a623;color:#000;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Sign In</button>
+    <div style="font-size:13px;color:#64748b;margin-bottom:20px">Sign in with your owner account to continue</div>
+    <label style="margin-bottom:5px">Email</label>
+    <input id="loginEmail" type="email" value="contact@resolvogroup.com" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:10px">
+    <label style="margin-bottom:5px">Password</label>
+    <input id="loginPass" type="password" placeholder="Password" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:12px"></div>
+    <button onclick="doLogin()" style="width:100%;background:#f5a623;color:#000;border:none;border-radius:8px;padding:12px;font-size:15px;font-weight:700;cursor:pointer">Sign In →</button>
   </div>
 </div>
+
 <script>
-let lastResult=null,currentFilter='',allLogs=[];
+const FIELDS={
+  brands:['name','slug','status','tier','majorAdminEmail','createdDate','lastActive'],
+  users:['name','email','role','active','_brand','createdDate'],
+  tickets:['id','subject','status','priority','from','_brand','createdDate','lastActivity'],
+  issues:['id','title','status','priority','assignedTo','_brand','createdDate'],
+  appointments:['id','customerName','customerEmail','date','time','status','topic','_brand'],
+  support_tickets:['id','subject','status','from','brandName','createdAt']
+};
+
+let lastResult=null,currentFilter='',allLogs=[],_token='';
+
+function getToken(){
+  if(_token)return _token;
+  for(const k of Object.keys(localStorage)){if(k.startsWith('portal_token_')){const v=localStorage.getItem(k);if(v){_token=v;return v;}}}
+  return localStorage.getItem('tt_token')||'';
+}
+function setToken(t){_token=t;localStorage.setItem('tt_token',t);}
 
 function switchTab(name,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -5283,37 +5362,68 @@ function switchTab(name,el){
   if(name==='monitor')loadMonitor();
 }
 
-function handleKey(e){if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();runQuery();}}
+function updateFields(){
+  const t=document.getElementById('selTable').value;
+  const f=FIELDS[t]||[];
+  const fOpts='<option value="">— no filter —</option>'+f.map(x=>\`<option value="\${x}">\${x}</option>\`).join('');
+  document.getElementById('selField').innerHTML=fOpts;
+  document.getElementById('selSort').innerHTML='<option value="">— none —</option>'+f.map(x=>\`<option value="\${x}">\${x}</option>\`).join('');
+}
 
-async function runQuery(){
-  const sql=document.getElementById('sqlInput').value.trim();
-  if(!sql)return;
-  document.getElementById('queryError').style.display='none';
+function buildSQL(){
+  const table=document.getElementById('selTable').value;
+  const field=document.getElementById('selField').value;
+  const op=document.getElementById('selOp').value;
+  const val=document.getElementById('filterVal').value.trim();
+  const sort=document.getElementById('selSort').value;
+  const order=document.getElementById('selOrder').value;
+  const limit=document.getElementById('selLimit').value;
+  let sql='SELECT * FROM '+table;
+  if(field&&val){
+    const v=op==='LIKE'?'%'+val+'%':val;
+    sql+=" WHERE "+field+" "+op+" '"+v+"'";
+  }
+  if(sort)sql+=' ORDER BY '+sort+' '+order;
+  if(limit&&limit!=='9999')sql+=' LIMIT '+limit;
+  return sql;
+}
+
+async function runSQL(sql){
+  document.getElementById('qErr').style.display='none';
   document.getElementById('tableWrap').style.display='none';
-  document.getElementById('queryMeta').style.display='none';
-  document.getElementById('queryMeta').innerHTML='Running...';
-  document.getElementById('queryMeta').style.display='flex';
+  document.getElementById('qMeta').style.display='none';
+  document.getElementById('exportBtn').style.display='none';
+  document.getElementById('qMeta').innerHTML='Loading...';
+  document.getElementById('qMeta').style.display='flex';
   const res=await fetch('/api/owner/query',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({sql})});
   const data=await res.json();
   if(!data.success){
-    document.getElementById('queryError').textContent='Error: '+data.error;
-    document.getElementById('queryError').style.display='block';
-    document.getElementById('queryMeta').style.display='none';
+    document.getElementById('qErr').textContent='Error: '+data.error;
+    document.getElementById('qErr').style.display='block';
+    document.getElementById('qMeta').style.display='none';
     return;
   }
   lastResult=data;
-  document.getElementById('queryMeta').innerHTML=\`<span>\${data.total}</span> rows &nbsp;|&nbsp; <span>\${data.ms}ms</span> &nbsp;|&nbsp; \${data.columns?.length||0} columns\`;
+  document.getElementById('qMeta').innerHTML=\`<b>\${data.total}</b> rows found &nbsp;|&nbsp; <b>\${data.ms}ms</b>\`;
   renderTable(data);
+  document.getElementById('exportBtn').style.display='inline-flex';
 }
 
+function runBuilder(){runSQL(buildSQL());}
+function runPreset(sql){runSQL(sql);}
+
 function renderTable(data){
-  if(!data.columns){document.getElementById('tableWrap').style.display='none';return;}
-  let html='<table><thead><tr>'+data.columns.map(c=>\`<th title="\${c}">\${c}</th>\`).join('')+'</tr></thead><tbody>';
-  (data.rows||[]).forEach(row=>{
+  if(!data.columns||!data.rows.length){
+    document.getElementById('tableWrap').innerHTML='<div class="no-data">No results found</div>';
+    document.getElementById('tableWrap').style.display='block';return;
+  }
+  let html='<table><thead><tr>'+data.columns.map(c=>\`<th>\${c}</th>\`).join('')+'</tr></thead><tbody>';
+  data.rows.forEach(row=>{
     html+='<tr>'+row.map(v=>{
-      if(v===null||v===undefined)return '<td class="null-val">null</td>';
+      if(v===null||v===undefined)return '<td class="nv">—</td>';
       const s=typeof v==='object'?JSON.stringify(v):String(v);
-      return \`<td title="\${s.replace(/"/g,'&quot;')}">\${s.substring(0,120)}\${s.length>120?'…':''}</td>\`;
+      const display=s.length>100?s.substring(0,100)+'…':s;
+      return \`<td title="\${s.replace(/"/g,'&quot;')}">\${display}</td>\`;
     }).join('')+'</tr>';
   });
   html+='</tbody></table>';
@@ -5322,101 +5432,65 @@ function renderTable(data){
 }
 
 function exportCSV(){
-  if(!lastResult||!lastResult.columns)return alert('Run a query first');
-  const rows=[lastResult.columns,...lastResult.rows];
-  const csv=rows.map(r=>r.map(v=>'"'+(v===null?'':String(v)).replace(/"/g,'""')+'"').join(',')).join('\\n');
+  if(!lastResult?.columns)return;
+  const csv=[lastResult.columns,...lastResult.rows].map(r=>r.map(v=>'"'+(v==null?'':String(v)).replace(/"/g,'""')+'"').join(',')).join('\\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='resolvo-query-'+(new Date().toISOString().substring(0,10))+'.csv';a.click();
+  a.download='resolvo-'+(new Date().toISOString().substring(0,10))+'.csv';a.click();
 }
-
-async function loadTables(){
-  const res=await fetch('/api/owner/tables',{headers:{'x-session-token':getToken()}});
-  const data=await res.json();
-  const ex=document.getElementById('examples');
-  ex.innerHTML=data.examples.map(e=>\`<button class="example-btn" onclick="setQuery(this.dataset.q)" data-q="\${e}">\${e}</button>\`).join('');
-}
-
-function setQuery(q){document.getElementById('sqlInput').value=q;}
-function clearQuery(){document.getElementById('sqlInput').value='';document.getElementById('tableWrap').style.display='none';document.getElementById('queryMeta').style.display='none';document.getElementById('queryError').style.display='none';}
 
 async function loadMonitor(){
-  const res=await fetch(\`/api/owner/monitor?limit=500\`,{headers:{'x-session-token':getToken()}});
-  const data=await res.json();
-  allLogs=data.logs||[];
+  const res=await fetch('/api/owner/monitor?limit=500',{headers:{'x-session-token':getToken()}});
+  const data=await res.json();allLogs=data.logs||[];
   const s=data.summary||{};
-  document.getElementById('monitorStats').innerHTML=\`
-    <div class="stat-card"><div class="stat-label">Total Events</div><div class="stat-value">\${s.total||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Errors</div><div class="stat-value red">\${s.errors||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Email Failures</div><div class="stat-value \${(s.emailFails||0)>0?'red':'green'}">\${s.emailFails||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Server Uptime</div><div class="stat-value green">Live</div></div>
-  \`;
-  filterLogs();
+  document.getElementById('monStats').innerHTML=\`
+    <div class="stat"><div class="stat-l">Total Events</div><div class="stat-v">\${s.total||0}</div></div>
+    <div class="stat"><div class="stat-l">Errors</div><div class="stat-v \${(s.errors||0)>0?'red':'green'}">\${s.errors||0}</div></div>
+    <div class="stat"><div class="stat-l">Email Failures</div><div class="stat-v \${(s.emailFails||0)>0?'red':'green'}">\${s.emailFails||0}</div></div>
+    <div class="stat"><div class="stat-l">Server</div><div class="stat-v green">Live ✓</div></div>
+  \`;filterLogs();
 }
 
-function setFilter(f,el){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');filterLogs();}
-
+function setFilter(f,el){currentFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));el.classList.add('active');filterLogs();}
 function filterLogs(){
-  const search=document.getElementById('logSearch').value.toLowerCase();
+  const q=document.getElementById('logSearch').value.toLowerCase();
   let logs=allLogs;
   if(currentFilter)logs=logs.filter(e=>e.level===currentFilter);
-  if(search)logs=logs.filter(e=>(e.message+e.category+(e.detail?JSON.stringify(e.detail):'')).toLowerCase().includes(search));
+  if(q)logs=logs.filter(e=>(e.message+e.category+(e.detail?JSON.stringify(e.detail):'')).toLowerCase().includes(q));
   const el=document.getElementById('logList');
-  if(!logs.length){el.innerHTML='<div class="no-logs">No events found</div>';return;}
-  el.innerHTML=logs.map(e=>\`
-    <div class="log-entry">
-      <span class="log-level level-\${e.level}">\${e.level}</span>
-      <span class="log-cat">\${e.category}</span>
-      <span class="log-msg">\${e.message}\${e.detail?'<br><span style="color:#4a5568;font-size:11px">'+JSON.stringify(e.detail).substring(0,200)+'</span>':''}</span>
-      <span class="log-ts">\${e.ts.replace('T',' ').substring(0,19)}</span>
-    </div>\`).join('');
+  if(!logs.length){el.innerHTML='<div class="no-data">No events found</div>';return;}
+  el.innerHTML=logs.map(e=>\`<div class="log-entry">
+    <span class="lv lv-\${e.level}">\${e.level}</span>
+    <span class="lc">\${e.category}</span>
+    <span class="lm">\${e.message}\${e.detail?'<br><small style="color:#4a5568">'+JSON.stringify(e.detail).substring(0,180)+'</small>':''}</span>
+    <span class="lt">\${e.ts.replace('T',' ').substring(0,19)}</span>
+  </div>\`).join('');
 }
-
-let _cachedToken='';
-function getToken(){
-  if(_cachedToken)return _cachedToken;
-  // Check all known storage keys
-  const keys=Object.keys(localStorage);
-  for(const k of keys){if(k.startsWith('portal_token_')){const v=localStorage.getItem(k);if(v){_cachedToken=v;return v;}}}
-  return localStorage.getItem('tt_token')||'';
-}
-function setToken(t){_cachedToken=t;localStorage.setItem('tt_token',t);}
-
-function showLogin(){
-  document.getElementById('loginOverlay').style.display='flex';
-}
-function hideLogin(){document.getElementById('loginOverlay').style.display='none';}
 
 async function doLogin(){
   const email=document.getElementById('loginEmail').value;
   const pass=document.getElementById('loginPass').value;
   const err=document.getElementById('loginErr');
-  err.textContent='';
+  err.textContent='Signing in...';
   const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
   const d=await res.json();
   if(!d.success){err.textContent=d.error||'Login failed';return;}
   if(!d.isOwner){err.textContent='Owner account required';return;}
-  setToken(d.token);hideLogin();
+  setToken(d.token);
+  document.getElementById('loginOverlay').style.display='none';
   document.getElementById('connStatus').textContent='Connected ✓';
-  loadTables();loadMonitor();
+  updateFields();
 }
 
 // Init
+updateFields();
 (async()=>{
-  const res=await fetch('/api/owner/stats',{headers:{'x-session-token':getToken()}}).catch(()=>({json:()=>({success:false})}));
-  const d=await res.json();
-  if(d.success){
-    document.getElementById('connStatus').textContent='Connected ✓';
-    loadTables();
-  } else {
-    document.getElementById('connStatus').textContent='Auth required';
-    showLogin();
-  }
+  const r=await fetch('/api/owner/stats',{headers:{'x-session-token':getToken()}}).catch(()=>null);
+  const d=r?await r.json():{success:false};
+  if(d.success){document.getElementById('connStatus').textContent='Connected ✓';}
+  else{document.getElementById('connStatus').textContent='Login required';document.getElementById('loginOverlay').style.display='flex';}
 })();
-
-// Auto-refresh monitor every 30s when on that tab
 setInterval(()=>{if(document.getElementById('panel-monitor').classList.contains('active'))loadMonitor();},30000);
-</script>
-</body></html>`);
+</script></body></html>`);
 });
 
 app.listen(PORT,()=>{
