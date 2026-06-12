@@ -213,7 +213,7 @@ async function _initMySQL(){
     console.log('[MySQL] Schema ready');
   }finally{conn.release();}
 }
-_initMySQL().catch(e=>console.error('[MySQL] Init failed:',e.message));
+// _initMySQL is now called via _preloadAllBrands below readBrandDB
 
 const ROW_TABLES={tickets:'brand_tickets',issues:'brand_issues',users:'brand_users',comments:'brand_comments'};
 const KV_KEYS=[
@@ -226,14 +226,17 @@ const KV_KEYS=[
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
 ];
 
-// readBrandDB — async, reads from MySQL in parallel, caches result
+// readBrandDB — returns from in-memory cache (always instant, like JSON/SQLite)
+// MySQL is only hit on startup preload and after writes
 async function readBrandDB(slug){
   if(_brandCache[slug])return _brandCache[slug];
+  return _loadBrandFromMySQL(slug);
+}
+
+async function _loadBrandFromMySQL(slug){
   const pool=_getPool();
-  const parse=rows=>( rows||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const[
-    [tickets],[issues],[users],[comments],[actLog],[emailIds],[kvRows]
-  ]=await Promise.all([
+  const parse=rows=>(rows||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const[[tickets],[issues],[users],[comments],[actLog],[emailIds],[kvRows]]=await Promise.all([
     pool.query('SELECT id,data FROM brand_tickets WHERE slug=?',[slug]),
     pool.query('SELECT id,data FROM brand_issues WHERE slug=?',[slug]),
     pool.query('SELECT id,data FROM brand_users WHERE slug=?',[slug]),
@@ -243,17 +246,27 @@ async function readBrandDB(slug){
     pool.query('SELECT `key`,value FROM brand_kv WHERE slug=?',[slug]),
   ]);
   const result={
-    tickets:parse(tickets),
-    issues:parse(issues),
-    users:parse(users),
-    comments:parse(comments),
-    activityLog:parse(actLog),
+    tickets:parse(tickets),issues:parse(issues),users:parse(users),
+    comments:parse(comments),activityLog:parse(actLog),
     processedEmailIds:(emailIds||[]).map(r=>r.id),
   };
   for(const r of(kvRows||[])){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
   _brandCache[slug]=result;
   return result;
 }
+
+// Preload all brands into memory on startup so first request is instant
+async function _preloadAllBrands(){
+  const owner=readOwner();
+  const slugs=(owner.brands||[]).map(b=>b.slug);
+  if(!slugs.length)return;
+  try{
+    await Promise.all(slugs.map(s=>_loadBrandFromMySQL(s)));
+    console.log(`[Cache] Preloaded ${slugs.length} brand(s) into memory`);
+  }catch(e){console.error('[Cache] Preload error:',e.message);}
+}
+// Run preload after MySQL schema is ready
+_initMySQL().then(()=>_preloadAllBrands()).catch(e=>console.error('[MySQL] Init failed:',e.message));
 function writeBrandDB(slug,data){
   // PRIMARY: write to MySQL (single source of truth)
   delete _brandCache[slug];
