@@ -5000,19 +5000,13 @@ function runBackgroundJobs(){
   console.log('[Jobs] Background jobs started (reminders, digest, follow-ups)');
 }
 
-// ── Auto-deploy webhook (GitHub → VPS pull) ───────────────────────────────────
-// Called by GitHub webhook on every push to main. VPS pulls its own update.
-const crypto=require('crypto');
-app.post('/deploy-webhook',express.raw({type:'application/json'}),(req,res)=>{
+// ── Auto-deploy webhook (GitHub Actions → VPS curl) ──────────────────────────
+// Called by GitHub Actions on every push to main. VPS downloads its own update.
+app.post('/deploy-webhook',express.json(),(req,res)=>{
   const secret=process.env.DEPLOY_SECRET||'';
-  if(secret){
-    const sig=req.headers['x-hub-signature-256']||'';
-    const expected='sha256='+crypto.createHmac('sha256',secret).update(req.body).digest('hex');
-    if(!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))
-      return res.status(401).json({error:'Invalid signature'});
-  }
-  const payload=JSON.parse(req.body.toString());
-  if(payload.ref!=='refs/heads/main')return res.json({message:'Not main branch, skipped'});
+  const token=req.headers['x-deploy-token']||'';
+  if(secret&&token!==secret)return res.status(401).json({error:'Invalid token'});
+  if(req.body?.ref!=='refs/heads/main')return res.json({message:'Not main branch, skipped'});
   res.json({message:'Deploy triggered'});
   const{exec}=require('child_process');
   // Use curl to download server.js directly — avoids git pull conflicts with data files

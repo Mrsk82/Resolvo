@@ -1,15 +1,10 @@
 #!/bin/bash
-# ═══════════════════════════════════════════════════════════════
-# Resolvo — Safe VPS Deployment Script
-# Run this on your VPS: bash deploy.sh
-# ═══════════════════════════════════════════════════════════════
-#
-# SAFE: Only pulls code files. data/ is NEVER touched.
-# Your customer JSON stays exactly as-is on the VPS.
-#
-# ═══════════════════════════════════════════════════════════════
-
-set -e  # Stop on any error
+# ═══════════════════════════════════════════
+# Resolvo — VPS Deploy Script
+# Run on VPS: bash deploy.sh
+# ═══════════════════════════════════════════
+set -e
+cd /root/Resolvo
 
 echo ""
 echo "╔══════════════════════════════════════╗"
@@ -17,43 +12,34 @@ echo "║   Resolvo — Deploying latest code    ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
-# ── 1. Pull latest code from GitHub ──────────────────────────
-echo "📥 Pulling latest code from GitHub..."
-git pull origin main
-echo "✅ Code updated"
+# Download latest server.js from GitHub (safe — no git conflicts)
+echo "📥 Downloading latest server.js..."
+curl -sf -o server.js.tmp "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/server.js"
+mv server.js.tmp server.js
+echo "✅ server.js updated"
 
-# ── 2. Install/update dependencies ───────────────────────────
+# Install/update dependencies
 echo ""
 echo "📦 Installing dependencies..."
-npm install --production
+npm install --production --silent
 echo "✅ Dependencies ready"
 
-# ── 3. Verify data directory exists (safe check) ─────────────
-if [ ! -d "data" ]; then
-  echo ""
-  echo "📁 Creating data/ directory (fresh deploy)..."
-  mkdir -p data/brands
-  echo "✅ data/ created"
-else
-  echo ""
-  echo "✅ data/ exists — customer data untouched"
-  echo "   Brands found: $(ls data/brands/ 2>/dev/null | wc -l)"
+# Verify data is safe
+echo ""
+if [ -d "data" ]; then
+  echo "✅ data/ untouched — customer data safe"
+  echo "   Brands: $(ls data/brands/ 2>/dev/null | wc -l)"
 fi
 
-# ── 4. Restart server with PM2 ────────────────────────────────
+# Restart server
 echo ""
-if command -v pm2 &> /dev/null; then
-  echo "🔄 Restarting server with PM2..."
-  pm2 restart resolvo 2>/dev/null || pm2 start server.js --name resolvo
-  pm2 save
-  echo "✅ Server restarted with PM2"
-else
-  echo "⚠️  PM2 not found — install it: npm install -g pm2"
-  echo "   Then run: pm2 start server.js --name resolvo && pm2 save && pm2 startup"
-fi
+echo "🔄 Restarting server..."
+pm2 restart resolvo --update-env
+echo "✅ Server restarted"
 
 echo ""
 echo "╔══════════════════════════════════════╗"
-echo "║   ✅ Deployment complete!             ║"
+echo "║   ✅ Deploy complete!                 ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
+pm2 status

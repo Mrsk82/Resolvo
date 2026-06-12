@@ -1,0 +1,813 @@
+/*
+ * ══════════════════════════════════════════════════════════════════════════════
+ * RESOLVO — DESIGN V2
+ * Linear/Vercel-grade redesign layer
+ * Overrides design-v1 tokens and components. Zero JS changes.
+ * To rollback: remove <link rel="stylesheet" href="/design-v2.css"> from index.html
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+/* ══ 1. DESIGN TOKENS — Complete Override ═══════════════════════════════════ */
+:root {
+  /* Near-black (not pure #000) — the #1 premium signal */
+  --bg-base:     #08090C;
+  --bg-surface:  #0D1018;
+  --bg-card:     #111722;
+  --bg-elevated: #172030;
+  --bg-hover:    #1C2640;
+
+  /* Accent — bright, confident green */
+  --accent:      #22D3EE;
+  --accent-dim:  rgba(34,211,238,.1);
+  --accent-glow: rgba(34,211,238,.2);
+
+  /* Status colors — slightly refined */
+  --critical: #F43F5E; --critical-dim: rgba(244,63,94,.1);
+  --high:     #FB923C; --high-dim:     rgba(251,146,60,.1);
+  --medium:   #FBBF24; --medium-dim:   rgba(251,191,36,.1);
+  --low:      #34D399; --low-dim:      rgba(52,211,153,.1);
+
+  /* Text — true premium hierarchy */
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+  --text-dim:       #334155;
+
+  /* Borders — hairline, almost invisible */
+  --border:        rgba(255,255,255,.06);
+  --border-accent: rgba(34,211,238,.25);
+
+  /* Layout */
+  --sidebar-width: 228px;
+  --topbar-height: 56px;
+  --content-max:   1240px;
+
+  /* Type scale */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   15px;
+  --text-lg:   18px;
+  --text-xl:   24px;
+  --text-2xl:  32px;
+
+  /* Spacing */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-5: 20px; --space-6: 24px;
+
+  /* Radius — consistent everywhere */
+  --radius-sm: 5px;
+  --radius:    8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Shadows */
+  --shadow:       0 4px 20px rgba(0,0,0,.35);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,.5);
+  --shadow-accent:0 4px 24px rgba(34,211,238,.12);
+}
+
+/* Midnight theme specific override */
+[data-theme="midnight"] {
+  --bg-base: #08090C; --bg-surface: #0D1018; --bg-card: #111722;
+  --bg-elevated: #172030; --bg-hover: #1C2640;
+  --accent: #22D3EE; --accent-dim: rgba(34,211,238,.1); --accent-glow: rgba(34,211,238,.2);
+  --text-primary: #F1F5F9; --text-secondary: #94A3B8; --text-muted: #64748B; --text-dim: #334155;
+  --border: rgba(255,255,255,.06); --border-accent: rgba(34,211,238,.25);
+}
+
+/* ══ 2. GLOBAL RESET & BASE ══════════════════════════════════════════════════ */
+*,*::before,*::after { box-sizing: border-box; }
+
+body {
+  background: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+/* Noise grain overlay — depth cue */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 9998;
+  opacity: .02;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+}
+
+/* ══ 3. SIDEBAR — Linear grade ═══════════════════════════════════════════════ */
+.sidebar {
+  background: var(--bg-surface) !important;
+  border-right: 1px solid var(--border) !important;
+  width: var(--sidebar-width) !important;
+}
+
+/* Sidebar header */
+.sidebar-header {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--bg-surface) !important;
+}
+
+.brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  text-decoration: none !important;
+}
+
+.brand-name {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.3px !important;
+  color: var(--text-primary) !important;
+}
+
+.brand-icon {
+  width: 26px !important; height: 26px !important;
+  border-radius: 7px !important;
+  background: linear-gradient(135deg, var(--accent), #818CF8) !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  font-size: 13px !important; font-weight: 900 !important; color: #000 !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 0 12px var(--accent-dim) !important;
+}
+
+/* Nav sections */
+.nav-section {
+  padding: 6px 0 !important;
+}
+
+.nav-label {
+  padding: 8px 16px 3px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .1em !important;
+  color: var(--text-dim) !important;
+  display: block !important;
+}
+
+/* Nav items — Linear style */
+.nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 7px 16px !important;
+  margin: 1px 6px !important;
+  border-radius: var(--radius) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--text-muted) !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: background .12s, color .12s !important;
+  border: none !important;
+  background: none !important;
+  border-left: none !important;
+  position: relative !important;
+  white-space: nowrap !important;
+  letter-spacing: 0 !important;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,.05) !important;
+  color: var(--text-primary) !important;
+}
+
+.nav-item.active {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
+  border-left: none !important;
+}
+
+.nav-item.active::before {
+  content: '' !important;
+  position: absolute !important;
+  left: -6px !important; top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 2px !important; height: 16px !important;
+  background: var(--accent) !important;
+  border-radius: 2px !important;
+}
+
+.nav-icon {
+  width: 16px !important;
+  text-align: center !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+  opacity: .7 !important;
+}
+
+.nav-item.active .nav-icon { opacity: 1 !important; }
+
+/* Sidebar footer */
+.sidebar-footer {
+  border-top: 1px solid var(--border) !important;
+  padding: var(--space-3) var(--space-3) var(--space-2) !important;
+  background: var(--bg-surface) !important;
+  margin-top: auto !important;
+}
+
+/* ══ 4. TOPBAR — Glassy, minimal ═════════════════════════════════════════════ */
+.topbar {
+  background: rgba(13,16,24,.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid var(--border) !important;
+  min-height: var(--topbar-height) !important;
+  padding: 0 var(--space-6) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: var(--z-topbar, 110) !important;
+}
+
+.page-title {
+  font-size: var(--text-lg) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.4px !important;
+  color: var(--text-primary) !important;
+  line-height: 1.1 !important;
+}
+
+.breadcrumb {
+  font-size: var(--text-xs) !important;
+  color: var(--text-dim) !important;
+  margin-top: 1px !important;
+  letter-spacing: 0 !important;
+}
+
+/* Status bar */
+.status-bar {
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 7px var(--space-6) !important;
+}
+
+.status-bar-item {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  font-weight: 600 !important;
+}
+
+/* ══ 5. MAIN CONTENT AREA ════════════════════════════════════════════════════ */
+.main-content {
+  background: var(--bg-base) !important;
+}
+
+.content-area {
+  background: var(--bg-base) !important;
+  padding: var(--space-6) !important;
+}
+
+/* ══ 6. BUTTONS — 3 clean variants ══════════════════════════════════════════ */
+.btn-primary {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 8px 18px !important;
+  background: var(--accent) !important;
+  color: #000 !important;
+  border: none !important;
+  border-radius: var(--radius) !important;
+  font-size: var(--text-base) !important;
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  transition: all .15s !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+  letter-spacing: 0 !important;
+}
+.btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px var(--accent-glow) !important;
+  opacity: .95 !important;
+}
+
+.btn-secondary {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 7px 16px !important;
+  background: var(--bg-elevated) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  font-size: var(--text-base) !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  transition: all .15s !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+}
+.btn-secondary:hover {
+  background: var(--bg-hover) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  color: var(--text-primary) !important;
+}
+
+.btn-danger {
+  background: var(--critical-dim) !important;
+  color: var(--critical) !important;
+  border: 1px solid var(--critical-dim) !important;
+}
+.btn-danger:hover {
+  border-color: var(--critical) !important;
+  background: rgba(244,63,94,.15) !important;
+}
+
+.btn-sm {
+  padding: 5px 11px !important;
+  font-size: var(--text-sm) !important;
+}
+.btn-xs {
+  padding: 3px 8px !important;
+  font-size: var(--text-xs) !important;
+}
+
+/* ══ 7. CARDS — Subtle, premium ══════════════════════════════════════════════ */
+.card, .tt-card, .tt-chart-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Glow top edge — premium signal */
+.card::before, .tt-chart-card::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0; left: 10%; right: 10% !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent) !important;
+}
+
+.card-title {
+  font-size: var(--text-base) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px !important;
+  color: var(--text-primary) !important;
+}
+
+/* ══ 8. KPI CARDS ════════════════════════════════════════════════════════════ */
+.kpi-card-modern {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  transition: border-color .2s, transform .2s !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.kpi-card-modern:hover {
+  border-color: rgba(255,255,255,.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+.kpi-value-modern {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  letter-spacing: -1px !important;
+  line-height: 1 !important;
+}
+
+.kpi-label-modern {
+  font-size: var(--text-xs) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: var(--text-muted) !important;
+}
+
+/* ══ 9. FORMS — Clean, consistent ════════════════════════════════════════════ */
+.form-input, .form-select, .form-textarea, input.form-input, select.form-select {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  color: var(--text-primary) !important;
+  font-size: var(--text-base) !important;
+  font-family: inherit !important;
+  padding: 8px 12px !important;
+  transition: border-color .15s, box-shadow .15s !important;
+  outline: none !important;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim) !important;
+}
+
+.form-label {
+  font-size: var(--text-xs) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: var(--text-muted) !important;
+}
+
+/* ══ 10. TABLES — Clean rows ════════════════════════════════════════════════ */
+.tt-issues-table, .data-table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+}
+
+.tt-th, th {
+  padding: 9px 14px !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: var(--text-dim) !important;
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border) !important;
+  white-space: nowrap !important;
+}
+
+.tt-tr, tr {
+  border-bottom: 1px solid var(--border) !important;
+  transition: background .1s !important;
+}
+
+.tt-tr:hover, tr:hover td {
+  background: var(--bg-elevated) !important;
+}
+
+.tt-td, td {
+  padding: 10px 14px !important;
+  font-size: var(--text-base) !important;
+  color: var(--text-secondary) !important;
+  vertical-align: middle !important;
+}
+
+/* ══ 11. ISSUE ROWS ══════════════════════════════════════════════════════════ */
+.issue-row {
+  border-bottom: 1px solid var(--border) !important;
+  transition: background .1s !important;
+}
+
+.issue-row:hover {
+  background: var(--bg-elevated) !important;
+}
+
+/* ══ 12. TICKET ROWS ═════════════════════════════════════════════════════════ */
+.ticket-row {
+  border-bottom: 1px solid var(--border) !important;
+  transition: background .1s !important;
+}
+
+.ticket-row:hover {
+  background: var(--bg-elevated) !important;
+}
+
+/* ══ 13. MODALS — Premium feel ═══════════════════════════════════════════════ */
+.modal-overlay {
+  background: rgba(0,0,0,.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.modal {
+  background: var(--bg-card) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.modal-header {
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 14px 18px !important;
+}
+
+.modal-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px !important;
+  color: var(--text-primary) !important;
+}
+
+.modal-close {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  color: var(--text-muted) !important;
+  width: 26px !important; height: 26px !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all .15s !important;
+}
+.modal-close:hover {
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+
+.modal-body { padding: 18px !important; }
+.modal-footer {
+  padding: 14px 18px !important;
+  border-top: 1px solid var(--border) !important;
+  background: var(--bg-elevated) !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+}
+
+/* ══ 14. BADGES & CHIPS ══════════════════════════════════════════════════════ */
+.badge, [class*="badge-"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 2px 8px !important;
+  border-radius: 20px !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+/* Status badges refined */
+.badge-critical { background: var(--critical-dim) !important; color: var(--critical) !important; }
+.badge-high     { background: var(--high-dim) !important;     color: var(--high) !important; }
+.badge-medium   { background: var(--medium-dim) !important;   color: var(--medium) !important; }
+.badge-low      { background: var(--low-dim) !important;      color: var(--low) !important; }
+.badge-accent   { background: var(--accent-dim) !important;   color: var(--accent) !important; }
+
+/* ══ 15. DASHBOARD HEADER — Cleaner ══════════════════════════════════════════ */
+.dashboard-header-modern {
+  padding: 20px 0 16px !important;
+  border-bottom: 1px solid var(--border) !important;
+  margin-bottom: 20px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.dashboard-title-modern {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.5px !important;
+  color: var(--text-primary) !important;
+  line-height: 1.2 !important;
+}
+
+.dashboard-subtitle-modern {
+  font-size: var(--text-sm) !important;
+  color: var(--text-muted) !important;
+  font-family: inherit !important;
+  margin-top: 2px !important;
+}
+
+/* ══ 16. SECTION HEADERS ══════════════════════════════════════════════════════ */
+.section-header, .card-title-row, .tt-chart-card-title {
+  font-size: var(--text-base) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px !important;
+  color: var(--text-primary) !important;
+}
+
+.section-label, .tt-section-header {
+  font-size: var(--text-xs) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+  color: var(--text-dim) !important;
+}
+
+/* ══ 17. EMPTY STATES ═════════════════════════════════════════════════════════ */
+.empty-state {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 48px 24px !important;
+  text-align: center !important;
+  gap: 10px !important;
+}
+
+.empty-state-icon {
+  font-size: 40px !important;
+  opacity: .4 !important;
+  margin-bottom: 4px !important;
+}
+
+.empty-state p {
+  font-size: var(--text-base) !important;
+  color: var(--text-muted) !important;
+  max-width: 300px !important;
+  line-height: 1.6 !important;
+}
+
+/* ══ 18. SETTINGS SIDEBAR ════════════════════════════════════════════════════ */
+#settingsContent {
+  background: transparent !important;
+}
+
+/* Settings section */
+div[style*="background:var(--bg-card)"][style*="border:1px solid var(--border)"] {
+  border-radius: var(--radius-md) !important;
+}
+
+/* ══ 19. TOASTS ═══════════════════════════════════════════════════════════════ */
+.toast {
+  background: var(--bg-elevated) !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-size: var(--text-base) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* ══ 20. SCROLLBARS ══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.14); }
+
+/* ══ 21. FOCUS RINGS ═════════════════════════════════════════════════════════ */
+*:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* ══ 22. LOADING SCREEN ══════════════════════════════════════════════════════ */
+#loading-screen {
+  background: var(--bg-base) !important;
+}
+
+.loader-logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.logo-text {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.5px !important;
+  background: linear-gradient(135deg, var(--accent), #818CF8) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.loader-bar {
+  background: var(--bg-elevated) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+.loader-fill {
+  background: linear-gradient(90deg, var(--accent), #818CF8) !important;
+  border-radius: 4px !important;
+}
+
+/* ══ 23. USER PROFILE ════════════════════════════════════════════════════════ */
+.user-card {
+  border-bottom: 1px solid var(--border) !important;
+  padding: 12px 14px !important;
+  background: var(--bg-surface) !important;
+}
+
+.user-name {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  letter-spacing: -0.2px !important;
+}
+
+.user-role {
+  font-size: var(--text-xs) !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+}
+
+/* ══ 24. KANBAN BOARD ════════════════════════════════════════════════════════ */
+.kanban-column {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.kanban-column-header {
+  font-size: var(--text-xs) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+  color: var(--text-dim) !important;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.kanban-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  transition: all .15s !important;
+}
+
+.kanban-card:hover {
+  border-color: rgba(255,255,255,.1) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3) !important;
+}
+
+/* ══ 25. TYPOGRAPHY GLOBALS ══════════════════════════════════════════════════ */
+h1, h2, h3, h4, h5 {
+  letter-spacing: -0.3px !important;
+  color: var(--text-primary) !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Section titles inside settings/reports */
+h3[style*="font-size:16px"] {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.3px !important;
+  color: var(--text-primary) !important;
+}
+
+/* ══ 26. FILTER CHIPS & TAGS ═════════════════════════════════════════════════ */
+.filter-chip, .saved-filter-chip {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 20px !important;
+  padding: 4px 12px !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+  cursor: pointer !important;
+  transition: all .15s !important;
+}
+
+.filter-chip:hover, .saved-filter-chip:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+
+/* ══ 27. ANNOUNCEMENTS / ALERTS ══════════════════════════════════════════════ */
+.announcement-bar {
+  background: linear-gradient(135deg, rgba(34,211,238,.06), rgba(129,140,248,.06)) !important;
+  border-bottom: 1px solid rgba(34,211,238,.12) !important;
+  font-size: var(--text-sm) !important;
+}
+
+/* ══ 28. PROGRESS BARS ═══════════════════════════════════════════════════════ */
+.progress-bar-v2 {
+  background: var(--bg-elevated) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+/* ══ 29. MOBILE REFINEMENTS ══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 260px !important;
+    box-shadow: 0 0 0 100vw rgba(0,0,0,.5) !important;
+  }
+
+  .content-area {
+    padding: var(--space-4) !important;
+  }
+
+  .topbar {
+    padding: 0 var(--space-4) !important;
+  }
+
+  .modal {
+    margin: var(--space-4) !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+}
+
+/* ══ 30. SMOOTH TRANSITIONS (everything feels alive) ═════════════════════════ */
+.nav-item, .btn-primary, .btn-secondary, .btn-danger,
+.card, .kpi-card-modern, .kanban-card,
+.form-input, .form-select,
+.ticket-row, .issue-row, tr {
+  transition-property: background, border-color, color, transform, box-shadow, opacity !important;
+  transition-duration: .15s !important;
+  transition-timing-function: ease !important;
+}
+
+/* Fade in for page transitions */
+.content-area > * {
+  animation: v2FadeIn .3s ease both;
+}
+
+@keyframes v2FadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══ END DESIGN V2 ════════════════════════════════════════════════════════════ */
