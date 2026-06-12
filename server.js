@@ -226,24 +226,30 @@ const KV_KEYS=[
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
 ];
 
-// readBrandDB — async, reads from MySQL (single source of truth)
+// readBrandDB — async, reads from MySQL in parallel, caches result
 async function readBrandDB(slug){
   if(_brandCache[slug])return _brandCache[slug];
   const pool=_getPool();
-  const result={};
-  const [tickets]=await pool.query('SELECT id,data FROM brand_tickets WHERE slug=?',[slug]);
-  result.tickets=(tickets||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [issues]=await pool.query('SELECT id,data FROM brand_issues WHERE slug=?',[slug]);
-  result.issues=(issues||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [users]=await pool.query('SELECT id,data FROM brand_users WHERE slug=?',[slug]);
-  result.users=(users||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [comments]=await pool.query('SELECT id,data FROM brand_comments WHERE slug=?',[slug]);
-  result.comments=(comments||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [actLog]=await pool.query('SELECT data FROM brand_activity_log WHERE slug=? ORDER BY id ASC',[slug]);
-  result.activityLog=(actLog||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [emailIds]=await pool.query('SELECT id FROM brand_processed_emails WHERE slug=?',[slug]);
-  result.processedEmailIds=(emailIds||[]).map(r=>r.id);
-  const [kvRows]=await pool.query('SELECT `key`,value FROM brand_kv WHERE slug=?',[slug]);
+  const parse=rows=>( rows||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const[
+    [tickets],[issues],[users],[comments],[actLog],[emailIds],[kvRows]
+  ]=await Promise.all([
+    pool.query('SELECT id,data FROM brand_tickets WHERE slug=?',[slug]),
+    pool.query('SELECT id,data FROM brand_issues WHERE slug=?',[slug]),
+    pool.query('SELECT id,data FROM brand_users WHERE slug=?',[slug]),
+    pool.query('SELECT id,data FROM brand_comments WHERE slug=?',[slug]),
+    pool.query('SELECT data FROM brand_activity_log WHERE slug=? ORDER BY id ASC',[slug]),
+    pool.query('SELECT id FROM brand_processed_emails WHERE slug=?',[slug]),
+    pool.query('SELECT `key`,value FROM brand_kv WHERE slug=?',[slug]),
+  ]);
+  const result={
+    tickets:parse(tickets),
+    issues:parse(issues),
+    users:parse(users),
+    comments:parse(comments),
+    activityLog:parse(actLog),
+    processedEmailIds:(emailIds||[]).map(r=>r.id),
+  };
   for(const r of(kvRows||[])){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
   _brandCache[slug]=result;
   return result;
