@@ -459,6 +459,19 @@ nav.s{background:rgba(8,9,10,.88);backdrop-filter:blur(24px);-webkit-backdrop-fi
 .cta-meta{font-size:12px;color:var(--t4);position:relative;z-index:1;}
 .cta-meta a{color:var(--green);text-decoration:none;}
 
+/* FAQ */
+.faq-wrap{max-width:780px;margin:0 auto;}
+.faq-cat{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--green2);margin:36px 0 12px;}
+.faq-item{border-bottom:1px solid var(--b1);overflow:hidden;}
+.faq-q{width:100%;background:none;border:none;color:var(--t1);text-align:left;padding:18px 0;font-size:14.5px;font-weight:600;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;line-height:1.4;transition:color .15s;}
+.faq-q:hover{color:var(--green2);}
+.faq-icon{flex-shrink:0;width:20px;height:20px;border:1px solid var(--b2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:300;color:var(--t3);transition:transform .3s,border-color .3s,color .3s;line-height:1;}
+.faq-item.open .faq-icon{transform:rotate(45deg);border-color:var(--green2);color:var(--green2);}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.16,1,.3,1);}
+.faq-a-inner{padding:0 0 18px;font-size:13.5px;color:var(--t2);line-height:1.75;}
+.faq-a-inner strong{color:var(--t1);}
+.faq-a-inner a{color:var(--green2);text-decoration:none;}
+
 /* Footer */
 footer{border-top:1px solid var(--b1);padding:28px 0;}
 .fi{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
@@ -777,6 +790,115 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
   </div>
 </div>
 
+<!-- ── FAQ ── -->
+<section style="padding:120px 0;">
+  <div class="w">
+    <div style="text-align:center;margin-bottom:56px;">
+      <span class="ey r">FAQ</span>
+      <h2 class="sh r" style="margin-top:10px;">Everything you want to know</h2>
+      <p class="sub r" style="max-width:520px;margin:12px auto 0;">Questions from real teams before they switched to Resolvo.</p>
+    </div>
+
+    <div class="faq-wrap">
+
+      <div class="faq-cat r">Customer Experience (CX)</div>
+
+      <div class="faq-item r">
+        <button class="faq-q" onclick="toggleFaq(this)">How do customers submit tickets to Resolvo?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Customers can reach you through <strong>four channels</strong> — email (auto-converted to tickets), the embeddable website widget (one script tag), the self-service customer portal (/portal/:brand), or your team can create tickets manually on behalf of a customer. Every source is tracked on the ticket so you always know where it came from.</div></div>
+      </div>
+
+      <div class="faq-item r d1">
+        <button class="faq-q" onclick="toggleFaq(this)">Can customers track their own tickets without calling us?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. The <strong>Customer Portal</strong> (/portal/:brand) gives customers OTP-based login — no password needed. They can view all their tickets, see live status updates, add comments, and close resolved tickets themselves. This alone cuts "what's the status?" emails by 60-80%.</div></div>
+      </div>
+
+      <div class="faq-item r d2">
+        <button class="faq-q" onclick="toggleFaq(this)">What happens when a customer emails us?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Resolvo polls your connected inbox every 2 minutes. When a new email arrives, it's <strong>automatically parsed</strong> and converted into a ticket — subject becomes the title, body becomes the description, sender becomes the customer. Replies to that ticket thread are attached as comments. You never need to open Gmail to manage support.</div></div>
+      </div>
+
+      <div class="faq-item r d3">
+        <button class="faq-q" onclick="toggleFaq(this)">How does SLA tracking work for customer tickets?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Every ticket gets an SLA clock based on its priority — <strong>Critical (4h), High (8h), Medium (24h), Low (72h)</strong>. The clock shows live on the ticket and on your dashboard. When a ticket is about to breach, agents get notified. You can also pause the SLA clock when waiting on a customer response, so your team isn't penalised for customer delays.</div></div>
+      </div>
+
+      <div class="faq-item r">
+        <button class="faq-q" onclick="toggleFaq(this)">Can we send automated replies to customers?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. Resolvo sends <strong>automatic acknowledgement emails</strong> when a ticket is created, status-change notifications when a ticket moves to Resolved or Closed, and follow-up emails if a ticket hasn't been updated. You can customise all email templates from Settings → Email Templates with your own branding and tone.</div></div>
+      </div>
+
+      <div class="faq-item r d1">
+        <button class="faq-q" onclick="toggleFaq(this)">Is there a way to embed a support widget on our website?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes — one script tag. Add <code style="font-size:12px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;">&lt;script src="..." data-brand="your-slug"&gt;&lt;/script&gt;</code> to any page and a floating support button appears. When a visitor clicks it, they fill a short form and a ticket is created instantly — no login required. Branded with your colours.</div></div>
+      </div>
+
+      <div class="faq-item r d2">
+        <button class="faq-q" onclick="toggleFaq(this)">Can VIP customers get faster response times?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. You can tag any user as <strong>VIP</strong> in Settings → Team. When a VIP submits a ticket, the system flags it, escalates the priority automatically, and sends an instant Slack or email notification to the admin. VIP tickets appear highlighted in the queue so agents never miss them.</div></div>
+      </div>
+
+      <div class="faq-item r d3">
+        <button class="faq-q" onclick="toggleFaq(this)">How do we measure customer satisfaction (CSAT)?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">When a ticket is resolved, Resolvo can automatically send the customer a <strong>one-click CSAT survey</strong> — 😊 😐 😞. Scores are tracked per agent and per period on the Reports → Agent Coaching page. You can see FRT (first response time), resolution time, and CSAT trends side by side to identify who needs coaching.</div></div>
+      </div>
+
+      <div class="faq-cat r">Product & Engineering</div>
+
+      <div class="faq-item r">
+        <button class="faq-q" onclick="toggleFaq(this)">How is Resolvo different from Jira for bug tracking?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Jira is powerful but <strong>built for engineers only</strong> — it has no concept of customers, SLAs, or email ticketing. Resolvo connects your customer support queue directly to your engineering issue tracker in the same product. A support ticket can be linked to a bug, the bug gets fixed, and the customer is notified automatically. No Zapier zaps, no manual copy-paste between tools.</div></div>
+      </div>
+
+      <div class="faq-item r d1">
+        <button class="faq-q" onclick="toggleFaq(this)">Can we track revenue impact of bugs?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes — every issue has a <strong>Revenue Impact (₹)</strong> field. Combined with priority, age, and SLA status, Resolvo calculates an <strong>Impact Score (0-100)</strong> for each issue. This lets your team prioritise ruthlessly: fix the £50,000 bug before the cosmetic UI glitch. The impact score is visible on the Kanban board and all issue lists.</div></div>
+      </div>
+
+      <div class="faq-item r d2">
+        <button class="faq-q" onclick="toggleFaq(this)">Does Resolvo have a public product roadmap?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. You get a public <strong>/roadmap/:brand</strong> page showing Planned, In Progress, and Shipped items. Customers can upvote planned items — votes are tracked by IP so no double voting. You decide which roadmap items are public. It's a powerful tool to reduce feature-request emails and show customers you're listening.</div></div>
+      </div>
+
+      <div class="faq-item r d3">
+        <button class="faq-q" onclick="toggleFaq(this)">How does the AI queue and smart assignment work?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">The AI Queue analyses incoming tickets for <strong>urgency, sentiment, and topic</strong> using Google Gemini. It then assigns tickets to agents based on current workload — you set the max tickets per agent cap. Agents with fewer open tickets get new ones first. You can override any assignment manually, or turn off AI routing and use manual assignment only.</div></div>
+      </div>
+
+      <div class="faq-item r">
+        <button class="faq-q" onclick="toggleFaq(this)">Can we integrate Resolvo with our own systems via API?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. Generate a <strong>named API token</strong> in Settings → API Tokens with read, write, or admin scope. Use it to create tickets from your app, sync issues to Jira or GitHub, trigger workflows in Zapier or n8n, or pull reports into your own dashboards. Full REST API with Bearer token authentication.</div></div>
+      </div>
+
+      <div class="faq-item r d1">
+        <button class="faq-q" onclick="toggleFaq(this)">Is there approval workflow for critical bug fixes?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. You can require <strong>manager sign-off</strong> before a Critical or High issue can be marked Resolved. The issue sits in "Pending Approval" state until an admin approves or rejects. QA sign-off with notes is also tracked on the issue. Full audit trail — who approved, when, and any comments — stored permanently.</div></div>
+      </div>
+
+      <div class="faq-item r d2">
+        <button class="faq-q" onclick="toggleFaq(this)">Does Resolvo support multi-brand or multi-product setups?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. Resolvo is built <strong>multi-tenant from the ground up</strong>. Each brand gets a completely isolated workspace — separate team, tickets, issues, settings, and data. A single platform owner can manage unlimited brands from one account. Perfect for agencies managing multiple clients or companies with multiple product lines.</div></div>
+      </div>
+
+      <div class="faq-item r d3">
+        <button class="faq-q" onclick="toggleFaq(this)">How secure is our data? Can one brand see another's data?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner"><strong>Physically impossible.</strong> Every brand has its own isolated SQLite database file on disk. The session token baked at login contains the brand slug — it cannot be changed by the client. Every single API call uses <code style="font-size:12px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;">su.brandSlug</code> to scope reads and writes. There is no shared table between brands. Optional 2FA via Google Authenticator adds another layer.</div></div>
+      </div>
+
+      <div class="faq-item r">
+        <button class="faq-q" onclick="toggleFaq(this)">What's included in the Free plan?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner">The Free plan includes <strong>unlimited tickets, unlimited issues, 3 team members, email ticketing, customer portal, embeddable widget, Kanban board, SLA tracking, and public roadmap</strong>. No credit card required. Paid plans unlock more team seats, AI features, advanced analytics, API tokens, Slack alerts, and priority support. You can start free today and upgrade when you need to.</div></div>
+      </div>
+
+      <div class="faq-item r d1">
+        <button class="faq-q" onclick="toggleFaq(this)">How long does setup take? Do we need a developer?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><div class="faq-a-inner"><strong>5 minutes, no developer needed.</strong> Sign up → connect your support email → invite your team. That's it. The embeddable widget is one copy-paste. The customer portal is live at /portal/:brand instantly. There's no infrastructure to manage, no database to set up, no devops required. If you can use Gmail, you can use Resolvo.</div></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
 <!-- ── PRICING ── -->
 
 <!-- ── CTA ── -->
@@ -900,6 +1022,23 @@ document.querySelectorAll('.btn-p,.btn-s').forEach(btn => {
     btn.style.transition = 'transform .4s cubic-bezier(.16,1,.3,1)';
   });
 });
+
+// ── FAQ ACCORDION ────────────────────────────────────────────────────────────
+function toggleFaq(btn) {
+  const item = btn.closest('.faq-item');
+  const ans = item.querySelector('.faq-a');
+  const isOpen = item.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.faq-item.open').forEach(el => {
+    el.classList.remove('open');
+    el.querySelector('.faq-a').style.maxHeight = '0';
+  });
+  // Open clicked if it was closed
+  if (!isOpen) {
+    item.classList.add('open');
+    ans.style.maxHeight = ans.scrollHeight + 'px';
+  }
+}
 
 // ── SELF SIGNUP ──────────────────────────────────────────────────────────────
 async function doSignup() {
