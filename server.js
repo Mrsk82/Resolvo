@@ -168,10 +168,13 @@ async function _initMySQL(){
     await conn.query(`CREATE TABLE IF NOT EXISTS brand_tickets(
       slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
       data MEDIUMTEXT NOT NULL,
+      status_col VARCHAR(50) GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(data,'$.status'))) VIRTUAL,
+      priority_col VARCHAR(50) GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(data,'$.priority'))) VIRTUAL,
+      assigned_col VARCHAR(100) GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(data,'$.assignedTo'))) VIRTUAL,
       PRIMARY KEY(slug,id),
-      INDEX idx_status((JSON_UNQUOTE(JSON_EXTRACT(data,'$.status')))),
-      INDEX idx_priority((JSON_UNQUOTE(JSON_EXTRACT(data,'$.priority')))),
-      INDEX idx_assigned((JSON_UNQUOTE(JSON_EXTRACT(data,'$.assignedTo'))))
+      INDEX idx_status(slug,status_col),
+      INDEX idx_priority(slug,priority_col),
+      INDEX idx_assigned(slug,assigned_col)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     await conn.query(`CREATE TABLE IF NOT EXISTS brand_issues(
       slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
@@ -181,8 +184,9 @@ async function _initMySQL(){
     await conn.query(`CREATE TABLE IF NOT EXISTS brand_users(
       slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
       data MEDIUMTEXT NOT NULL,
+      email_col VARCHAR(255) GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(data,'$.email'))) VIRTUAL,
       PRIMARY KEY(slug,id),
-      INDEX idx_email((JSON_UNQUOTE(JSON_EXTRACT(data,'$.email'))))
+      INDEX idx_email(slug,email_col)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     await conn.query(`CREATE TABLE IF NOT EXISTS brand_comments(
       slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
