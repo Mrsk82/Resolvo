@@ -5797,6 +5797,523 @@ setInterval(()=>{if(document.getElementById('panel-monitor').classList.contains(
 </script></body></html>`);
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ADVANCED FEATURES — all optional, toggled per brand in Settings
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Helper: get feature flags for a brand
+function getFeatures(db){return db.features||{};}
+function featEnabled(db,key){return getFeatures(db)[key]===true;}
+
+// ── Feature flags API ─────────────────────────────────────────────────────
+app.get('/api/features',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  res.json({success:true,features:db.features||{}});
+});
+app.post('/api/features',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  db.features=Object.assign(db.features||{},req.body);
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true,features:db.features});
+});
+
+// ── In-memory: collision detection presence tracking ─────────────────────
+const TICKET_PRESENCE={};// {ticketId:[{userId,name,ts}]}
+function prunePresence(){const now=Date.now();Object.keys(TICKET_PRESENCE).forEach(tid=>{TICKET_PRESENCE[tid]=(TICKET_PRESENCE[tid]||[]).filter(p=>now-p.ts<30000);if(!TICKET_PRESENCE[tid].length)delete TICKET_PRESENCE[tid];});}
+setInterval(prunePresence,15000);
+
+app.post('/api/tickets/:id/presence',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'collisionDetection'))return res.json({success:false,disabled:true});
+  const tid=req.params.id;
+  prunePresence();
+  TICKET_PRESENCE[tid]=TICKET_PRESENCE[tid]||[];
+  const idx=TICKET_PRESENCE[tid].findIndex(p=>p.userId===su.id);
+  if(idx>=0)TICKET_PRESENCE[tid][idx].ts=Date.now();
+  else TICKET_PRESENCE[tid].push({userId:su.id,name:su.name||su.email,email:su.email,ts:Date.now()});
+  const others=TICKET_PRESENCE[tid].filter(p=>p.userId!==su.id);
+  res.json({success:true,others});
+});
+
+// ── Ticket events (for Replay feature) ───────────────────────────────────
+function logTicketEvent(slug,ticketId,type,actor,detail){
+  try{
+    const db=readBrandDB(slug);
+    if(!featEnabled(db,'ticketReplay'))return;
+    const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+    if(idx<0)return;
+    db.tickets[idx].events=db.tickets[idx].events||[];
+    db.tickets[idx].events.push({type,actor,detail,ts:new Date().toISOString()});
+    writeBrandDB(slug,db);
+  }catch(e){}
+}
+
+app.get('/api/tickets/:id/replay',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'ticketReplay'))return res.json({success:false,error:'Feature not enabled'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Ticket not found'});
+  res.json({success:true,events:ticket.events||[],ticket:{id:ticket.id,subject:ticket.subject,createdAt:ticket.createdAt}});
+});
+
+// ── Mood / sentiment analysis ─────────────────────────────────────────────
+function scoreSentiment(text){
+  const t=(text||'').toLowerCase();
+  const neg=['angry','furious','terrible','awful','horrible','worst','useless','broken','failed','pathetic','waste','scam','fraud','disgusting','unacceptable','disappointed','disaster','ridiculous','hate','never again'];
+  const pos=['thanks','thank you','great','excellent','wonderful','amazing','fantastic','perfect','helpful','awesome','love','appreciate','brilliant','outstanding','best'];
+  let score=50;
+  neg.forEach(w=>{if(t.includes(w))score-=12;});
+  pos.forEach(w=>{if(t.includes(w))score+=10;});
+  return Math.max(0,Math.min(100,score));
+}
+
+app.get('/api/tickets/:id/mood',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'moodTimeline'))return res.json({success:false,error:'Feature not enabled'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Not found'});
+  const thread=ticket.thread||[];
+  const points=thread.map(m=>({ts:m.timestamp,score:scoreSentiment(m.body),from:m.fromName||m.from,type:m.type}));
+  // Add original message
+  const initial={ts:ticket.createdAt,score:scoreSentiment(ticket.body||ticket.description||''),from:ticket.fromName||ticket.from||'Customer',type:'initial'};
+  res.json({success:true,points:[initial,...points]});
+});
+
+// ── Ticket Health Score ───────────────────────────────────────────────────
+function calcHealthScore(ticket,db){
+  let score=100;
+  const now=Date.now();
+  const created=new Date(ticket.createdAt||ticket.createdDate||now).getTime();
+  const last=new Date(ticket.lastActivity||ticket.createdAt||now).getTime();
+  const ageSince=Math.floor((now-last)/3600000);// hours since last activity
+  const ageTotal=Math.floor((now-created)/86400000);// days old
+  const reopens=ticket.reopenCount||0;
+  const sentiment=scoreSentiment(ticket.body||ticket.description||'');
+  // SLA proximity
+  const slaHours=(db.slaConfig||{})[(ticket.priority||'medium').toLowerCase()]||48;
+  const slaPct=Math.min(1,(now-created)/(slaHours*3600000));
+  score-=slaPct*35;// up to -35 for SLA
+  score-=Math.min(25,ageSince*2);// up to -25 for silence
+  score-=reopens*10;// -10 per reopen
+  if(sentiment<40)score-=15;
+  if(ageTotal>7)score-=10;
+  return Math.max(0,Math.round(score));
+}
+
+app.get('/api/tickets/:id/health',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'ticketHealthScore'))return res.json({success:false,error:'Feature not enabled'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Not found'});
+  res.json({success:true,score:calcHealthScore(ticket,db),ticketId:ticket.id});
+});
+
+app.get('/api/tickets/health-all',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'ticketHealthScore'))return res.json({success:false,error:'Feature not enabled'});
+  const open=(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status));
+  const scored=open.map(t=>({id:t.id,subject:t.subject,health:calcHealthScore(t,db),priority:t.priority,assignedTo:t.assignedTo,status:t.status})).sort((a,b)=>a.health-b.health);
+  res.json({success:true,tickets:scored});
+});
+
+// ── Promised Callback Tracker ─────────────────────────────────────────────
+app.post('/api/tickets/:id/promise-callback',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'promisedCallback'))return res.json({success:false,error:'Feature not enabled'});
+  const{callbackAt,note}=req.body;
+  if(!callbackAt)return res.json({success:false,error:'callbackAt required'});
+  const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
+  if(idx<0)return res.json({success:false,error:'Ticket not found'});
+  db.tickets[idx].promisedCallback={agentEmail:su.email,agentName:su.name||su.email,callbackAt,note:note||'',createdAt:new Date().toISOString(),status:'pending'};
+  db.tickets[idx].lastActivity=new Date().toISOString();
+  writeBrandDB(su.brandSlug,db);
+  // Notify customer
+  const ticket=db.tickets[idx];
+  if(ticket.from){
+    const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===su.brandSlug)||{};
+    const cbDate=new Date(callbackAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+    sendBrandEmail(su.brandSlug,ticket.from,`Callback Confirmed — ${brand.name||su.brandName}`,`<div style="font-family:Arial;max-width:520px;padding:24px;"><h3>Callback Scheduled</h3><p>Your agent <strong>${su.name||su.email}</strong> has promised to call you back by <strong>${cbDate}</strong>.</p>${note?'<p>Note: '+note+'</p>':''}<p style="color:#6b7280;font-size:13px;">Ticket: ${req.params.id}</p></div>`,`Callback by ${su.name||su.email} at ${cbDate}`).catch(()=>{});
+  }
+  res.json({success:true});
+});
+
+app.get('/api/tickets/:id/promise-callback',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Not found'});
+  res.json({success:true,promise:ticket.promisedCallback||null});
+});
+
+// Background: check overdue callbacks every 15 min
+setInterval(async()=>{
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      if(!featEnabled(db,'promisedCallback'))continue;
+      const now=new Date();
+      let changed=false;
+      for(const ticket of(db.tickets||[])){
+        const cb=ticket.promisedCallback;
+        if(!cb||cb.status!=='pending')continue;
+        if(new Date(cb.callbackAt)<now){
+          ticket.promisedCallback.status='overdue';
+          // Notify agent
+          const agent=(db.users||[]).find(u=>u.email===cb.agentEmail);
+          if(agent)sendEmail(agent.email,`⏰ Overdue Callback: ${ticket.subject}`,`<p>Your promised callback for ticket <strong>${ticket.id}</strong> is overdue. Callback was due at ${new Date(cb.callbackAt).toLocaleString()}.</p>`,`Overdue callback: ${ticket.id}`).catch(()=>{});
+          changed=true;
+        }
+      }
+      if(changed)writeBrandDB(brand.slug,db);
+    }catch(e){}
+  }
+},15*60*1000);
+
+// ── Post-ticket Mood Stamp ────────────────────────────────────────────────
+app.post('/api/tickets/:id/mood-stamp',(req,res)=>{
+  const{emoji,token}=req.body;
+  const validEmojis=['😞','😐','😊','😄','😡'];
+  if(!validEmojis.includes(emoji))return res.json({success:false,error:'Invalid emoji'});
+  // Find ticket across all brands
+  const owner=readOwner();
+  for(const brand of(owner.brands||[])){
+    try{
+      const db=readBrandDB(brand.slug);
+      if(!featEnabled(db,'moodStamp'))continue;
+      const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
+      if(idx<0)continue;
+      db.tickets[idx].moodStamp={emoji,stampedAt:new Date().toISOString()};
+      writeBrandDB(brand.slug,db);
+      return res.json({success:true});
+    }catch(e){}
+  }
+  res.json({success:false,error:'Ticket not found'});
+});
+
+app.get('/api/mood-stamp-stats',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'moodStamp'))return res.json({success:false,error:'Feature not enabled'});
+  const counts={'😞':0,'😐':0,'😊':0,'😄':0,'😡':0};
+  (db.tickets||[]).filter(t=>t.moodStamp).forEach(t=>{ if(counts[t.moodStamp.emoji]!==undefined)counts[t.moodStamp.emoji]++; });
+  res.json({success:true,counts});
+});
+
+// ── Silence Detection (background job) ───────────────────────────────────
+setInterval(async()=>{
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      if(!featEnabled(db,'silenceDetection'))continue;
+      const silenceHours=(db.features?.silenceHours)||48;
+      const cutoff=new Date(Date.now()-silenceHours*3600000);
+      let changed=false;
+      for(const ticket of(db.tickets||[]).filter(t=>t.status==='open'&&t.from)){
+        const lastReply=(ticket.thread||[]).filter(m=>m.type==='reply').pop();
+        if(!lastReply)continue;// no agent reply yet
+        const lastCustomer=(ticket.thread||[]).filter(m=>m.type!=='reply'&&m.type!=='note').pop();
+        const lastCustomerTime=lastCustomer?new Date(lastCustomer.timestamp):new Date(ticket.createdAt);
+        if(lastCustomerTime<cutoff&&!ticket.silenceFollowUpSent){
+          const owner2=readOwner();const b=(owner2.brands||[]).find(x=>x.slug===brand.slug)||{};
+          await sendBrandEmail(brand.slug,ticket.from,`Following up on your request — ${b.name||brand.slug}`,`<div style="font-family:Arial;max-width:520px;padding:24px;"><p>Hi there,</p><p>We wanted to check in on your support request <strong>${ticket.id}</strong> — ${ticket.subject}.</p><p>Did our last reply help? Let us know and we can close this out, or continue if you still need assistance.</p><p style="color:#6b7280;font-size:13px;">— ${b.name||'Support Team'}</p></div>`,`Following up on ${ticket.id}`).catch(()=>{});
+          ticket.silenceFollowUpSent=new Date().toISOString();
+          changed=true;
+          console.log(`[Silence] Follow-up sent for ${ticket.id} (${brand.slug})`);
+        }
+      }
+      if(changed)writeBrandDB(brand.slug,db);
+    }catch(e){console.error('[Silence]',e.message);}
+  }
+},3*60*60*1000);// every 3 hours
+
+// ── Smart Auto-close Suggest ──────────────────────────────────────────────
+app.post('/api/tickets/:id/auto-close-suggest',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'smartAutoClose'))return res.json({success:false,error:'Feature not enabled'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Not found'});
+  const lastThread=(ticket.thread||[]).slice(-3).map(m=>m.body).join(' ');
+  const draft=`Hi ${ticket.fromName||'there'},\n\nWe noticed we haven't heard back from you regarding ticket ${ticket.id} — ${ticket.subject}.\n\nWe're going to go ahead and mark this as resolved. If you still need assistance, simply reply to this email and we'll reopen it immediately.\n\nThank you for contacting us!\n\n— ${su.name||'Support Team'}`;
+  res.json({success:true,draft,ticketId:ticket.id});
+});
+
+app.post('/api/tickets/:id/auto-close-confirm',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'smartAutoClose'))return res.json({success:false,error:'Feature not enabled'});
+  const{message}=req.body;
+  const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
+  if(idx<0)return res.json({success:false,error:'Not found'});
+  const ticket=db.tickets[idx];
+  if(ticket.from&&message){
+    sendBrandEmail(su.brandSlug,ticket.from,`Re: [${su.brandName}] ${ticket.subject}`,`<div style="font-family:Arial;max-width:520px;padding:24px;white-space:pre-wrap;">${message.replace(/\n/g,'<br>')}</div>`,message).catch(()=>{});
+  }
+  db.tickets[idx].status='resolved';
+  db.tickets[idx].resolvedAt=new Date().toISOString();
+  db.tickets[idx].resolvedBy=su.email;
+  db.tickets[idx].lastActivity=new Date().toISOString();
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+
+// Background: identify auto-close candidates daily
+setInterval(async()=>{
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      if(!featEnabled(db,'smartAutoClose'))continue;
+      const days=(db.features?.autoCloseDays)||5;
+      const cutoff=new Date(Date.now()-days*86400000);
+      db.autoCloseSuggestions=(db.tickets||[])
+        .filter(t=>t.status==='open'&&new Date(t.lastActivity||t.createdAt)<cutoff)
+        .map(t=>t.id);
+      if(db.autoCloseSuggestions.length)writeBrandDB(brand.slug,db);
+    }catch(e){}
+  }
+},24*60*60*1000);
+
+// ── Agent Burnout Score ───────────────────────────────────────────────────
+app.get('/api/burnout-scores',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'agentBurnoutScore'))return res.json({success:false,error:'Feature not enabled'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const now=Date.now();const weekAgo=now-7*86400000;
+  const agents=(db.users||[]).filter(u=>u.active&&u.role!=='Admin');
+  const scores=agents.map(agent=>{
+    const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email);
+    const weekTickets=myTickets.filter(t=>new Date(t.lastActivity||t.createdAt).getTime()>weekAgo);
+    const afterHours=weekTickets.filter(t=>{const h=new Date(t.lastActivity||t.createdAt).getHours();return h<8||h>19;}).length;
+    const escalated=myTickets.filter(t=>t.priority==='Critical'||t.escalated).length;
+    const openCount=myTickets.filter(t=>t.status==='open').length;
+    // Score: higher = more at risk
+    const raw=Math.min(100,openCount*3+weekTickets.length*2+afterHours*5+escalated*4);
+    let risk='Low';
+    if(raw>=60)risk='High';
+    else if(raw>=35)risk='Medium';
+    return{name:agent.name||agent.email,email:agent.email,score:raw,risk,openTickets:openCount,weeklyLoad:weekTickets.length,afterHours,escalated};
+  }).sort((a,b)=>b.score-a.score);
+  res.json({success:true,scores});
+});
+
+// ── One-click Root Cause Report ───────────────────────────────────────────
+app.post('/api/root-cause-report',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'rootCauseReport'))return res.json({success:false,error:'Feature not enabled'});
+  if(!['Admin','Developer'].includes(su.role))return res.json({success:false,error:'Admin/Developer only'});
+  const{keyword,days}=req.body;
+  if(!keyword)return res.json({success:false,error:'keyword required'});
+  const since=new Date(Date.now()-(days||30)*86400000);
+  const matched=(db.tickets||[]).filter(t=>{
+    const text=((t.subject||'')+(t.body||t.description||'')).toLowerCase();
+    return text.includes(keyword.toLowerCase())&&new Date(t.createdAt||t.createdDate)>since;
+  });
+  if(matched.length<1)return res.json({success:false,error:'No tickets found matching that keyword'});
+  const statuses={};matched.forEach(t=>{statuses[t.status||'unknown']=(statuses[t.status||'unknown']||0)+1;});
+  const firstSeen=matched.reduce((min,t)=>{const d=new Date(t.createdAt||t.createdDate);return d<min?d:min;},new Date());
+  const report={keyword,ticketCount:matched.length,firstSeen:firstSeen.toISOString(),dateRange:`Last ${days||30} days`,statusBreakdown:statuses,affectedCustomers:[...new Set(matched.map(t=>t.from||t.fromName).filter(Boolean))].length,tickets:matched.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,from:t.from,createdAt:t.createdAt})),generatedAt:new Date().toISOString(),generatedBy:su.email};
+  // Store it
+  db.rootCauseReports=db.rootCauseReports||[];
+  db.rootCauseReports.unshift({...report,id:generateId('RCR')});
+  if(db.rootCauseReports.length>50)db.rootCauseReports=db.rootCauseReports.slice(0,50);
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true,report});
+});
+
+app.get('/api/root-cause-reports',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'rootCauseReport'))return res.json({success:false,error:'Feature not enabled'});
+  res.json({success:true,reports:(db.rootCauseReports||[]).slice(0,20)});
+});
+
+// ── Ticket Clipboard ──────────────────────────────────────────────────────
+// Client-side only (localStorage) — server provides clip metadata endpoint
+app.post('/api/tickets/:id/clip',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'ticketClipboard'))return res.json({success:false,error:'Feature not enabled'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Not found'});
+  res.json({success:true,clip:{id:ticket.id,subject:ticket.subject,status:ticket.status,priority:ticket.priority,from:ticket.from,createdAt:ticket.createdAt,snippet:(ticket.body||ticket.description||'').substring(0,200)}});
+});
+
+// ── AI Ticket Triage ──────────────────────────────────────────────────────
+async function aiTriageTicket(slug,ticketId){
+  try{
+    const db=readBrandDB(slug);
+    if(!featEnabled(db,'aiTriage'))return;
+    if(!process.env.GEMINI_API_KEY)return;
+    const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+    if(idx<0)return;
+    const ticket=db.tickets[idx];
+    const prompt=`You are a support ticket triage assistant. Analyse this support ticket and respond with ONLY valid JSON.
+
+Ticket subject: ${ticket.subject}
+Ticket body: ${(ticket.body||ticket.description||'').substring(0,500)}
+
+Respond with exactly this JSON structure (no markdown, no explanation):
+{"priority":"Critical|High|Medium|Low","category":"billing|technical|general|complaint|refund|feature_request","sentiment":"positive|neutral|negative","suggestedReply":"A short one-sentence canned reply suggestion","tags":["tag1","tag2"]}`;
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+    const json=await r.json();
+    const raw=(json.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
+    const parsed=JSON.parse(raw.replace(/```json\n?|\n?```/g,''));
+    db.tickets[idx].aiTriage={...parsed,triagedAt:new Date().toISOString()};
+    if(!db.tickets[idx].priority||db.tickets[idx].priority==='Medium')db.tickets[idx].priority=parsed.priority;
+    if(parsed.tags)db.tickets[idx].tags=[...new Set([...(db.tickets[idx].tags||[]),...parsed.tags])];
+    writeBrandDB(slug,db);
+    console.log(`[AiTriage] ${ticketId} → ${parsed.priority} / ${parsed.category}`);
+  }catch(e){console.error('[AiTriage]',ticketId,e.message);}
+}
+
+app.post('/api/tickets/:id/triage',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'aiTriage'))return res.json({success:false,error:'Feature not enabled'});
+  aiTriageTicket(su.brandSlug,req.params.id).catch(()=>{});
+  res.json({success:true,message:'Triage running in background'});
+});
+
+app.get('/api/tickets/:id/triage',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'aiTriage'))return res.json({success:false,error:'Feature not enabled'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket)return res.json({success:false,error:'Not found'});
+  res.json({success:true,triage:ticket.aiTriage||null});
+});
+
+// ── AI-suggested Canned Responses ─────────────────────────────────────────
+app.get('/api/canned-suggest',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'aiCannedResponses'))return res.json({success:false,error:'Feature not enabled'});
+  const q=(req.query.q||'').toLowerCase();
+  if(q.length<3)return res.json({success:true,suggestions:[]});
+  const canned=db.cannedResponses||[];
+  const scored=canned.map(c=>{
+    const text=(c.title+' '+c.body).toLowerCase();
+    const words=q.split(/\s+/).filter(w=>w.length>2);
+    const hits=words.filter(w=>text.includes(w)).length;
+    return{...c,score:hits};
+  }).filter(c=>c.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+  res.json({success:true,suggestions:scored});
+});
+
+// ── Internal Changelog Publisher (Owner feature) ──────────────────────────
+app.get('/api/owner/changelogs',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  res.json({success:true,changelogs:(owner.changelogs||[]).slice(0,50)});
+});
+
+app.post('/api/owner/changelogs',ownerOnly,async(req,res)=>{
+  const{title,body,type}=req.body;
+  if(!title||!body)return res.json({success:false,error:'title and body required'});
+  const owner=readOwner();
+  owner.changelogs=owner.changelogs||[];
+  const entry={id:generateId('CHL'),title,body,type:type||'update',publishedAt:new Date().toISOString()};
+  owner.changelogs.unshift(entry);
+  writeOwner(owner);
+  // Email all active brand admins
+  let sent=0;
+  const typeEmoji={'update':'✨','fix':'🐛','new':'🚀','maintenance':'🔧'}[type||'update']||'✨';
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active'&&b.majorAdminEmail)){
+    try{
+      const html=`<div style="font-family:Arial;max-width:540px;margin:0 auto;padding:24px;background:#fff;border-radius:14px;"><div style="background:linear-gradient(135deg,#10B981,#6366F1);border-radius:10px;padding:16px 24px;margin-bottom:20px;"><span style="font-size:16px;font-weight:800;color:#fff;">Resolvo ${typeEmoji} ${type==='new'?'New Feature':'Update'}</span></div><h2 style="font-size:18px;color:#111827;margin:0 0 12px;">${title}</h2><div style="font-size:14px;color:#374151;line-height:1.8;white-space:pre-wrap;">${body}</div><div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;">Published ${new Date().toLocaleDateString()}</div></div>`;
+      await sendEmail(brand.majorAdminEmail,`${typeEmoji} ${title} — Resolvo Update`,html,`${title}\n\n${body}`);
+      sent++;
+    }catch(e){}
+  }
+  res.json({success:true,entry,emailsSent:sent});
+});
+
+// ── WhatsApp Ticket Inbox (Twilio webhook) ────────────────────────────────
+app.post('/api/whatsapp/webhook',async(req,res)=>{
+  // Standard Twilio WhatsApp webhook
+  const{From,Body,ProfileName,WaId}=req.body;
+  if(!From||!Body)return res.status(200).send('<Response></Response>');
+  // Find brand configured for this WhatsApp number
+  const owner=readOwner();
+  let handled=false;
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      if(!featEnabled(db,'whatsapp'))continue;
+      if(!db.features?.whatsappNumber)continue;
+      // Create or append to existing ticket from this WhatsApp number
+      const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===WaId&&t.status==='open');
+      const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
+      if(existingIdx>=0){
+        db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
+        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'customer',from:From,fromName:ProfileName||From,body:Body,timestamp:new Date().toISOString(),channel:'whatsapp'});
+        db.tickets[existingIdx].lastActivity=new Date().toISOString();
+      }else{
+        db.tickets=db.tickets||[];
+        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:'open',priority:'Medium',createdAt:new Date().toISOString(),lastActivity:new Date().toISOString(),thread:[]});
+      }
+      writeBrandDB(brand.slug,db);
+      handled=true;
+      console.log(`[WhatsApp] Ticket ${ticketId} from ${From} (${brand.slug})`);
+      break;
+    }catch(e){console.error('[WhatsApp]',e.message);}
+  }
+  res.status(200).send('<Response></Response>');
+});
+
+// WhatsApp reply from agent
+app.post('/api/tickets/:id/whatsapp-reply',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  if(!featEnabled(db,'whatsapp'))return res.json({success:false,error:'Feature not enabled'});
+  if(!process.env.TWILIO_ACCOUNT_SID||!process.env.TWILIO_AUTH_TOKEN)return res.json({success:false,error:'Twilio not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM to .env'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
+  if(!ticket||ticket.channel!=='whatsapp')return res.json({success:false,error:'Not a WhatsApp ticket'});
+  const{message}=req.body;if(!message)return res.json({success:false,error:'message required'});
+  // Send via Twilio
+  const twilio=require('twilio')(process.env.TWILIO_ACCOUNT_SID,process.env.TWILIO_AUTH_TOKEN);
+  twilio.messages.create({from:`whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,to:ticket.from,body:message})
+    .then(()=>{
+      const idx=(db.tickets||[]).findIndex(t=>t.id===ticket.id);
+      if(idx>=0){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:su.email,fromName:su.name||su.email,body:message,timestamp:new Date().toISOString(),channel:'whatsapp'});writeBrandDB(su.brandSlug,db);}
+      res.json({success:true});
+    })
+    .catch(e=>res.json({success:false,error:e.message}));
+});
+
+// Voice Note Tickets (portal: upload audio blob, transcribe, create ticket)
+app.post('/api/voice-ticket',async(req,res)=>{
+  // Expects multipart with audio blob + brandSlug + customerEmail
+  const{brandSlug,customerEmail,customerName,transcript}=req.body;
+  if(!brandSlug||!transcript)return res.json({success:false,error:'brandSlug and transcript required'});
+  const db=readBrandDB(brandSlug);
+  if(!featEnabled(db,'voiceNoteTickets'))return res.json({success:false,error:'Feature not enabled'});
+  const ticketId=generateId('TKT');
+  db.tickets=db.tickets||[];
+  db.tickets.unshift({id:ticketId,subject:`Voice note: ${transcript.substring(0,60)}`,body:transcript,from:customerEmail||'voice-unknown',fromName:customerName||'Voice Customer',channel:'voice',status:'open',priority:'Medium',createdAt:new Date().toISOString(),lastActivity:new Date().toISOString(),thread:[]});
+  writeBrandDB(brandSlug,db);
+  // Auto-triage if enabled
+  if(featEnabled(db,'aiTriage'))aiTriageTicket(brandSlug,ticketId).catch(()=>{});
+  res.json({success:true,ticketId});
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// END ADVANCED FEATURES
+// ═══════════════════════════════════════════════════════════════════════════
+
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
