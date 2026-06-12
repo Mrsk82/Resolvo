@@ -213,7 +213,7 @@ async function _initMySQL(){
     console.log('[MySQL] Schema ready');
   }finally{conn.release();}
 }
-// _initMySQL is now called via _preloadAllBrands below readBrandDB
+// _initMySQL and _preloadAllBrands called at bottom before app.listen
 
 const ROW_TABLES={tickets:'brand_tickets',issues:'brand_issues',users:'brand_users',comments:'brand_comments'};
 const KV_KEYS=[
@@ -226,12 +226,16 @@ const KV_KEYS=[
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
 ];
 
-// readBrandDB — returns from in-memory cache (always instant, like JSON/SQLite)
-// MySQL is only hit on startup preload and after writes
+// readBrandDB — returns from in-memory cache (instant after first load)
 async function readBrandDB(slug){
   if(_brandCache[slug])return _brandCache[slug];
+  // Not in cache yet — load from MySQL and cache it
   return _loadBrandFromMySQL(slug);
 }
+
+// Prevent duplicate simultaneous loads for the same slug
+const _loadingPromises={};
+
 
 async function _loadBrandFromMySQL(slug){
   const pool=_getPool();
@@ -266,7 +270,7 @@ async function _preloadAllBrands(){
   }catch(e){console.error('[Cache] Preload error:',e.message);}
 }
 // Run preload after MySQL schema is ready
-_initMySQL().then(()=>_preloadAllBrands()).catch(e=>console.error('[MySQL] Init failed:',e.message));
+// startup sequence at bottom of file
 function writeBrandDB(slug,data){
   // PRIMARY: write to MySQL (single source of truth)
   delete _brandCache[slug];
@@ -6721,14 +6725,22 @@ app.post('/api/voice-ticket',async(req,res)=>{
 // END ADVANCED FEATURES
 // ═══════════════════════════════════════════════════════════════════════════
 
-app.listen(PORT,()=>{
-  const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
-  console.log(`\n╔══════════════════════════════════════════════════════╗`);
-  console.log(`║   Resolvo SaaS  —  ${BASE_URL.padEnd(34)}║`);
-  console.log(`╚══════════════════════════════════════════════════════╝\n`);
-  const ownerInfo=readOwner();console.log(`Owner:  ${ownerInfo.email}`);
-  console.log(`Email:  ${eon?'✓ ON ('+process.env.EMAIL_USER+')':'✗ Off'}\n`);
-  if(eon)getMailer();
-  initEmailPollers();
-  runBackgroundJobs();
-});
+(async()=>{
+  // Initialise MySQL schema and preload all brands before accepting requests
+  try{
+    await _initMySQL();
+    await _preloadAllBrands();
+  }catch(e){console.error('[Startup] DB init error:',e.message);}
+
+  app.listen(PORT,()=>{
+    const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
+    console.log(`\n╔══════════════════════════════════════════════════════╗`);
+    console.log(`║   Resolvo SaaS  —  ${BASE_URL.padEnd(34)}║`);
+    console.log(`╚══════════════════════════════════════════════════════╝\n`);
+    const ownerInfo=readOwner();console.log(`Owner:  ${ownerInfo.email}`);
+    console.log(`Email:  ${eon?'✓ ON ('+process.env.EMAIL_USER+')':'✗ Off'}\n`);
+    if(eon)getMailer();
+    initEmailPollers();
+    runBackgroundJobs();
+  });
+})();
