@@ -134,8 +134,164 @@ function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[
 function readOwner(){return JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}
 function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf8');}
 function brandDbPath(slug){return path.join(BRANDS_DIR,slug,'db.json');}
-function readBrandDB(slug){try{return JSON.parse(fs.readFileSync(brandDbPath(slug),'utf8'));}catch(e){return{};}}
-function writeBrandDB(slug,d){fs.writeFileSync(brandDbPath(slug),JSON.stringify(d,null,2),'utf8');}
+
+// ══════════════════════════════════════════════════════════════════════════
+// SQLITE DATABASE LAYER  (replaces JSON file reads/writes)
+// Each brand gets data/brands/{slug}/db.sqlite
+// Interface is identical — readBrandDB / writeBrandDB still return/accept
+// the same plain JS object shape so nothing else in server.js changes.
+// ══════════════════════════════════════════════════════════════════════════
+const _sqlite3=require('better-sqlite3');
+const _dbConns={};// slug → BetterSqlite3 instance (connection pool)
+
+// Collections stored as individual rows (id TEXT PK + data TEXT JSON).
+// These are the large, frequently-written arrays.
+const ROW_TABLES={
+  tickets:'tickets',
+  issues:'issues',
+  users:'users',
+  comments:'comments',
+};
+
+// Everything else goes into the kv table as JSON blobs.
+// Small arrays + all config objects.
+const KV_KEYS=[
+  'settings','slaConfig','emailTicketing','features','featureFlags',
+  'queueConfig','bookingConfig','slackAlerts','autoResolveRules',
+  'sprints','dependencies','customFields','customFieldValues',
+  'onCallSchedule','savedFilters','escalationRules','recurringTemplates',
+  'commits','peerReviews','emailThreads','inboundRules','aiHistory',
+  'tags','coAssignees','votes','timeLogs','watchers','reactions',
+  'pinnedIssues','postMortems','auditTrail','announcements','teams',
+];
+
+function _openDB(slug){
+  if(_dbConns[slug])return _dbConns[slug];
+  const dir=path.join(BRANDS_DIR,slug);
+  if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
+  const db=_sqlite3(path.join(dir,'db.sqlite'));
+  db.pragma('journal_mode=WAL');   // concurrent reads, atomic writes
+  db.pragma('synchronous=NORMAL'); // safe + fast (no fsync on every write)
+  db.pragma('cache_size=-16000');  // 16 MB page cache
+  db.pragma('temp_store=memory');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS issues(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS comments(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS activity_log(
+      rowid INTEGER PRIMARY KEY AUTOINCREMENT,ts TEXT,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS processed_email_ids(
+      id TEXT PRIMARY KEY,ts TEXT DEFAULT(datetime('now')));
+    CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_tk_status   ON tickets(json_extract(data,'$.status'));
+    CREATE INDEX IF NOT EXISTS idx_tk_priority ON tickets(json_extract(data,'$.priority'));
+    CREATE INDEX IF NOT EXISTS idx_tk_assigned ON tickets(json_extract(data,'$.assignedTo'));
+    CREATE INDEX IF NOT EXISTS idx_is_status   ON issues(json_extract(data,'$.status'));
+    CREATE INDEX IF NOT EXISTS idx_is_assigned ON issues(json_extract(data,'$.assignedTo'));
+    CREATE INDEX IF NOT EXISTS idx_us_email    ON users(json_extract(data,'$.email'));
+    CREATE INDEX IF NOT EXISTS idx_cm_issue    ON comments(json_extract(data,'$.issueId'));
+    CREATE INDEX IF NOT EXISTS idx_al_ts       ON activity_log(ts);
+  `);
+  _dbConns[slug]=db;
+  return db;
+}
+
+// Upsert helper used inside writeBrandDB transaction
+function _upsertRows(db,table,items){
+  if(!Array.isArray(items))return;
+  const stmt=db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?)
+    ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
+  // Collect new IDs so we can delete removed rows
+  const newIds=new Set();
+  for(const item of items){
+    const id=item.id||item.email||String(Math.random());
+    newIds.add(id);
+    stmt.run(id,JSON.stringify(item));
+  }
+  // Remove rows that are no longer in the array
+  const existing=db.prepare(`SELECT id FROM ${table}`).pluck().all();
+  const delStmt=db.prepare(`DELETE FROM ${table} WHERE id=?`);
+  for(const id of existing){if(!newIds.has(id))delStmt.run(id);}
+}
+
+function readBrandDB(slug){
+  // ── fallback: if SQLite doesn't exist yet, try legacy JSON ──────────────
+  const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
+  const jsonPath=brandDbPath(slug);
+  if(!fs.existsSync(sqlitePath)&&fs.existsSync(jsonPath)){
+    try{
+      const legacy=JSON.parse(fs.readFileSync(jsonPath,'utf8'));
+      writeBrandDB(slug,legacy);// migrate on first read
+      console.log(`[SQLite] Auto-migrated ${slug} from JSON`);
+    }catch(e){console.error('[SQLite] Migration failed for',slug,e.message);}
+  }
+  const db=_openDB(slug);
+  const result={};
+  // Row-table collections
+  for(const[jsKey,table]of Object.entries(ROW_TABLES)){
+    result[jsKey]=db.prepare(`SELECT data FROM ${table}`).all().map(r=>JSON.parse(r.data));
+  }
+  // Activity log (no explicit id column)
+  result.activityLog=db.prepare('SELECT data FROM activity_log ORDER BY rowid ASC').all().map(r=>JSON.parse(r.data));
+  // processedEmailIds (array of strings)
+  result.processedEmailIds=db.prepare('SELECT id FROM processed_email_ids').pluck().all();
+  // KV blobs
+  const kvRows=db.prepare('SELECT key,value FROM kv').all();
+  for(const r of kvRows){
+    try{result[r.key]=JSON.parse(r.value);}catch(e){}
+  }
+  return result;
+}
+
+function writeBrandDB(slug,data){
+  const db=_openDB(slug);
+  db.transaction(()=>{
+    // Row-table collections
+    for(const[jsKey,table]of Object.entries(ROW_TABLES)){
+      if(Array.isArray(data[jsKey]))_upsertRows(db,table,data[jsKey]);
+    }
+    // Activity log — append-only, capped at 2000
+    if(Array.isArray(data.activityLog)){
+      // Determine how many are already stored
+      const stored=db.prepare('SELECT COUNT(*) as c FROM activity_log').get().c;
+      const incoming=data.activityLog;
+      // Only insert rows beyond what's stored (append new entries)
+      if(incoming.length>stored){
+        const newEntries=incoming.slice(stored);
+        const ins=db.prepare('INSERT INTO activity_log(ts,data) VALUES(?,?)');
+        for(const entry of newEntries){
+          ins.run(entry.timestamp||entry.at||new Date().toISOString(),JSON.stringify(entry));
+        }
+      }
+      // Cap: keep only last 2000
+      const total=db.prepare('SELECT COUNT(*) as c FROM activity_log').get().c;
+      if(total>2000){
+        db.prepare('DELETE FROM activity_log WHERE rowid <= (SELECT rowid FROM activity_log ORDER BY rowid ASC LIMIT 1 OFFSET ?)').run(total-2000);
+      }
+    }
+    // processedEmailIds
+    if(Array.isArray(data.processedEmailIds)){
+      const ins=db.prepare('INSERT OR IGNORE INTO processed_email_ids(id) VALUES(?)');
+      for(const id of data.processedEmailIds.slice(-5000))ins.run(id);
+      // Trim to 5000
+      db.prepare(`DELETE FROM processed_email_ids WHERE id NOT IN (
+        SELECT id FROM processed_email_ids ORDER BY rowid DESC LIMIT 5000)`).run();
+    }
+    // KV blobs
+    const upsertKV=db.prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+    for(const key of KV_KEYS){
+      if(data[key]!==undefined)upsertKV.run(key,JSON.stringify(data[key]));
+    }
+    // Any extra top-level keys not explicitly mapped → also store in kv
+    const knownKeys=new Set([...Object.keys(ROW_TABLES),'activityLog','processedEmailIds',...KV_KEYS]);
+    for(const[key,val]of Object.entries(data)){
+      if(!knownKeys.has(key)&&val!==undefined){
+        try{upsertKV.run(key,JSON.stringify(val));}catch(e){}
+      }
+    }
+  })();
+}
 function generateId(p){return p+'-'+uuidv4().substring(0,8).toUpperCase();}
 function generateIssueId(slug){const db=readBrandDB(slug);return 'ISS-'+String((db.issues||[]).length+1).padStart(4,'0');}
 function logActivity(db,issueId,action,user){db.activityLog=db.activityLog||[];db.activityLog.push({issueId,action,user,timestamp:new Date().toISOString()});}
