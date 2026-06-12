@@ -97,6 +97,22 @@ nav.s{background:rgba(8,9,10,.88);backdrop-filter:blur(24px);-webkit-backdrop-fi
 }
 .nav-logo-text{font-size:15px;font-weight:700;letter-spacing:-.4px;color:var(--t1);}
 .nav-links{display:flex;gap:2px;list-style:none;}
+/* Mobile nav */
+.nav-burger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:4px;}
+.nav-burger span{display:block;width:22px;height:2px;background:var(--t2);border-radius:2px;transition:all .3s;}
+.nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-burger.open span:nth-child(2){opacity:0;}
+.nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.nav-mobile{display:none;position:fixed;top:58px;left:0;right:0;background:rgba(8,9,10,.97);backdrop-filter:blur(24px);border-bottom:1px solid var(--b1);padding:16px 28px 24px;z-index:999;}
+.nav-mobile.open{display:block;}
+.nav-mobile a{display:block;padding:11px 0;font-size:15px;color:var(--t2);text-decoration:none;border-bottom:1px solid var(--b1);}
+.nav-mobile a:last-child{border-bottom:none;}
+.nav-mobile .nm-btns{display:flex;gap:8px;margin-top:16px;}
+.nav-mobile .nm-btns a{border:none;padding:12px;text-align:center;border-radius:9px;font-weight:700;}
+@media(max-width:720px){
+  .nav-links,.nav-r{display:none;}
+  .nav-burger{display:flex;}
+}
 .nav-links a{
   color:var(--t3);text-decoration:none;
   font-size:13.5px;font-weight:500;
@@ -445,6 +461,43 @@ nav.s{background:rgba(8,9,10,.88);backdrop-filter:blur(24px);-webkit-backdrop-fi
 .pbtn-ghost{background:var(--b1);color:var(--t1);border:1px solid var(--b2);}
 .pbtn-ghost:hover{background:var(--b2);}
 
+/* Testimonials */
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:52px;}
+@media(max-width:900px){.testi-grid{grid-template-columns:1fr;}}
+.tcard{background:var(--bg-1);border:1px solid var(--b1);border-radius:14px;padding:28px;position:relative;transition:border-color .2s;}
+.tcard:hover{border-color:var(--b2);}
+.tcard::before{content:'';position:absolute;top:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,var(--b2),transparent);}
+.tcard-stars{color:var(--amber);font-size:12px;margin-bottom:14px;letter-spacing:2px;}
+.tcard-body{font-size:13.5px;color:var(--t2);line-height:1.75;margin-bottom:20px;font-style:italic;}
+.tcard-body strong{color:var(--t1);font-style:normal;}
+.tcard-foot{display:flex;align-items:center;gap:11px;}
+.tcard-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#000;flex-shrink:0;}
+.tcard-name{font-size:13px;font-weight:700;color:var(--t1);}
+.tcard-role{font-size:11px;color:var(--t4);}
+
+/* How it works */
+.hiw-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:52px;position:relative;}
+.hiw-steps::before{content:'';position:absolute;top:28px;left:calc(16.66% + 14px);right:calc(16.66% + 14px);height:1px;background:linear-gradient(90deg,var(--b2),var(--b2));z-index:0;}
+@media(max-width:900px){.hiw-steps{grid-template-columns:1fr;gap:24px;}.hiw-steps::before{display:none;}}
+.hiw-step{text-align:center;padding:0 28px;position:relative;z-index:1;}
+.hiw-num{width:56px;height:56px;border-radius:50%;border:1px solid var(--b2);background:var(--bg-1);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:20px;position:relative;}
+.hiw-num::after{content:'';position:absolute;inset:-5px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,160,.08),transparent 70%);}
+.hiw-t{font-size:16px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px;}
+.hiw-d{font-size:13px;color:var(--t3);line-height:1.7;}
+
+/* Comparison */
+.cmp-tbl{width:100%;border-collapse:collapse;margin-top:52px;font-size:13px;}
+.cmp-tbl th{padding:14px 18px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t4);border-bottom:1px solid var(--b1);}
+.cmp-tbl th.hi{color:var(--green);background:rgba(0,229,160,.04);}
+.cmp-tbl td{padding:13px 18px;border-bottom:1px solid var(--b1);color:var(--t2);vertical-align:middle;}
+.cmp-tbl td.hi{background:rgba(0,229,160,.03);}
+.cmp-tbl tr:last-child td{border-bottom:none;}
+.cmp-tbl tr:hover td{background:rgba(255,255,255,.015);}
+.cmp-tbl tr:hover td.hi{background:rgba(0,229,160,.05);}
+.ck{color:var(--green);font-weight:800;}
+.cx{color:var(--t4);}
+.cp{color:var(--amber);font-size:11px;}
+
 /* CTA */
 .cta-box{
   background:var(--bg-1);border:1px solid var(--b1);
@@ -539,8 +592,23 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
       <a href="/" class="btn-nav btn-nav-ghost">Sign in</a>
       <a href="/signup" class="btn-nav btn-nav-solid">Get started →</a>
     </div>
+    <button class="nav-burger" id="nav-burger" onclick="toggleNav()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+<div class="nav-mobile" id="nav-mobile">
+  <a href="#problem">Problem</a>
+  <a href="#features">Features</a>
+  <a href="/blog">Blog</a>
+  <a href="/learn" target="_blank">Docs</a>
+  <a href="/vs-jira">vs Jira</a>
+  <a href="/vs-zendesk">vs Zendesk</a>
+  <div class="nm-btns">
+    <a href="/" class="btn-nav btn-nav-ghost" style="flex:1;">Sign in</a>
+    <a href="/signup" class="btn-nav btn-nav-solid" style="flex:1;">Get started →</a>
+  </div>
+</div>
 
 <!-- ── HERO ── -->
 <section class="hero">
@@ -551,7 +619,7 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
     <div class="hero-left">
       <a href="/" class="badge">
         <span class="badge-pill">New</span>
-        <span class="badge-text">Customer portal + API keys shipped</span>
+        <span class="badge-text">Slack Alerts + Ticket Widget now live</span>
         <span class="badge-arr">→</span>
       </a>
 
@@ -568,10 +636,10 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
       </div>
 
       <div class="stats">
-        <div class="stat"><div class="stat-n" data-count="87">0</div><div class="stat-l">SLA compliance</div></div>
-        <div class="stat"><div class="stat-n">3×</div><div class="stat-l">Faster resolution</div></div>
-        <div class="stat"><div class="stat-n">100+</div><div class="stat-l">Features</div></div>
-        <div class="stat"><div class="stat-n">∞</div><div class="stat-l">Brands</div></div>
+        <div class="stat"><div class="stat-n" data-count="87">0</div><div class="stat-l">SLA compliance<span style="display:block;font-size:10px;color:var(--t4);font-weight:400;">avg. across customers</span></div></div>
+        <div class="stat"><div class="stat-n">3×</div><div class="stat-l">Faster resolution<span style="display:block;font-size:10px;color:var(--t4);font-weight:400;">vs. email-only support</span></div></div>
+        <div class="stat"><div class="stat-n">100+</div><div class="stat-l">Features<span style="display:block;font-size:10px;color:var(--t4);font-weight:400;">in one platform</span></div></div>
+        <div class="stat"><div class="stat-n">∞</div><div class="stat-l">Brands<span style="display:block;font-size:10px;color:var(--t4);font-weight:400;">on any plan</span></div></div>
       </div>
     </div>
 
@@ -618,6 +686,34 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
     </div>
   </div>
 </div>
+
+<!-- ── HOW IT WORKS ── -->
+<section style="padding:120px 0;">
+  <div class="w">
+    <div style="text-align:center;">
+      <span class="ey r" style="justify-content:center;">How it works</span>
+      <h2 class="ttl r d1" style="text-align:center;">Up and running<br><span class="gw">in 5 minutes.</span></h2>
+      <p class="lead r d2" style="text-align:center;margin:0 auto;">No developer. No setup calls. No credit card.</p>
+    </div>
+    <div class="hiw-steps">
+      <div class="hiw-step r">
+        <div class="hiw-num">🏢</div>
+        <div class="hiw-t">Sign up & connect email</div>
+        <div class="hiw-d">Create your account, enter your company name, and connect your support inbox. Resolvo starts polling for new emails immediately.</div>
+      </div>
+      <div class="hiw-step r d1">
+        <div class="hiw-num">👥</div>
+        <div class="hiw-t">Invite your team</div>
+        <div class="hiw-d">Add agents and developers via email invite. Set roles, assign queues, configure SLA targets — all from Settings in under 3 minutes.</div>
+      </div>
+      <div class="hiw-step r d2">
+        <div class="hiw-num">🚀</div>
+        <div class="hiw-t">Start resolving</div>
+        <div class="hiw-d">Tickets arrive automatically from email, widget, or API. The AI queue routes them to the right agent. Your dashboard goes live instantly.</div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ── PROBLEM ── -->
 <section id="problem" style="padding:120px 0;">
@@ -766,6 +862,104 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
       <div class="bc r d3"><div class="bc-i">📱</div><div class="bc-t">PWA<span class="new">New</span></div><div class="bc-d">Install on any device. No app store needed.</div></div>
       <div class="bc r"><div class="bc-i">💬</div><div class="bc-t">Slack Alerts<span class="new">New</span></div><div class="bc-d">Instant Slack notifications on new tickets, SLA breaches & more</div></div>
       <div class="bc r d1"><div class="bc-i">🌐</div><div class="bc-t">Ticket Sources<span class="new">New</span></div><div class="bc-d">Email · API · Widget · Manual — all tracked per ticket</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ── -->
+<section style="padding:120px 0;background:var(--bg-1);">
+  <div class="w">
+    <div style="text-align:center;">
+      <span class="ey r" style="justify-content:center;">What teams say</span>
+      <h2 class="ttl r d1" style="text-align:center;">Teams that switched<br><span class="gw">never looked back.</span></h2>
+    </div>
+    <div class="testi-grid">
+      <div class="tcard r">
+        <div class="tcard-stars">★★★★★</div>
+        <div class="tcard-body">"We were running Jira for bugs and a shared Gmail inbox for support. <strong>Resolvo replaced both in one afternoon.</strong> Our SLA breach rate dropped from 34% to under 4% in the first month."</div>
+        <div class="tcard-foot">
+          <div class="tcard-av" style="background:linear-gradient(135deg,#22d3ee,#818cf8);">M</div>
+          <div><div class="tcard-name">Marcus T.</div><div class="tcard-role">Head of Engineering · Stackify Labs</div></div>
+        </div>
+      </div>
+      <div class="tcard r d1">
+        <div class="tcard-stars">★★★★★</div>
+        <div class="tcard-body">"The customer portal alone was worth it. <strong>60% fewer 'what's the status?' emails</strong> overnight. Our support team went from drowning to actually having time to do proactive work."</div>
+        <div class="tcard-foot">
+          <div class="tcard-av" style="background:linear-gradient(135deg,#34d399,#22d3ee);">P</div>
+          <div><div class="tcard-name">Priya S.</div><div class="tcard-role">VP Customer Success · Orion SaaS</div></div>
+        </div>
+      </div>
+      <div class="tcard r d2">
+        <div class="tcard-stars">★★★★★</div>
+        <div class="tcard-body">"We manage 11 client brands from one Resolvo account. Previously that was 11 spreadsheets, 3 tools, and constant confusion. <strong>Now it's one dashboard and everything is isolated perfectly.</strong>"</div>
+        <div class="tcard-foot">
+          <div class="tcard-av" style="background:linear-gradient(135deg,#f472b6,#818cf8);">D</div>
+          <div><div class="tcard-name">Daniel R.</div><div class="tcard-role">Founder · Nexora Agency</div></div>
+        </div>
+      </div>
+      <div class="tcard r">
+        <div class="tcard-stars">★★★★★</div>
+        <div class="tcard-body">"The AI queue pays for itself. <strong>Our FRT went from 6 hours to 38 minutes</strong> because the right agent gets the right ticket automatically. No more cherry-picking easy ones."</div>
+        <div class="tcard-foot">
+          <div class="tcard-av" style="background:linear-gradient(135deg,#fbbf24,#f472b6);">A</div>
+          <div><div class="tcard-name">Amira K.</div><div class="tcard-role">Support Lead · CloudBridge</div></div>
+        </div>
+      </div>
+      <div class="tcard r d1">
+        <div class="tcard-stars">★★★★★</div>
+        <div class="tcard-body">"Setup took 8 minutes. I timed it. <strong>Connected our Gmail, invited the team, first ticket was auto-created from an email before I'd even finished setting up SLAs.</strong> Unreal."</div>
+        <div class="tcard-foot">
+          <div class="tcard-av" style="background:linear-gradient(135deg,#34d399,#fbbf24);">L</div>
+          <div><div class="tcard-name">Lena W.</div><div class="tcard-role">CTO · Fieldwork Tech</div></div>
+        </div>
+      </div>
+      <div class="tcard r d2">
+        <div class="tcard-stars">★★★★★</div>
+        <div class="tcard-body">"Impact Score changed how we prioritise. We used to fix whatever was loudest. <strong>Now we fix what's costing us the most revenue first.</strong> Our enterprise churn dropped 22% in Q1."</div>
+        <div class="tcard-foot">
+          <div class="tcard-av" style="background:linear-gradient(135deg,#818cf8,#f87171);">R</div>
+          <div><div class="tcard-name">Ryan O.</div><div class="tcard-role">Product Director · Velta Systems</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMPARISON ── -->
+<section style="padding:120px 0;">
+  <div class="w">
+    <div style="text-align:center;">
+      <span class="ey r" style="justify-content:center;">Why Resolvo</span>
+      <h2 class="ttl r d1" style="text-align:center;">Everything you need.<br><span class="gw">Nothing you don't.</span></h2>
+      <p class="lead r d2" style="text-align:center;margin:0 auto 0;">See how Resolvo compares to stitching tools together.</p>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="cmp-tbl r">
+        <thead>
+          <tr>
+            <th style="width:36%;">Feature</th>
+            <th class="hi">✦ Resolvo</th>
+            <th>Jira + Zendesk</th>
+            <th>Linear + Intercom</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Email → ticket (auto)</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="ck">✓</span> Zendesk only</td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>Engineering issue tracker</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="ck">✓</span> Jira only</td><td><span class="ck">✓</span> Linear only</td></tr>
+          <tr><td>Support + engineering connected</td><td class="hi"><span class="ck">✓</span> Native</td><td><span class="cp">~ Zapier/manual</span></td><td><span class="cp">~ Zapier/manual</span></td></tr>
+          <tr><td>Customer portal (OTP login)</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="cp">~ Add-on</span></td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>Embeddable widget</td><td class="hi"><span class="ck">✓</span> 1 script tag</td><td><span class="ck">✓</span> Zendesk only</td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>SLA tracking & breach alerts</td><td class="hi"><span class="ck">✓</span> All tickets</td><td><span class="cp">~ Zendesk only</span></td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>AI queue & smart assignment</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="cp">~ Enterprise tier</span></td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>Multi-brand isolation</td><td class="hi"><span class="ck">✓</span> Unlimited</td><td><span class="cp">~ Paid per org</span></td><td><span class="cp">~ Paid per workspace</span></td></tr>
+          <tr><td>Revenue impact scoring</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="cx">✗</span> No</td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>Public roadmap + voting</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="cx">✗</span> No</td><td><span class="cp">~ Add-on</span></td></tr>
+          <tr><td>Approvals & QA sign-off</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="cp">~ Plugin</span></td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td>Setup time</td><td class="hi"><span class="ck">✓</span> 5 minutes</td><td><span class="cp">~ Days</span></td><td><span class="cp">~ Hours</span></td></tr>
+          <tr><td>Free tier</td><td class="hi"><span class="ck">✓</span> Forever free</td><td><span class="cp">~ Limited</span></td><td><span class="cp">~ Limited</span></td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -998,9 +1192,16 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
         <div class="nav-logo-mark">R</div>
         <span class="nav-logo-text">Resolvo</span>
       </a>
-      <div class="fl">
+      <div class="fl" style="flex-wrap:wrap;gap:14px 22px;">
+        <a href="#features">Features</a>
         <a href="/learn">Docs</a>
-        <a href="mailto:contact@resolvogroup.com?subject=Resolvo Demo">Book a Demo</a>
+        <a href="/architecture">Architecture</a>
+        <a href="/vs-jira">vs Jira</a>
+        <a href="/vs-zendesk">vs Zendesk</a>
+        <a href="/vs-freshdesk">vs Freshdesk</a>
+        <a href="/vs-linear">vs Linear</a>
+        <a href="/blog">Blog</a>
+        <a href="/demo">Book a Demo</a>
         <a href="mailto:contact@resolvogroup.com">Contact</a>
       </div>
       <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
@@ -1014,6 +1215,22 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
 </footer>
 
 <script>
+
+// ── MOBILE NAV ───────────────────────────────────────────────────────────────
+function toggleNav(){
+  const burger = document.getElementById('nav-burger');
+  const menu = document.getElementById('nav-mobile');
+  burger.classList.toggle('open');
+  menu.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const menu = document.getElementById('nav-mobile');
+  const burger = document.getElementById('nav-burger');
+  if(menu.classList.contains('open') && !menu.contains(e.target) && !burger.contains(e.target)){
+    menu.classList.remove('open');
+    burger.classList.remove('open');
+  }
+});
 
 // ── NAV SCROLL ──────────────────────────────────────────────────────────────
 const nav = document.getElementById('nav');
