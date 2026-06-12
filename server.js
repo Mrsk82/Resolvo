@@ -231,19 +231,19 @@ async function readBrandDB(slug){
   if(_brandCache[slug])return _brandCache[slug];
   const pool=_getPool();
   const result={};
-  const [[tickets]]=await pool.query('SELECT id,data FROM brand_tickets WHERE slug=?',[slug]);
+  const [tickets]=await pool.query('SELECT id,data FROM brand_tickets WHERE slug=?',[slug]);
   result.tickets=(tickets||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [[issues]]=await pool.query('SELECT id,data FROM brand_issues WHERE slug=?',[slug]);
+  const [issues]=await pool.query('SELECT id,data FROM brand_issues WHERE slug=?',[slug]);
   result.issues=(issues||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [[users]]=await pool.query('SELECT id,data FROM brand_users WHERE slug=?',[slug]);
+  const [users]=await pool.query('SELECT id,data FROM brand_users WHERE slug=?',[slug]);
   result.users=(users||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [[comments]]=await pool.query('SELECT id,data FROM brand_comments WHERE slug=?',[slug]);
+  const [comments]=await pool.query('SELECT id,data FROM brand_comments WHERE slug=?',[slug]);
   result.comments=(comments||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [[actLog]]=await pool.query('SELECT data FROM brand_activity_log WHERE slug=? ORDER BY id ASC',[slug]);
+  const [actLog]=await pool.query('SELECT data FROM brand_activity_log WHERE slug=? ORDER BY id ASC',[slug]);
   result.activityLog=(actLog||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
-  const [[emailIds]]=await pool.query('SELECT id FROM brand_processed_emails WHERE slug=?',[slug]);
+  const [emailIds]=await pool.query('SELECT id FROM brand_processed_emails WHERE slug=?',[slug]);
   result.processedEmailIds=(emailIds||[]).map(r=>r.id);
-  const [[kvRows]]=await pool.query('SELECT `key`,value FROM brand_kv WHERE slug=?',[slug]);
+  const [kvRows]=await pool.query('SELECT `key`,value FROM brand_kv WHERE slug=?',[slug]);
   for(const r of(kvRows||[])){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
   _brandCache[slug]=result;
   return result;
@@ -283,8 +283,8 @@ async function _writeBrandDBAsync(slug,data){
     await upsertRows('brand_comments',data.comments);
     // Activity log — append only, capped at 2000
     if(Array.isArray(data.activityLog)&&data.activityLog.length>0){
-      const [[countRow]]=await conn.query('SELECT COUNT(*) as c FROM brand_activity_log WHERE slug=?',[slug]);
-      const stored=countRow[0]?countRow[0].c:0;
+      const [countRows]=await conn.query('SELECT COUNT(*) as c FROM brand_activity_log WHERE slug=?',[slug]);
+      const stored=countRows[0]?countRows[0].c:0;
       const newEntries=data.activityLog.slice(stored);
       for(const entry of newEntries){
         const raw=entry.timestamp||entry.at||new Date().toISOString();
