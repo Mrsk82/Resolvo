@@ -198,14 +198,31 @@ async function sendBrandEmail(slug,to,subject,html,text){
   const bm=getBrandMailer(slug);
   if(bm){
     try{await bm.mailer.sendMail({from:bm.from,to,subject,text:text||subject,html});console.log('[BrandEmail] ✓:',to);return;}
-    catch(e){console.error('[BrandEmail] ✗',e.message);}
+    catch(e){
+      console.error('[BrandEmail] ✗',e.message);
+      // SMTP configured but failed — alert brand admin
+      try{
+        const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+        const adminEmail=brand.majorAdminEmail;
+        if(adminEmail){
+          const errHtml=`<div style="font-family:Arial;max-width:520px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border-left:4px solid #ef4444;"><h3 style="color:#ef4444;margin:0 0 12px;">⚠️ Email Send Failed — ${brand.name||slug}</h3><p style="font-size:14px;color:#374151;">An email to <strong>${to}</strong> could not be sent because your SMTP credentials failed.</p><p style="font-size:14px;color:#374151;"><strong>Subject:</strong> ${subject}</p><p style="font-size:14px;color:#374151;"><strong>Error:</strong> ${e.message}</p><p style="font-size:13px;color:#6b7280;margin-top:16px;">Please check your brand email settings: Settings → Email & Ticketing → Brand Email SMTP.</p><a href="${BASE_URL}" style="display:inline-block;margin-top:12px;padding:10px 24px;background:#ef4444;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;">Fix Email Settings →</a></div>`;
+          await sendEmail(adminEmail,`⚠️ Email send failed for ${brand.name||slug}`,errHtml,`Email to ${to} failed: ${e.message}. Check your SMTP settings.`);
+        }
+      }catch(_){}
+      return;
+    }
+  } else {
+    // No brand SMTP configured — do NOT send to customer, notify brand admin instead
+    try{
+      const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+      const adminEmail=brand.majorAdminEmail;
+      if(adminEmail){
+        const warnHtml=`<div style="font-family:Arial;max-width:520px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border-left:4px solid #f59e0b;"><h3 style="color:#f59e0b;margin:0 0 12px;">📧 Configure Your Brand Email — ${brand.name||slug}</h3><p style="font-size:14px;color:#374151;">An email to your customer <strong>${to}</strong> was <strong>not sent</strong> because your brand email is not configured.</p><p style="font-size:14px;color:#374151;"><strong>Pending subject:</strong> ${subject}</p><p style="font-size:14px;color:#6b7280;margin-top:12px;">To send auto-acknowledgements, ticket replies, and notifications from your own email address, you need to set up your brand SMTP:</p><ol style="font-size:14px;color:#374151;line-height:2;padding-left:20px;"><li>Go to <strong>Settings → Email & Ticketing</strong></li><li>Click <strong>Configure Brand Email</strong></li><li>Enter your Gmail or SMTP credentials</li><li>Click <strong>Test & Save</strong></li></ol><a href="${BASE_URL}" style="display:inline-block;margin-top:16px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Configure Email Now →</a><p style="font-size:12px;color:#9ca3af;margin-top:16px;">Until configured, no automated emails will be sent to your customers.</p></div>`;
+        await sendEmail(adminEmail,`📧 Action Required: Configure your brand email — ${brand.name||slug}`,warnHtml,`Email to ${to} was not sent. Configure your brand SMTP in Settings → Email & Ticketing.`);
+        console.log(`[BrandEmail] No SMTP for ${slug} — notified admin ${adminEmail}`);
+      }
+    }catch(_){}
   }
-  // Fallback: use owner SMTP but show brand name as sender display name
-  try{
-    const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
-    const brandFrom=`"${brand.name||'Support'}" <${OWNER_FROM_EMAIL}>`;
-    await sendEmail(to,subject,html,text,brandFrom);
-  }catch(e){await sendEmail(to,subject,html,text);}
 }
 function cr(label,val,vs){return`<tr><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;width:110px;font-size:11px;font-weight:700;text-transform:uppercase;color:#9ca3af;">${label}</td><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;font-size:14px;${vs||'color:#111827;'}">${val}</td></tr>`;}
 function shell(c){return`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 16px;"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">${c}<tr><td style="padding:24px 0;text-align:center;"><p style="margin:0;font-size:12px;color:#9ca3af;">Powered by <strong>TechTrack</strong> · Do not reply</p></td></tr></table></td></tr></table></body></html>`;}
@@ -4889,47 +4906,212 @@ function initEmailPollers() {
 
 // ── FEATURE 4 & 12: Background jobs — appointment reminders + daily digest ──
 // ── EMAIL NURTURE SEQUENCES ────────────────────────────────────────────────────
-// Sent automatically after brand self-signup: Day 1, 3, 7, 14
+function nurtureShell(bodyHtml,unsubUrl){return`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;padding:32px 16px;"><div style="max-width:540px;margin:0 auto;"><div style="background:linear-gradient(135deg,#10B981,#6366F1);border-radius:14px 14px 0 0;padding:22px 32px;display:flex;align-items:center;"><span style="font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.5px;">Resolvo</span></div><div style="background:#fff;border-radius:0 0 14px 14px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:32px 36px;font-size:14px;color:#374151;line-height:1.8;">${bodyHtml}</div><div style="padding:16px 0;text-align:center;font-size:12px;color:#9ca3af;">Resolvo · <a href="mailto:contact@resolvogroup.com" style="color:#10B981;text-decoration:none;">contact@resolvogroup.com</a>${unsubUrl?` · <a href="${unsubUrl}" style="color:#9ca3af;">Unsubscribe</a>`:''}</div></div></body></html>`;}
+function nurtureBtn(label,url,color){color=color||'#10B981';return`<a href="${url}" style="display:inline-block;margin-top:14px;padding:11px 28px;background:${color};color:${color==='#10B981'?'#000':'#fff'};border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">${label}</a>`;}
+function nurtureFeatureRow(icon,title,desc){return`<div style="display:flex;gap:14px;margin-bottom:14px;"><div style="font-size:22px;flex-shrink:0;">${icon}</div><div><strong style="color:#111827;">${title}</strong><br><span style="color:#6b7280;font-size:13px;">${desc}</span></div></div>`;}
+
+// TIME-BASED nurture emails (sent to brand major admin based on days since signup)
 const NURTURE_EMAILS=[
+  // ── WEEK 1: ACTIVATION ──────────────────────────────────────────────────────
   {day:1,subject:'Quick tip: Create your first issue in Resolvo',
-   body:(n,url)=>`<p>Hi ${n},</p><p>Welcome to Resolvo! 🎉</p><p>The fastest way to see value is to create your first issue and assign it to a teammate.</p><p>Here's what takes 2 minutes:</p><ol style="margin:12px 0;padding-left:20px;line-height:2;"><li>Click <strong>+ New Issue</strong> in the top right</li><li>Set a priority (try Critical or High first)</li><li>Assign it to yourself or a teammate</li></ol><p>The SLA timer starts immediately — you'll see the countdown. That's the magic.</p><a href="${url}" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Create first issue →</a><p style="margin-top:16px;color:#6b7280;font-size:13px;">Reply to this email if you need any help getting started.</p>`},
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, welcome to Resolvo! 🎉</p><p>The fastest way to see value is to create your first issue and assign it to a teammate.</p><p><strong>Takes 2 minutes:</strong></p><ol style="margin:12px 0;padding-left:20px;line-height:2.2;"><li>Click <strong>+ New Issue</strong> in the top right</li><li>Set a priority — try <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;">Critical</span> or <span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;">High</span></li><li>Assign it to yourself or a teammate</li></ol><p style="background:#f0fdf4;border-left:3px solid #10B981;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;">The SLA countdown timer starts immediately — that's the magic of Resolvo.</p>${nurtureBtn('Create your first issue →',url)}<p style="margin-top:20px;color:#6b7280;font-size:13px;">Reply to this email if you need any help.</p>`,unsub)},
+
+  {day:2,subject:'Your team is waiting — invite them now',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Resolvo works best as a team. Invite your colleagues so tickets and issues can be assigned, escalated, and tracked together.</p><p><strong>Roles you can invite:</strong></p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${[['👑','Admin','Full access — settings, reports, all data'],['💻','Developer','Issues, bugs, code-level tickets'],['🎧','CS (Support)','Customer tickets, email replies, appointments'],['📊','Sales','Leads, follow-ups, client communication'],['🔬','QA','Testing tickets, bug verification']].map(([ic,r,d])=>`<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start;"><span>${ic}</span><div><strong style="font-size:13px;">${r}</strong> <span style="font-size:12px;color:#6b7280;">— ${d}</span></div></div>`).join('')}</div>${nurtureBtn('Invite your team →',url+'/settings')}<p style="margin-top:16px;color:#6b7280;font-size:13px;">Settings → Team Members → Invite User</p>`,unsub)},
+
   {day:3,subject:'Did you know Resolvo has a full email helpdesk?',
-   body:(n,url)=>`<p>Hi ${n},</p><p>Most teams start with issue tracking and don't realise Resolvo also has a complete email support inbox.</p><p><strong>How it works:</strong> Connect your Gmail → customer emails become tickets automatically → reply from Resolvo → customer gets a professional branded reply.</p><p>No separate Freshdesk. No separate Zendesk. It's all here.</p><p><strong>To set it up:</strong> Settings → Email & Ticketing → Connect Gmail</p><a href="${url}/settings" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Connect email inbox →</a>`},
-  {day:7,subject:'Your first week with Resolvo — how\'s it going?',
-   body:(n,url)=>`<p>Hi ${n},</p><p>It's been a week! Here are 3 features teams love most that you might not have tried yet:</p><ul style="margin:12px 0;padding-left:20px;line-height:2;"><li><strong>Smart Queue</strong> — auto-assigns support tickets to your team. Settings → Assignment Queue</li><li><strong>Customer Portal</strong> — give customers a self-service page at /portal/your-brand</li><li><strong>Reports</strong> — see your SLA compliance, agent performance, ticket volume forecast</li></ul><p>Any questions? Just reply — I personally respond within 24 hours.</p><p>— Team Resolvo</p><a href="${url}" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Explore Resolvo →</a>`},
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Most teams start with issue tracking and don't realise Resolvo also has a complete email support inbox — no Freshdesk, no Zendesk needed.</p><p><strong>How it works:</strong></p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${['Customer sends email to your support address','Resolvo auto-creates a ticket','Your agent replies from inside Resolvo','Customer gets a professional branded reply'].map((s,i)=>`<div style="display:flex;gap:12px;margin-bottom:10px;align-items:flex-start;"><div style="background:#10B981;color:#000;border-radius:50%;width:22px;height:22px;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div><span style="font-size:13px;color:#374151;">${s}</span></div>`).join('')}</div><p><strong>To set it up:</strong> Settings → Email & Ticketing → Connect Gmail</p>${nurtureBtn('Connect your inbox →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Also configure your brand SMTP so all emails send from your own domain.</p>`,unsub)},
+
+  {day:4,subject:'Set up your brand in 5 minutes — look professional from day one',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Your customers will see your brand in every email, portal page, and notification. Take 5 minutes to set it up properly.</p><div style="margin:16px 0;">${nurtureFeatureRow('🎨','Brand Colour & Logo','Makes every email and portal page feel like yours')}<br>${nurtureFeatureRow('📧','Support Email Address','Replies come from your domain, not a generic address')}<br>${nurtureFeatureRow('💬','Welcome Message','The first thing new customers see when they open a ticket')}<br>${nurtureFeatureRow('⏱️','SLA Targets','Set your response time goals — Resolvo tracks them automatically')}</div>${nurtureBtn('Set up your brand →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Brand Settings</p>`,unsub)},
+
+  {day:5,subject:'Your customers can now book appointments directly',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Resolvo has a built-in appointment booking system. Your customers can pick a slot from your availability — no back-and-forth emails needed.</p><p><strong>What you get:</strong></p><div style="margin:12px 0;">${nurtureFeatureRow('📅','Customer-facing booking page','Share a link, customers pick their own slot')}<br>${nurtureFeatureRow('🔔','Auto confirmation emails','Customer and agent both get notified instantly')}<br>${nurtureFeatureRow('⏰','1-hour reminders','Automatic reminder sent before every appointment')}<br>${nurtureFeatureRow('🌐','Self-service portal','Customers can view, track, and manage their own appointments')}</div><p><strong>Share your booking link:</strong></p><div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:13px;color:#065f46;">${url}/book/your-brand</div>${nurtureBtn('Enable appointment booking →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Appointment Booking → Enable</p>`,unsub)},
+
+  {day:6,subject:'Setup checklist — how are you doing?',
+   body:(n,url,unsub,stats)=>{const items=[['Create your first issue',stats&&stats.issues>0],['Invite a team member',stats&&stats.users>1],['Connect your email inbox',stats&&stats.emailConnected],['Configure brand settings',stats&&stats.brandConfigured],['Enable appointment booking',stats&&stats.appointmentsEnabled],['Set up your SLA targets',stats&&stats.slaConfigured]];return nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, you're 6 days in — let's see where you are:</p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${items.map(([label,done])=>`<div style="display:flex;gap:12px;margin-bottom:10px;align-items:center;"><span style="font-size:16px;">${done?'✅':'⬜'}</span><span style="font-size:14px;color:${done?'#374151':'#9ca3af'};${done?'':'text-decoration:line-through;'}">${label}</span></div>`).join('')}</div><p style="font-size:13px;color:#6b7280;">Tick off everything above to unlock the full power of Resolvo.</p>${nurtureBtn('Continue setup →',url+'/settings')}`,unsub);}},
+
+  {day:7,subject:"Your first week with Resolvo — how's it going?",
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>It's been a week! Here are 3 power features most teams discover in week 2:</p><div style="margin:16px 0;">${nurtureFeatureRow('🤖','Smart Queue','Auto-assigns tickets to agents by skill, availability, or round-robin. Settings → Assignment Queue')}<br>${nurtureFeatureRow('🌐','Customer Portal','Give customers a self-service page. They can track tickets, book appointments, and raise new issues — without emailing you.')}<br>${nurtureFeatureRow('📊','Reports','SLA compliance %, agent leaderboard, ticket volume forecast, busiest hours. All live.')}</div><p>Any questions? Just reply to this email — I personally respond within 24 hours.</p><p style="color:#6b7280;">— Team Resolvo</p>${nurtureBtn('Explore Resolvo →',url)}`,unsub)},
+
+  // ── WEEK 2: HABIT BUILDING ───────────────────────────────────────────────────
+  {day:8,subject:'Never miss an SLA again — here\'s how',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>SLA breaches are the #1 reason customers churn. Resolvo tracks every ticket against your targets automatically.</p><p><strong>How SLA tracking works:</strong></p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${['Every ticket gets a countdown timer the moment it arrives','Colour-coded urgency: green → orange → red as deadline approaches','Auto-escalation rules notify the right person before a breach','Reports show your SLA compliance % over time'].map(s=>`<div style="display:flex;gap:10px;margin-bottom:8px;"><span style="color:#10B981;font-weight:700;">✓</span><span style="font-size:13px;color:#374151;">${s}</span></div>`).join('')}</div>${nurtureBtn('Set up SLA targets →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → SLA & Escalation</p>`,unsub)},
+
+  {day:10,subject:'3 things your team should set up this week',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>These three setup steps will save your team hours every week:</p><div style="margin:16px 0;">${nurtureFeatureRow('🔁','Auto-assign rules','Route tickets to the right agent automatically based on priority, keywords, or category. No more manual assignment.')}<br>${nurtureFeatureRow('👀','Watchers & @mentions','Tag a teammate on any ticket or issue with @name. They get notified instantly and added as a watcher.')}<br>${nurtureFeatureRow('📌','Canned responses','Save your most common replies as templates. One click to insert — cut reply time by 70%.')}</div>${nurtureBtn('Set these up →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">All in Settings → Workflow</p>`,unsub)},
+
+  {day:12,subject:'How to reply to customers without leaving Resolvo',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Your agents can reply to customer emails directly from inside a ticket — the customer receives it in their inbox as a normal email reply.</p><p><strong>The full email thread lives inside the ticket:</strong></p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${['Customer email arrives → ticket is created automatically','Agent opens the ticket, reads the full thread','Agent types a reply and clicks Send','Customer receives the reply from your brand email address','All replies, notes, and history stay on the ticket forever'].map((s,i)=>`<div style="display:flex;gap:12px;margin-bottom:8px;"><div style="background:#6366F1;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div><span style="font-size:13px;color:#374151;">${s}</span></div>`).join('')}</div><p style="font-size:13px;color:#f59e0b;background:#fffbeb;padding:10px 14px;border-radius:8px;">⚠️ Make sure your brand SMTP is configured so replies come from your own email address.</p>${nurtureBtn('Open tickets →',url)}`,unsub)},
+
   {day:14,subject:'Upgrade to Pro? Here\'s what you unlock',
-   body:(n,url)=>`<p>Hi ${n},</p><p>Two weeks in! Teams on Pro close issues 3× faster. Here's what you unlock:</p><table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;"><tr style="background:#f9fafb;"><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:700;">Feature</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">Free</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;color:#10B981;font-weight:700;">Pro</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">Email Ticketing + Queue</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">AI Triage (Gemini)</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">Knowledge Base + Roadmap</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr><tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">9 Report Types</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">❌</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">✅</td></tr></table><p>Pro is ₹999/month for your entire team. That's less than one coffee per day.</p><a href="mailto:contact@resolvogroup.com?subject=Upgrade to Pro" style="display:inline-block;margin-top:8px;padding:10px 24px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Upgrade to Pro →</a>`},
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, two weeks in!</p><p>Teams on Pro close issues <strong>3× faster</strong>. Here's the full comparison:</p><table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;border-radius:10px;overflow:hidden;"><tr style="background:#f9fafb;"><td style="padding:10px 14px;border:1px solid #e5e7eb;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;">Feature</td><td style="padding:10px 14px;border:1px solid #e5e7eb;text-align:center;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;">Free</td><td style="padding:10px 14px;border:1px solid #e5e7eb;text-align:center;font-weight:700;color:#10B981;font-size:11px;text-transform:uppercase;">Pro</td></tr>${[['Email Ticketing + Auto Queue','❌','✅'],['AI Triage & Auto-categorise','❌','✅'],['Knowledge Base + Roadmap','❌','✅'],['9 Live Reports + SLA %','❌','✅'],['Customer Satisfaction (CSAT)','❌','✅'],['Custom SLA per priority','❌','✅'],['Unlimited team members','❌','✅'],['Priority support','❌','✅']].map(([f,fr,pr])=>`<tr><td style="padding:9px 14px;border:1px solid #e5e7eb;color:#374151;">${f}</td><td style="padding:9px 14px;border:1px solid #e5e7eb;text-align:center;">${fr}</td><td style="padding:9px 14px;border:1px solid #e5e7eb;text-align:center;">${pr}</td></tr>`).join('')}</table>${nurtureBtn('Upgrade to Pro →','mailto:contact@resolvogroup.com?subject=Upgrade to Pro — '+n,'#6366F1')}<p style="margin-top:14px;font-size:13px;color:#6b7280;">Reply to this email or write to contact@resolvogroup.com — we'll get you set up within 24 hours.</p>`,unsub)},
+
+  // ── WEEK 3: POWER FEATURES ───────────────────────────────────────────────────
+  {day:16,subject:'Auto-assign tickets to the right agent instantly',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Stop manually assigning every ticket. Set up Smart Queue once and Resolvo routes every incoming ticket automatically.</p><p><strong>Assignment rules you can create:</strong></p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${[['🔴','Critical tickets','Always assign to senior agent'],['🏷️','Keyword match','Ticket contains "billing" → assign to finance team'],['🔄','Round-robin','Distribute evenly across all active agents'],['⏰','Availability','Only assign to agents currently online']].map(([ic,r,d])=>`<div style="display:flex;gap:10px;margin-bottom:10px;"><span>${ic}</span><div><strong style="font-size:13px;">${r}</strong> — <span style="font-size:12px;color:#6b7280;">${d}</span></div></div>`).join('')}</div>${nurtureBtn('Set up Smart Queue →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Assignment Queue → New Rule</p>`,unsub)},
+
+  {day:18,subject:'Your customers deserve a self-service portal',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Give your customers their own portal page — they can raise tickets, track status, and book appointments without emailing you directly.</p><div style="margin:16px 0;">${nurtureFeatureRow('🔐','Secure OTP login','Customers log in with just their email — no password to remember')}<br>${nurtureFeatureRow('🎫','Ticket tracking','Full history of every issue they've raised, with status updates')}<br>${nurtureFeatureRow('📅','Self-service booking','Book, reschedule, or cancel appointments without calling you')}<br>${nurtureFeatureRow('📱','Mobile friendly','Works perfectly on phone — no app needed')}</div><p><strong>Your portal URL:</strong></p><div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:13px;color:#065f46;">${url}/portal/your-brand-slug</div>${nurtureBtn('View your portal →',url)}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Share this link with your customers — they'll love it.</p>`,unsub)},
+
+  {day:21,subject:"See how your team is really performing",
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, 3 weeks in!</p><p>Your Reports tab is now full of real data. Here's what you can see:</p><div style="margin:16px 0;">${nurtureFeatureRow('📊','SLA Compliance %','What % of tickets were resolved within target time')}<br>${nurtureFeatureRow('🏆','Agent Leaderboard','Who's closing the most tickets, fastest average resolution time')}<br>${nurtureFeatureRow('📈','Ticket Volume Forecast','How many tickets to expect next week based on your history')}<br>${nurtureFeatureRow('⏰','Busiest Hours','When your customers need help most — plan staffing around this')}<br>${nurtureFeatureRow('😊','CSAT Score','Customer satisfaction rating after ticket resolution')}</div>${nurtureBtn('Open Reports →',url+'/reports')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">All reports update in real time — no manual export needed.</p>`,unsub)},
+
+  // ── MONTH 2: LOYALTY + EXPANSION ────────────────────────────────────────────
+  {day:25,subject:'Save hours every week with these automations',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Resolvo has several automations running in the background that most teams don't know about. Here's what's saving time for active teams:</p><div style="margin:16px 0;">${nurtureFeatureRow('🔒','Auto-close resolved tickets','Tickets marked resolved auto-close after X days if customer doesn\'t respond')}<br>${nurtureFeatureRow('📋','Daily digest email','Your agents get a personalised summary of their open tickets every morning')}<br>${nurtureFeatureRow('⏰','Follow-up reminders','Tickets with no activity get a nudge to the assigned agent')}<br>${nurtureFeatureRow('📣','Auto-acknowledgement','Customer gets an instant confirmation when their email arrives — even at 2am')}</div>${nurtureBtn('Configure automations →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Workflow → Automations</p>`,unsub)},
+
+  {day:30,subject:'30 days with Resolvo — here\'s what you\'ve handled',
+   body:(n,url,unsub,stats)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, one month done! 🎉</p><p>Here's a snapshot of everything your team has handled with Resolvo:</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;">${[['🎫','Tickets Resolved',stats&&stats.resolvedTickets||'—'],['📅','Appointments',stats&&stats.appointments||'—'],['👥','Team Members',stats&&stats.users||'—'],['⚡','Avg Response',stats&&stats.avgResponse||'—']].map(([ic,label,val])=>`<div style="background:#f9fafb;border-radius:10px;padding:14px 16px;text-align:center;"><div style="font-size:24px;">${ic}</div><div style="font-size:22px;font-weight:800;color:#10B981;margin:4px 0;">${val}</div><div style="font-size:12px;color:#6b7280;">${label}</div></div>`).join('')}</div><p>If you haven't already, this is a great time to explore <strong>Reports</strong> and see your SLA compliance score.</p>${nurtureBtn('View your 30-day report →',url+'/reports')}`,unsub)},
+
+  {day:35,subject:'Are your customers happy? Find out with CSAT',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Do you know how satisfied your customers are after each support interaction?</p><p>Resolvo's <strong>CSAT (Customer Satisfaction)</strong> feature sends a simple rating request after every ticket is resolved.</p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;text-align:center;"><p style="font-size:14px;color:#374151;margin:0 0 12px;">The email your customer receives:</p><div style="font-size:28px;letter-spacing:8px;">😞 😐 😊 😄</div><p style="font-size:13px;color:#6b7280;margin:8px 0 0;">One click — no form, no friction</p></div><p>Your CSAT score appears in Reports → Customer Satisfaction.</p>${nurtureBtn('Enable CSAT →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Workflow → Customer Satisfaction Survey</p>`,unsub)},
+
+  {day:40,subject:'Integrate Resolvo with your existing tools',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Resolvo connects with the tools your team already uses:</p><div style="margin:16px 0;">${nurtureFeatureRow('🔗','Jira','Sync issues between Resolvo and Jira — changes reflect both ways')}<br>${nurtureFeatureRow('💬','Slack','Get notified in Slack when a critical ticket comes in or an SLA is about to breach')}<br>${nurtureFeatureRow('🐙','GitHub Issues','Link support tickets to GitHub issues — developers see customer-reported bugs directly')}<br>${nurtureFeatureRow('🔧','ServiceNow','Enterprise teams can push tickets to ServiceNow for ITSM workflows')}</div>${nurtureBtn('Set up integrations →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Integrations</p>`,unsub)},
+
+  {day:45,subject:"Your team's busiest hours — and what to do about it",
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>After 45 days, your Reports tab now shows your team's busiest support hours based on real ticket data.</p><p>Use this to:</p><ul style="margin:12px 0;padding-left:20px;line-height:2.2;"><li>Schedule agents during your peak hours</li><li>Set <strong>out-of-hours auto-replies</strong> when no one is available</li><li>Identify if a particular day of the week consistently spikes</li></ul><p>The busiest-hours chart is in <strong>Reports → Volume Analysis</strong>.</p>${nurtureBtn('View your busiest hours →',url+'/reports')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Also consider enabling <strong>Business Hours</strong> in Settings so SLA timers only count during your working hours.</p>`,unsub)},
+
+  // ── MONTH 2–3: RETENTION ─────────────────────────────────────────────────────
+  {day:50,subject:'One thing top support teams do differently',
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>The #1 difference between average and excellent support teams? <strong>They never type the same answer twice.</strong></p><p>Resolvo's <strong>Canned Responses</strong> let you save any reply as a reusable template. One click to insert it into any ticket reply.</p><p><strong>Start with these 5:</strong></p><ol style="margin:12px 0;padding-left:20px;line-height:2.2;"><li>Ticket acknowledgement ("We've received your request...")</li><li>Asking for more information</li><li>Escalating to a developer</li><li>Resolved + CSAT follow-up</li><li>Out-of-hours auto-reply</li></ol>${nurtureBtn('Create canned responses →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Settings → Canned Responses → New Template</p>`,unsub)},
+
+  {day:60,subject:"Still there? We'd love your feedback",
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Two months in — you've been using Resolvo for a while now, and your feedback matters to us.</p><p>We have one question: <strong>What's one thing we could do better?</strong></p><p>Just reply to this email. No form, no survey — a real reply that I personally read.</p><p>Also, if there's a feature you wish Resolvo had, tell us. Several features on our roadmap came directly from customers like you.</p><p style="color:#6b7280;">— Team Resolvo</p>${nurtureBtn('Reply with feedback →','mailto:contact@resolvogroup.com?subject=Feedback from '+n)}`,unsub)},
+
+  {day:75,subject:"You've been with Resolvo for 2.5 months",
+   body:(n,url,unsub,stats)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, 75 days! 🏆</p><p>Here's a milestone summary of your team's work:</p><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0;">${[['Total Tickets',stats&&stats.totalTickets||'—'],['Resolved',stats&&stats.resolvedTickets||'—'],['Team Size',stats&&stats.users||'—']].map(([label,val])=>`<div style="background:linear-gradient(135deg,#10B981,#6366F1);border-radius:10px;padding:14px 12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:#fff;">${val}</div><div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px;">${label}</div></div>`).join('')}</div><p>Thank you for being a Resolvo customer. If you ever need anything — setup help, a feature walkthrough, or just a question — reply here.</p>${nurtureBtn('Open Resolvo →',url)}`,unsub)},
+
+  {day:90,subject:"What's new in Resolvo this month",
+   body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Three months with Resolvo — here's what's been updated recently:</p><div style="margin:16px 0;">${nurtureFeatureRow('✨','Improved Live Monitor','Real-time dashboard showing email failures, workflow errors, and system health')}<br>${nurtureFeatureRow('📊','Owner Query Console','Owners can now query all customer data in a table view — no code needed')}<br>${nurtureFeatureRow('📧','Brand Email Enforcement','Emails now strictly use brand SMTP — no silent fallback to owner email')}<br>${nurtureFeatureRow('🔔','Smarter Notifications','Agents get @mention alerts, watcher updates, and approval requests in real time')}</div><p>More updates coming. If you want early access to new features, reply to this email.</p>${nurtureBtn('Log in and explore →',url)}`,unsub)},
 ];
+
+// BEHAVIOUR-TRIGGERED emails — checked daily, sent on condition not on day count
+const TRIGGER_EMAILS={
+  noLoginIn7Days:{
+    subject:'We miss you — everything okay?',
+    key:'trig_nologin7',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>We noticed you haven't logged into Resolvo in a while. Everything okay?</p><p>If you got stuck somewhere or something isn't working as expected, we're here to help — just reply to this email.</p><p>If you'd like a quick walkthrough of any feature, we can arrange a 15-minute call at no charge.</p>${nurtureBtn('Log back in →',url)}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Or reply here and we'll sort it out together.</p>`,unsub)
+  },
+  firstTicketResolved:{
+    subject:'First ticket closed! Here\'s what\'s next',
+    key:'trig_firstresolved',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, your first ticket is resolved! 🎉</p><p>That's a real milestone — your team just used Resolvo end-to-end for the first time.</p><p><strong>3 things to do next:</strong></p><ol style="margin:12px 0;padding-left:20px;line-height:2.2;"><li>Enable <strong>CSAT</strong> so customers can rate their experience after every close</li><li>Set up <strong>SLA targets</strong> so you can track response time against your goals</li><li>Check <strong>Reports</strong> — your first real data is in there</li></ol>${nurtureBtn('Go to Resolvo →',url)}`,unsub)
+  },
+  tenTicketsClosed:{
+    subject:'Your team just hit 10 resolved tickets',
+    key:'trig_10resolved',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n}, 10 tickets resolved! 🏆</p><p>Your team is building real momentum. At this stage, the teams that grow fastest are the ones that start measuring performance.</p><p><strong>Turn on these now:</strong></p><div style="margin:12px 0;">${nurtureFeatureRow('📊','SLA Report','Are you hitting your response time targets?')}<br>${nurtureFeatureRow('😊','CSAT','What are customers saying after you close their tickets?')}<br>${nurtureFeatureRow('🏆','Agent Leaderboard','Who on your team is closing the most tickets?')}</div>${nurtureBtn('Open Reports →',url+'/reports')}`,unsub)
+  },
+  emailNotConnected:{
+    subject:"You're missing tickets — here's why",
+    key:'trig_emailnotconn',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>You've been using Resolvo for 5+ days but your email inbox isn't connected yet.</p><p>This means: <strong>customer emails are not becoming tickets automatically.</strong> You could be missing support requests right now.</p><p><strong>To connect your inbox:</strong></p><ol style="margin:12px 0;padding-left:20px;line-height:2.2;"><li>Settings → Email & Ticketing</li><li>Click <strong>Connect Gmail</strong> (or enter custom IMAP)</li><li>Authorize Resolvo to read your inbox</li><li>Done — new emails become tickets automatically</li></ol>${nurtureBtn('Connect email now →',url+'/settings')}<p style="margin-top:16px;font-size:13px;color:#f59e0b;">⚠️ Also configure your Brand SMTP so replies go out from your own address.</p>`,unsub)
+  },
+  noTeamMembers:{
+    subject:'Flying solo? Let\'s change that',
+    key:'trig_noteam',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Resolvo is most powerful with a team. You're currently the only person in your workspace — but handling support alone is exhausting.</p><p><strong>Invite your first teammate in 30 seconds:</strong></p><ol style="margin:12px 0;padding-left:20px;line-height:2.2;"><li>Settings → Team Members</li><li>Click <strong>Invite User</strong></li><li>Enter their email and choose a role</li><li>They get an email with login details</li></ol><p style="font-size:13px;color:#6b7280;">Roles available: Admin, CS, Developer, Sales, QA, Product</p>${nurtureBtn('Invite a teammate →',url+'/settings')}`,unsub)
+  },
+  trialExpiring3Days:{
+    subject:'Your trial ends in 3 days — don\'t lose your data',
+    key:'trig_expiring3',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Your Resolvo trial ends in <strong>3 days</strong>. After that, your workspace will be paused and your team won't be able to log in.</p><p><strong>What happens to your data?</strong> Nothing — your tickets, users, and settings are safe. You just won't be able to access them until you upgrade.</p><p><strong>Upgrade takes 2 minutes:</strong></p><p>Reply to this email or write to <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a> and we'll activate your Pro account the same day.</p>${nurtureBtn('Upgrade now →','mailto:contact@resolvogroup.com?subject=Upgrade — '+n,'#ef4444')}<p style="margin-top:14px;font-size:13px;color:#6b7280;">Questions about pricing? Just reply here.</p>`,unsub)
+  },
+  trialExpired:{
+    subject:'Your Resolvo workspace is paused',
+    key:'trig_expired',
+    body:(n,url,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Your Resolvo trial has ended and your workspace is currently paused.</p><p>Your data is completely safe — tickets, users, settings, and history are all still there. You just need to upgrade to reactivate.</p><p>To reactivate, reply to this email or write to <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a>. We'll turn it back on within the hour.</p>${nurtureBtn('Reactivate now →','mailto:contact@resolvogroup.com?subject=Reactivate — '+n,'#6366F1')}<p style="margin-top:14px;font-size:13px;color:#6b7280;">If you've decided Resolvo isn't the right fit, we'd genuinely love to know why — reply here.</p>`,unsub)
+  }
+};
+
+function nurtureUnsubUrl(slug,email){return`${BASE_URL}/api/nurture/unsubscribe?slug=${slug}&email=${encodeURIComponent(email)}`;}
 
 async function sendNurtureEmails(){
   const owner=readOwner();
+  owner.nurtureSent=owner.nurtureSent||{};
+  owner.nurtureUnsub=owner.nurtureUnsub||{};
+  const now=Date.now();
   for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
     try{
-      const created=new Date(brand.createdDate||brand.lastActive||Date.now());
-      const daysSince=Math.floor((Date.now()-created.getTime())/86400000);
       const email=brand.majorAdminEmail;
       if(!email)continue;
+      if(owner.nurtureUnsub[brand.slug])continue;
+      const db=readBrandDB(brand.slug);
+      const admin=(db.users||[]).find(u=>u.email===email);
+      const adminName=admin?.name||email.split('@')[0];
+      const created=new Date(brand.createdDate||brand.lastActive||Date.now());
+      const daysSince=Math.floor((now-created.getTime())/86400000);
+      const unsub=nurtureUnsubUrl(brand.slug,email);
+
+      // Time-based nurture
       for(const n of NURTURE_EMAILS){
-        // Send on the exact day (within a 1-day window)
-        if(daysSince===n.day){
-          // Check not already sent
-          const sentKey=`nurture_${brand.slug}_day${n.day}`;
-          owner.nurtureSent=owner.nurtureSent||{};
-          if(owner.nurtureSent[sentKey])continue;
-          const db=readBrandDB(brand.slug);
-          const admin=(db.users||[]).find(u=>u.email===email);
-          const adminName=admin?.name||email.split('@')[0];
-          const html=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:20px 28px;"><div style="font-size:16px;font-weight:800;color:#fff;">Resolvo</div></div><div style="padding:28px 32px;font-size:14px;color:#374151;line-height:1.7;">${n.body(adminName,BASE_URL)}</div><div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;text-align:center;">Resolvo · <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></div></div></body></html>`;
-          // Nurture emails send from brand's own email if configured
-          await sendBrandEmail(brand.slug,email,n.subject,html,n.subject).catch(()=>{});
-          owner.nurtureSent[sentKey]=new Date().toISOString();
-          console.log(`[Nurture] Day ${n.day} email sent to ${email} for ${brand.slug}`);
-        }
+        if(daysSince!==n.day)continue;
+        const sentKey=`nurture_${brand.slug}_day${n.day}`;
+        if(owner.nurtureSent[sentKey])continue;
+        // Build stats for emails that use them
+        const resolvedCount=(db.tickets||[]).filter(t=>['resolved','closed'].includes(t.status)).length;
+        const stats={
+          issues:(db.issues||[]).length,users:(db.users||[]).length,
+          emailConnected:!!(brand.emailUser||brand.smtpUser),
+          brandConfigured:!!(brand.accentColor&&brand.logoUrl),
+          appointmentsEnabled:!!(db.config?.appointmentsEnabled),
+          slaConfigured:!!(db.config?.slaTargets),
+          resolvedTickets:resolvedCount,
+          appointments:(db.appointments||[]).length,
+          totalTickets:(db.tickets||[]).length+(db.issues||[]).length,
+          avgResponse:'—'
+        };
+        const html=nurtureShell(n.body(adminName,BASE_URL,unsub,stats).replace(/^<!DOCTYPE.*?<\/div>\s*<\/body>\s*<\/html>$/s,''),unsub);
+        const finalHtml=nurtureShell(n.body(adminName,BASE_URL,unsub,stats),unsub);
+        await sendEmail(email,n.subject,finalHtml,n.subject).catch(()=>{});
+        owner.nurtureSent[sentKey]=new Date().toISOString();
+        console.log(`[Nurture] Day ${n.day} → ${email} (${brand.slug})`);
+        monitorEvent&&monitorEvent('info','nurture',`Day ${n.day} email sent`,{brand:brand.slug,email,subject:n.subject});
+      }
+
+      // Behaviour-triggered nurture
+      const triggers=TRIGGER_EMAILS;
+      const resolvedTickets=(db.tickets||[]).filter(t=>['resolved','closed'].includes(t.status));
+      const lastLogin=admin?.lastLogin?new Date(admin.lastLogin):null;
+      const daysSinceLogin=lastLogin?Math.floor((now-lastLogin.getTime())/86400000):daysSince;
+
+      const triggerChecks=[
+        {id:'noLoginIn7Days',cond:daysSince>=7&&daysSinceLogin>=7},
+        {id:'firstTicketResolved',cond:resolvedTickets.length===1},
+        {id:'tenTicketsClosed',cond:resolvedTickets.length>=10},
+        {id:'emailNotConnected',cond:daysSince>=5&&!(brand.emailUser||brand.smtpUser)},
+        {id:'noTeamMembers',cond:daysSince>=3&&(db.users||[]).filter(u=>u.active).length<=1},
+        {id:'trialExpiring3Days',cond:brand.trialEnds&&Math.floor((new Date(brand.trialEnds)-now)/86400000)===3},
+        {id:'trialExpired',cond:brand.trialEnds&&new Date(brand.trialEnds)<new Date()&&brand.status!=='pro'}
+      ];
+      for(const tc of triggerChecks){
+        const t=triggers[tc.id];if(!t||!tc.cond)continue;
+        const sentKey=`${t.key}_${brand.slug}`;
+        if(owner.nurtureSent[sentKey])continue;
+        const html=t.body(adminName,BASE_URL,nurtureUnsubUrl(brand.slug,email));
+        await sendEmail(email,t.subject,html,t.subject).catch(()=>{});
+        owner.nurtureSent[sentKey]=new Date().toISOString();
+        console.log(`[Nurture] Trigger ${tc.id} → ${email} (${brand.slug})`);
+        monitorEvent&&monitorEvent('info','nurture',`Trigger email: ${tc.id}`,{brand:brand.slug,email});
       }
     }catch(e){console.error('[Nurture] Error for',brand.slug,e.message);}
   }
   writeOwner(owner);
 }
+
+// Unsubscribe endpoint
+app.get('/api/nurture/unsubscribe',(req,res)=>{
+  const{slug,email}=req.query;
+  if(!slug||!email)return res.send('<p>Invalid unsubscribe link.</p>');
+  const owner=readOwner();
+  owner.nurtureUnsub=owner.nurtureUnsub||{};
+  owner.nurtureUnsub[slug]=true;
+  writeOwner(owner);
+  console.log(`[Nurture] Unsubscribed ${email} (${slug})`);
+  res.send(`<!DOCTYPE html><html><body style="font-family:Arial;text-align:center;padding:60px 20px;background:#f0f2f5;"><div style="max-width:400px;margin:0 auto;background:#fff;border-radius:14px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="font-size:40px;margin-bottom:16px;">✅</div><h2 style="color:#111827;margin:0 0 12px;">Unsubscribed</h2><p style="color:#6b7280;font-size:14px;">You've been removed from all onboarding emails for this workspace.</p><p style="color:#9ca3af;font-size:12px;margin-top:24px;">You will still receive transactional emails such as ticket replies and appointment confirmations.</p></div></body></html>`);
+});
 
 function runBackgroundJobs(){
   const cron=require('node-cron');
