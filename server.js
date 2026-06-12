@@ -226,40 +226,44 @@ const KV_KEYS=[
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
 ];
 
-// In-memory cache per brand to keep reads fast (invalidated on every write)
-const _brandCache={};
+// SQLite connections cache for sync reads
+const _sqliteConns={};
+function _getSQLite(slug){
+  if(_sqliteConns[slug])return _sqliteConns[slug];
+  const dir=path.join(BRANDS_DIR,slug);
+  if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
+  const _sq=require('better-sqlite3');
+  const sdb=_sq(path.join(dir,'db.sqlite'));
+  sdb.pragma('journal_mode=WAL');
+  sdb.pragma('synchronous=NORMAL');
+  sdb.pragma('cache_size=-16000');
+  sdb.exec(`
+    CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS issues(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS comments(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS activity_log(rowid INTEGER PRIMARY KEY AUTOINCREMENT,ts TEXT,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS processed_email_ids(id TEXT PRIMARY KEY,ts TEXT DEFAULT(datetime('now')));
+    CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+  `);
+  _sqliteConns[slug]=sdb;
+  return sdb;
+}
 
+// readBrandDB — always synchronous via SQLite (fast, reliable)
+// MySQL is written to in parallel for Workbench viewing only
 function readBrandDB(slug){
-  if(_brandCache[slug])return _brandCache[slug];
-  // Sync fallback — read from SQLite file if MySQL not ready yet
-  // (handles cold-start race condition)
-  if(!_mysqlReady){
-    const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
-    if(fs.existsSync(sqlitePath)){
-      try{
-        const _sq=require('better-sqlite3');
-        const sdb=_sq(sqlitePath,{readonly:true});
-        const result={};
-        for(const[jsKey,]of Object.entries(ROW_TABLES)){
-          const t=jsKey==='tickets'?'tickets':jsKey==='issues'?'issues':jsKey==='users'?'users':'comments';
-          try{result[jsKey]=sdb.prepare(`SELECT data FROM ${t}`).all().map(r=>JSON.parse(r.data));}catch(e){result[jsKey]=[];}
-        }
-        result.activityLog=[];
-        try{result.activityLog=sdb.prepare('SELECT data FROM activity_log ORDER BY rowid ASC').all().map(r=>JSON.parse(r.data));}catch(e){}
-        result.processedEmailIds=[];
-        try{result.processedEmailIds=sdb.prepare('SELECT id FROM processed_email_ids').pluck().all();}catch(e){}
-        const kvRows=sdb.prepare('SELECT key,value FROM kv').all();
-        for(const r of kvRows){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
-        sdb.close();
-        return result;
-      }catch(e){}
-    }
-    const jsonPath=brandDbPath(slug);
-    if(fs.existsSync(jsonPath)){try{return JSON.parse(fs.readFileSync(jsonPath,'utf8'));}catch(e){}}
-    return {};
-  }
-  // Should not reach here in normal flow — async reads handled by readBrandDBAsync
-  return _brandCache[slug]||{};
+  const sdb=_getSQLite(slug);
+  const result={};
+  result.tickets=sdb.prepare('SELECT data FROM tickets').all().map(r=>JSON.parse(r.data));
+  result.issues=sdb.prepare('SELECT data FROM issues').all().map(r=>JSON.parse(r.data));
+  result.users=sdb.prepare('SELECT data FROM users').all().map(r=>JSON.parse(r.data));
+  result.comments=sdb.prepare('SELECT data FROM comments').all().map(r=>JSON.parse(r.data));
+  result.activityLog=sdb.prepare('SELECT data FROM activity_log ORDER BY rowid ASC').all().map(r=>JSON.parse(r.data));
+  result.processedEmailIds=sdb.prepare('SELECT id FROM processed_email_ids').pluck().all();
+  const kvRows=sdb.prepare('SELECT key,value FROM kv').all();
+  for(const r of kvRows){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
+  return result;
 }
 
 async function readBrandDBAsync(slug){
@@ -286,44 +290,40 @@ async function readBrandDBAsync(slug){
 }
 
 function writeBrandDB(slug,data){
-  // Invalidate cache
-  delete _brandCache[slug];
-  if(!_mysqlReady){
-    // Fallback: write to SQLite if MySQL not ready
-    const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
-    if(fs.existsSync(sqlitePath)){
-      try{
-        const _sq=require('better-sqlite3');
-        const sdb=_sq(sqlitePath);
-        sdb.pragma('journal_mode=WAL');
-        const upsert=(table,items)=>{
-          if(!Array.isArray(items))return;
-          const stmt=sdb.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
-          const newIds=new Set();
-          for(const item of items){const id=item.id||item.email||String(Math.random());newIds.add(id);stmt.run(id,JSON.stringify(item));}
-          const existing=sdb.prepare(`SELECT id FROM ${table}`).pluck().all();
-          const del=sdb.prepare(`DELETE FROM ${table} WHERE id=?`);
-          for(const id of existing){if(!newIds.has(id))del.run(id);}
-        };
-        sdb.transaction(()=>{
-          upsert('tickets',data.tickets);upsert('issues',data.issues);
-          upsert('users',data.users);upsert('comments',data.comments);
-          const upsertKV=sdb.prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
-          for(const key of KV_KEYS){if(data[key]!==undefined)upsertKV.run(key,JSON.stringify(data[key]));}
-        })();
-        sdb.close();
-        return;
-      }catch(e){console.error('[DB] SQLite fallback write failed:',e.message);}
+  // PRIMARY: always write SQLite synchronously — this is the source of truth
+  const sdb=_getSQLite(slug);
+  const upsert=(table,items)=>{
+    if(!Array.isArray(items))return;
+    const stmt=sdb.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
+    const newIds=new Set();
+    for(const item of items){const id=String(item.id||item.email||Math.random());newIds.add(id);stmt.run(id,JSON.stringify(item));}
+    const existing=sdb.prepare(`SELECT id FROM ${table}`).pluck().all();
+    const del=sdb.prepare(`DELETE FROM ${table} WHERE id=?`);
+    for(const id of existing){if(!newIds.has(id))del.run(id);}
+  };
+  sdb.transaction(()=>{
+    upsert('tickets',data.tickets);
+    upsert('issues',data.issues);
+    upsert('users',data.users);
+    upsert('comments',data.comments);
+    if(Array.isArray(data.activityLog)){
+      const stored=sdb.prepare('SELECT COUNT(*) as c FROM activity_log').get().c;
+      const newEntries=data.activityLog.slice(stored);
+      const ins=sdb.prepare('INSERT INTO activity_log(ts,data) VALUES(?,?)');
+      for(const entry of newEntries)ins.run(entry.timestamp||entry.at||new Date().toISOString(),JSON.stringify(entry));
     }
-    // Last resort: JSON
-    const jsonPath=brandDbPath(slug);
-    const dir=path.join(BRANDS_DIR,slug);
-    if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
-    fs.writeFileSync(jsonPath,JSON.stringify(data,null,2),'utf8');
-    return;
-  }
-  // Async write — fire and forget with error logging
-  _writeBrandDBAsync(slug,data).catch(e=>console.error('[MySQL] writeBrandDB failed for',slug,e.message));
+    if(Array.isArray(data.processedEmailIds)){
+      const ins=sdb.prepare('INSERT OR IGNORE INTO processed_email_ids(id) VALUES(?)');
+      for(const id of data.processedEmailIds.slice(-5000))ins.run(String(id));
+    }
+    const upsertKV=sdb.prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+    const knownKeys=new Set(['tickets','issues','users','comments','activityLog','processedEmailIds']);
+    for(const[key,val]of Object.entries(data)){
+      if(!knownKeys.has(key)&&val!==undefined){try{upsertKV.run(key,JSON.stringify(val));}catch(e){}}
+    }
+  })();
+  // SECONDARY: mirror to MySQL in background for Workbench viewing
+  if(_mysqlReady)_writeBrandDBAsync(slug,data).catch(e=>console.error('[MySQL] mirror write failed:',slug,e.message));
 }
 
 async function _writeBrandDBAsync(slug,data){
