@@ -1,0 +1,38 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            cd /var/www/resolvo
+
+            echo "=== Pulling latest code ==="
+            git pull origin main
+
+            echo "=== Installing dependencies ==="
+            npm install --production --silent
+
+            echo "=== Verifying data/ is safe ==="
+            if [ -d "data" ]; then
+              echo "data/ exists — customer data untouched"
+              echo "Brands: $(ls data/brands/ 2>/dev/null | wc -l)"
+            fi
+
+            echo "=== Restarting server ==="
+            pm2 restart resolvo || pm2 start server.js --name resolvo
+            pm2 save
+
+            echo "=== Done — $(date) ==="
