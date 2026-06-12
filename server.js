@@ -136,25 +136,82 @@ function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf
 function brandDbPath(slug){return path.join(BRANDS_DIR,slug,'db.json');}
 
 // ══════════════════════════════════════════════════════════════════════════
-// SQLITE DATABASE LAYER  (replaces JSON file reads/writes)
-// Each brand gets data/brands/{slug}/db.sqlite
-// Interface is identical — readBrandDB / writeBrandDB still return/accept
-// the same plain JS object shape so nothing else in server.js changes.
+// MYSQL DATABASE LAYER
+// Single MySQL database, all brands share tables with slug as partition key.
+// Interface unchanged — readBrandDB / writeBrandDB same JS object shape.
+// Config: MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE env vars
 // ══════════════════════════════════════════════════════════════════════════
-const _sqlite3=require('better-sqlite3');
-const _dbConns={};// slug → BetterSqlite3 instance (connection pool)
+const _mysql=require('mysql2/promise');
+let _mysqlPool=null;
+let _mysqlReady=false;
 
-// Collections stored as individual rows (id TEXT PK + data TEXT JSON).
-// These are the large, frequently-written arrays.
-const ROW_TABLES={
-  tickets:'tickets',
-  issues:'issues',
-  users:'users',
-  comments:'comments',
-};
+function _getPool(){
+  if(_mysqlPool)return _mysqlPool;
+  _mysqlPool=_mysql.createPool({
+    host:    process.env.MYSQL_HOST||'localhost',
+    port:    parseInt(process.env.MYSQL_PORT||'3306'),
+    user:    process.env.MYSQL_USER||'resolvo_user',
+    password:process.env.MYSQL_PASSWORD||'Resolvo@2024!',
+    database:process.env.MYSQL_DATABASE||'resolvo',
+    waitForConnections:true,
+    connectionLimit:10,
+    charset:'utf8mb4',
+  });
+  return _mysqlPool;
+}
 
-// Everything else goes into the kv table as JSON blobs.
-// Small arrays + all config objects.
+// Initialise schema once on startup
+async function _initMySQL(){
+  const pool=_getPool();
+  const conn=await pool.getConnection();
+  try{
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_tickets(
+      slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
+      data MEDIUMTEXT NOT NULL,
+      PRIMARY KEY(slug,id),
+      INDEX idx_status((JSON_UNQUOTE(JSON_EXTRACT(data,'$.status')))),
+      INDEX idx_priority((JSON_UNQUOTE(JSON_EXTRACT(data,'$.priority')))),
+      INDEX idx_assigned((JSON_UNQUOTE(JSON_EXTRACT(data,'$.assignedTo'))))
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_issues(
+      slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
+      data MEDIUMTEXT NOT NULL,
+      PRIMARY KEY(slug,id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_users(
+      slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
+      data MEDIUMTEXT NOT NULL,
+      PRIMARY KEY(slug,id),
+      INDEX idx_email((JSON_UNQUOTE(JSON_EXTRACT(data,'$.email'))))
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_comments(
+      slug VARCHAR(100) NOT NULL,id VARCHAR(100) NOT NULL,
+      data MEDIUMTEXT NOT NULL,
+      PRIMARY KEY(slug,id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_activity_log(
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      slug VARCHAR(100) NOT NULL,ts DATETIME,
+      data MEDIUMTEXT NOT NULL,
+      INDEX idx_slug_ts(slug,ts)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_processed_emails(
+      slug VARCHAR(100) NOT NULL,id VARCHAR(255) NOT NULL,
+      ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(slug,id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS brand_kv(
+      slug VARCHAR(100) NOT NULL,\`key\` VARCHAR(100) NOT NULL,
+      value MEDIUMTEXT NOT NULL,
+      PRIMARY KEY(slug,\`key\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    _mysqlReady=true;
+    console.log('[MySQL] Schema ready');
+  }finally{conn.release();}
+}
+_initMySQL().catch(e=>console.error('[MySQL] Init failed:',e.message));
+
+const ROW_TABLES={tickets:'brand_tickets',issues:'brand_issues',users:'brand_users',comments:'brand_comments'};
 const KV_KEYS=[
   'settings','slaConfig','emailTicketing','features','featureFlags',
   'queueConfig','bookingConfig','slackAlerts','autoResolveRules',
@@ -165,132 +222,167 @@ const KV_KEYS=[
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
 ];
 
-function _openDB(slug){
-  if(_dbConns[slug])return _dbConns[slug];
-  const dir=path.join(BRANDS_DIR,slug);
-  if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
-  const db=_sqlite3(path.join(dir,'db.sqlite'));
-  db.pragma('journal_mode=WAL');   // concurrent reads, atomic writes
-  db.pragma('synchronous=NORMAL'); // safe + fast (no fsync on every write)
-  db.pragma('cache_size=-16000');  // 16 MB page cache
-  db.pragma('temp_store=memory');
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY,data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS issues(id TEXT PRIMARY KEY,data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS comments(id TEXT PRIMARY KEY,data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS activity_log(
-      rowid INTEGER PRIMARY KEY AUTOINCREMENT,ts TEXT,data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS processed_email_ids(
-      id TEXT PRIMARY KEY,ts TEXT DEFAULT(datetime('now')));
-    CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-    CREATE INDEX IF NOT EXISTS idx_tk_status   ON tickets(json_extract(data,'$.status'));
-    CREATE INDEX IF NOT EXISTS idx_tk_priority ON tickets(json_extract(data,'$.priority'));
-    CREATE INDEX IF NOT EXISTS idx_tk_assigned ON tickets(json_extract(data,'$.assignedTo'));
-    CREATE INDEX IF NOT EXISTS idx_is_status   ON issues(json_extract(data,'$.status'));
-    CREATE INDEX IF NOT EXISTS idx_is_assigned ON issues(json_extract(data,'$.assignedTo'));
-    CREATE INDEX IF NOT EXISTS idx_us_email    ON users(json_extract(data,'$.email'));
-    CREATE INDEX IF NOT EXISTS idx_cm_issue    ON comments(json_extract(data,'$.issueId'));
-    CREATE INDEX IF NOT EXISTS idx_al_ts       ON activity_log(ts);
-  `);
-  _dbConns[slug]=db;
-  return db;
-}
-
-// Upsert helper used inside writeBrandDB transaction
-function _upsertRows(db,table,items){
-  if(!Array.isArray(items))return;
-  const stmt=db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?)
-    ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
-  // Collect new IDs so we can delete removed rows
-  const newIds=new Set();
-  for(const item of items){
-    const id=item.id||item.email||String(Math.random());
-    newIds.add(id);
-    stmt.run(id,JSON.stringify(item));
-  }
-  // Remove rows that are no longer in the array
-  const existing=db.prepare(`SELECT id FROM ${table}`).pluck().all();
-  const delStmt=db.prepare(`DELETE FROM ${table} WHERE id=?`);
-  for(const id of existing){if(!newIds.has(id))delStmt.run(id);}
-}
+// In-memory cache per brand to keep reads fast (invalidated on every write)
+const _brandCache={};
 
 function readBrandDB(slug){
-  // ── fallback: if SQLite doesn't exist yet, try legacy JSON ──────────────
-  const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
-  const jsonPath=brandDbPath(slug);
-  if(!fs.existsSync(sqlitePath)&&fs.existsSync(jsonPath)){
-    try{
-      const legacy=JSON.parse(fs.readFileSync(jsonPath,'utf8'));
-      writeBrandDB(slug,legacy);// migrate on first read
-      console.log(`[SQLite] Auto-migrated ${slug} from JSON`);
-    }catch(e){console.error('[SQLite] Migration failed for',slug,e.message);}
+  if(_brandCache[slug])return _brandCache[slug];
+  // Sync fallback — read from SQLite file if MySQL not ready yet
+  // (handles cold-start race condition)
+  if(!_mysqlReady){
+    const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
+    if(fs.existsSync(sqlitePath)){
+      try{
+        const _sq=require('better-sqlite3');
+        const sdb=_sq(sqlitePath,{readonly:true});
+        const result={};
+        for(const[jsKey,]of Object.entries(ROW_TABLES)){
+          const t=jsKey==='tickets'?'tickets':jsKey==='issues'?'issues':jsKey==='users'?'users':'comments';
+          try{result[jsKey]=sdb.prepare(`SELECT data FROM ${t}`).all().map(r=>JSON.parse(r.data));}catch(e){result[jsKey]=[];}
+        }
+        result.activityLog=[];
+        try{result.activityLog=sdb.prepare('SELECT data FROM activity_log ORDER BY rowid ASC').all().map(r=>JSON.parse(r.data));}catch(e){}
+        result.processedEmailIds=[];
+        try{result.processedEmailIds=sdb.prepare('SELECT id FROM processed_email_ids').pluck().all();}catch(e){}
+        const kvRows=sdb.prepare('SELECT key,value FROM kv').all();
+        for(const r of kvRows){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
+        sdb.close();
+        return result;
+      }catch(e){}
+    }
+    const jsonPath=brandDbPath(slug);
+    if(fs.existsSync(jsonPath)){try{return JSON.parse(fs.readFileSync(jsonPath,'utf8'));}catch(e){}}
+    return {};
   }
-  const db=_openDB(slug);
+  // Should not reach here in normal flow — async reads handled by readBrandDBAsync
+  return _brandCache[slug]||{};
+}
+
+async function readBrandDBAsync(slug){
+  if(_brandCache[slug])return _brandCache[slug];
+  if(!_mysqlReady){return readBrandDB(slug);}
+  const pool=_getPool();
   const result={};
-  // Row-table collections
-  for(const[jsKey,table]of Object.entries(ROW_TABLES)){
-    result[jsKey]=db.prepare(`SELECT data FROM ${table}`).all().map(r=>JSON.parse(r.data));
-  }
-  // Activity log (no explicit id column)
-  result.activityLog=db.prepare('SELECT data FROM activity_log ORDER BY rowid ASC').all().map(r=>JSON.parse(r.data));
-  // processedEmailIds (array of strings)
-  result.processedEmailIds=db.prepare('SELECT id FROM processed_email_ids').pluck().all();
-  // KV blobs
-  const kvRows=db.prepare('SELECT key,value FROM kv').all();
-  for(const r of kvRows){
-    try{result[r.key]=JSON.parse(r.value);}catch(e){}
-  }
+  const [[tickets]]=await pool.query('SELECT id,data FROM brand_tickets WHERE slug=?',[slug]);
+  result.tickets=(tickets||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const [[issues]]=await pool.query('SELECT id,data FROM brand_issues WHERE slug=?',[slug]);
+  result.issues=(issues||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const [[users]]=await pool.query('SELECT id,data FROM brand_users WHERE slug=?',[slug]);
+  result.users=(users||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const [[comments]]=await pool.query('SELECT id,data FROM brand_comments WHERE slug=?',[slug]);
+  result.comments=(comments||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const [[actLog]]=await pool.query('SELECT data FROM brand_activity_log WHERE slug=? ORDER BY id ASC',[slug]);
+  result.activityLog=(actLog||[]).map(r=>{try{return JSON.parse(r.data);}catch(e){return null;}}).filter(Boolean);
+  const [[emailIds]]=await pool.query('SELECT id FROM brand_processed_emails WHERE slug=?',[slug]);
+  result.processedEmailIds=(emailIds||[]).map(r=>r.id);
+  const [[kvRows]]=await pool.query('SELECT `key`,value FROM brand_kv WHERE slug=?',[slug]);
+  for(const r of(kvRows||[])){try{result[r.key]=JSON.parse(r.value);}catch(e){}}
+  _brandCache[slug]=result;
   return result;
 }
 
 function writeBrandDB(slug,data){
-  const db=_openDB(slug);
-  db.transaction(()=>{
-    // Row-table collections
-    for(const[jsKey,table]of Object.entries(ROW_TABLES)){
-      if(Array.isArray(data[jsKey]))_upsertRows(db,table,data[jsKey]);
+  // Invalidate cache
+  delete _brandCache[slug];
+  if(!_mysqlReady){
+    // Fallback: write to SQLite if MySQL not ready
+    const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
+    if(fs.existsSync(sqlitePath)){
+      try{
+        const _sq=require('better-sqlite3');
+        const sdb=_sq(sqlitePath);
+        sdb.pragma('journal_mode=WAL');
+        const upsert=(table,items)=>{
+          if(!Array.isArray(items))return;
+          const stmt=sdb.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
+          const newIds=new Set();
+          for(const item of items){const id=item.id||item.email||String(Math.random());newIds.add(id);stmt.run(id,JSON.stringify(item));}
+          const existing=sdb.prepare(`SELECT id FROM ${table}`).pluck().all();
+          const del=sdb.prepare(`DELETE FROM ${table} WHERE id=?`);
+          for(const id of existing){if(!newIds.has(id))del.run(id);}
+        };
+        sdb.transaction(()=>{
+          upsert('tickets',data.tickets);upsert('issues',data.issues);
+          upsert('users',data.users);upsert('comments',data.comments);
+          const upsertKV=sdb.prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+          for(const key of KV_KEYS){if(data[key]!==undefined)upsertKV.run(key,JSON.stringify(data[key]));}
+        })();
+        sdb.close();
+        return;
+      }catch(e){console.error('[DB] SQLite fallback write failed:',e.message);}
     }
-    // Activity log — append-only, capped at 2000
-    if(Array.isArray(data.activityLog)){
-      // Determine how many are already stored
-      const stored=db.prepare('SELECT COUNT(*) as c FROM activity_log').get().c;
-      const incoming=data.activityLog;
-      // Only insert rows beyond what's stored (append new entries)
-      if(incoming.length>stored){
-        const newEntries=incoming.slice(stored);
-        const ins=db.prepare('INSERT INTO activity_log(ts,data) VALUES(?,?)');
-        for(const entry of newEntries){
-          ins.run(entry.timestamp||entry.at||new Date().toISOString(),JSON.stringify(entry));
-        }
+    // Last resort: JSON
+    const jsonPath=brandDbPath(slug);
+    const dir=path.join(BRANDS_DIR,slug);
+    if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
+    fs.writeFileSync(jsonPath,JSON.stringify(data,null,2),'utf8');
+    return;
+  }
+  // Async write — fire and forget with error logging
+  _writeBrandDBAsync(slug,data).catch(e=>console.error('[MySQL] writeBrandDB failed for',slug,e.message));
+}
+
+async function _writeBrandDBAsync(slug,data){
+  const pool=_getPool();
+  const conn=await pool.getConnection();
+  try{
+    await conn.beginTransaction();
+    // Upsert row tables
+    const upsertRows=async(table,items)=>{
+      if(!Array.isArray(items)||items.length===0){
+        await conn.query(`DELETE FROM ${table} WHERE slug=?`,[slug]);
+        return;
       }
-      // Cap: keep only last 2000
-      const total=db.prepare('SELECT COUNT(*) as c FROM activity_log').get().c;
-      if(total>2000){
-        db.prepare('DELETE FROM activity_log WHERE rowid <= (SELECT rowid FROM activity_log ORDER BY rowid ASC LIMIT 1 OFFSET ?)').run(total-2000);
+      const newIds=new Set();
+      for(const item of items){
+        const id=String(item.id||item.email||Math.random());
+        newIds.add(id);
+        await conn.query(`INSERT INTO ${table}(slug,id,data) VALUES(?,?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)`,[slug,id,JSON.stringify(item)]);
       }
+      // Delete removed rows
+      const [existing]=await conn.query(`SELECT id FROM ${table} WHERE slug=?`,[slug]);
+      for(const row of existing){
+        if(!newIds.has(row.id))await conn.query(`DELETE FROM ${table} WHERE slug=? AND id=?`,[slug,row.id]);
+      }
+    };
+    await upsertRows('brand_tickets',data.tickets);
+    await upsertRows('brand_issues',data.issues);
+    await upsertRows('brand_users',data.users);
+    await upsertRows('brand_comments',data.comments);
+    // Activity log — append only, capped at 2000
+    if(Array.isArray(data.activityLog)&&data.activityLog.length>0){
+      const [[countRow]]=await conn.query('SELECT COUNT(*) as c FROM brand_activity_log WHERE slug=?',[slug]);
+      const stored=countRow[0]?countRow[0].c:0;
+      const newEntries=data.activityLog.slice(stored);
+      for(const entry of newEntries){
+        const ts=entry.timestamp||entry.at||new Date().toISOString();
+        await conn.query('INSERT INTO brand_activity_log(slug,ts,data) VALUES(?,?,?)',[slug,ts,JSON.stringify(entry)]);
+      }
+      // Cap at 2000
+      await conn.query(`DELETE FROM brand_activity_log WHERE slug=? AND id NOT IN (
+        SELECT id FROM (SELECT id FROM brand_activity_log WHERE slug=? ORDER BY id DESC LIMIT 2000) t)`,[slug,slug]);
     }
-    // processedEmailIds
+    // Processed email IDs
     if(Array.isArray(data.processedEmailIds)){
-      const ins=db.prepare('INSERT OR IGNORE INTO processed_email_ids(id) VALUES(?)');
-      for(const id of data.processedEmailIds.slice(-5000))ins.run(id);
-      // Trim to 5000
-      db.prepare(`DELETE FROM processed_email_ids WHERE id NOT IN (
-        SELECT id FROM processed_email_ids ORDER BY rowid DESC LIMIT 5000)`).run();
+      for(const id of data.processedEmailIds.slice(-5000)){
+        await conn.query('INSERT IGNORE INTO brand_processed_emails(slug,id) VALUES(?,?)',[slug,String(id)]);
+      }
     }
     // KV blobs
-    const upsertKV=db.prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
-    for(const key of KV_KEYS){
-      if(data[key]!==undefined)upsertKV.run(key,JSON.stringify(data[key]));
-    }
-    // Any extra top-level keys not explicitly mapped → also store in kv
-    const knownKeys=new Set([...Object.keys(ROW_TABLES),'activityLog','processedEmailIds',...KV_KEYS]);
-    for(const[key,val]of Object.entries(data)){
-      if(!knownKeys.has(key)&&val!==undefined){
-        try{upsertKV.run(key,JSON.stringify(val));}catch(e){}
+    const knownKeys=new Set([...Object.keys(ROW_TABLES),'activityLog','processedEmailIds']);
+    const allKvKeys=[...KV_KEYS];
+    for(const[key,val]of Object.entries(data)){if(!knownKeys.has(key))allKvKeys.push(key);}
+    for(const key of [...new Set(allKvKeys)]){
+      if(data[key]!==undefined){
+        try{await conn.query('INSERT INTO brand_kv(slug,`key`,value) VALUES(?,?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)',[slug,key,JSON.stringify(data[key])]);}
+        catch(e){}
       }
     }
-  })();
+    await conn.commit();
+  }catch(e){
+    await conn.rollback();
+    throw e;
+  }finally{conn.release();}
 }
 function generateId(p){return p+'-'+uuidv4().substring(0,8).toUpperCase();}
 function generateIssueId(slug){const db=readBrandDB(slug);return 'ISS-'+String((db.issues||[]).length+1).padStart(4,'0');}

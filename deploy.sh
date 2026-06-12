@@ -16,20 +16,21 @@ curl -sf -o server.js.tmp "https://raw.githubusercontent.com/Mrsk82/Resolvo/main
 mv server.js.tmp server.js
 echo "✅ server.js updated"
 
-echo "📥 Downloading migrate-to-sqlite.js..."
+echo "📥 Downloading migration scripts..."
 curl -sf -o migrate-to-sqlite.js "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/migrate-to-sqlite.js" || true
-echo "✅ migrate-to-sqlite.js updated"
+curl -sf -o migrate-to-mysql.js "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/migrate-to-mysql.js" || true
+echo "✅ Migration scripts updated"
 
-# Install dependencies (includes better-sqlite3)
+# Install dependencies (includes mysql2 + better-sqlite3)
 echo ""
 echo "📦 Installing dependencies..."
 npm install --production --silent
 echo "✅ Dependencies ready"
 
-# Run SQLite migration (skips brands already migrated)
+# Run MySQL migration (skips brands already migrated)
 echo ""
-echo "🗄️  Running SQLite migration..."
-node migrate-to-sqlite.js || echo "⚠️  Migration script error — check logs, server will auto-migrate on first access"
+echo "🗄️  Running MySQL migration..."
+node migrate-to-mysql.js || echo "⚠️  Migration error — server will fallback to SQLite on first access"
 
 # Confirm data is safe
 echo ""
