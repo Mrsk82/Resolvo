@@ -359,7 +359,8 @@ async function _writeBrandDBAsync(slug,data){
       const stored=countRow[0]?countRow[0].c:0;
       const newEntries=data.activityLog.slice(stored);
       for(const entry of newEntries){
-        const ts=entry.timestamp||entry.at||new Date().toISOString();
+        const raw=entry.timestamp||entry.at||new Date().toISOString();
+        const ts=new Date(raw).toISOString().slice(0,19).replace('T',' ');
         await conn.query('INSERT INTO brand_activity_log(slug,ts,data) VALUES(?,?,?)',[slug,ts,JSON.stringify(entry)]);
       }
       // Cap at 2000

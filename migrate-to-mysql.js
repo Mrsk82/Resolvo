@@ -88,7 +88,8 @@ async function main(){
         await upsert('brand_comments',data.comments);
         if(Array.isArray(data.activityLog)){
           for(const entry of data.activityLog){
-            const ts=entry.timestamp||entry.at||new Date().toISOString();
+            const raw=entry.timestamp||entry.at||new Date().toISOString();
+            const ts=new Date(raw).toISOString().slice(0,19).replace('T',' ');
             await conn.query('INSERT INTO brand_activity_log(slug,ts,data) VALUES(?,?,?)',[slug,ts,JSON.stringify(entry)]);
           }
         }
