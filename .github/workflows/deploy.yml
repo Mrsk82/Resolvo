@@ -8,31 +8,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            set -e
-            cd /root/Resolvo
-
-            echo "=== Pulling latest code ==="
-            git pull origin main
-
-            echo "=== Installing dependencies ==="
-            npm install --production --silent
-
-            echo "=== Verifying data/ is safe ==="
-            if [ -d "data" ]; then
-              echo "data/ exists — customer data untouched"
-              echo "Brands: $(ls data/brands/ 2>/dev/null | wc -l)"
-            fi
-
-            echo "=== Restarting server ==="
-            pm2 restart resolvo || pm2 start server.js --name resolvo
-            pm2 save
-
-            echo "=== Done — $(date) ==="
+      - name: Trigger VPS deploy webhook
+        run: |
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: sha256=$(echo -n '{"ref":"refs/heads/main"}' | openssl dgmac -sha256 -macopt key:${{ secrets.DEPLOY_SECRET }} | awk '{print $2}')" \
+            -d '{"ref":"refs/heads/main"}' \
+            https://app.resolvogroup.com/deploy-webhook
+          echo "Deploy webhook sent to VPS"

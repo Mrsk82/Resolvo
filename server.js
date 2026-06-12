@@ -5000,6 +5000,30 @@ function runBackgroundJobs(){
   console.log('[Jobs] Background jobs started (reminders, digest, follow-ups)');
 }
 
+// ── Auto-deploy webhook (GitHub → VPS pull) ───────────────────────────────────
+// Called by GitHub webhook on every push to main. VPS pulls its own update.
+const crypto=require('crypto');
+app.post('/deploy-webhook',express.raw({type:'application/json'}),(req,res)=>{
+  const secret=process.env.DEPLOY_SECRET||'';
+  if(secret){
+    const sig=req.headers['x-hub-signature-256']||'';
+    const expected='sha256='+crypto.createHmac('sha256',secret).update(req.body).digest('hex');
+    if(!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))
+      return res.status(401).json({error:'Invalid signature'});
+  }
+  const payload=JSON.parse(req.body.toString());
+  if(payload.ref!=='refs/heads/main')return res.json({message:'Not main branch, skipped'});
+  res.json({message:'Deploy triggered'});
+  const{exec}=require('child_process');
+  const deployCmd=`cd ${__dirname} && git pull origin main && npm install --production 2>&1`;
+  exec(deployCmd,(err,stdout,stderr)=>{
+    if(err){console.error('[Deploy] Error:',err.message);return;}
+    console.log('[Deploy] Success:\n'+stdout);
+    // Restart via PM2 if available, else graceful self-restart
+    exec('pm2 restart resolvo 2>/dev/null || true');
+  });
+});
+
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
