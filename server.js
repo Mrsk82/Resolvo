@@ -186,12 +186,16 @@ function getBrandMailer(slug){
     const bEmail=s.BRAND_NOTIFY_EMAIL||'';
     const bPass=(s.BRAND_NOTIFY_PASS||'').replace(/\s/g,'');
     if(!bEmail||!bPass)return null;
-    if(_brandMailers[bEmail])return{mailer:_brandMailers[bEmail],from:`"${s.APP_NAME||'Support'}" <${bEmail}>`};
+    // Use brand name from owner.json, not generic APP_NAME
+    const owner=readOwner();
+    const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+    const displayName=brand.name||s.APP_NAME||'Support';
+    if(_brandMailers[bEmail])return{mailer:_brandMailers[bEmail],from:`"${displayName}" <${bEmail}>`};
     const nm=require('nodemailer');
     const t=nm.createTransport({service:'gmail',auth:{user:bEmail,pass:bPass}});
     _brandMailers[bEmail]=t;
     console.log('[BrandEmail] Ready:',bEmail,'for slug:',slug);
-    return{mailer:t,from:`"${s.APP_NAME||'Support'}" <${bEmail}>`};
+    return{mailer:t,from:`"${displayName}" <${bEmail}>`};
   }catch(e){return null;}
 }
 async function sendBrandEmail(slug,to,subject,html,text){
