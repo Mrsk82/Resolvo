@@ -5018,6 +5018,363 @@ app.post('/deploy-webhook',express.json(),(req,res)=>{
   });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// OWNER QUERY CONSOLE — SQL-like interface over JSON data
+// ══════════════════════════════════════════════════════════════════════════════
+const MONITOR_LOG=[];const MAX_LOG=2000;
+function monitorEvent(level,category,message,detail){
+  const entry={id:generateId('EVT'),ts:new Date().toISOString(),level,category,message,detail:detail||null};
+  MONITOR_LOG.unshift(entry);if(MONITOR_LOG.length>MAX_LOG)MONITOR_LOG.length=MAX_LOG;
+  if(level==='error')console.error(`[Monitor][${category}] ${message}`);
+}
+// Patch sendBrandEmail to track failures
+const _origSendBrandEmail=sendBrandEmail;
+async function sendBrandEmailMonitored(slug,...args){
+  try{const r=await _origSendBrandEmail(slug,...args);monitorEvent('info','email',`Email sent for brand ${slug}`,{to:args[0],subject:args[1]});return r;}
+  catch(e){monitorEvent('error','email',`Email FAILED for brand ${slug}`,{to:args[0],error:e.message});throw e;}
+}
+
+function getAllData(table){
+  const owner=readOwner();
+  if(table==='brands')return(owner.brands||[]).map(b=>({...b}));
+  if(table==='support_tickets')return(owner.supportTickets||[]);
+  if(table==='audit_log')return(owner.auditLog||[]);
+  const rows=[];
+  for(const b of(owner.brands||[])){
+    try{
+      const db=readBrandDB(b.slug);
+      if(table==='users')(db.users||[]).forEach(u=>rows.push({...u,_brand:b.slug,_brandName:b.name}));
+      else if(table==='issues')(db.issues||[]).forEach(i=>rows.push({...i,_brand:b.slug,_brandName:b.name}));
+      else if(table==='tickets')(db.tickets||[]).forEach(t=>rows.push({...t,_brand:b.slug,_brandName:b.name}));
+      else if(table==='appointments')(db.appointments||[]).forEach(a=>rows.push({...a,_brand:b.slug,_brandName:b.name}));
+      else if(table==='comments')(db.comments||[]).forEach(c=>rows.push({...c,_brand:b.slug}));
+    }catch(e){}
+  }
+  return rows;
+}
+
+function applyWhere(rows,clause){
+  // Support: field = 'val', field != 'val', field LIKE '%val%', field > val, field < val, field IS NULL, field IS NOT NULL
+  return rows.filter(row=>{
+    try{
+      const normalized=clause.replace(/IS NOT NULL/gi,'!==null').replace(/IS NULL/gi,'===null');
+      const parts=normalized.split(/\s+AND\s+/i);
+      return parts.every(part=>{
+        const likeM=part.match(/(\w+)\s+LIKE\s+'([^']+)'/i);
+        if(likeM){const val=String(row[likeM[1]]||'').toLowerCase();const pat=likeM[2].replace(/%/g,'').toLowerCase();return val.includes(pat);}
+        const eqM=part.match(/(\w+)\s*(===|!==|>=|<=|!=|=|>|<)\s*'?([^']+)'?/);
+        if(eqM){
+          const[,field,op,val]=eqM;const rv=row[field];const sv=String(rv||'');const nv=parseFloat(val);
+          if(op==='='||op==='===')return sv===val||rv===val;
+          if(op==='!='||op==='!==')return sv!==val&&rv!==val;
+          if(op==='>') return parseFloat(sv)>nv;
+          if(op==='<') return parseFloat(sv)<nv;
+          if(op==='>=')return parseFloat(sv)>=nv;
+          if(op==='<=')return parseFloat(sv)<=nv;
+        }
+        return true;
+      });
+    }catch(e){return true;}
+  });
+}
+
+function executeQuery(sql){
+  sql=sql.trim().replace(/\s+/g,' ');
+  // COUNT query
+  const countM=sql.match(/^SELECT\s+COUNT\(\*\)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?(?:\s+LIMIT\s+\d+)?$/i);
+  if(countM){
+    let rows=getAllData(countM[1].toLowerCase());
+    if(countM[2])rows=applyWhere(rows,countM[2]);
+    return{columns:['COUNT(*)'],rows:[[rows.length]],total:1};
+  }
+  // SELECT query
+  const selM=sql.match(/^SELECT\s+(.*?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.*?))?(?:\s+ORDER\s+BY\s+([\w.]+)(?:\s+(ASC|DESC))?)?(?:\s+LIMIT\s+(\d+))?$/i);
+  if(!selM)throw new Error('Unsupported query. Try: SELECT * FROM brands WHERE status = \'active\'');
+  const[,fields,table,whereClause,orderField,orderDir,limitN]=selM;
+  let rows=getAllData(table.toLowerCase());
+  if(!rows)throw new Error(`Unknown table: ${table}. Available: brands, users, issues, tickets, appointments, support_tickets, audit_log, comments`);
+  if(whereClause)rows=applyWhere(rows,whereClause);
+  if(orderField)rows=[...rows].sort((a,b)=>{const av=a[orderField]||'',bv=b[orderField]||'';return orderDir==='DESC'?String(bv).localeCompare(String(av)):String(av).localeCompare(String(bv));});
+  if(limitN)rows=rows.slice(0,parseInt(limitN));
+  if(fields.trim()==='*'){
+    const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+    return{columns:cols,rows:rows.map(r=>cols.map(c=>r[c]??null)),total:rows.length};
+  }
+  const cols=fields.split(',').map(f=>f.trim());
+  return{columns:cols,rows:rows.map(r=>cols.map(c=>r[c]??null)),total:rows.length};
+}
+
+app.post('/api/owner/query',ownerOnly,(req,res)=>{
+  const{sql}=req.body;
+  if(!sql)return res.json({success:false,error:'No query provided'});
+  try{
+    const start=Date.now();
+    const result=executeQuery(sql);
+    const ms=Date.now()-start;
+    monitorEvent('info','query',`Query executed in ${ms}ms`,{sql,rows:result.total});
+    res.json({success:true,...result,ms});
+  }catch(e){
+    monitorEvent('error','query',`Query failed: ${e.message}`,{sql});
+    res.json({success:false,error:e.message});
+  }
+});
+
+app.get('/api/owner/monitor',ownerOnly,(req,res)=>{
+  const{level,category,limit=200}=req.query;
+  let logs=MONITOR_LOG;
+  if(level)logs=logs.filter(e=>e.level===level);
+  if(category)logs=logs.filter(e=>e.category===category);
+  const errors=MONITOR_LOG.filter(e=>e.level==='error').length;
+  const warnings=MONITOR_LOG.filter(e=>e.level==='warn').length;
+  const emailFails=MONITOR_LOG.filter(e=>e.category==='email'&&e.level==='error').length;
+  res.json({success:true,summary:{total:MONITOR_LOG.length,errors,warnings,emailFails},logs:logs.slice(0,parseInt(limit))});
+});
+
+app.get('/api/owner/tables',ownerOnly,(req,res)=>{
+  res.json({success:true,tables:[
+    {name:'brands',description:'All brands/companies on the platform'},
+    {name:'users',description:'All users across all brands'},
+    {name:'issues',description:'All issues/bugs across all brands'},
+    {name:'tickets',description:'All support tickets across all brands'},
+    {name:'appointments',description:'All appointments across all brands'},
+    {name:'support_tickets',description:'Support tickets sent to platform owner'},
+    {name:'audit_log',description:'Owner activity audit trail'},
+    {name:'comments',description:'All comments across all brands'},
+  ],examples:[
+    "SELECT * FROM brands",
+    "SELECT * FROM brands WHERE status = 'active'",
+    "SELECT * FROM brands WHERE tier = 'Pro' ORDER BY createdDate DESC",
+    "SELECT name, email, role, _brand FROM users WHERE role = 'Admin'",
+    "SELECT * FROM users WHERE _brand = 'konnect'",
+    "SELECT * FROM issues WHERE priority = 'Critical'",
+    "SELECT * FROM tickets WHERE status = 'open' LIMIT 50",
+    "SELECT COUNT(*) FROM tickets",
+    "SELECT * FROM appointments WHERE status = 'confirmed'",
+    "SELECT * FROM issues WHERE status LIKE '%Open%' ORDER BY createdDate DESC LIMIT 20",
+  ]});
+});
+
+// Serve the query console + monitor page
+app.get('/owner-console',(req,res)=>{
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner Console — Resolvo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
+.topbar{background:#1a1d27;border-bottom:1px solid #2d3748;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:16px;font-weight:700;color:#f5a623;letter-spacing:.5px}
+.topbar .badge{font-size:11px;background:#2d3748;color:#94a3b8;padding:4px 10px;border-radius:20px}
+.tabs{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid #2d3748}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;border-radius:8px 8px 0 0;cursor:pointer;border:none;background:transparent;color:#64748b}
+.tab.active{background:#1e2330;color:#f5a623;border:1px solid #2d3748;border-bottom:1px solid #1e2330}
+.panel{display:none;padding:24px}.panel.active{display:block}
+/* Query console */
+.query-area{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.query-label{padding:8px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;background:#161920;border-bottom:1px solid #2d3748}
+textarea{width:100%;background:#1a1d27;color:#e2e8f0;border:none;padding:16px;font-family:'Courier New',monospace;font-size:14px;resize:vertical;min-height:100px;outline:none;line-height:1.6}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600}
+.btn-primary{background:#f5a623;color:#000}
+.btn-primary:hover{background:#e09510}
+.btn-ghost{background:#1e2330;color:#94a3b8;border:1px solid #2d3748}
+.btn-ghost:hover{background:#2d3748;color:#e2e8f0}
+.btn-danger{background:#dc2626;color:#fff}
+.examples{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.example-btn{padding:5px 12px;font-size:12px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer;font-family:'Courier New',monospace}
+.example-btn:hover{background:#2d3748;color:#e2e8f0}
+.results-meta{font-size:12px;color:#64748b;margin-bottom:10px;padding:8px 12px;background:#161920;border-radius:6px;display:flex;gap:16px}
+.results-meta span{color:#f5a623;font-weight:700}
+.table-wrap{overflow:auto;border-radius:10px;border:1px solid #2d3748;max-height:60vh}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#1a1d27;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid #2d3748}
+td{padding:9px 14px;border-bottom:1px solid #1e2330;color:#e2e8f0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#1e2330}
+.null-val{color:#4a5568;font-style:italic}
+.error-box{background:#2d1515;border:1px solid #dc2626;color:#fca5a5;padding:14px 18px;border-radius:8px;font-size:13px}
+/* Monitor */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;padding:16px 20px}
+.stat-label{font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:800;color:#f5a623}
+.stat-value.red{color:#ef4444}.stat-value.green{color:#22c55e}.stat-value.yellow{color:#f59e0b}
+.log-filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:6px 14px;font-size:12px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer}
+.filter-btn.active{background:#f5a623;color:#000;border-color:#f5a623}
+.log-list{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;max-height:65vh;overflow-y:auto}
+.log-entry{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #161920;align-items:flex-start;font-size:12px}
+.log-entry:last-child{border-bottom:none}
+.log-level{padding:2px 8px;border-radius:4px;font-weight:700;font-size:10px;text-transform:uppercase;flex-shrink:0;margin-top:1px}
+.level-error{background:#2d1515;color:#ef4444}
+.level-warn{background:#2d2010;color:#f59e0b}
+.level-info{background:#0d2340;color:#3b82f6}
+.log-cat{color:#64748b;width:60px;flex-shrink:0}
+.log-msg{color:#e2e8f0;flex:1}
+.log-ts{color:#4a5568;flex-shrink:0;white-space:nowrap}
+.no-logs{padding:40px;text-align:center;color:#4a5568}
+.search-box{width:100%;background:#1a1d27;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:12px}
+.search-box:focus{border-color:#f5a623}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>⚡ Owner Console</h1>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span class="badge" id="connStatus">Checking...</span>
+    <button class="btn btn-ghost" onclick="location.href='/'">← Back</button>
+  </div>
+</div>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('query',this)">🗄️ Query Console</button>
+  <button class="tab" onclick="switchTab('monitor',this)">📊 Live Monitor</button>
+</div>
+
+<!-- QUERY PANEL -->
+<div id="panel-query" class="panel active">
+  <div class="query-area">
+    <div class="query-label">SQL Query</div>
+    <textarea id="sqlInput" placeholder="SELECT * FROM brands WHERE status = 'active'" spellcheck="false" onkeydown="handleKey(event)"></textarea>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="runQuery()">▶ Run Query &nbsp;<kbd style="font-size:10px;opacity:.7">Ctrl+Enter</kbd></button>
+    <button class="btn btn-ghost" onclick="clearQuery()">Clear</button>
+    <button class="btn btn-ghost" onclick="loadTables()">📋 Show Tables</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+  <div style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:8px">Quick Examples</div>
+    <div class="examples" id="examples"></div>
+  </div>
+  <div id="queryMeta" style="display:none" class="results-meta"></div>
+  <div id="queryError" style="display:none" class="error-box"></div>
+  <div id="tableWrap" class="table-wrap" style="display:none"></div>
+</div>
+
+<!-- MONITOR PANEL -->
+<div id="panel-monitor" class="panel">
+  <div class="stats-grid" id="monitorStats"></div>
+  <input class="search-box" id="logSearch" placeholder="Search logs..." oninput="filterLogs()">
+  <div class="log-filters">
+    <button class="filter-btn active" onclick="setFilter('',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('error',this)">Errors</button>
+    <button class="filter-btn" onclick="setFilter('warn',this)">Warnings</button>
+    <button class="filter-btn" onclick="setFilter('info',this)">Info</button>
+    <button class="filter-btn" style="margin-left:auto" onclick="loadMonitor()">🔄 Refresh</button>
+  </div>
+  <div class="log-list" id="logList"><div class="no-logs">Loading...</div></div>
+</div>
+
+<script>
+let lastResult=null,currentFilter='',allLogs=[];
+
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='monitor')loadMonitor();
+}
+
+function handleKey(e){if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();runQuery();}}
+
+async function runQuery(){
+  const sql=document.getElementById('sqlInput').value.trim();
+  if(!sql)return;
+  document.getElementById('queryError').style.display='none';
+  document.getElementById('tableWrap').style.display='none';
+  document.getElementById('queryMeta').style.display='none';
+  document.getElementById('queryMeta').innerHTML='Running...';
+  document.getElementById('queryMeta').style.display='flex';
+  const res=await fetch('/api/owner/query',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({sql})});
+  const data=await res.json();
+  if(!data.success){
+    document.getElementById('queryError').textContent='Error: '+data.error;
+    document.getElementById('queryError').style.display='block';
+    document.getElementById('queryMeta').style.display='none';
+    return;
+  }
+  lastResult=data;
+  document.getElementById('queryMeta').innerHTML=\`<span>\${data.total}</span> rows &nbsp;|&nbsp; <span>\${data.ms}ms</span> &nbsp;|&nbsp; \${data.columns?.length||0} columns\`;
+  renderTable(data);
+}
+
+function renderTable(data){
+  if(!data.columns){document.getElementById('tableWrap').style.display='none';return;}
+  let html='<table><thead><tr>'+data.columns.map(c=>\`<th title="\${c}">\${c}</th>\`).join('')+'</tr></thead><tbody>';
+  (data.rows||[]).forEach(row=>{
+    html+='<tr>'+row.map(v=>{
+      if(v===null||v===undefined)return '<td class="null-val">null</td>';
+      const s=typeof v==='object'?JSON.stringify(v):String(v);
+      return \`<td title="\${s.replace(/"/g,'&quot;')}">\${s.substring(0,120)}\${s.length>120?'…':''}</td>\`;
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('tableWrap').innerHTML=html;
+  document.getElementById('tableWrap').style.display='block';
+}
+
+function exportCSV(){
+  if(!lastResult||!lastResult.columns)return alert('Run a query first');
+  const rows=[lastResult.columns,...lastResult.rows];
+  const csv=rows.map(r=>r.map(v=>'"'+(v===null?'':String(v)).replace(/"/g,'""')+'"').join(',')).join('\\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='resolvo-query-'+(new Date().toISOString().substring(0,10))+'.csv';a.click();
+}
+
+async function loadTables(){
+  const res=await fetch('/api/owner/tables',{headers:{'x-session-token':getToken()}});
+  const data=await res.json();
+  const ex=document.getElementById('examples');
+  ex.innerHTML=data.examples.map(e=>\`<button class="example-btn" onclick="setQuery(this.dataset.q)" data-q="\${e}">\${e}</button>\`).join('');
+}
+
+function setQuery(q){document.getElementById('sqlInput').value=q;}
+function clearQuery(){document.getElementById('sqlInput').value='';document.getElementById('tableWrap').style.display='none';document.getElementById('queryMeta').style.display='none';document.getElementById('queryError').style.display='none';}
+
+async function loadMonitor(){
+  const res=await fetch(\`/api/owner/monitor?limit=500\`,{headers:{'x-session-token':getToken()}});
+  const data=await res.json();
+  allLogs=data.logs||[];
+  const s=data.summary||{};
+  document.getElementById('monitorStats').innerHTML=\`
+    <div class="stat-card"><div class="stat-label">Total Events</div><div class="stat-value">\${s.total||0}</div></div>
+    <div class="stat-card"><div class="stat-label">Errors</div><div class="stat-value red">\${s.errors||0}</div></div>
+    <div class="stat-card"><div class="stat-label">Email Failures</div><div class="stat-value \${(s.emailFails||0)>0?'red':'green'}">\${s.emailFails||0}</div></div>
+    <div class="stat-card"><div class="stat-label">Server Uptime</div><div class="stat-value green">Live</div></div>
+  \`;
+  filterLogs();
+}
+
+function setFilter(f,el){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');filterLogs();}
+
+function filterLogs(){
+  const search=document.getElementById('logSearch').value.toLowerCase();
+  let logs=allLogs;
+  if(currentFilter)logs=logs.filter(e=>e.level===currentFilter);
+  if(search)logs=logs.filter(e=>(e.message+e.category+(e.detail?JSON.stringify(e.detail):'')).toLowerCase().includes(search));
+  const el=document.getElementById('logList');
+  if(!logs.length){el.innerHTML='<div class="no-logs">No events found</div>';return;}
+  el.innerHTML=logs.map(e=>\`
+    <div class="log-entry">
+      <span class="log-level level-\${e.level}">\${e.level}</span>
+      <span class="log-cat">\${e.category}</span>
+      <span class="log-msg">\${e.message}\${e.detail?'<br><span style="color:#4a5568;font-size:11px">'+JSON.stringify(e.detail).substring(0,200)+'</span>':''}</span>
+      <span class="log-ts">\${e.ts.replace('T',' ').substring(0,19)}</span>
+    </div>\`).join('');
+}
+
+function getToken(){return localStorage.getItem('tt_token')||document.cookie.split(';').find(c=>c.includes('token'))?.split('=')[1]||'';}
+
+// Init
+loadTables();
+fetch('/api/owner/stats',{headers:{'x-session-token':getToken()}}).then(r=>r.json()).then(d=>{
+  document.getElementById('connStatus').textContent=d.success?'Connected ✓':'Auth required';
+}).catch(()=>{document.getElementById('connStatus').textContent='Not connected';});
+
+// Auto-refresh monitor every 30s when on that tab
+setInterval(()=>{if(document.getElementById('panel-monitor').classList.contains('active'))loadMonitor();},30000);
+</script>
+</body></html>`);
+});
+
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
