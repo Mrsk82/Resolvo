@@ -237,7 +237,7 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
         <div class="box end">Brand live<br><small>Free tier · 10 users</small></div>
       </div>
       <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        <div class="card"><div class="card-title">🤖 Resolvo Auto-Does:</div><div class="card-body"><div class="item"><span>→</span>Creates brand slug from company name</div><div class="item"><span>→</span>Initializes empty db.json with defaults</div><div class="item"><span>→</span>Sets tier = Free</div><div class="item"><span>→</span>Sends welcome email (sendBrandEmail)</div><div class="item"><span>→</span>Notifies owner of new signup</div><div class="item"><span>→</span>Starts Day 1 nurture sequence timer</div></div></div>
+        <div class="card"><div class="card-title">🤖 Resolvo Auto-Does:</div><div class="card-body"><div class="item"><span>→</span>Creates brand slug from company name</div><div class="item"><span>→</span>Initializes empty db.sqlite with defaults</div><div class="item"><span>→</span>Sets tier = Free</div><div class="item"><span>→</span>Sends welcome email (sendBrandEmail)</div><div class="item"><span>→</span>Notifies owner of new signup</div><div class="item"><span>→</span>Starts Day 1 nurture sequence timer</div></div></div>
         <div class="card"><div class="card-title">📅 Nurture Sequence:</div><div class="card-body"><div class="item"><span>Day 1</span>Create your first issue</div><div class="item"><span>Day 3</span>Connect email inbox</div><div class="item"><span>Day 7</span>Queue + portal + reports</div><div class="item"><span>Day 14</span>Upgrade to Pro prompt</div></div></div>
         <div class="card"><div class="card-title">✅ Onboarding Checklist:</div><div class="card-body"><div class="item"><span>1</span>Create first issue</div><div class="item"><span>2</span>Invite a teammate</div><div class="item"><span>3</span>Connect email inbox</div><div class="item"><span>4</span>Configure SLA rules</div><div class="item"><span>5</span>Enable assignment queue</div><div class="item"><span>6</span>Check first report</div></div></div>
       </div>
@@ -385,14 +385,45 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
         <div class="item"><span>→</span>dotenv for config</div>
       </div></div>
       <div class="card"><div class="card-title" style="color:var(--green);">Data & Infrastructure</div><div class="card-body">
-        <div class="item"><span>→</span><strong>JSON file storage</strong> — no SQL/NoSQL</div>
+        <div class="item"><span>→</span><strong>SQLite per brand</strong> — <code>better-sqlite3</code>, WAL mode</div>
         <div class="item"><span>→</span>data/owner.json — platform owner data</div>
-        <div class="item"><span>→</span>data/brands/:slug/db.json — per brand</div>
-        <div class="item"><span>→</span>fs.readFileSync/writeFileSync (synchronous)</div>
+        <div class="item"><span>→</span>data/brands/:slug/db.sqlite — per brand database</div>
+        <div class="item"><span>→</span>Synchronous reads · WAL journal · NORMAL sync</div>
+        <div class="item"><span>→</span>In-memory <code>_brandCache</code> — instant repeat reads</div>
+        <div class="item"><span>→</span>Auto-migrates db.json → db.sqlite on first access</div>
         <div class="item"><span>→</span>Hostinger VPS — Ubuntu Linux</div>
         <div class="item"><span>→</span>PM2 process manager (auto-restart)</div>
-        <div class="item"><span>→</span>GitHub for code — manual deploy</div>
+        <div class="item"><span>→</span>GitHub for code · deploy.sh for deploys</div>
         <div class="item"><span>→</span>PORT=3000 · BASE_URL=app.resolvogroup.com</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">New Features (2025-2026)</div>
+    <div class="grid-3">
+      <div class="card"><div class="card-title" style="color:var(--cyan);">🔑 API Tokens</div><div class="card-body">
+        <div class="item"><span>→</span>Brands generate named API tokens in Settings</div>
+        <div class="item"><span>→</span>Token scopes: read / write / admin</div>
+        <div class="item"><span>→</span>Sent as <code>Authorization: Bearer &lt;token&gt;</code></div>
+        <div class="item"><span>→</span>Validated server-side per request</div>
+        <div class="item"><span>→</span>Revocable at any time — instant effect</div>
+        <div class="item"><span>→</span>Used to create tickets via external systems</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--violet);">💬 Slack Alerts</div><div class="card-body">
+        <div class="item"><span>→</span>Configure Slack Webhook URL in Settings</div>
+        <div class="item"><span>→</span>Choose alert triggers: new ticket, SLA breach, etc.</div>
+        <div class="item"><span>→</span>Resolvo POSTs JSON to the webhook on events</div>
+        <div class="item"><span>→</span>Message includes ticket ID, subject, priority</div>
+        <div class="item"><span>→</span>No Slack app install required — webhook only</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--green);">🌐 Ticket Sources & Widget</div><div class="card-body">
+        <div class="item"><span>→</span>Tickets can arrive from: Email · API · Widget · Manual</div>
+        <div class="item"><span>→</span>Source tracked on every ticket (<code>source</code> field)</div>
+        <div class="item"><span>→</span>Embeddable JS widget — 1 script tag on any site</div>
+        <div class="item"><span>→</span>Widget: customer fills form → POST /api/widget-ticket</div>
+        <div class="item"><span>→</span>Widget is brand-scoped via <code>data-brand</code> attribute</div>
+        <div class="item"><span>→</span>No auth needed — public endpoint, rate limited</div>
       </div></div>
     </div>
   </div>
@@ -527,8 +558,8 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
       <tr><th>Route</th><th>Description</th><th>Auth</th></tr>
       <tr><td><code>POST /api/call</code></td><td>Main dispatcher — 200+ functions via {fn, args}</td><td>Session token</td></tr>
       <tr><td><code>POST /api/logout</code></td><td>Destroy session</td><td>Session token</td></tr>
-      <tr><td><code>GET /api/backup</code></td><td>Download full db.json as JSON</td><td>Admin only</td></tr>
-      <tr><td><code>POST /api/restore</code></td><td>Upload + restore db.json</td><td>Admin only</td></tr>
+      <tr><td><code>GET /api/backup</code></td><td>Download full brand data as JSON</td><td>Admin only</td></tr>
+      <tr><td><code>POST /api/restore</code></td><td>Upload + restore brand data</td><td>Admin only</td></tr>
       <tr><td><code>GET /api/export/:type</code></td><td>CSV export (issues/tickets/users/audit)</td><td>Session + token in URL</td></tr>
       <tr><td><code>GET /api/onboarding-status</code></td><td>Checklist completion %</td><td>Session token</td></tr>
       <tr><td><code>GET /api/ga4-config</code></td><td>GA4 measurement ID</td><td>Public</td></tr>
@@ -565,7 +596,7 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <div class="page" id="tab-data">
   <div class="page-title">🗄 Data Models — Complete</div>
-  <div class="page-sub">Every field in every object stored in Resolvo's JSON files</div>
+  <div class="page-sub">Every field in every object stored in Resolvo's SQLite databases</div>
 
   <div class="section">
     <div class="section-title">Issue Object</div>
@@ -699,7 +730,7 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
       </div>
       <table class="tbl">
         <tr><th>Layer</th><th>Isolation Mechanism</th></tr>
-        <tr><td>Database</td><td>Separate JSON file per brand: <code>data/brands/:slug/db.json</code></td></tr>
+        <tr><td>Database</td><td>Separate SQLite file per brand: <code>data/brands/:slug/db.sqlite</code></td></tr>
         <tr><td>Session</td><td><code>brandSlug</code> in session token — set at login, immutable</td></tr>
         <tr><td>API calls</td><td><code>const slug = su.brandSlug</code> — all reads/writes use this</td></tr>
         <tr><td>Email</td><td><code>sendBrandEmail(slug,...)</code> uses brand's own SMTP</td></tr>

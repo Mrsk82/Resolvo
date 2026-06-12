@@ -259,6 +259,18 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
   </div>
 
   <div class="sb-section">
+    <div class="sb-section-title">Integrations & API</div>
+    <a class="sb-item" onclick="showModule('api-tokens')" href="#">
+      <div class="sb-check" id="chk-api-tokens"></div><span>🔑 API Tokens</span>
+    </a>
+    <a class="sb-item" onclick="showModule('slack-alerts')" href="#">
+      <div class="sb-check" id="chk-slack-alerts"></div><span>💬 Slack Alerts</span>
+    </a>
+    <a class="sb-item" onclick="showModule('ticket-sources')" href="#">
+      <div class="sb-check" id="chk-ticket-sources"></div><span>🌐 Ticket Sources & Widget</span>
+    </a>
+  </div>
+  <div class="sb-section">
     <div class="sb-section-title">New Features</div>
     <a class="sb-item" onclick="showModule('new-features')" href="#">
       <div class="sb-check" id="chk-new-features"></div><span>🆕 New Features Guide</span>
@@ -1311,6 +1323,131 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
       <button class="complete-btn" onclick="markDone('new-features','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
     </div>
 
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: API TOKENS                         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-api-tokens">
+      <div class="learn-hero">
+        <h1>🔑 API Tokens</h1>
+        <p>Generate personal API tokens to integrate Resolvo with external tools, scripts, and automation — without sharing your password.</p>
+        <div class="hero-meta"><span>⏱ 4 min read</span><span>🔑 Per-user tokens</span></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">What are API Tokens?</div>
+        <div class="section-sub">Each user can generate one personal API token. Tokens authenticate API requests just like a session — but are designed for programmatic access, not browser login.</div>
+        <table class="shortcuts">
+          <tr><th>Feature</th><th>Detail</th></tr>
+          <tr><td>Storage</td><td>SHA-256 hashed in the database — never stored in plain text</td></tr>
+          <tr><td>Per user</td><td>One active token per user at a time</td></tr>
+          <tr><td>Revoke</td><td>Instantly revoke from Settings → API Tokens</td></tr>
+          <tr><td>Header</td><td><code>x-api-token: YOUR_TOKEN</code></td></tr>
+        </table>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Generate Your Token</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Settings → API Tokens</h4><p>Click <strong>Generate New Token</strong>. Your token is shown once — copy it immediately.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Use in API Requests</h4><p>Pass the token in the <code>x-api-token</code> header on every request.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Revoke Anytime</h4><p>Click <strong>Revoke Token</strong> in Settings → API Tokens to immediately invalidate it.</p></div></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Example — Create a Ticket via API</div>
+        <pre style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px;overflow-x:auto;"><code>curl -X POST https://app.resolvogroup.com/api/tickets/public/create \
+  -H "Content-Type: application/json" \
+  -H "x-api-token: YOUR_TOKEN_HERE" \
+  -d '{
+    "subject": "Login button broken on Safari",
+    "body": "Users on Safari 17 cannot log in — button does nothing.",
+    "priority": "High",
+    "source": "api"
+  }'</code></pre>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Admin Token View</div>
+        <div class="section-sub">Admins can see all active tokens for their brand (emails only, not the token values) under Settings → API Tokens → scroll to <strong>Active Tokens</strong>.</div>
+      </div>
+      <button class="complete-btn" onclick="markDone('api-tokens','slack-alerts')">✓ Mark Complete — Next: Slack Alerts →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: SLACK ALERTS                       -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-slack-alerts">
+      <div class="learn-hero">
+        <h1>💬 Slack Alerts</h1>
+        <p>Get real-time Slack notifications for critical tickets, SLA breaches, assignments, and resolutions — using Slack's Block Kit format.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span><span>💬 Block Kit messages</span></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Alert Types</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>🔴 Critical Ticket</h4><p>Fires when a ticket with Critical priority is created. Immediate notification so your team can act fast.</p></div>
+          <div class="feat-card"><h4>⏰ SLA Breach</h4><p>Fires when a ticket breaches its SLA deadline without being resolved. Keeps SLA compliance visible.</p></div>
+          <div class="feat-card"><h4>👤 Assignment</h4><p>Fires when a ticket is assigned to an agent. Notifies the whole channel who owns it.</p></div>
+          <div class="feat-card"><h4>✅ Resolution</h4><p>Fires when a ticket is marked Resolved or Closed. Good for closing the loop on important tickets.</p></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Setup Steps</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create Slack Incoming Webhook</h4><p>Go to <strong>api.slack.com/apps</strong> → Create App → Incoming Webhooks → Activate → Add to channel. Copy the webhook URL.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Paste URL in Settings</h4><p>Settings → Slack Alerts → paste your webhook URL → click <strong>Save</strong>.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Enable Alert Types</h4><p>Toggle on the alert types you want. Each can be enabled/disabled independently.</p></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Test It</h4><p>Click <strong>Send Test Message</strong> — you'll see a Block Kit message appear in your Slack channel within seconds.</p></div></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Message Format</div>
+        <div class="section-sub">All alerts use Slack Block Kit — structured cards with ticket ID, subject, priority, status, and a direct link back to the ticket in Resolvo.</div>
+        <div class="tip"><strong>💡</strong> Slack webhook URLs are stored per-brand. Different brands can post to different Slack channels.</div>
+      </div>
+      <button class="complete-btn" onclick="markDone('slack-alerts','ticket-sources')">✓ Mark Complete — Next: Ticket Sources & Widget →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TICKET SOURCES & WIDGET            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-ticket-sources">
+      <div class="learn-hero">
+        <h1>🌐 Ticket Sources & Embeddable Widget</h1>
+        <p>Tickets can arrive from multiple sources — email, web widget, API, or manual creation. Each source is tracked and shown as a badge in the inbox.</p>
+        <div class="hero-meta"><span>⏱ 6 min read</span><span>🌐 4 sources</span></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Ticket Sources</div>
+        <table class="shortcuts">
+          <tr><th>Source</th><th>How it arrives</th><th>Auth required?</th></tr>
+          <tr><td>📧 Email</td><td>Customer sends email to your support address</td><td>No — public email</td></tr>
+          <tr><td>🌐 Widget</td><td>Customer submits via the embedded support widget on your website</td><td>No — public widget</td></tr>
+          <tr><td>🔌 API</td><td>External system POSTs to <code>/api/tickets/public/create</code> with API token</td><td>Yes — API token</td></tr>
+          <tr><td>✏️ Manual</td><td>Agent creates ticket directly from the inbox</td><td>Yes — agent session</td></tr>
+        </table>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Embeddable Widget</div>
+        <div class="section-sub">Add a floating support button to any website. Customers click it, fill in subject + message, and a ticket is created instantly — no login needed.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Get Your Widget Code</h4><p>Settings → Slack Alerts → scroll to <strong>Embed Widget</strong>. Copy the one-line script tag.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Paste Before &lt;/body&gt;</h4><p>Add the script tag to any page on your website. The widget loads asynchronously — no performance impact.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Customers Submit Tickets</h4><p>A floating button appears bottom-right. Clicking it opens a clean form. On submit, the ticket lands in your inbox with source badge <strong>widget</strong>.</p></div></div>
+        </div>
+        <pre style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px;overflow-x:auto;margin-top:16px;"><code>&lt;!-- Add before &lt;/body&gt; on your website --&gt;
+&lt;script src="https://app.resolvogroup.com/widget/YOUR-BRAND-SLUG/widget.js" async&gt;&lt;/script&gt;</code></pre>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Source Badges in Inbox</div>
+        <div class="section-sub">Every ticket in the inbox shows a coloured source badge so agents instantly know where it came from.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>📧 email</h4><p>Default — arrived via email polling</p></div>
+          <div class="feat-card"><h4>🌐 widget</h4><p>Submitted via embedded website widget</p></div>
+          <div class="feat-card"><h4>🔌 api</h4><p>Created programmatically via API token</p></div>
+          <div class="feat-card"><h4>✏️ manual</h4><p>Created directly by an agent in the inbox</p></div>
+        </div>
+      </div>
+      <button class="complete-btn" onclick="markDone('ticket-sources','new-features')">✓ Mark Complete — Next: New Features Guide →</button>
+    </div>
+
     <div class="module" id="mod-cheatsheet">
       <div class="learn-hero">
         <h1>📋 Full Feature Cheatsheet</h1>
@@ -1590,7 +1727,7 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 </div><!-- /main -->
 
 <script>
-var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','new-features','cheatsheet'];
+var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','api-tokens','slack-alerts','ticket-sources','new-features','cheatsheet'];
 var TITLES = {
   quickstart:'🚀 Quick Start',dashboard:'📊 Dashboard',issues:'🎫 Issues & SLA',
   kanban:'🗂 Kanban & Sprints',tickets:'📬 Email Ticketing',
