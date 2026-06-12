@@ -1267,7 +1267,7 @@ app.post('/api/call',async(req,res)=>{
       return{success:true,expiresAt:s?s.expiresAt:null,expiresIn:s&&s.expiresAt?Math.max(0,Math.round((s.expiresAt-Date.now())/60000)):0};
     },
     resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#f5a623',user.passwordHash,BASE_URL),`Login: ${BASE_URL}`);return{success:true};},
-    sendTestEmail:async to=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};await sendEmail(to||su.email,`✅ TechTrack Email Test`,testEmailHTML(),'Email test OK');return{success:true};},
+    sendTestEmail:async to=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};await sendBrandEmail(slug,to||su.email,`✅ TechTrack Email Test`,testEmailHTML(),'Email test OK');return{success:true};},
     completeBrandSetup:async sd=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const db=rDB();if(sd.appName){db.settings=db.settings||{};db.settings.APP_NAME=sd.appName;}const ui=(db.users||[]).findIndex(u=>u.email===su.email);if(ui>=0){db.users[ui].firstLogin=false;if(sd.adminName)db.users[ui].name=sd.adminName;}wDB(db);const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){if(sd.accentColor)o.brands[bi].accentColor=sd.accentColor;if(sd.theme)o.brands[bi].theme=sd.theme;if(sd.logoUrl!==undefined)o.brands[bi].logoUrl=sd.logoUrl;if(sd.appName)o.brands[bi].name=sd.appName;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])Object.assign(sessions[t],{brandName:sd.appName||su.brandName,brandAccentColor:sd.accentColor||su.brandAccentColor,brandTheme:sd.theme||su.brandTheme,firstLogin:false});return{success:true};},
     updateBrandProfile:async updates=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi<0)return{success:false,error:'Not found'};['name','logoUrl','accentColor','theme'].forEach(k=>{if(updates[k]!==undefined)o.brands[bi][k]=updates[k];});writeOwner(o);return{success:true};},
     pollEmailInbox:async()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};try{await pollBrandInbox(slug);return{success:true,message:'Inbox polled. New emails converted to tickets.'};}catch(e){return{success:false,error:e.message||String(e)};}},
@@ -4201,7 +4201,6 @@ app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')))
 app.get('/book/:slug',(req,res)=>{
   const{slug}=req.params;
   const db=readBrandDB(slug);
-  if(!db||!db.bookingConfig)return res.send('<html><body style="font-family:Arial;padding:40px;text-align:center;"><h2>Booking not available</h2><p>This brand has not set up appointment booking.</p></body></html>');
   const cfg=db.bookingConfig||{};
   if(!cfg.enabled)return res.send('<html><body style="font-family:Arial;padding:40px;text-align:center;"><h2>Booking unavailable</h2><p>Appointment booking is currently disabled.</p></body></html>');
   const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
@@ -4268,7 +4267,7 @@ app.get('/book/:slug/slots',(req,res)=>{
   const{slug}=req.params;const{date}=req.query;
   const db=readBrandDB(slug);const cfg=db.bookingConfig||{};
   if(!cfg.enabled)return res.json({slots:[]});
-  const d=new Date(date);const dayName=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][d.getDay()];
+  const d=new Date(date+'T12:00:00');const dayName=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][d.getDay()];
   const workingHours=(cfg.workingHours||{})[dayName]||cfg.defaultHours||{start:'09:00',end:'18:00',enabled:true};
   if(!workingHours.enabled)return res.json({slots:[],message:'Not available on this day'});
   const slots=[];const duration=parseInt(cfg.slotDuration||30);const buffer=parseInt(cfg.buffer||15);
@@ -4648,7 +4647,8 @@ async function createTicketFromEmail(slug, emailData) {
     const brand = (readOwner().brands || []).find(b => b.slug === slug) || {};
     const brandName = brand.name || 'Support';
     const brandColor = brand.accentColor || '#F5A623';
-    await sendEmail(
+    await sendBrandEmail(
+      slug,
       emailData.from,
       `[${brandName}] We received your request — ${ticketId}`,
       `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:32px 16px;">
@@ -4835,25 +4835,35 @@ app.post('/api/email-ticketing/poll', async (req, res) => {
 app.post('/api/email-ticketing/reply', async (req, res) => {
   const su = getSessionUser(req);
   if (!su) return res.json({ success: false, error: 'Not logged in' });
+  if (!['Admin','CS','Developer'].includes(su.role)) return res.json({ success: false, error: 'Not authorised to send email replies' });
   const { issueId, replyText } = req.body;
   const db = readBrandDB(su.brandSlug);
-  const issue = (db.issues || []).find(i => i.id === issueId);
-  if (!issue) return res.json({ success: false, error: 'Issue not found' });
-  if (!issue.emailFrom) return res.json({ success: false, error: 'Not an email ticket' });
+  const issue = (db.tickets || []).find(i => i.id === issueId) || (db.issues || []).find(i => i.id === issueId);
+  if (!issue) return res.json({ success: false, error: 'Ticket not found' });
+  if (!issue.emailFrom && !issue.from) return res.json({ success: false, error: 'Not an email ticket' });
+  const emailFrom = issue.emailFrom || issue.from;
   const brand = (readOwner().brands || []).find(b => b.slug === su.brandSlug) || {};
   const config = db.emailTicketing || {};
 
-  // Add as comment
+  // Add reply to ticket thread
   const commentId = generateId('CMT');
-  db.comments = db.comments || [];
-  db.comments.push({ id: commentId, issueId, userEmail: su.email, comment: replyText, timestamp: new Date().toISOString(), sentAsEmail: true });
-  logActivity(db, issueId, `Email reply sent to ${issue.emailFrom}`, su.email);
+  const ticketIdx = (db.tickets || []).findIndex(t => t.id === issueId);
+  if (ticketIdx >= 0) {
+    db.tickets[ticketIdx].thread = db.tickets[ticketIdx].thread || [];
+    db.tickets[ticketIdx].thread.push({ id: commentId, type: 'reply', from: su.email, fromName: su.name || su.email, body: replyText, timestamp: new Date().toISOString(), sentAsEmail: true });
+    db.tickets[ticketIdx].lastActivity = new Date().toISOString();
+  } else {
+    db.comments = db.comments || [];
+    db.comments.push({ id: commentId, issueId, userEmail: su.email, comment: replyText, timestamp: new Date().toISOString(), sentAsEmail: true });
+  }
+  logActivity(db, issueId, `Email reply sent to ${emailFrom}`, su.email);
   writeBrandDB(su.brandSlug, db);
 
   // Send email reply
-  await sendEmail(
-    issue.emailFrom,
-    `Re: [${brand.name || 'Resolvo'}] ${issue.emailSubject || issue.title}`,
+  await sendBrandEmail(
+    su.brandSlug,
+    emailFrom,
+    `Re: [${brand.name || 'Resolvo'}] ${issue.emailSubject || issue.subject || issue.title}`,
     `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f2f5;padding:24px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:#F5A623;padding:20px 28px;"><p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(0,0,0,.5);">${brand.name || 'Support'} · Ticket ${issueId}</p></div><div style="padding:24px 28px;"><p style="color:#374151;font-size:14px;line-height:1.7;white-space:pre-wrap;">${replyText}</p><hr style="border:none;border-top:1px solid #f0f2f5;margin:20px 0;"><p style="color:#9ca3af;font-size:12px;">Ticket ID: ${issueId} · Reply to this email to continue the conversation</p></div></div></body></html>`,
     replyText
   );
