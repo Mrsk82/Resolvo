@@ -15177,8 +15177,9 @@ const App = {
       {id:'general',     icon:'🏢', label:'General',            group:'Core'},
       {id:'sla',         icon:'⏱', label:'SLA Configuration',  group:'Core'},
       {id:'team',        icon:'🤝', label:'Team & Roles',       group:'Core'},
-      {id:'features',    icon:'⚡', label:'Features & Plan',    group:'Core'},
-      {id:'security',    icon:'🔐', label:'Security',           group:'Core'},
+      {id:'features',         icon:'⚡', label:'Features & Plan',    group:'Core'},
+      {id:'advanced-features',icon:'🚀', label:'Advanced Features',  group:'Core'},
+      {id:'security',         icon:'🔐', label:'Security',           group:'Core'},
       {id:'notify-prefs',icon:'🔔', label:'My Notifications',   group:'Core'},
       {id:'data-export', icon:'📦', label:'Data Export',        group:'Core'},
       // ── EMAIL & TICKETING ──
@@ -15524,6 +15525,60 @@ const App = {
                 }).join('')+
               '</div>';
             }).join('')
+          ]);
+      }
+      else if (tid === 'advanced-features') {
+        var _afTkn = localStorage.getItem('tt_session_token')||'';
+        var afRes = await fetch('/api/features', {headers:{'x-session-token':_afTkn}}).then(function(r){return r.json();}).catch(function(){return {};});
+        var af = (afRes && afRes.features) ? afRes.features : (afRes || {});
+        var ADVANCED = [
+          {key:'collisionDetection',  icon:'👥', label:'Collision Detection',         desc:'Warn agents when multiple people are viewing or replying to the same ticket simultaneously.'},
+          {key:'ticketReplay',        icon:'⏪', label:'Ticket Replay',               desc:'Step through the full timeline of any ticket — every status change, comment, and action replayed in order.'},
+          {key:'moodTimeline',        icon:'😊', label:'Customer Mood Timeline',      desc:'Automatically scores customer sentiment on every message and charts their mood across the ticket lifecycle.'},
+          {key:'ticketHealthScore',   icon:'💚', label:'Ticket Health Score',         desc:'Real-time health score (0–100) per ticket based on age, SLA status, response gaps, and sentiment.'},
+          {key:'promisedCallback',    icon:'📞', label:'Promised Callback Tracker',   desc:'Log callback promises on tickets and get alerted before the promised time passes.'},
+          {key:'moodStamp',           icon:'🎯', label:'Post-ticket Mood Stamp',      desc:'Agent marks customer mood after closing a ticket (Happy / Neutral / Upset) for trend tracking.'},
+          {key:'silenceDetection',    icon:'🔇', label:'Silence Detection',           desc:'Auto-detect tickets where the customer has gone silent for 48h and send a gentle follow-up.'},
+          {key:'smartAutoClose',      icon:'🤖', label:'Smart Auto-close Suggest',    desc:'AI drafts a closing message for long-idle resolved tickets — one click to confirm and close.'},
+          {key:'agentBurnout',        icon:'🔥', label:'Agent Burnout Score',         desc:'Monitor agent workload and flag burnout risk based on ticket volume, overdue counts, and response time.'},
+          {key:'rootCauseReport',     icon:'🔍', label:'Root Cause Report',           desc:'One-click report generator that analyses a ticket and produces a structured root cause analysis.'},
+          {key:'ticketClipboard',     icon:'📋', label:'Ticket Clipboard',            desc:'Clip important tickets to a quick-access clipboard visible across the team.'},
+          {key:'aiTriage',            icon:'🧠', label:'AI Ticket Triage',            desc:'Gemini AI reads each new ticket and suggests priority, category, and the best agent to assign.'},
+          {key:'aiCannedSuggest',     icon:'💡', label:'AI Canned Response Suggest',  desc:'AI suggests matching canned responses as the agent starts typing a reply.'},
+          {key:'changelogPublisher',  icon:'📣', label:'Internal Changelog Publisher',desc:'Publish internal release notes / changelogs and email all brand admins automatically.'},
+          {key:'whatsappInbox',       icon:'💬', label:'WhatsApp Ticket Inbox',       desc:'Receive WhatsApp messages as tickets and reply from inside Resolvo (requires Twilio).'},
+          {key:'voiceTickets',        icon:'🎙', label:'Voice Note Tickets',          desc:'Agents can record a voice note that is transcribed and attached to a ticket automatically.'},
+        ];
+        async function _toggleAdvFeature(key, val) {
+          var tkn = localStorage.getItem('tt_session_token')||'';
+          var res = await fetch('/api/features', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({[key]:val})}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+          if (res && res.success) { App.showToast((val?'Enabled':'Disabled')+' successfully','success'); App.renderUnifiedSettings('advanced-features'); }
+          else App.showToast('Failed to save — check console','error');
+        }
+        App._toggleAdvFeature = _toggleAdvFeature;
+        content =
+          App._sSection('🚀 Advanced Features',[
+            '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:16px;">'+
+              'These are optional power features. Enable only what your team needs — each one adds new capabilities to the ticket workflow. Disabled features are completely hidden from agents.'+
+            '</div>',
+            '<div style="display:flex;flex-direction:column;gap:6px;">'+
+              ADVANCED.map(function(f){
+                var on = af[f.key] === true || af[f.key] === 'true';
+                return '<div style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);transition:background .12s;">'+
+                  '<span style="font-size:22px;width:28px;text-align:center;flex-shrink:0;">'+f.icon+'</span>'+
+                  '<div style="flex:1;min-width:0;">'+
+                    '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+f.label+'</div>'+
+                    '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'+f.desc+'</div>'+
+                  '</div>'+
+                  '<label style="display:flex;align-items:center;gap:7px;flex-shrink:0;cursor:pointer;" title="'+(on?'Click to disable':'Click to enable')+'">'+
+                    '<span style="font-size:11px;font-weight:700;color:'+(on?'var(--low)':'var(--text-dim)')+';">'+(on?'ON':'OFF')+'</span>'+
+                    '<div onclick="App._toggleAdvFeature(\''+f.key+'\','+(!on)+')" style="width:38px;height:21px;border-radius:11px;background:'+(on?'var(--accent)':'var(--bg-card)')+';border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;transition:all .2s;">'+
+                      '<div style="position:absolute;top:2px;left:'+(on?'17px':'2px')+';width:15px;height:15px;border-radius:50%;background:'+(on?'#fff':'var(--text-dim)')+';transition:left .2s;"></div>'+
+                    '</div>'+
+                  '</label>'+
+                '</div>';
+              }).join('')+
+            '</div>'
           ]);
       }
       else if (tid === 'security') {
