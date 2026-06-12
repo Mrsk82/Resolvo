@@ -272,8 +272,9 @@ async function _preloadAllBrands(){
 // Run preload after MySQL schema is ready
 // startup sequence at bottom of file
 function writeBrandDB(slug,data){
-  // PRIMARY: write to MySQL (single source of truth)
-  delete _brandCache[slug];
+  // Update cache immediately (reads are always instant)
+  _brandCache[slug]=data;
+  // Persist to MySQL in background
   _writeBrandDBAsync(slug,data).catch(e=>console.error('[MySQL] write failed:',slug,e.message));
 }
 
