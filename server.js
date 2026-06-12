@@ -5262,6 +5262,16 @@ tr:hover td{background:#1e2330}
   <div class="log-list" id="logList"><div class="no-logs">Loading...</div></div>
 </div>
 
+<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:32px;width:340px">
+    <div style="font-size:20px;font-weight:800;color:#f5a623;margin-bottom:6px">⚡ Owner Login</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:24px">Sign in with your owner account</div>
+    <input id="loginEmail" type="email" placeholder="Email" value="contact@resolvogroup.com" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:10px">
+    <input id="loginPass" type="password" placeholder="Password" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:10px" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px"></div>
+    <button onclick="doLogin()" style="width:100%;background:#f5a623;color:#000;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Sign In</button>
+  </div>
+</div>
 <script>
 let lastResult=null,currentFilter='',allLogs=[];
 
@@ -5361,13 +5371,47 @@ function filterLogs(){
     </div>\`).join('');
 }
 
-function getToken(){return localStorage.getItem('tt_token')||document.cookie.split(';').find(c=>c.includes('token'))?.split('=')[1]||'';}
+let _cachedToken='';
+function getToken(){
+  if(_cachedToken)return _cachedToken;
+  // Check all known storage keys
+  const keys=Object.keys(localStorage);
+  for(const k of keys){if(k.startsWith('portal_token_')){const v=localStorage.getItem(k);if(v){_cachedToken=v;return v;}}}
+  return localStorage.getItem('tt_token')||'';
+}
+function setToken(t){_cachedToken=t;localStorage.setItem('tt_token',t);}
+
+function showLogin(){
+  document.getElementById('loginOverlay').style.display='flex';
+}
+function hideLogin(){document.getElementById('loginOverlay').style.display='none';}
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value;
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  err.textContent='';
+  const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+  const d=await res.json();
+  if(!d.success){err.textContent=d.error||'Login failed';return;}
+  if(!d.isOwner){err.textContent='Owner account required';return;}
+  setToken(d.token);hideLogin();
+  document.getElementById('connStatus').textContent='Connected ✓';
+  loadTables();loadMonitor();
+}
 
 // Init
-loadTables();
-fetch('/api/owner/stats',{headers:{'x-session-token':getToken()}}).then(r=>r.json()).then(d=>{
-  document.getElementById('connStatus').textContent=d.success?'Connected ✓':'Auth required';
-}).catch(()=>{document.getElementById('connStatus').textContent='Not connected';});
+(async()=>{
+  const res=await fetch('/api/owner/stats',{headers:{'x-session-token':getToken()}}).catch(()=>({json:()=>({success:false})}));
+  const d=await res.json();
+  if(d.success){
+    document.getElementById('connStatus').textContent='Connected ✓';
+    loadTables();
+  } else {
+    document.getElementById('connStatus').textContent='Auth required';
+    showLogin();
+  }
+})();
 
 // Auto-refresh monitor every 30s when on that tab
 setInterval(()=>{if(document.getElementById('panel-monitor').classList.contains('active'))loadMonitor();},30000);
