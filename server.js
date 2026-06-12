@@ -4254,7 +4254,7 @@ input:focus,select:focus,textarea:focus{border-color:${accent};}
     <div class="fg"><label>Email *</label><input id="bk_email" type="email" placeholder="your@email.com"></div>
     <div class="fg"><label>Phone</label><input id="bk_phone" placeholder="+91 ..."></div>
     <div class="fg"><label>Topic / Reason *</label><textarea id="bk_topic" rows="2" placeholder="What would you like to discuss?"></textarea></div>
-    <div class="fg"><label>Select Date</label><input id="bk_date" type="date" onchange="loadSlots(this.value)" min="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="fg"><label>Select Date</label><input id="bk_date" type="date" oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" min="${new Date().toISOString().split('T')[0]}"></div>
     <div class="fg"><label>Select Time Slot</label><div class="slots" id="slotsGrid"><p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Pick a date first</p></div></div>
     <div id="bk_err" style="color:#ef4444;font-size:12px;margin-bottom:8px;display:none;"></div>
     <button class="btn" onclick="submitBooking()">📅 Confirm Appointment</button>
@@ -4292,8 +4292,11 @@ app.get('/book/:slug/slots',(req,res)=>{
   const{slug}=req.params;const{date}=req.query;
   const db=readBrandDB(slug);const cfg=db.bookingConfig||{};
   if(!cfg.enabled)return res.json({slots:[]});
+  if(!date)return res.json({slots:[],message:'No date provided'});
   const d=new Date(date+'T12:00:00');const dayName=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][d.getDay()];
-  const workingHours=(cfg.workingHours||{})[dayName]||cfg.defaultHours||{start:'09:00',end:'18:00',enabled:true};
+  // Default: Mon–Sat 9am–6pm enabled; Sunday off
+  const defaultByDay={sunday:{enabled:false},monday:{enabled:true,start:'09:00',end:'18:00'},tuesday:{enabled:true,start:'09:00',end:'18:00'},wednesday:{enabled:true,start:'09:00',end:'18:00'},thursday:{enabled:true,start:'09:00',end:'18:00'},friday:{enabled:true,start:'09:00',end:'18:00'},saturday:{enabled:true,start:'09:00',end:'13:00'}};
+  const workingHours=(cfg.workingHours||{})[dayName]||cfg.defaultHours||defaultByDay[dayName]||{start:'09:00',end:'18:00',enabled:true};
   if(!workingHours.enabled)return res.json({slots:[],message:'Not available on this day'});
   const slots=[];const duration=parseInt(cfg.slotDuration||30);const buffer=parseInt(cfg.buffer||15);
   const[sh,sm]=workingHours.start.split(':').map(Number);
