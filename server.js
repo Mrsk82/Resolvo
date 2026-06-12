@@ -5015,12 +5015,12 @@ app.post('/deploy-webhook',express.raw({type:'application/json'}),(req,res)=>{
   if(payload.ref!=='refs/heads/main')return res.json({message:'Not main branch, skipped'});
   res.json({message:'Deploy triggered'});
   const{exec}=require('child_process');
-  const deployCmd=`cd ${__dirname} && git pull origin main && npm install --production 2>&1`;
+  // Use curl to download server.js directly — avoids git pull conflicts with data files
+  const deployCmd=`curl -sf -o ${__dirname}/server.js.new https://raw.githubusercontent.com/Mrsk82/Resolvo/main/server.js && mv ${__dirname}/server.js.new ${__dirname}/server.js && cd ${__dirname} && npm install --production 2>&1`;
   exec(deployCmd,(err,stdout,stderr)=>{
     if(err){console.error('[Deploy] Error:',err.message);return;}
     console.log('[Deploy] Success:\n'+stdout);
-    // Restart via PM2 if available, else graceful self-restart
-    exec('pm2 restart resolvo 2>/dev/null || true');
+    exec('pm2 restart resolvo --update-env 2>/dev/null || true');
   });
 });
 
