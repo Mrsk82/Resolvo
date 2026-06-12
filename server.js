@@ -5340,6 +5340,47 @@ app.get('/api/owner/tables',ownerOnly,(req,res)=>{
   ]});
 });
 
+// Send ALL nurture emails (time-based + trigger) as a test preview to owner email
+app.post('/api/owner/nurture/test-all',ownerOnly,async(req,res)=>{
+  const toEmail=req.body.to||OWNER_FROM_EMAIL;
+  const owner=readOwner();
+  const demoName='Asif';
+  const demoUrl=BASE_URL;
+  const demoUnsub='#';
+  const demoStats={issues:12,users:4,emailConnected:true,brandConfigured:true,appointmentsEnabled:true,slaConfigured:true,resolvedTickets:8,appointments:5,totalTickets:20,avgResponse:'2.4h'};
+  let sent=0,failed=0;
+  // Time-based
+  for(const n of NURTURE_EMAILS){
+    try{
+      const html=n.body(demoName,demoUrl,demoUnsub,demoStats);
+      const finalHtml=nurtureShell(html,demoUnsub);
+      const subject=`[TEST - Day ${n.day}] ${n.subject}`;
+      await sendEmail(toEmail,subject,finalHtml,subject);
+      sent++;
+      await new Promise(r=>setTimeout(r,400)); // small delay to avoid rate limit
+    }catch(e){failed++;console.error('[NurtureTest]',n.subject,e.message);}
+  }
+  // Trigger-based
+  for(const[id,t]of Object.entries(TRIGGER_EMAILS)){
+    try{
+      const html=t.body(demoName,demoUrl,demoUnsub);
+      const subject=`[TEST - Trigger: ${id}] ${t.subject}`;
+      await sendEmail(toEmail,subject,html,subject);
+      sent++;
+      await new Promise(r=>setTimeout(r,400));
+    }catch(e){failed++;console.error('[NurtureTest]',id,e.message);}
+  }
+  res.json({success:true,sent,failed,to:toEmail,message:`${sent} test emails sent to ${toEmail}`});
+});
+
+// Run nurture emails right now (same as daily cron, runs for all active brands)
+app.post('/api/owner/nurture/run-now',ownerOnly,async(req,res)=>{
+  try{
+    await sendNurtureEmails();
+    res.json({success:true,message:'Nurture run complete — check console log and Live Monitor for details.'});
+  }catch(e){res.json({success:false,error:e.message});}
+});
+
 // Serve the owner console (search + SQL + monitor)
 app.get('/owner-console',(req,res)=>{
   res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner Console — Resolvo</title>
@@ -5403,6 +5444,7 @@ tr:hover td{background:#1e2330}
 <div class="tabs">
   <button class="tab active" onclick="switchTab('browse',this)">📋 Browse Data</button>
   <button class="tab" onclick="switchTab('monitor',this)">📊 Live Monitor</button>
+  <button class="tab" onclick="switchTab('nurture',this)">📧 Nurture Emails</button>
 </div>
 
 <!-- BROWSE PANEL -->
@@ -5503,6 +5545,59 @@ tr:hover td{background:#1e2330}
   <div class="log-list" id="logList"><div class="no-data">Loading...</div></div>
 </div>
 
+<!-- NURTURE PANEL -->
+<div id="panel-nurture" class="panel">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px;">
+    <div style="flex:1;min-width:220px;">
+      <label style="font-size:12px;color:#6b7280;font-weight:700;display:block;margin-bottom:4px;">SEND TEST EMAILS TO</label>
+      <input id="nurtureTestTo" class="search" placeholder="contact@resolvogroup.com" style="margin:0;width:100%;box-sizing:border-box;">
+    </div>
+    <button onclick="sendNurtureTests()" style="padding:10px 22px;background:#10B981;color:#000;border:none;border-radius:8px;font-weight:700;cursor:pointer;height:40px;">📧 Send All 27 Test Emails</button>
+    <button onclick="runNurtureNow()" style="padding:10px 22px;background:#6366F1;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;height:40px;">▶ Run Today's Emails Now</button>
+  </div>
+  <div id="nurtureResult" style="margin-bottom:16px;"></div>
+  <div style="background:#f9fafb;border-radius:10px;padding:20px 24px;">
+    <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:14px;">📋 Full Email Schedule</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
+      ${[
+        ['Day 1','Quick tip: Create your first issue','Activation'],
+        ['Day 2','Your team is waiting — invite them now','Activation'],
+        ['Day 3','Did you know Resolvo has a full email helpdesk?','Activation'],
+        ['Day 4','Set up your brand in 5 minutes','Activation'],
+        ['Day 5','Your customers can now book appointments','Activation'],
+        ['Day 6','Setup checklist — how are you doing?','Activation'],
+        ['Day 7','Your first week with Resolvo','Check-in'],
+        ['Day 8','Never miss an SLA again','Habit'],
+        ['Day 10','3 things your team should set up','Habit'],
+        ['Day 12','How to reply to customers from Resolvo','Habit'],
+        ['Day 14','Upgrade to Pro? Here\'s what you unlock','Upsell'],
+        ['Day 16','Auto-assign tickets instantly','Power'],
+        ['Day 18','Your customers deserve a self-service portal','Power'],
+        ['Day 21','See how your team is really performing','Power'],
+        ['Day 25','Save hours every week with automations','Loyalty'],
+        ['Day 30','30 days with Resolvo — milestone stats','Loyalty'],
+        ['Day 35','Are your customers happy? CSAT','Loyalty'],
+        ['Day 40','Integrate with your existing tools','Loyalty'],
+        ['Day 45','Your team\'s busiest hours','Loyalty'],
+        ['Day 50','One thing top support teams do differently','Retention'],
+        ['Day 60','Still there? We\'d love your feedback','Re-engage'],
+        ['Day 75','75 days milestone summary','Retention'],
+        ['Day 90','What\'s new in Resolvo this month','Changelog'],
+        ['Trigger','No login in 7 days','Behaviour'],
+        ['Trigger','First ticket resolved','Behaviour'],
+        ['Trigger','10 tickets closed','Behaviour'],
+        ['Trigger','Email inbox not connected (day 5+)','Behaviour'],
+        ['Trigger','No team members (day 3+)','Behaviour'],
+        ['Trigger','Trial expiring in 3 days','Behaviour'],
+        ['Trigger','Trial expired','Behaviour'],
+      ].map(([day,subj,cat])=>{
+        const catColor={'Activation':'#10B981','Check-in':'#6366F1','Habit':'#3b82f6','Upsell':'#f59e0b','Power':'#8b5cf6','Loyalty':'#0891b2','Re-engage':'#ef4444','Retention':'#10B981','Changelog':'#6b7280','Behaviour':'#f97316'}[cat]||'#6b7280';
+        return \`<div style="background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #e5e7eb;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:700;color:#6b7280;">\${day}</span><span style="font-size:10px;font-weight:700;color:\${catColor};background:\${catColor}18;padding:2px 8px;border-radius:10px;">\${cat}</span></div><div style="font-size:13px;color:#374151;">\${subj}</div></div>\`;
+      }).join('')}
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN OVERLAY -->
 <div id="loginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;align-items:center;justify-content:center">
   <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:32px;width:340px">
@@ -5542,6 +5637,29 @@ function switchTab(name,el){
   el.classList.add('active');
   document.getElementById('panel-'+name).classList.add('active');
   if(name==='monitor')loadMonitor();
+}
+
+async function sendNurtureTests(){
+  const to=document.getElementById('nurtureTestTo').value.trim()||'contact@resolvogroup.com';
+  const el=document.getElementById('nurtureResult');
+  el.innerHTML='<p style="color:#6366F1;font-weight:600;">Sending 27 emails... this takes about 30 seconds ⏳</p>';
+  try{
+    const r=await fetch('/api/owner/nurture/test-all',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({to})});
+    const d=await r.json();
+    if(d.success)el.innerHTML=\`<p style="color:#10B981;font-weight:700;">✅ \${d.sent} emails sent to \${d.to}\${d.failed?' ('+d.failed+' failed)':''}</p>\`;
+    else el.innerHTML=\`<p style="color:#ef4444;">❌ \${d.error||'Send failed'}</p>\`;
+  }catch(e){el.innerHTML=\`<p style="color:#ef4444;">❌ \${e.message}</p>\`;}
+}
+
+async function runNurtureNow(){
+  const el=document.getElementById('nurtureResult');
+  el.innerHTML='<p style="color:#6366F1;font-weight:600;">Running nurture jobs...</p>';
+  try{
+    const r=await fetch('/api/owner/nurture/run-now',{method:'POST',headers:{'x-session-token':getToken()}});
+    const d=await r.json();
+    if(d.success)el.innerHTML='<p style="color:#10B981;font-weight:700;">✅ '+d.message+'</p>';
+    else el.innerHTML='<p style="color:#ef4444;">❌ '+(d.error||'Failed')+'</p>';
+  }catch(e){el.innerHTML='<p style="color:#ef4444;">❌ '+e.message+'</p>';}
 }
 
 function updateFields(){
