@@ -1564,6 +1564,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:'status_changed',by:su.email,byName:su.name||su.email,at:now,detail:`${prevStatus} → ${status}`});
       wDB(db);
+      if(status==='resolved'||status==='closed'){sendSlackAlert(slug,'resolved',db.tickets[idx]).catch(()=>{});}
       const ticket=db.tickets[idx];
       // Don't send CSAT to automated senders — they cause bounce loops
       const isAutomatedSender=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|alert|automated|newsletter|unsubscribe)@/i.test(ticket.from||'');
@@ -1662,7 +1663,9 @@ app.post('/api/call',async(req,res)=>{
     assignTicket:(ticketId,agentEmail)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);return{success:true};
+      db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);
+      sendSlackAlert(slug,'assigned',db.tickets[idx]).catch(()=>{});
+      return{success:true};
     },
     addTicketNote:(ticketId,noteText)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
@@ -4642,6 +4645,9 @@ async function createTicketFromEmail(slug, emailData) {
 
   writeBrandDB(slug, db);
 
+  // Slack alert for new critical tickets
+  if(ticket.priority==='Critical'){sendSlackAlert(slug,'newCritical',ticket).catch(()=>{});}
+
   // Check auto-resolve rules
   try {
     const rules = (db.autoResolveRules || []).filter(r => r.enabled);
@@ -5807,6 +5813,203 @@ setInterval(()=>{if(document.getElementById('panel-monitor').classList.contains(
 // Helper: get feature flags for a brand
 function getFeatures(db){return db.features||{};}
 function featEnabled(db,key){return getFeatures(db)[key]===true;}
+
+// ══════════════════════════════════════════════════════════════════════════
+// SLACK ALERTS
+// ══════════════════════════════════════════════════════════════════════════
+async function sendSlackAlert(slug, type, ticket){
+  try{
+    const db=readBrandDB(slug);
+    const s=db.settings||{};
+    const webhookUrl=s.SLACK_WEBHOOK_URL;
+    if(!webhookUrl)return;
+    const slackCfg=db.slackAlerts||{};
+    const alertMap={newCritical:'new_critical',slaBreach:'sla_breach',assigned:'assigned',resolved:'resolved'};
+    if(!slackCfg[alertMap[type]]&&!slackCfg[type])return;
+    const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+    const brandName=brand.name||s.APP_NAME||'Support';
+    const pColors={Critical:'#DC2626',High:'#D97706',Medium:'#CA8A04',Low:'#16A34A'};
+    const typeLabels={newCritical:'🚨 New Critical Ticket',slaBreach:'⏰ SLA Breach Warning',assigned:'👤 Ticket Assigned',resolved:'✅ Ticket Resolved'};
+    const color=pColors[ticket.priority]||'#6B7280';
+    const payload={
+      attachments:[{
+        color:color,
+        blocks:[
+          {type:'header',text:{type:'plain_text',text:typeLabels[type]||type,emoji:true}},
+          {type:'section',fields:[
+            {type:'mrkdwn',text:'*Ticket:*\n'+ticket.id},
+            {type:'mrkdwn',text:'*Priority:*\n'+ticket.priority},
+            {type:'mrkdwn',text:'*Subject:*\n'+(ticket.subject||'').substring(0,60)},
+            {type:'mrkdwn',text:'*From:*\n'+(ticket.fromName||ticket.from||'Unknown')},
+            ...(ticket.assignedTo?[{type:'mrkdwn',text:'*Assigned to:*\n'+ticket.assignedTo}]:[]),
+            {type:'mrkdwn',text:'*Status:*\n'+(ticket.status||'new').toUpperCase()},
+          ]},
+          {type:'actions',elements:[{type:'button',text:{type:'plain_text',text:'Open Ticket →'},url:BASE_URL,action_id:'open_ticket'}]},
+        ]
+      }]
+    };
+    const https=require('https');const url=require('url');
+    const parsed=url.parse(webhookUrl);
+    const body=JSON.stringify(payload);
+    await new Promise((res,rej)=>{
+      const r=https.request({hostname:parsed.hostname,path:parsed.path,method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},resp=>{resp.on('data',()=>{});resp.on('end',res);});
+      r.on('error',rej);r.write(body);r.end();
+    });
+  }catch(e){console.error('[Slack]',e.message);}
+}
+
+// Slack config endpoints
+app.get('/api/slack/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  res.json({success:true,config:{webhookUrl:db.settings?.SLACK_WEBHOOK_URL||'',alerts:db.slackAlerts||{}}});
+});
+app.post('/api/slack/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  if(req.body.webhookUrl!==undefined){db.settings=db.settings||{};db.settings.SLACK_WEBHOOK_URL=req.body.webhookUrl;}
+  if(req.body.alerts)db.slackAlerts=req.body.alerts;
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+app.post('/api/slack/test',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  sendSlackAlert(su.brandSlug,'newCritical',{id:'TEST-001',subject:'Test alert from Resolvo',priority:'High',fromName:'Test User',from:'test@example.com',status:'new',assignedTo:su.email})
+    .then(()=>res.json({success:true})).catch(e=>res.json({success:false,error:e.message}));
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PER-USER API TOKENS
+// ══════════════════════════════════════════════════════════════════════════
+const crypto=require('crypto');
+function hashToken(t){return crypto.createHash('sha256').update(t).digest('hex');}
+
+// Extend getSessionUser to also accept x-api-token
+const _origGetSessionUser=getSessionUser;
+// Override with token support — we'll patch after the original is defined
+function getSessionUserWithToken(req){
+  const existing=_origGetSessionUser(req);
+  if(existing)return existing;
+  const apiToken=req.headers['x-api-token'];
+  if(!apiToken)return null;
+  const hash=hashToken(apiToken);
+  const owner=readOwner();
+  for(const brand of (owner.brands||[])){
+    try{
+      const db=readBrandDB(brand.slug);
+      const user=(db.users||[]).find(u=>u.apiTokenHash===hash&&u.active);
+      if(user){
+        return{id:user.id,email:user.email,name:user.name||user.email,role:user.role,brandSlug:brand.slug,brandName:brand.name||'',brandTier:brand.tier||'Free',brandAccentColor:brand.accentColor||'#F5A623',isOwner:false,tokenAuth:true};
+      }
+    }catch(e){}
+  }
+  return null;
+}
+
+app.get('/api/user/token',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const user=(db.users||[]).find(u=>u.id===su.id);
+  res.json({success:true,hasToken:!!(user&&user.apiTokenHash),maskedToken:user&&user.apiTokenMask||null});
+});
+app.post('/api/user/token/generate',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const idx=(db.users||[]).findIndex(u=>u.id===su.id);
+  if(idx===-1)return res.json({success:false,error:'User not found'});
+  const token='rslv_'+crypto.randomBytes(24).toString('hex');
+  db.users[idx].apiTokenHash=hashToken(token);
+  db.users[idx].apiTokenMask=token.substring(0,8)+'...'+token.slice(-4);
+  db.users[idx].apiTokenCreated=new Date().toISOString();
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true,token,mask:db.users[idx].apiTokenMask,warning:'Copy this token now — it will never be shown again.'});
+});
+app.post('/api/user/token/revoke',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const targetId=req.body.userId||su.id;
+  if(targetId!==su.id&&su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const idx=(db.users||[]).findIndex(u=>u.id===targetId);
+  if(idx===-1)return res.json({success:false,error:'User not found'});
+  delete db.users[idx].apiTokenHash;delete db.users[idx].apiTokenMask;delete db.users[idx].apiTokenCreated;
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+app.get('/api/admin/tokens',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const tokens=(db.users||[]).filter(u=>u.apiTokenHash).map(u=>({userId:u.id,email:u.email,name:u.name||u.email,role:u.role,mask:u.apiTokenMask,created:u.apiTokenCreated}));
+  res.json({success:true,tokens});
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// TICKET SOURCES — public create + web widget
+// ══════════════════════════════════════════════════════════════════════════
+// Public ticket creation via API token (Zapier, web form, external apps)
+app.post('/api/tickets/public/create',(req,res)=>{
+  const{subject,body,name,email,priority,source,slug:bodySlug}=req.body;
+  if(!subject||!email)return res.json({success:false,error:'subject and email are required'});
+  // Widget source — identify brand from slug in body or query
+  const widgetSlug=req.query.slug||bodySlug;
+  let brandSlug=null;
+  if(source==='widget'&&widgetSlug){
+    const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===widgetSlug);
+    if(brand)brandSlug=widgetSlug;
+  }
+  // API token auth (non-widget)
+  if(!brandSlug){
+    const su=getSessionUserWithToken(req);
+    if(!su)return res.json({success:false,error:'Invalid or missing API token. Use x-api-token header.'});
+    brandSlug=su.brandSlug;
+  }
+  const db=readBrandDB(brandSlug);
+  const ticketId=generateId('TKT');
+  const now=new Date().toISOString();
+  const ticket={id:ticketId,subject:subject.substring(0,200),from:email,fromName:name||email.split('@')[0],
+    status:'new',priority:(['Critical','High','Medium','Low'].includes(priority)?priority:'Medium'),
+    source:source||'api',createdDate:now,lastActivity:now,
+    thread:[{id:generateId('MSG'),type:'incoming',from:email,fromName:name||email.split('@')[0],body:body||subject,timestamp:now}],
+    assignedTo:'',tags:[],watchers:[],cc:[],timeline:[{event:'ticket_created',by:email,at:now,detail:'Created via '+(source||'api')}]
+  };
+  db.tickets=db.tickets||[];db.tickets.push(ticket);writeBrandDB(brandSlug,db);
+  sendSlackAlert(brandSlug,ticket.priority==='Critical'?'newCritical':'assigned',ticket).catch(()=>{});
+  res.json({success:true,ticketId});
+});
+
+// Embeddable widget JS — served at /widget/:slug/widget.js
+app.get('/widget/:slug/widget.js',(req,res)=>{
+  const slug=req.params.slug;
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug);
+  if(!brand)return res.status(404).send('// Brand not found');
+  const color=brand.accentColor||'#10B981';
+  const name=brand.name||'Support';
+  const apiBase=BASE_URL;
+  res.setHeader('Content-Type','application/javascript');
+  res.send(`(function(){
+  if(document.getElementById('_resolvo_widget'))return;
+  var s=document.createElement('style');
+  s.innerHTML='#_resolvo_btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:${color};color:#fff;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:99999;display:flex;align-items:center;justify-content:center;transition:transform .15s;}#_resolvo_btn:hover{transform:scale(1.08);}#_resolvo_frame{position:fixed;bottom:90px;right:20px;width:360px;max-width:calc(100vw - 40px);background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.18);z-index:99998;overflow:hidden;display:none;font-family:system-ui,sans-serif;}#_resolvo_hdr{background:${color};color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;}#_resolvo_hdr span{font-weight:700;font-size:15px;}#_resolvo_close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;}#_resolvo_body{padding:20px;}#_resolvo_body input,#_resolvo_body textarea,#_resolvo_body select{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;margin-bottom:10px;outline:none;font-family:inherit;}#_resolvo_body textarea{min-height:80px;resize:vertical;}#_resolvo_submit{width:100%;padding:11px;background:${color};color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;}#_resolvo_success{text-align:center;padding:24px;font-size:14px;color:#374151;}';
+  document.head.appendChild(s);
+  var div=document.createElement('div');div.id='_resolvo_widget';
+  div.innerHTML='<button id="_resolvo_btn" aria-label="Support">💬</button><div id="_resolvo_frame"><div id="_resolvo_hdr"><span>${name} Support</span><button id="_resolvo_close" aria-label="Close">×</button></div><div id="_resolvo_body"><input id="_rn" placeholder="Your name" required><input id="_re" type="email" placeholder="Email address" required><select id="_rp"><option value="Low">Low priority</option><option value="Medium" selected>Medium priority</option><option value="High">High priority</option><option value="Critical">Critical</option></select><input id="_rs" placeholder="Subject" required><textarea id="_rm" placeholder="Describe your issue..."></textarea><button id="_resolvo_submit">Send Message →</button></div></div>';
+  document.body.appendChild(div);
+  document.getElementById('_resolvo_btn').onclick=function(){var f=document.getElementById('_resolvo_frame');f.style.display=f.style.display==='block'?'none':'block';};
+  document.getElementById('_resolvo_close').onclick=function(){document.getElementById('_resolvo_frame').style.display='none';};
+  document.getElementById('_resolvo_submit').onclick=function(){
+    var n=document.getElementById('_rn').value.trim(),e=document.getElementById('_re').value.trim(),s=document.getElementById('_rs').value.trim(),m=document.getElementById('_rm').value.trim(),p=document.getElementById('_rp').value;
+    if(!e||!s){alert('Email and subject are required');return;}
+    fetch('${apiBase}/api/tickets/public/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,email:e,subject:s,body:m||s,priority:p,source:'widget',slug:'${slug}'})})
+      .then(function(r){return r.json();}).then(function(d){
+        var b=document.getElementById('_resolvo_body');
+        b.innerHTML=d.success?'<div id="_resolvo_success">✅ Ticket submitted!<br><small style=\\"color:#6b7280;margin-top:6px;display:block;\\">Ref: '+d.ticketId+'<br>We will reply to '+e+'</small></div>':'<div style=\\"color:#dc2626;padding:10px;\\">Failed: '+( d.error||'Unknown error')+'</div>';
+      }).catch(function(){document.getElementById('_resolvo_body').innerHTML='<div style=\\"color:#dc2626;padding:10px;\\">Network error. Try again.</div>';});
+  };
+})();`);
+});
+
 
 // ── Feature flags API ─────────────────────────────────────────────────────
 app.get('/api/features',(req,res)=>{
