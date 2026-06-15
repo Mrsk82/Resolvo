@@ -6784,7 +6784,18 @@ app.post('/api/ai/issues/:id/post-incident',async(req,res)=>{const su=getSession
 app.post('/api/ai/changelog',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generateAIChangelog(req.body.fromDate,req.body.toDate);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
 app.post('/api/ai/sprints/:id/plan',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAISprintPlan(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
 app.get('/api/ai/query-history',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAIQueryHistory(50);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.get('/api/ai/status',(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const bm=brandModule(su);res.json(bm.getGeminiStatus());});
+app.get('/api/ai/status',(req,res)=>{
+  try{
+    const su=getSessionUser(req);
+    if(!su)return res.json({success:false,configured:false,error:'Not logged in'});
+    const db=readBrandDB(su.brandSlug);
+    const key=((db.settings||{}).GEMINI_API_KEY||process.env.GEMINI_API_KEY||'').trim();
+    res.json({success:true,configured:!!key});
+  }catch(e){
+    console.error('[ai/status] error:',e.message);
+    res.json({success:false,configured:false,error:e.message});
+  }
+});
 app.post('/api/ai/key',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
   if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
