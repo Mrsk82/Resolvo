@@ -15196,7 +15196,7 @@ const App = {
         '</div>'
       );
     } else {
-      App._aiResult(ticketId, '<div style="font-size:11px;color:var(--critical);">'+(r&&r.error?r.error:('No response from server. r='+JSON.stringify(r)))+'</div>');
+      App._aiResult(ticketId, '<div style="font-size:11px;color:var(--critical);">'+(r&&r.error?r.error:'Failed — check Gemini key in Settings → Integrations')+'</div>');
     }
   },
 
