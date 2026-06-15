@@ -13221,10 +13221,11 @@ const App = {
   async renderSystemSettings() {
     if (this.currentUser.role !== 'Admin') { this.showToast('Access denied', 'error'); return; }
 
+    const _tok = localStorage.getItem('tt_session_token') || '';
     const [settingsRes, modulesRes, aiStatusRes] = await Promise.all([
       this.call('getSettings'),
       this.call('getModules'),
-      fetch('/api/ai/status', {headers:{'x-session-token':this.token}}).then(r=>r.json()).catch(()=>({configured:false}))
+      fetch('/api/ai/status', {headers:{'x-session-token':_tok}}).then(r=>r.json()).catch(()=>({configured:false}))
     ]);
     // Sync connected state from server (source of truth)
     this._geminiConnected = !!(aiStatusRes && aiStatusRes.configured);
@@ -22271,17 +22272,18 @@ const App = {
 
   async saveGeminiKeyFromSettings() {
     const input = document.getElementById('geminiKeySettings');
-    const key = input?.value?.trim();
-    if (!key || key.startsWith('••')) { App.showToast('Enter a new API key to connect', 'warning'); return; }
+    const key = (input ? input.value : '').trim();
+    if (!key || key.startsWith('•')) { App.showToast('Enter a new API key to connect', 'warning'); return; }
     const btn = document.getElementById('geminiSaveBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Validating…'; }
+    const token = localStorage.getItem('tt_session_token') || '';
     try {
-      const r = await fetch('/api/ai/key', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':App.token}, body: JSON.stringify({key}) });
+      const r = await fetch('/api/ai/key', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({key}) });
       const d = await r.json();
       if (d.success) {
-        AI.setGeminiKey(key); // also cache locally
+        AI.setGeminiKey(key);
         App._geminiConnected = true;
-        App.showToast('✅ Gemini AI connected successfully!', 'success');
+        App.showToast('✅ Gemini AI connected!', 'success');
         App.renderSystemSettings();
       } else {
         App.showToast(d.error || 'Failed to save key', 'error');
@@ -22295,7 +22297,8 @@ const App = {
 
   async clearGeminiKey() {
     if (!confirm('Disconnect Gemini AI? All AI features will stop working.')) return;
-    await fetch('/api/ai/key', { method:'DELETE', headers:{'x-session-token':App.token} });
+    const token = localStorage.getItem('tt_session_token') || '';
+    await fetch('/api/ai/key', { method:'DELETE', headers:{'x-session-token':token} }).catch(()=>{});
     try { localStorage.removeItem('tt_gemini_key'); } catch(e) {}
     App._geminiConnected = false;
     App.showToast('Gemini AI disconnected', 'info');
