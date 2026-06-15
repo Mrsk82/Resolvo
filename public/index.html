@@ -15187,13 +15187,12 @@ const App = {
 
   _aiSummarize: async function(ticketId) {
     App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Summarising…</div>');
-    var tkn = localStorage.getItem('tt_session_token')||'';
-    var r = await fetch('/api/ai/tickets/'+ticketId+'/summarize', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    var r = await App.callAsync('summarizeTicket', ticketId);
     if (r && r.success && r.bullets) {
       App._aiResult(ticketId,
         '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;font-size:11px;color:var(--text-secondary);line-height:1.7;">' +
         r.bullets.map(function(b){return '<div style="display:flex;gap:6px;margin-bottom:4px;"><span style="color:var(--accent);flex-shrink:0;">•</span><span>'+App._esc(b)+'</span></div>';}).join('') +
-        (r.sentiment ? '<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">Sentiment: <strong>'+r.sentiment+'</strong>' + (r.priority_suggestion?' · Suggested priority: <strong style="color:var(--accent);">'+r.priority_suggestion+'</strong>':'') + '</div>' : '') +
+        (r.sentiment ? '<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">Sentiment: <strong>'+r.sentiment+'</strong>'+(r.priority_suggestion?' · Priority: <strong style="color:var(--accent);">'+r.priority_suggestion+'</strong>':'')+'</div>' : '') +
         '</div>'
       );
     } else {
@@ -15203,8 +15202,7 @@ const App = {
 
   _aiSmartReply: async function(ticketId) {
     App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Generating reply drafts…</div>');
-    var tkn = localStorage.getItem('tt_session_token')||'';
-    var r = await fetch('/api/ai/tickets/'+ticketId+'/smart-reply', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    var r = await App.callAsync('getSmartReplyDrafts', ticketId);
     if (r && r.success && r.drafts && r.drafts.length) {
       var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
       r.drafts.forEach(function(d) {
@@ -15229,15 +15227,14 @@ const App = {
 
   _aiClassify: async function(ticketId) {
     App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Classifying…</div>');
-    var tkn = localStorage.getItem('tt_session_token')||'';
-    var r = await fetch('/api/ai/tickets/'+ticketId+'/classify', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    var r = await App.callAsync('autoClassifyTicket', ticketId);
     if (r && r.success) {
       App._aiResult(ticketId,
         '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;font-size:11px;color:var(--text-secondary);line-height:1.8;">' +
         (r.category?'<div>Category: <strong style="color:var(--accent);">'+App._esc(r.category)+'</strong></div>':'')+
         (r.priority?'<div>Priority: <strong>'+App._esc(r.priority)+'</strong></div>':'')+
         (r.department?'<div>Department: <strong>'+App._esc(r.department)+'</strong></div>':'')+
-        (r.tags&&r.tags.length?'<div style="margin-top:4px;">'+r.tags.map(function(t){return '<span style="font-size:10px;background:var(--accent-dim);color:var(--accent);padding:2px 7px;border-radius:10px;margin-right:3px;">'+App._esc(t)+'</span>';}).join('')+'</div>':'')+
+        (r.tags&&r.tags.length?'<div style="margin-top:4px;">'+r.tags.map(function(tg){return '<span style="font-size:10px;background:var(--accent-dim);color:var(--accent);padding:2px 7px;border-radius:10px;margin-right:3px;">'+App._esc(tg)+'</span>';}).join('')+'</div>':'')+
         '</div>'
       );
     } else {
@@ -15247,8 +15244,7 @@ const App = {
 
   _aiSuggestKB: async function(ticketId) {
     App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Searching KB…</div>');
-    var tkn = localStorage.getItem('tt_session_token')||'';
-    var r = await fetch('/api/ai/tickets/'+ticketId+'/suggest-kb', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    var r = await App.callAsync('suggestKBArticles', ticketId);
     if (r && r.success) {
       if (!r.suggestions || !r.suggestions.length) {
         App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);">No matching KB articles found.</div>');
