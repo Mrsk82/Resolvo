@@ -8,6 +8,7 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
   <meta name="theme-color" content="#f5a623">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Resolvo — Engineering Issue System</title>
@@ -22365,9 +22366,9 @@ const App = {
   async saveModules() {
     const raw = document.getElementById('modulesList').value;
     const modules = raw.split(',').map(m => m.trim()).filter(Boolean);
-    const result = await self.call('updateModules', modules);
-    if (result.success) self.showToast('Modules updated', 'success');
-    else self.showToast('Failed to update modules', 'error');
+    const result = await this.call('updateModules', modules);
+    if (result.success) this.showToast('Modules updated', 'success');
+    else this.showToast('Failed to update modules', 'error');
   },
 
   // ============================================================
@@ -22375,7 +22376,7 @@ const App = {
   // ============================================================
 
   async checkSLAAlerts() {
-    const result = await self.call('getIssues', null);
+    const result = await this.call('getIssues', null);
     if (!result.success) return;
     const breaches = result.issues.filter(i => i.slaBreached);
     const alertEl = document.getElementById('slaAlert');
