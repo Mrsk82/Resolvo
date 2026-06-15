@@ -5059,28 +5059,33 @@ async function pollBrandInbox(slug) {
     imap.once('ready', () => {
       imap.openBox(config.mailbox || 'INBOX', false, (err, box) => {
         if (err) { imap.end(); return resolve(); }
-        // Only fetch emails received ON OR AFTER the day email ticketing was enabled.
-        // This prevents importing the entire old inbox when first connecting.
-        const enabledAt = config.enabledAt ? new Date(config.enabledAt) : new Date();
-        // Use date-only (no time) for IMAP SINCE — IMAP SINCE is day-granular
-        const sinceDate = new Date(enabledAt);
-        sinceDate.setHours(0, 0, 0, 0); // start of that day
-        const searchCriteria = ['UNSEEN', ['SINCE', sinceDate]];
-        console.log(`[EmailTicket] Searching ${slug} UNSEEN SINCE ${sinceDate.toDateString()}`);
+        // Search last 7 days — never mark as seen, use processed_email_ids table to
+        // deduplicate. This way a timeout mid-fetch won't silently lose emails.
+        const sinceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        sinceDate.setHours(0, 0, 0, 0);
+        const searchCriteria = [['SINCE', sinceDate]];
+        console.log(`[EmailTicket] Searching ${slug} ALL SINCE ${sinceDate.toDateString()} (dedup via processed_email_ids)`);
 
         imap.search(searchCriteria, (err, results) => {
           if (err || !results || results.length === 0) { imap.end(); return resolve(); }
-          const fetch = imap.fetch(results, { bodies: '', markSeen: true });
+          // Load already-processed IDs from DB to skip duplicates without marking as SEEN
+          const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
+          const fetch = imap.fetch(results, { bodies: '', markSeen: false });
           const promises = [];
           fetch.on('message', (msg) => {
             promises.push(new Promise((res2) => {
               let buffer = '';
-              msg.on('body', (stream) => { stream.on('data', d => buffer += d.toString()); });
+              let headerBuf = '';
+              msg.on('body', (stream, info) => { stream.on('data', d => buffer += d.toString()); });
               msg.once('end', async () => {
                 try {
+                  // Quick header-only parse to check Message-ID before full parse
                   const parsed = await simpleParser(buffer);
+                  const msgId = parsed.messageId;
+                  // Skip if already processed — no need to mark as SEEN in Gmail
+                  if (msgId && processedSet.has(msgId)) { res2(); return; }
                   const emailData = {
-                    messageId: parsed.messageId,
+                    messageId: msgId,
                     inReplyTo: parsed.inReplyTo,
                     subject: parsed.subject || '(No Subject)',
                     from: parsed.from?.value?.[0]?.address || '',
@@ -5090,6 +5095,8 @@ async function pollBrandInbox(slug) {
                     date: parsed.date?.toISOString() || new Date().toISOString()
                   };
                   await createTicketFromEmail(slug, emailData);
+                  // Add to set so subsequent messages in same batch are also skipped
+                  if (msgId) processedSet.add(msgId);
                 } catch(e) { console.error('[EmailTicket] Parse error:', e.message); }
                 res2();
               });
