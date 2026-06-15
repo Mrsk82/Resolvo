@@ -6775,6 +6775,29 @@ app.post('/api/ai/changelog',async(req,res)=>{const su=getSessionUser(req);if(!s
 app.post('/api/ai/sprints/:id/plan',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAISprintPlan(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
 app.get('/api/ai/query-history',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAIQueryHistory(50);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
 app.get('/api/ai/status',(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const bm=brandModule(su);res.json(bm.getGeminiStatus());});
+app.post('/api/ai/key',async(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const key=(req.body.key||'').trim();
+  if(!key)return res.json({success:false,error:'Key is required'});
+  // Validate key works before saving
+  try{
+    const testR=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'hi'}]}]}),signal:AbortSignal.timeout(8000)});
+    if(!testR.ok){const e=await testR.text();return res.json({success:false,error:`Invalid key: ${e.substring(0,120)}`.trim()});}
+  }catch(e){return res.json({success:false,error:`Could not reach Gemini: ${e.message}`});}
+  const db=readBrandDB(su.brandSlug);
+  db.settings=db.settings||{};db.settings.GEMINI_API_KEY=key;
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true,message:'Gemini AI connected successfully'});
+});
+app.delete('/api/ai/key',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  if(db.settings)db.settings.GEMINI_API_KEY='';
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
 
 // ── Agent Burnout Score ───────────────────────────────────────────────────
 app.get('/api/burnout-scores',(req,res)=>{
