@@ -18470,8 +18470,65 @@ const App = {
     html += '<select id="whLevel" class="form-select"><option value="false" '+(s.WEBHOOK_CRITICAL_ONLY!=='true'?'selected':'')+'>All Issues</option><option value="true" '+(s.WEBHOOK_CRITICAL_ONLY==='true'?'selected':'')+'>Critical Only</option></select></div></div>';
     html += '<div style="margin-top:8px;"><button class="btn-primary btn-sm" onclick="App.saveWebhook()">Save</button></div></div>';
 
+    // Gemini AI
+    var _tok2 = localStorage.getItem('tt_session_token') || '';
+    var aiSt = await fetch('/api/ai/status', {headers:{'x-session-token':_tok2}}).then(function(r){return r.json();}).catch(function(){return {configured:false};});
+    var geminiOk = !!(aiSt && aiSt.configured);
+    html += '<div class="ai-admin-section">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+    html += '<div style="display:flex;align-items:center;gap:10px;">';
+    html += '<div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">✦</div>';
+    html += '<div><div style="font-weight:700;font-size:14px;color:var(--text-primary)">Gemini AI</div><div style="font-size:11px;color:var(--text-muted)">Google AI · Smart triage, summaries, replies</div></div>';
+    html += '</div>';
+    html += '<div style="'+(geminiOk?'background:rgba(0,200,83,.15);color:#00c853;border:1px solid rgba(0,200,83,.3)':'background:rgba(255,255,255,.06);color:var(--text-muted);border:1px solid var(--border)')+';padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;">';
+    html += '<span style="width:7px;height:7px;border-radius:50%;background:'+(geminiOk?'#00c853':'#555')+';display:inline-block;"></span> '+(geminiOk?'Connected':'Not connected');
+    html += '</div></div>';
+    if (geminiOk) {
+      html += '<div style="background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">';
+      html += '<span style="font-size:18px;">✅</span><div><div style="font-size:13px;font-weight:600;color:#00c853;">AI is active and working</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">All AI features — smart replies, triage, summaries — are enabled</div></div></div>';
+    } else {
+      html += '<div style="background:rgba(255,193,7,.07);border:1px solid rgba(255,193,7,.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">';
+      html += '<span style="font-size:18px;">⚠️</span><div><div style="font-size:13px;font-weight:600;color:#ffc107;">AI not configured</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Enter your Gemini API key to enable all AI features</div></div></div>';
+    }
+    html += '<div class="form-group"><label class="form-label">Gemini API Key</label>';
+    html += '<input id="geminiKeyInteg" class="form-input" type="password" placeholder="AIzaSy..." value="'+(geminiOk?'••••••••••••••••':'')+'" style="width:100%"></div>';
+    html += '<div style="font-size:11px;color:var(--text-muted);margin:4px 0 12px;">Get a free key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--accent);">aistudio.google.com</a> → Get API Key</div>';
+    html += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
+    if (geminiOk) html += '<button class="btn-danger btn-sm" onclick="App.clearGeminiKeyInteg()">Disconnect</button>';
+    html += '<button class="btn-primary btn-sm" id="geminiIntegSaveBtn" onclick="App.saveGeminiKeyInteg()">'+(geminiOk?'🔄 Update Key':'⚡ Connect Gemini AI')+'</button>';
+    html += '</div></div>';
+
     html += '</div>';
     area.innerHTML = html;
+  },
+
+  saveGeminiKeyInteg: async function() {
+    var input = document.getElementById('geminiKeyInteg');
+    var key = (input ? input.value : '').trim();
+    if (!key || key.startsWith('•')) { App.showToast('Enter your Gemini API key', 'warning'); return; }
+    var btn = document.getElementById('geminiIntegSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Validating…'; }
+    var token = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/ai/key', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body:JSON.stringify({key:key})}).then(function(x){return x.json();}).catch(function(){return {success:false,error:'Network error'};});
+    if (r.success) {
+      try { localStorage.setItem('tt_gemini_key', key); } catch(e) {}
+      App.showToast('✅ Gemini AI connected!', 'success');
+      App.renderIntegrations();
+    } else {
+      App.showToast(r.error || 'Failed to save key', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Connect Gemini AI'; }
+    }
+  },
+
+  clearGeminiKeyInteg: async function() {
+    if (!confirm('Disconnect Gemini AI? All AI features will stop working.')) return;
+    var token = localStorage.getItem('tt_session_token') || '';
+    await fetch('/api/ai/key', {method:'DELETE', headers:{'x-session-token':token}}).catch(function(){});
+    try { localStorage.removeItem('tt_gemini_key'); } catch(e) {}
+    App.showToast('Gemini AI disconnected', 'info');
+    App.renderIntegrations();
   },
 
   saveCalendar: async function() {
