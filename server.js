@@ -5663,11 +5663,21 @@ app.post('/deploy-webhook',express.json(),(req,res)=>{
   if(req.body?.ref!=='refs/heads/main')return res.json({message:'Not main branch, skipped'});
   res.json({message:'Deploy triggered'});
   const{exec}=require('child_process');
-  // Use curl to download server.js directly — avoids git pull conflicts with data files
-  const deployCmd=`curl -sf -o ${__dirname}/server.js.new https://raw.githubusercontent.com/Mrsk82/Resolvo/main/server.js && mv ${__dirname}/server.js.new ${__dirname}/server.js && cd ${__dirname} && npm install --production 2>&1`;
+  // Download server.js + all public frontend files — never touch data/
+  const base='https://raw.githubusercontent.com/Mrsk82/Resolvo/main';
+  const dir=__dirname;
+  const deployCmd=[
+    `curl -sf -o ${dir}/server.js.new ${base}/server.js && mv ${dir}/server.js.new ${dir}/server.js`,
+    `mkdir -p ${dir}/public`,
+    `curl -sf -o ${dir}/public/index.html ${base}/public/index.html`,
+    `curl -sf -o ${dir}/public/pitch.html ${base}/public/pitch.html`,
+    `curl -sf -o ${dir}/public/signup.html ${base}/public/signup.html`,
+    `curl -sf -o ${dir}/public/portal.html ${base}/public/portal.html`,
+    `cd ${dir} && npm install --production`
+  ].join(' && ');
   exec(deployCmd,(err,stdout,stderr)=>{
     if(err){console.error('[Deploy] Error:',err.message);return;}
-    console.log('[Deploy] Success:\n'+stdout);
+    console.log('[Deploy] Success');
     exec('pm2 restart resolvo --update-env 2>/dev/null || true');
   });
 });
