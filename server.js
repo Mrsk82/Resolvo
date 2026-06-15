@@ -2111,12 +2111,12 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
       if(!ticket)return{success:false,error:'Not found'};
       const apiKey=getBrandGeminiKey(db);
-      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
-      const thread=(ticket.thread||[]).map(m=>`${m.type==='incoming'?'Customer':'Agent'} (${(m.date||'').substring(0,10)}): ${(m.body||'').substring(0,400)}`).join('\n');
-      const prompt=`Summarise this support ticket thread into exactly 3 bullet points. Be concise and factual. Respond ONLY with JSON, no markdown.\n\nSubject: ${ticket.subject}\nFrom: ${ticket.from}\nThread:\n${thread||'(No messages)'}\n\nJSON: {"bullets":["What the customer wants/problem","What has been tried or discussed","Current status or what is blocking resolution"],"sentiment":"positive|neutral|negative|frustrated","priority_suggestion":"Critical|High|Medium|Low"}`;
+      const thread=(ticket.thread||[]).map(m=>`${m.type==='incoming'?'Customer':'Agent'}: ${(m.body||'').substring(0,300)}`).join('\n');
+      const prompt=`You are a support assistant. Read this ticket and reply with ONLY a JSON object, nothing else.\n\nTicket subject: ${ticket.subject}\nFrom: ${ticket.from}\nMessages:\n${thread||'(No messages)'}\n\nReply with this exact JSON (fill in the values):\n{"bullets":["<problem in one sentence>","<what was tried or discussed>","<current status>"],"sentiment":"positive","priority_suggestion":"Medium"}`;
       try{
-        const raw=await callGemini(apiKey,prompt,12000);
+        const raw=await callGemini(apiKey,prompt,30000);
         const parsed=parseGeminiJSON(raw);
+        if(!parsed||!Array.isArray(parsed.bullets)||!parsed.bullets.length)return{success:false,error:'AI returned unexpected format. Please try again.'};
         return{success:true,summary:parsed};
       }catch(e){return{success:false,error:e.message};}
     },
