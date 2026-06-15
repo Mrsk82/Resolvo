@@ -15188,11 +15188,12 @@ const App = {
   _aiSummarize: async function(ticketId) {
     App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Summarising…</div>');
     var r = await App.callAsync('summarizeTicket', ticketId);
-    if (r && r.success && r.bullets) {
+    var s = r && (r.summary || r);
+    if (r && r.success && s && s.bullets) {
       App._aiResult(ticketId,
         '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;font-size:11px;color:var(--text-secondary);line-height:1.7;">' +
-        r.bullets.map(function(b){return '<div style="display:flex;gap:6px;margin-bottom:4px;"><span style="color:var(--accent);flex-shrink:0;">•</span><span>'+App._esc(b)+'</span></div>';}).join('') +
-        (r.sentiment ? '<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">Sentiment: <strong>'+r.sentiment+'</strong>'+(r.priority_suggestion?' · Priority: <strong style="color:var(--accent);">'+r.priority_suggestion+'</strong>':'')+'</div>' : '') +
+        s.bullets.map(function(b){return '<div style="display:flex;gap:6px;margin-bottom:4px;"><span style="color:var(--accent);flex-shrink:0;">•</span><span>'+App._esc(b)+'</span></div>';}).join('') +
+        (s.sentiment ? '<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">Sentiment: <strong>'+s.sentiment+'</strong>'+(s.priority_suggestion?' · Priority: <strong style="color:var(--accent);">'+s.priority_suggestion+'</strong>':'')+'</div>' : '') +
         '</div>'
       );
     } else {
