@@ -14852,17 +14852,7 @@ const App = {
         <!-- RIGHT sidebar: ticket info -->
         <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
 
-          <!-- ✦ AI ACTIONS -->
-          <div style="background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(245,166,35,.06));border:1px solid var(--border-accent);border-radius:10px;padding:14px;">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:10px;">✦ AI Actions</div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <button onclick="App._aiSummarize('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;">📋 Summarize ticket</button>
-              <button onclick="App._aiSmartReply('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-weight:600;">⚡ Smart Reply drafts</button>
-              <button onclick="App._aiClassify('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;">🏷 Auto-classify &amp; tag</button>
-              <button onclick="App._aiSuggestKB('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;">📚 Suggest KB articles</button>
-            </div>
-            <div id="aiResult_${t.id}" style="margin-top:10px;font-size:11px;"></div>
-          </div>
+
 
           <!-- Customer info -->
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
@@ -16915,18 +16905,13 @@ const App = {
     var tok = localStorage.getItem('tt_session_token') || '';
     var st = await fetch('/api/ai/status', {headers:{'x-session-token':tok}}).then(function(r){return r.json();}).catch(function(){return {configured:false};});
     var ok = !!(st && st.configured);
-    // If server says not configured, check localStorage fallback (in case of DB read lag or network error)
-    if (!ok && localStorage.getItem('tt_gemini_key')) { ok = true; }
-    // Keep App state in sync
     App._geminiConnected = ok;
     var badge = ok
       ? '<div style="background:rgba(0,200,83,.15);color:#00c853;border:1px solid rgba(0,200,83,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#00c853;display:inline-block"></span> Connected</div>'
       : '<div style="background:rgba(255,255,255,.06);color:#888;border:1px solid rgba(255,255,255,.12);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#555;display:inline-block"></span> Not connected</div>';
     var banner = ok
-      ? '<div style="background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;"><span style="font-size:18px;">✅</span><div><div style="font-size:13px;font-weight:600;color:#00c853;">AI is active and working</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Smart replies, triage, summaries — all enabled</div></div></div>'
-      : '<div style="background:rgba(255,193,7,.07);border:1px solid rgba(255,193,7,.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;"><span style="font-size:18px;">⚠️</span><div><div style="font-size:13px;font-weight:600;color:#ffc107;">AI not configured</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Enter your Gemini API key to enable all AI features</div></div></div>';
-    var discBtn = ok ? '<button class="btn-danger btn-sm" onclick="App._clearGeminiKey()">Disconnect</button>' : '';
-    var saveLabel = ok ? '🔄 Update Key' : '⚡ Connect Gemini AI';
+      ? '<div style="background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:18px;">✅</span><div><div style="font-size:13px;font-weight:600;color:#00c853;">AI is active and working</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Smart replies, triage, summaries — all enabled</div></div></div>'
+      : '<div style="background:rgba(255,193,7,.07);border:1px solid rgba(255,193,7,.2);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:18px;">⚠️</span><div><div style="font-size:13px;font-weight:600;color:#ffc107;">AI not configured</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Contact your administrator to configure the AI key on the server.</div></div></div>';
     return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:16px;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">' +
         '<div style="display:flex;align-items:center;gap:10px;">' +
@@ -16934,13 +16919,7 @@ const App = {
           '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);">Gemini AI</div><div style="font-size:11px;color:var(--text-muted);">Google AI · Smart triage, summaries, replies</div></div>' +
         '</div>' + badge +
       '</div>' +
-      banner +
-      '<div class="form-group"><label class="form-label">Gemini API Key</label>' +
-      '<input id="geminiUnifiedKey" class="form-input" type="password" placeholder="AIzaSy..." value="' + (ok ? '••••••••••••••••' : '') + '" style="width:100%;margin-top:6px;"></div>' +
-      '<div style="font-size:11px;color:var(--text-muted);margin:6px 0 14px;">Get a free key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--accent);">aistudio.google.com</a> → Get API Key</div>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;">' + discBtn +
-        '<button class="btn-primary btn-sm" id="geminiUnifiedSaveBtn" onclick="App._saveGeminiKey()">' + saveLabel + '</button>' +
-      '</div></div>';
+      banner + '</div>';
   },
 
   _saveGeminiKey: async function() {
