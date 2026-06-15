@@ -16792,6 +16792,10 @@ const App = {
     var tok = localStorage.getItem('tt_session_token') || '';
     var st = await fetch('/api/ai/status', {headers:{'x-session-token':tok}}).then(function(r){return r.json();}).catch(function(){return {configured:false};});
     var ok = !!(st && st.configured);
+    // If server says not configured, check localStorage fallback (in case of DB read lag or network error)
+    if (!ok && localStorage.getItem('tt_gemini_key')) { ok = true; }
+    // Keep App state in sync
+    App._geminiConnected = ok;
     var badge = ok
       ? '<div style="background:rgba(0,200,83,.15);color:#00c853;border:1px solid rgba(0,200,83,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#00c853;display:inline-block"></span> Connected</div>'
       : '<div style="background:rgba(255,255,255,.06);color:#888;border:1px solid rgba(255,255,255,.12);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#555;display:inline-block"></span> Not connected</div>';
@@ -16821,13 +16825,38 @@ const App = {
     var key = (input ? input.value : '').trim();
     if (!key || key.startsWith('•')) { App.showToast('Enter your Gemini API key', 'warning'); return; }
     var btn = document.getElementById('geminiUnifiedSaveBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Validating…'; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
     var tok = localStorage.getItem('tt_session_token') || '';
     var r = await fetch('/api/ai/key', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tok}, body:JSON.stringify({key:key})}).then(function(x){return x.json();}).catch(function(){return {success:false,error:'Network error'};});
     if (r.success) {
       try { localStorage.setItem('tt_gemini_key', key); } catch(e) {}
+      App._geminiConnected = true;
       App.showToast('✅ Gemini AI connected!', 'success');
-      App.renderUnifiedSettings('integrations');
+      // Update UI directly — no re-fetch needed, we know save succeeded
+      var card = document.getElementById('geminiUnifiedCard');
+      if (card) {
+        card.innerHTML =
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);display:flex;align-items:center;justify-content:center;font-size:15px;">✦</div>' +
+              '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);">Gemini AI</div><div style="font-size:11px;color:var(--text-muted);">Google AI · Smart triage, summaries, replies</div></div>' +
+            '</div>' +
+            '<div style="background:rgba(0,200,83,.15);color:#00c853;border:1px solid rgba(0,200,83,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;">' +
+              '<span style="width:7px;height:7px;border-radius:50%;background:#00c853;display:inline-block;"></span> Connected' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">' +
+            '<span style="font-size:18px;">✅</span>' +
+            '<div><div style="font-size:13px;font-weight:600;color:#00c853;">AI is active and working</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Smart replies, triage, summaries — all enabled</div></div>' +
+          '</div>' +
+          '<div class="form-group"><label class="form-label">Gemini API Key</label>' +
+          '<input id="geminiUnifiedKey" class="form-input" type="password" placeholder="AIzaSy..." value="••••••••••••••••" style="width:100%;margin-top:6px;"></div>' +
+          '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">' +
+            '<button class="btn-danger btn-sm" onclick="App._clearGeminiKey()">Disconnect</button>' +
+            '<button class="btn-primary btn-sm" onclick="App._saveGeminiKey()">🔄 Update Key</button>' +
+          '</div>';
+      }
     } else {
       App.showToast(r.error || 'Failed to save key', 'error');
       if (btn) { btn.disabled = false; btn.textContent = '⚡ Connect Gemini AI'; }
