@@ -6903,8 +6903,20 @@ async function callGemini(apiKey,prompt,timeoutMs=20000){
 function parseGeminiJSON(raw){
   const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
   const match=clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-  if(!match)throw new Error('No JSON found in Gemini response');
-  return JSON.parse(match[0]);
+  if(!match)throw new Error('No JSON found in AI response');
+  try{return JSON.parse(match[0]);}catch(e){
+    // Try to extract bullets array directly if JSON is malformed
+    const bulletsMatch=match[0].match(/"bullets"\s*:\s*\[([^\]]*)\]/);
+    if(bulletsMatch){
+      try{
+        const bullets=JSON.parse('['+bulletsMatch[1]+']').filter(b=>typeof b==='string'&&!b.match(/^(Priority|Sentiment)/i)).slice(0,3);
+        const sentMatch=match[0].match(/"sentiment"\s*:\s*"([^"]+)"/i);
+        const priMatch=match[0].match(/"priority_suggestion"\s*:\s*"([^"]+)"/i);
+        return{bullets,sentiment:(sentMatch?sentMatch[1]:'neutral'),priority_suggestion:(priMatch?priMatch[1]:'Medium')};
+      }catch(e2){}
+    }
+    throw new Error('Could not parse AI response as JSON');
+  }
 }
 function getBrandGeminiKey(db){return(db.settings||{}).GEMINI_API_KEY||process.env.GEMINI_API_KEY||'';}
 
