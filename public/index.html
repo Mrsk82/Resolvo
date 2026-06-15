@@ -14956,6 +14956,18 @@ const App = {
             </div>
           </div>
 
+          <!-- ✦ AI ACTIONS — always visible -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">✦ AI Actions</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <button onclick="App._aiSummarize('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📋 Summarize ticket</button>
+              <button onclick="App._aiSmartReply('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-weight:600;">⚡ Smart Reply drafts</button>
+              <button onclick="App._aiClassify('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">🏷 Auto-classify &amp; tag</button>
+              <button onclick="App._aiSuggestKB('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📚 Suggest KB articles</button>
+            </div>
+            <div id="aiResult_${t.id}" style="margin-top:10px;"></div>
+          </div>
+
           <!-- 🚀 ADVANCED FEATURES PANEL — only renders enabled ones -->
           <div id="advFeaturesPanel" style="display:flex;flex-direction:column;gap:8px;"></div>
 
