@@ -5067,7 +5067,8 @@ async function pollBrandInbox(slug) {
         console.log(`[EmailTicket] Searching ${slug} ALL SINCE ${sinceDate.toDateString()} (dedup via processed_email_ids)`);
 
         imap.search(searchCriteria, (err, results) => {
-          if (err || !results || results.length === 0) { imap.end(); return resolve(); }
+          if (err) { console.error(`[EmailTicket] Search error ${slug}:`, err.message); recordPollerFailure(slug, err.message); imap.end(); return resolve(); }
+          if (!results || results.length === 0) { recordPollerSuccess(slug); imap.end(); return resolve(); }
           // Load already-processed IDs from DB to skip duplicates without marking as SEEN
           const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
           const fetch = imap.fetch(results, { bodies: '', markSeen: false });
@@ -5102,15 +5103,93 @@ async function pollBrandInbox(slug) {
               });
             }));
           });
-          fetch.once('end', async () => { await Promise.all(promises); imap.end(); resolve(); });
+          fetch.once('end', async () => { await Promise.all(promises); imap.end(); recordPollerSuccess(slug); resolve(); });
         });
       });
     });
 
-    imap.once('error', (e) => { console.error(`[EmailTicket] IMAP error ${slug}:`, e.message); resolve(); });
+    imap.once('error', (e) => {
+      console.error(`[EmailTicket] IMAP error ${slug}:`, e.message);
+      recordPollerFailure(slug, e.message);
+      resolve();
+    });
     imap.once('end', () => resolve());
     imap.connect();
   });
+}
+
+// ── Poller health tracking — alert owner after 3 consecutive failures ─────
+const _pollerFailures = {}; // slug → { count, lastError, lastAlertAt }
+function recordPollerFailure(slug, errorMsg) {
+  const now = Date.now();
+  if (!_pollerFailures[slug]) _pollerFailures[slug] = { count: 0, lastError: '', lastAlertAt: 0 };
+  const f = _pollerFailures[slug];
+  f.count++;
+  f.lastError = errorMsg;
+  console.warn(`[EmailTicket] Failure #${f.count} for ${slug}: ${errorMsg}`);
+  // Alert owner after 3 consecutive failures, then every 6 hours to avoid spam
+  const hoursSinceAlert = (now - f.lastAlertAt) / 3600000;
+  if (f.count >= 3 && hoursSinceAlert >= 6) {
+    f.lastAlertAt = now;
+    const owner = readOwner();
+    const brand = (owner.brands || []).find(b => b.slug === slug);
+    const brandName = brand ? brand.name : slug;
+    const subject = `⚠️ Email poller down for ${brandName} — ${f.count} consecutive failures`;
+    const html = `
+<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+  <div style="background:#dc2626;padding:20px 24px;">
+    <h2 style="margin:0;color:#fff;font-size:18px;">⚠️ Email Poller Alert</h2>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Action required — tickets may be missed</p>
+  </div>
+  <div style="padding:24px;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+      <tr><td style="padding:8px 0;color:#6b7280;width:140px;">Brand</td><td style="padding:8px 0;font-weight:700;color:#111;">${brandName} (${slug})</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;">Failures</td><td style="padding:8px 0;color:#dc2626;font-weight:700;">${f.count} consecutive</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;">Last error</td><td style="padding:8px 0;font-family:monospace;font-size:12px;color:#374151;">${errorMsg}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;">Time</td><td style="padding:8px 0;color:#374151;">${new Date().toLocaleString()}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;">Impact</td><td style="padding:8px 0;color:#dc2626;">Inbound emails for this brand are NOT being converted to tickets</td></tr>
+    </table>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;margin-top:16px;">
+      <p style="margin:0 0 8px;font-weight:700;font-size:13px;color:#991b1b;">Common causes:</p>
+      <ul style="margin:0;padding-left:18px;font-size:13px;color:#7f1d1d;line-height:1.8;">
+        <li>Gmail App Password expired or revoked</li>
+        <li>IMAP disabled in Gmail settings</li>
+        <li>Too many simultaneous IMAP connections</li>
+        <li>VPS network/firewall blocking port 993</li>
+      </ul>
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:13px;color:#6b7280;">Go to <strong>Owner Portal → Brands → ${brandName} → Email Ticketing</strong> to check or reconnect the inbox.</p>
+      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">You will receive another alert if failures continue (max 1 per 6 hours per brand).</p>
+    </div>
+  </div>
+</div>`;
+    sendEmail(
+      owner.email,
+      subject,
+      html,
+      `Email poller for ${brandName} has failed ${f.count} times. Last error: ${errorMsg}. Inbound emails are NOT being converted to tickets. Check IMAP settings.`
+    ).catch(e => console.error('[EmailTicket] Failed to send owner alert:', e.message));
+    console.log(`[EmailTicket] Owner alert sent to ${owner.email} for ${slug} (${f.count} failures)`);
+  }
+}
+function recordPollerSuccess(slug) {
+  if (_pollerFailures[slug] && _pollerFailures[slug].count > 0) {
+    console.log(`[EmailTicket] ${slug} recovered after ${_pollerFailures[slug].count} failures — resetting counter`);
+    // Send recovery email if we had previously alerted
+    if (_pollerFailures[slug].lastAlertAt > 0) {
+      const owner = readOwner();
+      const brand = (owner.brands || []).find(b => b.slug === slug);
+      const brandName = brand ? brand.name : slug;
+      sendEmail(
+        owner.email,
+        `✅ Email poller recovered for ${brandName}`,
+        `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #d1fae5;"><h3 style="color:#065f46;margin:0 0 12px;">✅ Email poller is back online</h3><p style="font-size:14px;color:#374151;">The email ticketing inbox for <strong>${brandName}</strong> is now connected and working. New emails will be converted to tickets normally.</p><p style="font-size:12px;color:#9ca3af;margin-top:12px;">${new Date().toLocaleString()}</p></div>`,
+        `Good news — email poller for ${brandName} has recovered and is working again.`
+      ).catch(() => {});
+    }
+    _pollerFailures[slug] = { count: 0, lastError: '', lastAlertAt: _pollerFailures[slug].lastAlertAt };
+  }
 }
 
 // Start polling for a brand
@@ -5129,7 +5208,7 @@ function startEmailPoller(slug) {
     }
     const interval = Math.max(1, parseInt(config.intervalMinutes) || 5);
     // Run immediate first poll, then schedule
-    pollBrandInbox(slug).catch(e => console.error('[EmailTicket] Poll error:', e.message));
+    pollBrandInbox(slug).catch(e => { console.error('[EmailTicket] Poll error:', e.message); recordPollerFailure(slug, e.message); });
     // Use setInterval as fallback if node-cron unavailable
     try {
       const cron = require('node-cron');
