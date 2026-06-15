@@ -8250,21 +8250,6 @@ tbody tr.row-selected {
       </div>
     </div>
 
-    <!-- Gemini API Key Banner -->
-    <div class="gemini-banner" id="geminiBanner" style="display:none">
-      <div class="gemini-banner-title">
-        <span>AI</span> Gemini AI Setup
-      </div>
-      <div class="gemini-banner-body">
-        Enter your Gemini API key to enable natural language AI commands. Get a free key at <strong>aistudio.google.com</strong>.
-      </div>
-      <input type="password" class="gemini-key-input" id="geminiKeyInput"
-             placeholder="AIzaSy...">
-      <div class="gemini-banner-btns">
-        <button class="btn-primary btn-sm" onclick="AI.saveKeyFromBanner()">Save Key</button>
-        <button class="btn-secondary btn-sm" onclick="document.getElementById('geminiBanner').style.display='none'">Later</button>
-      </div>
-    </div>
   </div>
 
   <!-- Mobile Bottom Navigation -->
@@ -9081,10 +9066,7 @@ const AI = {
   },
 
   checkKeyOnInit: function() {
-    var self = this;
-    if (!this.getGeminiKey()) {
-      setTimeout(function() { self.showKeyBanner(); }, 2000);
-    }
+    // Key is managed server-side via .env — no banner needed
   },
 
   _esc: function(str) {
