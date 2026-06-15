@@ -6792,7 +6792,7 @@ app.post('/api/ai/key',async(req,res)=>{
   if(!key)return res.json({success:false,error:'Key is required'});
   // Validate key works before saving
   try{
-    const testR=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'hi'}]}]}),signal:AbortSignal.timeout(8000)});
+    const testR=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'hi'}]}]}),signal:AbortSignal.timeout(8000)});
     if(!testR.ok){const e=await testR.text();return res.json({success:false,error:`Invalid key: ${e.substring(0,120)}`.trim()});}
   }catch(e){return res.json({success:false,error:`Could not reach Gemini: ${e.message}`});}
   const db=readBrandDB(su.brandSlug);
@@ -6876,10 +6876,10 @@ app.post('/api/tickets/:id/clip',(req,res)=>{
   res.json({success:true,clip:{id:ticket.id,subject:ticket.subject,status:ticket.status,priority:ticket.priority,from:ticket.from,createdAt:ticket.createdAt,snippet:(ticket.body||ticket.description||'').substring(0,200)}});
 });
 
-// ── Shared Gemini helper (gemini-1.5-flash) ───────────────────────────────
+// ── Shared Gemini helper (gemini-2.0-flash) ───────────────────────────────
 async function callGemini(apiKey,prompt,timeoutMs=20000){
   if(!apiKey)throw new Error('No Gemini API key configured. Go to Settings → Integrations to add one.');
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]}),signal:AbortSignal.timeout(timeoutMs)});
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]}),signal:AbortSignal.timeout(timeoutMs)});
   if(!r.ok){const err=await r.text();throw new Error(`Gemini API error ${r.status}: ${err.substring(0,200)}`);}
   const json=await r.json();
   const text=(json.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
