@@ -10,11 +10,19 @@ echo "║   Resolvo — Deploying latest code    ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
-# Download latest server.js and migrate script from GitHub
+# Download latest server.js and frontend files from GitHub
 echo "📥 Downloading latest server.js..."
 curl -sf -o server.js.tmp "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/server.js"
 mv server.js.tmp server.js
 echo "✅ server.js updated"
+
+echo "📥 Downloading latest frontend (public/)..."
+mkdir -p public
+curl -sf -o public/index.html "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/public/index.html" && echo "✅ index.html updated" || echo "⚠️  index.html download failed"
+curl -sf -o public/pitch.html "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/public/pitch.html" || true
+curl -sf -o public/signup.html "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/public/signup.html" || true
+curl -sf -o public/portal.html "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/public/portal.html" || true
+echo "✅ Frontend files updated"
 
 echo "📥 Downloading migration scripts..."
 curl -sf -o migrate-to-sqlite.js "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/migrate-to-sqlite.js" || true
