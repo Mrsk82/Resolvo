@@ -4707,9 +4707,8 @@ function getEmailTicketConfig(slug) {
 // Parse an email and create a ticket in the brand's DB
 // ── Ticket ID generator ────────────────────────────────────────────────────────
 function generateTicketId(slug) {
-  const db = readBrandDB(slug);
-  const count = (db.tickets || []).length + 1;
-  return 'TKT-' + String(count).padStart(4, '0');
+  // UUID-based to prevent race conditions when batch-processing many emails in parallel
+  return 'TKT-' + uuidv4().substring(0, 8).toUpperCase();
 }
 
 // ── Create ticket from incoming email ──────────────────────────────────────────
@@ -4822,28 +4821,75 @@ async function createTicketFromEmail(slug, emailData) {
   const subjectRaw = (emailData.subject || '');
   const subjectLow = subjectRaw.toLowerCase();
 
-  // 1. Known automated sender usernames / domains
+  // 1. Known automated sender patterns
   const SPAM_SENDER_PATTERNS = [
-    /^mailer-daemon/i, /^postmaster/i, /^noreply/i, /^no-reply/i,
-    /^donotreply/i, /^do-not-reply/i, /^bounce/i, /^bounce\+/i,
-    /^notifications?@/i, /^alerts?@/i, /^auto-confirm/i,
-    /^daemon@/i, /^system@/i, /MAILER-DAEMON/i,
-    /^newsletter/i, /^unsubscribe/i,
-    /mail.delivery.subsystem/i, /^mail-delivery/i,
-    /^delivery-status/i, /^delivery@/i
+    // Delivery / bounce
+    /^mailer-daemon/i, /^postmaster/i, /^bounce/i, /^bounce\+/i,
+    /^daemon@/i, /mail\.delivery\.subsystem/i, /^mail-delivery/i,
+    /^delivery-status/i, /^delivery@/i,
+    // Generic no-reply
+    /^noreply[@+]/i, /^no-reply[@+]/i, /^donotreply/i, /^do-not-reply/i,
+    /^notifications?@/i, /^newsletter/i, /^unsubscribe/i,
+    /^auto-confirm/i, /^system@/i, /MAILER-DAEMON/i,
+    // Job boards
+    /jobalerts?-noreply@linkedin\.com/i, /newsletters?-noreply@linkedin\.com/i,
+    /notifications?-noreply@linkedin\.com/i, /invitations@linkedin\.com/i,
+    /jobs-noreply@linkedin\.com/i, /jobalert@timesjobs\.com/i,
+    /mail@timesjobs\.com/i, /donotreply@jobalert\.indeed\.com/i,
+    /jobalert@.*\.com/i, /@naukri\.com/i, /@iimjobs\.com/i,
+    /newsletter@economictimesnews\.com/i, /hello@digest\.producthunt\.com/i,
+    // Bank alerts (one-way transactional)
+    /alerts?@.*\.bank\./i, /alerts?@axis\.bank/i, /services@.*\.icici\.bank/i,
+    /noreply@.*bank/i,
+    // Marketing / promo
+    /^info@.*jobs/i, /^sales@/i, /^marketing@/i, /^promo@/i,
+    /^offers?@/i, /^deals?@/i, /^digest@/i,
+    // Known spam domains
+    /alibaba\.com/i, /remind@notice\./i, /sales@notice\./i,
+    /remind@.*alibaba/i, /@in\.email\.samsung\.com/i,
+    /subscription\.alerts@/i, /protect@cred\.club/i,
+    /finance@credfin\.money/i, /noreply@credfin\.money/i,
+    /welcome@.*brevo\.com/i, /icloud\.com.*rupeeontime/i,
+    /account-security-noreply@accountprotection\.microsoft\.com/i,
+    /notify-noreply@google\.com/i, /noreply-apps-scripts/i,
+    /noreply@redditmail\.com/i, /noreply@service\.alibaba\.com/i,
+    /noreply@.*\.google\.com/i, /noreply-accounts@google\.com/i,
   ];
   // 2. Known automated subject patterns
   const SPAM_SUBJECT_PATTERNS = [
-    /^delivery status notification/i, /^undeliverable:/i, /^auto-?reply:/i,
-    /^out of office/i, /^automatic reply/i, /^\[?automated\]?/i,
+    // Delivery bounce
+    /^delivery status notification/i, /^undeliverable:/i,
     /^mail delivery (subsystem|failed|failure|error)/i,
     /^failure notice/i, /^returned mail/i, /^non-?delivery/i,
-    /^\*\* address not found \*\*/i, /^bounced mail/i,
-    /^message delivery status/i, /^read receipt/i,
-    /^vacation auto-?reply/i,
-    /\*\* message blocked \*\*/i, /\*\* address not found \*\*/i,
-    /your message (to|wasn't|was not)/i, /delivery (failed|failure|notification)/i,
-    /message not delivered/i, /could not be delivered/i
+    /^bounced mail/i, /^message delivery status/i,
+    /delivery (failed|failure|notification)/i,
+    /message not delivered/i, /could not be delivered/i,
+    // Auto-reply
+    /^auto-?reply:/i, /^out of office/i, /^automatic reply/i,
+    /^\[?automated\]?/i, /^vacation auto-?reply/i, /^read receipt/i,
+    /your message (to|wasn't|was not)/i,
+    /\*\* (message blocked|address not found) \*\*/i,
+    // Job alerts
+    /new jobs? (matching|for you|alert)/i, /job alert/i,
+    /jobs? you may like/i, /\d+ new jobs?/i,
+    /a new lead is available/i, /apply to jobs at/i,
+    /career opportunity/i, /hiring now/i, /walk-?in (drive|interview)/i,
+    /recruitment \d{4}/i, /freshers? and experienced/i,
+    // Bank / OTP / transactional
+    /was (debited|credited) (from|to) your/i,
+    /otp (for|is|:)/i, /your (otp|one.time.password)/i,
+    /single-use code/i, /verification code/i, /security code/i,
+    /transaction alert/i, /payment (due|reminder|failed)/i,
+    /loan (payment|overdue|reminder)/i,
+    // Marketing newsletters
+    /daily (trading|digest|newsletter|briefing)/i,
+    /weekly (digest|newsletter|roundup)/i,
+    /\btoday.s paper\b/i, /top .* stocks/i,
+    /sale (ends|is live|is on)/i, /% off/i, /limited time offer/i,
+    /unsubscribe/i, /price drop on items/i,
+    // Security / account notifications (one-way)
+    /you shared.*google account/i, /google apps script/i,
+    /summary of failures for google/i,
   ];
   // 3. Custom blocklist from brand config
   const customBlock = (config.senderBlocklist || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -4935,16 +4981,18 @@ async function createTicketFromEmail(slug, emailData) {
     }]
   };
 
-  // Sentiment analysis on incoming email
-  const body = emailData.text || emailData.html || '';
+  // Sentiment analysis on incoming email — strip HTML first to avoid CSS/tag noise
+  const rawBody = emailData.text || emailData.html || '';
+  const body = rawBody.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s{2,}/g,' ').trim();
   const t = body.toLowerCase();
-  const angryWords = ['extremely frustrated','very disappointed','unacceptable','cancel','lawsuit','terrible','worst','useless','disgusting','ridiculous','pathetic','waste of money','refund','escalate'];
+  const angryWords = ['extremely frustrated','very disappointed','unacceptable','cancel my','cancel subscription','lawsuit','terrible','worst','useless','disgusting','ridiculous','pathetic','waste of money','refund','escalate'];
   const worriedWords = ['frustrated','disappointed','unhappy','concerned','urgent','asap','deadline','critical','losing customers'];
   let sentimentScore = 60;
   angryWords.forEach(w => { if(t.includes(w)) sentimentScore -= 8; });
   worriedWords.forEach(w => { if(t.includes(w)) sentimentScore -= 3; });
-  const caps = (body.match(/[A-Z]{3,}/g)||[]).length;
-  const excl = (body.match(/!/g)||[]).length;
+  // Only count caps/exclamation marks in short bodies (long HTML stripped may still have noise)
+  const caps = body.length < 5000 ? (body.match(/[A-Z]{3,}/g)||[]).length : 0;
+  const excl = body.length < 5000 ? (body.match(/!/g)||[]).length : 0;
   sentimentScore -= (caps * 2 + excl * 1.5);
   sentimentScore = Math.max(0, Math.min(100, Math.round(sentimentScore)));
   ticket.sentimentScore = sentimentScore;
@@ -5071,39 +5119,39 @@ async function pollBrandInbox(slug) {
           if (!results || results.length === 0) { recordPollerSuccess(slug); imap.end(); return resolve(); }
           // Load already-processed IDs from DB to skip duplicates without marking as SEEN
           const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
+          // Collect raw buffers first, then process sequentially to avoid DB race conditions
           const fetch = imap.fetch(results, { bodies: '', markSeen: false });
-          const promises = [];
+          const buffers = [];
           fetch.on('message', (msg) => {
-            promises.push(new Promise((res2) => {
-              let buffer = '';
-              let headerBuf = '';
-              msg.on('body', (stream, info) => { stream.on('data', d => buffer += d.toString()); });
-              msg.once('end', async () => {
-                try {
-                  // Quick header-only parse to check Message-ID before full parse
-                  const parsed = await simpleParser(buffer);
-                  const msgId = parsed.messageId;
-                  // Skip if already processed — no need to mark as SEEN in Gmail
-                  if (msgId && processedSet.has(msgId)) { res2(); return; }
-                  const emailData = {
-                    messageId: msgId,
-                    inReplyTo: parsed.inReplyTo,
-                    subject: parsed.subject || '(No Subject)',
-                    from: parsed.from?.value?.[0]?.address || '',
-                    fromName: parsed.from?.value?.[0]?.name || '',
-                    text: parsed.text || '',
-                    html: parsed.textAsHtml || '',
-                    date: parsed.date?.toISOString() || new Date().toISOString()
-                  };
-                  await createTicketFromEmail(slug, emailData);
-                  // Add to set so subsequent messages in same batch are also skipped
-                  if (msgId) processedSet.add(msgId);
-                } catch(e) { console.error('[EmailTicket] Parse error:', e.message); }
-                res2();
-              });
-            }));
+            let buffer = '';
+            msg.on('body', (stream) => { stream.on('data', d => buffer += d.toString()); });
+            msg.once('end', () => buffers.push(buffer));
           });
-          fetch.once('end', async () => { await Promise.all(promises); imap.end(); recordPollerSuccess(slug); resolve(); });
+          fetch.once('end', async () => {
+            // Process one at a time — prevents generateTicketId race condition
+            for (const buffer of buffers) {
+              try {
+                const parsed = await simpleParser(buffer);
+                const msgId = parsed.messageId;
+                if (msgId && processedSet.has(msgId)) continue;
+                const emailData = {
+                  messageId: msgId,
+                  inReplyTo: parsed.inReplyTo,
+                  subject: parsed.subject || '(No Subject)',
+                  from: parsed.from?.value?.[0]?.address || '',
+                  fromName: parsed.from?.value?.[0]?.name || '',
+                  text: parsed.text || '',
+                  html: parsed.textAsHtml || '',
+                  date: parsed.date?.toISOString() || new Date().toISOString()
+                };
+                await createTicketFromEmail(slug, emailData);
+                if (msgId) processedSet.add(msgId);
+              } catch(e) { console.error('[EmailTicket] Parse error:', e.message); }
+            }
+            imap.end();
+            recordPollerSuccess(slug);
+            resolve();
+          });
         });
       });
     });
