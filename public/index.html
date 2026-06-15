@@ -15022,6 +15022,30 @@ const App = {
       }
     }
 
+    // ── AI ACTIONS (always shown when Gemini is connected) ───────────────────
+    var aiConnected = App._geminiConnected;
+    if (!aiConnected) {
+      // quick check from server in case _geminiConnected wasn't set yet
+      var aiSt2 = await apiFetch('/api/ai/status');
+      aiConnected = !!(aiSt2 && aiSt2.configured);
+      if (!aiConnected && localStorage.getItem('tt_gemini_key')) aiConnected = true;
+    }
+    if (aiConnected) {
+      html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;" id="aiActionsPanel_'+ticketId+'">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);">✦ AI Actions</div>' +
+          '<div style="background:rgba(0,200,83,.15);color:#00c853;border:1px solid rgba(0,200,83,.3);padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;">LIVE</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:6px;">' +
+          '<button onclick="App._aiSummarize(\''+ticketId+'\')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📋 Summarize ticket</button>' +
+          '<button onclick="App._aiSmartReply(\''+ticketId+'\')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-weight:600;">⚡ Smart Reply drafts</button>' +
+          '<button onclick="App._aiClassify(\''+ticketId+'\')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">🏷 Auto-classify &amp; tag</button>' +
+          '<button onclick="App._aiSuggestKB(\''+ticketId+'\')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📚 Suggest KB articles</button>' +
+        '</div>' +
+        '<div id="aiResult_'+ticketId+'" style="margin-top:10px;"></div>' +
+      '</div>';
+    }
+
     // ── AI TRIAGE ────────────────────────────────────────────────────────────
     if (ff.aiTriage === true || ff.aiTriage === 'true') {
       var trRes = await apiFetch('/api/tickets/'+ticketId+'/triage');
@@ -15139,6 +15163,94 @@ const App = {
     if (collBanner) {
       var hdr = document.querySelector('#contentArea .btn-primary');
       // move banner to top of sidebar panel, already there
+    }
+  },
+
+  _aiResult: function(ticketId, html) {
+    var el = document.getElementById('aiResult_'+ticketId);
+    if (el) el.innerHTML = html;
+  },
+
+  _aiSummarize: async function(ticketId) {
+    App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Summarising…</div>');
+    var tkn = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/ai/tickets/'+ticketId+'/summarize', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    if (r && r.success && r.bullets) {
+      App._aiResult(ticketId,
+        '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;font-size:11px;color:var(--text-secondary);line-height:1.7;">' +
+        r.bullets.map(function(b){return '<div style="display:flex;gap:6px;margin-bottom:4px;"><span style="color:var(--accent);flex-shrink:0;">•</span><span>'+App._esc(b)+'</span></div>';}).join('') +
+        (r.sentiment ? '<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">Sentiment: <strong>'+r.sentiment+'</strong>' + (r.priority_suggestion?' · Suggested priority: <strong style="color:var(--accent);">'+r.priority_suggestion+'</strong>':'') + '</div>' : '') +
+        '</div>'
+      );
+    } else {
+      App._aiResult(ticketId, '<div style="font-size:11px;color:var(--critical);">'+(r&&r.error?r.error:'Failed — check Gemini key in Settings → Integrations')+'</div>');
+    }
+  },
+
+  _aiSmartReply: async function(ticketId) {
+    App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Generating reply drafts…</div>');
+    var tkn = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/ai/tickets/'+ticketId+'/smart-reply', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    if (r && r.success && r.drafts && r.drafts.length) {
+      var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+      r.drafts.forEach(function(d) {
+        html += '<div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:7px;padding:8px 10px;">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;">'+App._esc(d.label||'Draft')+'</div>' +
+          '<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px;">'+App._esc(d.text)+'</div>' +
+          '<button onclick="App._useSmartReply(\''+ticketId+'\',this)" data-text="'+App._esc(d.text).replace(/"/g,'&quot;')+'" style="font-size:10px;padding:3px 10px;border-radius:5px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;">Use this →</button>' +
+        '</div>';
+      });
+      html += '</div>';
+      App._aiResult(ticketId, html);
+    } else {
+      App._aiResult(ticketId, '<div style="font-size:11px;color:var(--critical);">'+(r&&r.error?r.error:'Failed — check Gemini key in Settings → Integrations')+'</div>');
+    }
+  },
+
+  _useSmartReply: function(ticketId, btn) {
+    var text = btn.getAttribute('data-text');
+    var box = document.getElementById('replyBox');
+    if (box) { box.value = text; box.focus(); App.showToast('Reply draft loaded', 'success'); }
+  },
+
+  _aiClassify: async function(ticketId) {
+    App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Classifying…</div>');
+    var tkn = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/ai/tickets/'+ticketId+'/classify', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    if (r && r.success) {
+      App._aiResult(ticketId,
+        '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px;font-size:11px;color:var(--text-secondary);line-height:1.8;">' +
+        (r.category?'<div>Category: <strong style="color:var(--accent);">'+App._esc(r.category)+'</strong></div>':'')+
+        (r.priority?'<div>Priority: <strong>'+App._esc(r.priority)+'</strong></div>':'')+
+        (r.department?'<div>Department: <strong>'+App._esc(r.department)+'</strong></div>':'')+
+        (r.tags&&r.tags.length?'<div style="margin-top:4px;">'+r.tags.map(function(t){return '<span style="font-size:10px;background:var(--accent-dim);color:var(--accent);padding:2px 7px;border-radius:10px;margin-right:3px;">'+App._esc(t)+'</span>';}).join('')+'</div>':'')+
+        '</div>'
+      );
+    } else {
+      App._aiResult(ticketId, '<div style="font-size:11px;color:var(--critical);">'+(r&&r.error?r.error:'Failed — check Gemini key in Settings → Integrations')+'</div>');
+    }
+  },
+
+  _aiSuggestKB: async function(ticketId) {
+    App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">⏳ Searching KB…</div>');
+    var tkn = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/ai/tickets/'+ticketId+'/suggest-kb', {method:'POST', headers:{'x-session-token':tkn}}).then(function(x){return x.json();}).catch(function(){return null;});
+    if (r && r.success) {
+      if (!r.suggestions || !r.suggestions.length) {
+        App._aiResult(ticketId, '<div style="font-size:11px;color:var(--text-dim);">No matching KB articles found.</div>');
+      } else {
+        var html = '<div style="display:flex;flex-direction:column;gap:5px;">';
+        r.suggestions.forEach(function(s) {
+          html += '<div style="background:var(--bg-elevated);border-radius:6px;padding:7px 9px;font-size:11px;">' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:2px;">'+App._esc(s.title)+'</div>' +
+            (s.relevance?'<div style="font-size:10px;color:var(--text-dim);">'+App._esc(s.relevance)+'</div>':'')+
+          '</div>';
+        });
+        html += '</div>';
+        App._aiResult(ticketId, html);
+      }
+    } else {
+      App._aiResult(ticketId, '<div style="font-size:11px;color:var(--critical);">'+(r&&r.error?r.error:'Failed — check Gemini key in Settings → Integrations')+'</div>');
     }
   },
 
