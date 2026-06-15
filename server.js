@@ -6886,7 +6886,13 @@ app.post('/api/tickets/:id/clip',(req,res)=>{
 
 // ── Shared Gemini helper (gemini-2.0-flash) ───────────────────────────────
 async function callGemini(apiKey,prompt,timeoutMs=20000){
-  if(!apiKey)throw new Error('No Gemini API key configured. Go to Settings → Integrations to add one.');
+  // Try Ollama (local) first — free, no quota
+  try{
+    const or=await fetch('http://localhost:11434/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'tinyllama',prompt,stream:false}),signal:AbortSignal.timeout(timeoutMs)});
+    if(or.ok){const oj=await or.json();const ot=(oj.response||'').trim();if(ot)return ot;}
+  }catch(e){/* Ollama unavailable, fall through to Gemini */}
+  // Fall back to Gemini if key available
+  if(!apiKey)throw new Error('AI unavailable. Ollama is not running and no Gemini API key configured.');
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]}),signal:AbortSignal.timeout(timeoutMs)});
   if(!r.ok){const err=await r.text();throw new Error(`Gemini API error ${r.status}: ${err.substring(0,200)}`);}
   const json=await r.json();
