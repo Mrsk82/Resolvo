@@ -1630,7 +1630,19 @@ app.post('/api/call',async(req,res)=>{
     getPostMortem:ii=>{const db=rDB();return{success:true,postMortem:(db.postMortems||[]).find(p=>p.issueId===ii)||null};},
     generateReleaseNotes:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),r=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&new Date(i.resolvedDate)>=from&&new Date(i.resolvedDate)<=to);return{success:true,notes:r.map(i=>`- [${i.priority}] ${i.id}: ${i.title} (${i.module||'General'})`).join('\n'),count:r.length};},
     getAuditTrail:f=>{const db=rDB();let l=db.activityLog||[];if(f&&f.issueId)l=l.filter(x=>x.issueId===f.issueId);return{success:true,trail:l.slice().reverse()};},
-    processAIQuery:()=>({success:false,error:'Server-side AI not configured.'}),
+    processAIQuery:async(query,context)=>{
+      const db=rDB();const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add your Gemini API key in Settings → Integrations to enable AI.'};
+      const issues=db.issues||[];const tickets=db.tickets||[];
+      const ctx=`Brand: ${su.brandSlug}. Open issues: ${issues.filter(i=>!['Resolved','Release Required'].includes(i.status)).length}. Open tickets: ${tickets.filter(t=>!['resolved','closed'].includes(t.status)).length}. Recent issue titles: ${issues.slice(-5).map(i=>i.title).join(', ')}.`;
+      const prompt=`You are an AI assistant for Resolvo, a support and issue tracking platform. Answer the following query concisely and helpfully.\n\nPlatform context: ${ctx}\n${context?'Additional context: '+context+'\n':''}\nUser query: ${query}\n\nRespond in plain text, no markdown headers, keep it under 200 words.`;
+      try{
+        const answer=await callGemini(apiKey,prompt,15000);
+        const entry={id:generateId('AIQ'),query,answer,by:su.email,at:new Date().toISOString()};
+        db.aiHistory=db.aiHistory||[];db.aiHistory.unshift(entry);if(db.aiHistory.length>100)db.aiHistory=db.aiHistory.slice(0,100);wDB(db);
+        return{success:true,answer,id:entry.id};
+      }catch(e){return{success:false,error:e.message};}
+    },
     getAIQueryHistory:lim=>{const db=rDB(),l=(db.aiHistory||[]).slice(0,lim||50);return{success:true,history:l,queries:l};},
     setGeminiApiKey:k=>{const db=rDB();db.settings=db.settings||{};db.settings.GEMINI_API_KEY=k;wDB(db);return{success:true};},
     getGeminiStatus:()=>{const db=rDB();return{success:true,configured:!!((db.settings||{}).GEMINI_API_KEY||process.env.GEMINI_API_KEY||'')};},
@@ -2062,18 +2074,15 @@ app.post('/api/call',async(req,res)=>{
     getSmartReplyDrafts:async(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
       if(!ticket)return{success:false,error:'Not found'};
-      const geminiKey=(db.settings||{}).GEMINI_API_KEY||process.env.GEMINI_API_KEY||'';
-      if(!geminiKey)return{success:false,error:'Gemini API key not configured in Settings → Integrations'};
-      const firstMsg=(ticket.thread||[])[0]?.body||'';
-      const prompt=`You are a helpful support agent. A customer sent this support ticket:\n\nSubject: ${ticket.subject}\nMessage: ${firstMsg.substring(0,500)}\n\nGenerate 3 different draft replies:\n1. Quick acknowledgement (2-3 sentences)\n2. Detailed helpful response (asking for more info if needed)\n3. Empathetic response if customer seems frustrated\n\nFormat as JSON: {"drafts":[{"label":"Quick Ack","text":"..."},{"label":"Detailed","text":"..."},{"label":"Empathetic","text":"..."}]}`;
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const thread=(ticket.thread||[]).slice(0,5).map(m=>`${m.type==='incoming'?'Customer':'Agent'}: ${(m.body||'').substring(0,300)}`).join('\n');
+      const prompt=`You are a helpful customer support agent. Read this ticket thread and generate 3 different reply options.\n\nSubject: ${ticket.subject}\nThread:\n${thread||'(No messages yet)'}\n\nRespond with ONLY this JSON (no markdown):\n{"drafts":[{"label":"Quick Ack","text":"..."},{"label":"Detailed","text":"..."},{"label":"Empathetic","text":"..."}]}`;
       try{
-        const axios=require('axios');
-        const res=await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`,{contents:[{parts:[{text:prompt}]}]},{timeout:15000});
-        const raw=res.data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-        const match=raw.match(/\{[\s\S]*\}/);
-        if(match){const parsed=JSON.parse(match[0]);return{success:true,drafts:parsed.drafts||[]};}
-        return{success:false,error:'Could not parse AI response'};
-      }catch(e){return{success:false,error:'Gemini error: '+e.message};}
+        const raw=await callGemini(apiKey,prompt,15000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,drafts:parsed.drafts||[]};
+      }catch(e){return{success:false,error:e.message};}
     },
 
     // 9. POST-INCIDENT REPORT GENERATOR (Gemini)
@@ -2082,26 +2091,171 @@ app.post('/api/call',async(req,res)=>{
       if(!issue)return{success:false,error:'Not found'};
       const comments=(db.comments||[]).filter(c=>c.issueId===issueId);
       const activity=(db.activityLog||[]).filter(l=>l.issueId===issueId);
-      const geminiKey=(db.settings||{}).GEMINI_API_KEY||process.env.GEMINI_API_KEY||'';
-      if(!geminiKey)return{success:false,error:'Gemini API key not configured'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
       const resHours=issue.resolvedDate?Math.round((new Date(issue.resolvedDate)-new Date(issue.createdDate))/360000)/10:null;
       const timeline=[...activity.map(a=>({time:a.timestamp,event:a.action,user:a.user})),...comments.map(c=>({time:c.timestamp,event:'Comment: '+c.comment.substring(0,100),user:c.userEmail}))].sort((a,b)=>new Date(a.time)-new Date(b.time));
-      const prompt=`Generate a professional post-incident report for this engineering issue:\n\nIssue ID: ${issueId}\nTitle: ${issue.title}\nPriority: ${issue.priority}\nModule: ${issue.module||'Unknown'}\nEnvironment: ${issue.environment||'Unknown'}\nCreated: ${issue.createdDate}\nResolved: ${issue.resolvedDate||'Unresolved'}\nResolution Time: ${resHours?resHours+'h':'N/A'}\nDescription: ${(issue.description||'').substring(0,300)}\nTimeline: ${JSON.stringify(timeline.slice(0,10))}\n\nGenerate a concise post-incident report with: Executive Summary, Timeline of Events, Root Cause Analysis, Impact Assessment, Resolution Steps, Prevention Measures.\nFormat as JSON: {"executive_summary":"...","timeline":"...","root_cause":"...","impact":"...","resolution":"...","prevention":"...","severity":"..."}`;
+      const prompt=`Generate a professional post-incident report for this engineering issue. Respond with ONLY valid JSON, no markdown.\n\nIssue: ${issueId} — ${issue.title}\nPriority: ${issue.priority} | Module: ${issue.module||'Unknown'} | Env: ${issue.environment||'Unknown'}\nCreated: ${issue.createdDate} | Resolved: ${issue.resolvedDate||'Unresolved'} | Resolution Time: ${resHours?resHours+'h':'N/A'}\nDescription: ${(issue.description||'').substring(0,400)}\nTimeline: ${JSON.stringify(timeline.slice(0,8))}\n\nJSON format: {"executive_summary":"...","timeline":"...","root_cause":"...","impact":"...","resolution":"...","prevention":"...","severity":"Critical|High|Medium|Low"}`;
       try{
-        const axios=require('axios');
-        const res=await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`,{contents:[{parts:[{text:prompt}]}]},{timeout:20000});
-        const raw=res.data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-        const match=raw.match(/\{[\s\S]*\}/);
-        if(match){
-          const report=JSON.parse(match[0]);
-          // Save report
-          db.postIncidentReports=db.postIncidentReports||[];
-          db.postIncidentReports.push({...report,issueId,generatedAt:new Date().toISOString(),generatedBy:su.email});
+        const raw=await callGemini(apiKey,prompt,20000);
+        const report=parseGeminiJSON(raw);
+        db.postIncidentReports=db.postIncidentReports||[];
+        db.postIncidentReports.push({...report,issueId,generatedAt:new Date().toISOString(),generatedBy:su.email});
+        wDB(db);
+        return{success:true,report};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 10. TICKET SUMMARISER
+    summarizeTicket:async(ticketId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const thread=(ticket.thread||[]).map(m=>`${m.type==='incoming'?'Customer':'Agent'} (${(m.date||'').substring(0,10)}): ${(m.body||'').substring(0,400)}`).join('\n');
+      const prompt=`Summarise this support ticket thread into exactly 3 bullet points. Be concise and factual. Respond ONLY with JSON, no markdown.\n\nSubject: ${ticket.subject}\nFrom: ${ticket.from}\nThread:\n${thread||'(No messages)'}\n\nJSON: {"bullets":["What the customer wants/problem","What has been tried or discussed","Current status or what is blocking resolution"],"sentiment":"positive|neutral|negative|frustrated","priority_suggestion":"Critical|High|Medium|Low"}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,summary:parsed};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 11. KB ARTICLE SUGGESTER
+    suggestKBArticles:async(ticketId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const articles=(db.knowledgeBase||[]).filter(a=>a.status==='published').map(a=>({id:a.id,title:a.title,excerpt:(a.body||'').substring(0,150)}));
+      if(!articles.length)return{success:true,suggestions:[],message:'No published KB articles yet'};
+      const prompt=`A customer submitted a support ticket. Find the most relevant knowledge base articles that could help resolve it. Respond ONLY with JSON.\n\nTicket subject: ${ticket.subject}\nTicket body: ${((ticket.thread||[])[0]?.body||ticket.body||'').substring(0,400)}\n\nAvailable articles:\n${JSON.stringify(articles.slice(0,30))}\n\nJSON: {"suggestions":[{"id":"...","title":"...","relevance":"high|medium","reason":"one sentence why this article helps"}]}  — return top 3 max, only genuinely relevant ones.`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,suggestions:parsed.suggestions||[]};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 12. DUPLICATE TICKET DETECTOR
+    detectDuplicateTickets:async(ticketId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const cutoff=new Date(Date.now()-30*86400000).toISOString();
+      const candidates=(db.tickets||[]).filter(t=>t.id!==ticketId&&t.createdDate>cutoff).slice(-50).map(t=>({id:t.id,subject:t.subject,status:t.status,from:t.from}));
+      if(!candidates.length)return{success:true,duplicates:[],message:'No recent tickets to compare against'};
+      const prompt=`Check if the following ticket is a duplicate of any recent tickets. Respond ONLY with JSON.\n\nNew ticket:\nSubject: ${ticket.subject}\nFrom: ${ticket.from}\nBody: ${((ticket.thread||[])[0]?.body||ticket.body||'').substring(0,300)}\n\nRecent tickets:\n${JSON.stringify(candidates)}\n\nJSON: {"duplicates":[{"id":"...","subject":"...","confidence":"high|medium","reason":"why these are likely the same issue"}]} — only include genuine likely duplicates, empty array if none.`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,duplicates:parsed.duplicates||[]};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 13. AUTO-CLASSIFY AND TAG TICKET
+    autoClassifyTicket:async(ticketId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const prompt=`Classify and tag this support ticket. Respond ONLY with JSON, no markdown.\n\nSubject: ${ticket.subject}\nBody: ${((ticket.thread||[])[0]?.body||ticket.body||'').substring(0,400)}\n\nJSON: {"category":"billing|technical|onboarding|feature_request|bug|complaint|general","tags":["tag1","tag2"],"priority":"Critical|High|Medium|Low","department":"support|engineering|billing|sales"} — tags should be 2-4 short lowercase words relevant to the issue.`;
+      try{
+        const raw=await callGemini(apiKey,prompt,10000);
+        const parsed=parseGeminiJSON(raw);
+        const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+        if(idx>=0){
+          db.tickets[idx].aiCategory=parsed.category;
+          db.tickets[idx].aiDepartment=parsed.department;
+          db.tickets[idx].tags=[...new Set([...(db.tickets[idx].tags||[]),...(parsed.tags||[])])];
+          if(!db.tickets[idx].priority||db.tickets[idx].priority==='Medium')db.tickets[idx].priority=parsed.priority;
           wDB(db);
-          return{success:true,report};
         }
-        return{success:false,error:'Could not parse AI response'};
-      }catch(e){return{success:false,error:'Gemini error: '+e.message};}
+        return{success:true,classification:parsed};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 14. CHURN RISK EXPLANATION
+    explainChurnRisk:async(customerEmail)=>{
+      const db=rDB();const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const tickets=(db.tickets||[]).filter(t=>t.from===customerEmail);
+      if(!tickets.length)return{success:false,error:'No tickets found for this customer'};
+      const recent=tickets.slice(-10);
+      const avgSentiment=Math.round(recent.filter(t=>t.sentimentScore!=null).reduce((s,t)=>s+(t.sentimentScore||60),0)/Math.max(recent.filter(t=>t.sentimentScore!=null).length,1));
+      const breached=recent.filter(t=>t.slaBreached).length;
+      const unresolved=recent.filter(t=>!['resolved','closed'].includes(t.status)).length;
+      const csatRatings=recent.filter(t=>t.csatRating);
+      const negCSAT=csatRatings.filter(t=>t.csatRating==='no').length;
+      const summary={totalTickets:tickets.length,recentTickets:recent.length,avgSentiment,slaBreaches:breached,unresolved,negativeCSAT:negCSAT,subjects:recent.slice(-5).map(t=>t.subject)};
+      const prompt=`Analyse this customer's support history and explain their churn risk in 3-4 sentences. Be specific about what's driving the risk.\n\nCustomer: ${customerEmail}\nData: ${JSON.stringify(summary)}\n\nRespond ONLY with JSON: {"risk_level":"critical|high|medium|low","explanation":"...","top_concerns":["concern1","concern2"],"recommended_action":"..."}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,churnAnalysis:{...parsed,customerEmail,generatedAt:new Date().toISOString()}};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 15. KB ARTICLE GENERATOR (from resolved ticket)
+    generateKBArticle:async(ticketId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Not found'};
+      if(!['resolved','closed'].includes(ticket.status))return{success:false,error:'Ticket must be resolved first'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const thread=(ticket.thread||[]).map(m=>`${m.type==='incoming'?'Customer':'Agent'}: ${(m.body||'').substring(0,400)}`).join('\n');
+      const prompt=`A support ticket has been resolved. Turn the Q&A into a helpful knowledge base article. Respond ONLY with JSON.\n\nTicket subject: ${ticket.subject}\nThread:\n${thread}\n\nJSON: {"title":"...","category":"...","body":"Full article text in plain prose, 150-300 words, explaining the problem and solution clearly for future customers","tags":["tag1","tag2"]}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,15000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,draft:{...parsed,sourceTicketId:ticketId,generatedAt:new Date().toISOString(),status:'draft'}};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 16. AI CHANGELOG WRITER
+    generateAIChangelog:async(fromDate,toDate)=>{
+      const db=rDB();const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const from=new Date(fromDate||Date.now()-7*86400000),to=new Date(toDate||Date.now());
+      const resolved=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&new Date(i.resolvedDate)>=from&&new Date(i.resolvedDate)<=to);
+      if(!resolved.length)return{success:false,error:'No resolved issues found in that date range'};
+      const items=resolved.map(i=>({id:i.id,title:i.title,priority:i.priority,module:i.module||'General',description:(i.description||'').substring(0,200)}));
+      const prompt=`Write a concise, user-friendly changelog based on these resolved engineering issues. Write for end users, not developers — explain what improved, not implementation details. Respond ONLY with JSON.\n\nResolved issues: ${JSON.stringify(items)}\n\nJSON: {"title":"...","summary":"One paragraph overview","sections":[{"heading":"New Features|Bug Fixes|Improvements|Performance","items":["...","..."]}],"highlights":["top 2-3 most impactful changes"]}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,15000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,changelog:{...parsed,fromDate,toDate,issueCount:resolved.length,generatedAt:new Date().toISOString()}};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 17. AGENT REPLY QUALITY COACH
+    scoreAgentReply:async(ticketId,replyText)=>{
+      const db=rDB();const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      const prompt=`Rate this customer support reply on three dimensions. Respond ONLY with JSON.\n\nTicket subject: ${ticket?.subject||'Unknown'}\nCustomer sentiment: ${ticket?.sentimentLevel||'neutral'}\n\nAgent reply:\n${replyText.substring(0,600)}\n\nJSON: {"tone_score":1-10,"helpfulness_score":1-10,"completeness_score":1-10,"overall":1-10,"strengths":["..."],"improvements":["..."],"revised_suggestion":"Optional: rewrite opening sentence only if tone was poor, otherwise empty string"}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,score:parsed};
+      }catch(e){return{success:false,error:e.message};}
+    },
+
+    // 18. AI SPRINT PLAN (was a stub)
+    getAISprintPlan:async(sprintId)=>{
+      const db=rDB();const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const sprint=(db.sprints||[]).find(s=>s.id===sprintId);
+      if(!sprint)return{success:false,error:'Sprint not found'};
+      const issues=(db.issues||[]).filter(i=>i.sprintId===sprintId);
+      const team=(db.users||[]).filter(u=>u.active).map(u=>({email:u.email,name:u.name,skill:u.skill||'General',maxTickets:u.maxTickets||10}));
+      const prompt=`You are an engineering manager. Create a practical sprint plan for this team. Respond ONLY with JSON.\n\nSprint: ${sprint.name||sprintId} (${sprint.startDate||'?'} to ${sprint.endDate||'?'})\nGoal: ${sprint.goal||'Not set'}\nIssues (${issues.length}): ${JSON.stringify(issues.slice(0,20).map(i=>({id:i.id,title:i.title,priority:i.priority,assignedTo:i.assignedTo,status:i.status,module:i.module})))}\nTeam: ${JSON.stringify(team)}\n\nJSON: {"recommendation":"2-3 sentence sprint strategy","risks":["risk1","risk2"],"suggested_assignments":[{"issueId":"...","reason":"why this person should own this"}],"daily_targets":{"day1":"...","midSprint":"...","endSprint":"..."}}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,15000);
+        const parsed=parseGeminiJSON(raw);
+        return{success:true,plan:parsed};
+      }catch(e){return{success:false,error:e.message};}
     },
 
     // 10. ZERO-TOUCH AUTO-RESOLVE RULES
@@ -3557,9 +3711,20 @@ app.post('/api/call',async(req,res)=>{
       });
       return{success:true,notifications:notes.slice(0,20),unread:notes.length};
     },
-    // AI features — return empty/stub if no Gemini key
-    getAITriage:(issueId)=>{const db=rDB();const key=(db.settings||{}).GEMINI_API_KEY||'';if(!key)return{success:false,error:'Add Gemini API key in Settings → Integrations'};return{success:true,triage:{priority:'Medium',module:'API',confidence:0.8,reason:'Gemini AI not called (stub)'}};},
-    getAISprintPlan:(sprintId)=>{return{success:false,error:'Requires Gemini API key in Settings → Integrations'};},
+    getAITriage:async(issueId)=>{
+      const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);
+      if(!issue)return{success:false,error:'Issue not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const prompt=`Triage this engineering issue and respond ONLY with valid JSON, no markdown.\n\nIssue: ${issue.title}\nDescription: ${(issue.description||'').substring(0,400)}\nCurrent priority: ${issue.priority}\nModule: ${issue.module||'Unknown'}\nEnvironment: ${issue.environment||'Unknown'}\n\nJSON: {"priority":"Critical|High|Medium|Low","module":"best matching module from the description","confidence":0.0-1.0,"reason":"1-2 sentence explanation","suggested_assignee_skill":"frontend|backend|database|devops|general","estimated_hours":number}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const triage=parseGeminiJSON(raw);
+        const idx=(db.issues||[]).findIndex(i=>i.id===issueId);
+        if(idx>=0){db.issues[idx].aiTriage={...triage,triagedAt:new Date().toISOString()};wDB(db);}
+        return{success:true,triage};
+      }catch(e){return{success:false,error:e.message};}
+    },
     getDevLeaderboard:()=>{const db=rDB();const issues=db.issues||[];const devs={};(issues||[]).forEach(i=>{if(!i.assignedTo)return;if(!devs[i.assignedTo])devs[i.assignedTo]={email:i.assignedTo,resolved:0,open:0,avgHours:0,total:0};if(['Resolved','Release Required'].includes(i.status)){devs[i.assignedTo].resolved++;const h=i.resolvedDate&&i.createdDate?(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000:0;devs[i.assignedTo].avgHours+=h;}else devs[i.assignedTo].open++;devs[i.assignedTo].total++;});return{success:true,leaderboard:Object.values(devs).sort((a,b)=>b.resolved-a.resolved)};},
     getCFDData:()=>{const db=rDB();const issues=db.issues||[];const statuses=['Open','Acknowledged','WIP','Testing','Resolved'];const today=new Date().toISOString().split('T')[0];const data=statuses.map(s=>({status:s,count:issues.filter(i=>i.status===s).length}));return{success:true,data,date:today};},
     forecastResolution:(issueId)=>{const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const similar=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.priority===issue.priority&&i.resolvedDate&&i.createdDate);const avg=similar.length?similar.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/similar.length:24;return{success:true,forecastHours:Math.round(avg*10)/10,basedOn:similar.length,confidence:similar.length>5?'high':similar.length>2?'medium':'low'};},
@@ -6447,6 +6612,36 @@ setInterval(async()=>{
   }
 },24*60*60*1000);
 
+// ── AI Feature Endpoints ──────────────────────────────────────────────────
+function aiRoute(path,fn){
+  app.post(path,async(req,res)=>{
+    const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+    const bm=brandModule(su);
+    try{const result=await bm[fn](...Object.values(req.body));res.json(result);}
+    catch(e){res.json({success:false,error:e.message});}
+  });
+  app.get(path,async(req,res)=>{
+    const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+    const bm=brandModule(su);
+    try{const result=await bm[fn](...Object.values(req.query));res.json(result);}
+    catch(e){res.json({success:false,error:e.message});}
+  });
+}
+app.post('/api/ai/query',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).processAIQuery(req.body.query,req.body.context);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/summarize',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).summarizeTicket(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/suggest-kb',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).suggestKBArticles(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/detect-duplicates',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).detectDuplicateTickets(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/classify',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).autoClassifyTicket(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/score-reply',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).scoreAgentReply(req.params.id,req.body.reply||'');res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/generate-kb',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generateKBArticle(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/tickets/:id/churn-risk',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const db=readBrandDB(su.brandSlug);const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);if(!ticket||!ticket.from)return res.json({success:false,error:'Ticket or email not found'});try{const r=await brandModule(su).explainChurnRisk(ticket.from);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/issues/:id/triage',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAITriage(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/issues/:id/post-incident',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generatePostIncidentReport(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/changelog',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generateAIChangelog(req.body.fromDate,req.body.toDate);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.post('/api/ai/sprints/:id/plan',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAISprintPlan(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.get('/api/ai/query-history',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAIQueryHistory(50);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+app.get('/api/ai/status',(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const bm=brandModule(su);res.json(bm.getGeminiStatus());});
+
 // ── Agent Burnout Score ───────────────────────────────────────────────────
 app.get('/api/burnout-scores',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
@@ -6514,12 +6709,31 @@ app.post('/api/tickets/:id/clip',(req,res)=>{
   res.json({success:true,clip:{id:ticket.id,subject:ticket.subject,status:ticket.status,priority:ticket.priority,from:ticket.from,createdAt:ticket.createdAt,snippet:(ticket.body||ticket.description||'').substring(0,200)}});
 });
 
+// ── Shared Gemini helper (gemini-1.5-flash) ───────────────────────────────
+async function callGemini(apiKey,prompt,timeoutMs=20000){
+  if(!apiKey)throw new Error('No Gemini API key configured. Go to Settings → Integrations to add one.');
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]}),signal:AbortSignal.timeout(timeoutMs)});
+  if(!r.ok){const err=await r.text();throw new Error(`Gemini API error ${r.status}: ${err.substring(0,200)}`);}
+  const json=await r.json();
+  const text=(json.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
+  if(!text)throw new Error('Empty response from Gemini');
+  return text;
+}
+function parseGeminiJSON(raw){
+  const clean=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+  const match=clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if(!match)throw new Error('No JSON found in Gemini response');
+  return JSON.parse(match[0]);
+}
+function getBrandGeminiKey(db){return(db.settings||{}).GEMINI_API_KEY||process.env.GEMINI_API_KEY||'';}
+
 // ── AI Ticket Triage ──────────────────────────────────────────────────────
 async function aiTriageTicket(slug,ticketId){
   try{
     const db=readBrandDB(slug);
     if(!featEnabled(db,'aiTriage'))return;
-    if(!process.env.GEMINI_API_KEY)return;
+    const apiKey=getBrandGeminiKey(db);
+    if(!apiKey)return;
     const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
     if(idx<0)return;
     const ticket=db.tickets[idx];
@@ -6530,10 +6744,8 @@ Ticket body: ${(ticket.body||ticket.description||'').substring(0,500)}
 
 Respond with exactly this JSON structure (no markdown, no explanation):
 {"priority":"Critical|High|Medium|Low","category":"billing|technical|general|complaint|refund|feature_request","sentiment":"positive|neutral|negative","suggestedReply":"A short one-sentence canned reply suggestion","tags":["tag1","tag2"]}`;
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
-    const json=await r.json();
-    const raw=(json.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
-    const parsed=JSON.parse(raw.replace(/```json\n?|\n?```/g,''));
+    const raw=await callGemini(apiKey,prompt,15000);
+    const parsed=parseGeminiJSON(raw);
     db.tickets[idx].aiTriage={...parsed,triagedAt:new Date().toISOString()};
     if(!db.tickets[idx].priority||db.tickets[idx].priority==='Medium')db.tickets[idx].priority=parsed.priority;
     if(parsed.tags)db.tickets[idx].tags=[...new Set([...(db.tickets[idx].tags||[]),...parsed.tags])];
