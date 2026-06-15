@@ -6888,7 +6888,7 @@ app.post('/api/tickets/:id/clip',(req,res)=>{
 async function callGemini(apiKey,prompt,timeoutMs=20000){
   // Try Ollama (local) first — free, no quota
   try{
-    const or=await fetch('http://localhost:11434/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'tinyllama',prompt,stream:false}),signal:AbortSignal.timeout(timeoutMs)});
+    const or=await fetch('http://localhost:11434/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'llama3.2:1b',prompt,stream:false}),signal:AbortSignal.timeout(timeoutMs)});
     if(or.ok){const oj=await or.json();const ot=(oj.response||'').trim();if(ot)return ot;}
   }catch(e){/* Ollama unavailable, fall through to Gemini */}
   // Fall back to Gemini if key available
