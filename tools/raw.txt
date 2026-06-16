@@ -1,0 +1,617 @@
+jasper.ai|— none
+copy.ai|name@website.com
+writesonic.com|— none
+rytr.me|— none
+anyword.com|info@anyword.com
+hyperwriteai.com|— none
+otter.ai|— none
+fireflies.ai|fred@fireflies.ai, support@fireflies.ai
+lumen5.com|api-test@lumen5.com
+pictory.ai|— none
+synthesia.io|sales@synthesia.io
+heygen.com|support@heygen.com, press@heygen.com
+descript.com|— none
+murf.ai|support@murf.ai, enterprise@murf.ai, alliances@murf.ai, tech@murf.ai, security@murf.ai
+elevenlabs.io|example@elevenlabs.io
+runwayml.com|press@runwayml.com, partnerships@runwayml.com
+kaiber.ai|— none
+pika.art|support@pika.art
+stability.ai|press@stability.ai, partners@stability.ai
+midjourney.com|— none
+leonardo.ai|— none
+firefly.adobe.com|— none
+canva.com|— none
+tome.app|— none
+beautiful.ai|support@beautiful.ai
+gamma.app|— none
+notion.so|— none
+mem.ai|— none
+taskade.com|support@taskade.com, showcase@taskade.com
+tldraw.com|— none
+whimsical.com|— none
+miro.com|— none
+clickup.com|— none
+monday.com|support@monday.com
+asana.com|jennyforrest@gmail.com, name@company.com, x@mail.asana.com
+linear.app|hello@linear.app, support@linear.app
+height.app|— none
+plane.so|hello@plane.so
+basecamp.com|jason@basecamp.com
+niftypm.com|team@niftypm.com
+craft.do|feedback@craft.do, press@craft.do
+coda.io|press@grammarly.com
+airtable.com|— none
+fibery.io|new@fibery.io
+rows.com|support@rows.com
+equals.com|— none
+causal.app|— none
+peerlist.io|— none
+beehiiv.com|— none
+substack.com|tos@substackinc.com, press@substackinc.com
+ghost.org|support@ghost.org
+typefully.com|— none
+hypefury.com|— none
+buffer.com|— none
+hootsuite.com|— none
+publer.io|— none
+metricool.com|— none
+taplio.com|— none
+predis.ai|— none
+postwise.ai|support@postwise.ai
+lately.ai|sales@lately.ai
+contentstudio.io|support@contentstudio.io
+socialbee.com|hello@socialbee.com
+pallyy.com|hey@pallyy.com
+meetedgar.com|support@meetedgar.com
+sprinklr.com|unifiedpartners@sprinklr.com, pr@sprinklr.com
+brandwatch.com|— none
+sproutsocial.com|info@sproutsocial.com, pr@sproutsocial.com
+emplifi.io|press@emplifi.io
+keyhole.co|— none
+brand24.com|help@brand24.com
+mention.com|— none
+awario.com|— none
+talkwalker.com|— none
+digimind.com|— none
+meltwater.com|privacy@meltwater.com, informatie@meltwater.com, hei@meltwater.com, bonjour@meltwater.com, hej@meltwater.com
+semrush.com|mail@semrush.com
+ahrefs.com|support@ahrefs.com, pr@ahrefs.com
+surferseo.com|marketing@surferseo.com, support@surferseo.com, business@surferseo.com, sales@surferseo.com
+neuronwriter.com|— none
+tidio.com|support@tidio.net
+gorgias.com|— none
+richpanel.com|— none
+gladly.com|marketing@gladly.com
+kustomer.com|support@kustomer.com
+dixa.com|friends@dixa.com
+reamaze.com|support@reamaze.com
+helpscout.com|— none
+front.com|— none
+groovehq.com|— none
+hiverhq.com|sales@hiverhq.com
+zoho.com|— none
+intercom.com|press@intercom.com
+drift.com|— none
+crisp.chat|— none
+livechat.com|support@text.com, sales@text.com
+userlike.com|support@lime-connect.com
+tawk.to|support@tawk.to
+kommunicate.io|support@kommunicate.io
+landbot.io|— none
+manychat.com|— none
+chatfuel.com|team@chatfuel.com
+botstar.com|— none
+botsify.com|hi@botsify.com
+flowxo.com|support@flowxo.com
+collect.chat|— none
+typebot.io|— none
+voiceflow.com|braden@voiceflow.com
+botpress.com|— none
+rasa.com|sales@rasa.com, support@rasa.com
+moveo.ai|info@moveo.ai
+forethought.ai|info@forethought.ai, press@forethought.ai
+kodif.io|— none
+yuma.ai|hello@yuma.ai
+siena.cx|— none
+mavenoid.com|— none
+tiledesk.com|— none
+chaport.com|— none
+smartsupp.com|sales@smartsupp.com, support@smartsupp.com
+olark.com|support@olark.com
+snapengage.com|— none
+purechat.com|support@purechat.com
+providesupport.com|— none
+zendesk.com|ask.philippines@zendesk.com, ask.thailand@zendesk.com, ask.indonesia@zendesk.com, ask.malaysia@zendesk.com, ask.gcr@zendesk.com
+salesforce.com|— none
+hubspot.com|— none
+pipedrive.com|visitors@pipedrive.com, press@pipedrive.com
+agilecrm.com|— none
+capsulecrm.com|— none
+close.com|— none
+copper.com|— none
+streak.com|— none
+attio.com|— none
+twenty.com|— none
+folk.app|folks@folk.app
+getdex.com|contact@getdex.com
+monicahq.com|— none
+clay.com|support@clay.com, press@clay.com
+apollo.io|press@apollo.io
+meesho.com|legalsupport@meesho.com
+mamaearth.in|support@mamaearth.in
+boat-lifestyle.com|info@imaginemarketingindia.com, careers@imaginemarketingindia.com
+in.sugarcosmetics.com|hello@sugarcosmetics.com
+mcaffeine.com|woot@mcaffeine.com
+beminimalist.co|help@beminimalist.co, query@beminimalist.co, gaurav.singh@beminimalist.co, gifting@beminimalist.co
+wowskinscience.com|— none
+plumgoodness.com|hello@plumgoodness.com
+pilgrimbeauty.com|— none
+dotandkey.com|care@dotandkey.com
+thedermaco.com|support@thedermaco.com, care@thedermaco.com
+reequil.com|care@reequil.com, help@reequil.com
+foxtale.in|— none
+prolixr.com|— none
+juicychemistry.com|sales@juicychemistry.com
+bellavitaorganic.com|shop@bellavitaorganic.com
+beardo.in|support@beardo.in
+manmatters.com|support@manmatters.com
+vedix.com|support@vedix.com
+traya.health|customercare@traya.health
+bombayshavingcompany.com|— none
+themancompany.com|care@themancompany.com
+ustraa.com|help@ustraa.com, sainik@ustraa.com
+skinkraft.com|support@skinkraft.com
+cureskin.com|hello@cureskin.com, pr@cureskin.com
+wellbeingnutrition.com|care@wellbeingnutrition.com, escalations@wellbeingnutrition.com
+oziva.in|community@oziva.in
+nykaafashion.com|support@nykaafashion.com
+bewakoof.com|care@bewakoof.com, careers@bewakoof.com
+thesouledstore.com|— none
+snitch.co.in|no-reply-order@snitch.co.in
+pepperfry.com|cs@pepperfry.com
+urbanladder.com|hello@urbanladder.com, sourcing-enquiries@urbanladder.com
+wakefit.co|— none
+sleepycat.in|no.reply@sleepycat.in, info@sleepycat.in
+sundayrest.com|hello@sundayrest.com
+emma-sleep.in|support@emma-sleep.in
+duroflex.com|— none
+nestasia.in|info@nestasia.in
+woodenstreet.com|support@woodenstreet.com, care@woodenstreet.com
+gonoise.com|partnerships@nexxbase.com
+fire-boltt.com|— none
+hammerlifestyle.com|— none
+zebronics.com|support@zebronics.com
+portronics.com|info@stagheaddesigns.com
+antesports.com|sales@antesports.com, support@antesports.com
+redgear.in|— none
+cosmicbyte.in|— none
+ambraneindia.com|care@ambraneindia.com
+syska.in|— none
+atomberg.com|support@atomberg.com, contact@atomberg.com
+pigeonlife.com|— none
+prestigesmarthome.com|info@prestigesystems.in
+havells.com|customercare@havells.com, grievance.officer@havells.com, marketing@havells.com, international@havells.com, investors@havells.com
+realme.com|— none
+oneplus.in|onepluscare@oneplus.com, security@oneplus.com
+poco.in|— none
+iqoo.com|— none
+lavamobiles.com|— none
+micromaxinfo.com|— none
+itel-mobile.in|— none
+tecno-mobile.com|— none
+infinixmobiles.in|— none
+vutvs.com|contact@vutvs.com
+thomsontelevisions.com|— none
+kodaktv.in|— none
+skyworth.in|— none
+hisense.co.in|— none
+tcl.com|indiasupport@tcl.com
+acer.com|— none
+hp.com|— none
+dell.com|— none
+lenovo.com|orderstatus1@lenovo.com
+asus.com|— none
+in.msi.com|— none
+practo.com|support@practo.com
+mfine.co|support@mfine.co
+1mg.com|— none
+pharmeasy.in|care@pharmeasy.in
+netmeds.com|cs@netmeds.com, doctors@netmeds.com, cs_diagnostics@netmeds.com
+apollo247.com|helpdesk@apollo247.com, grievance@apollo247.com
+portea.com|bookings@portea.com, customersupport@portea.com
+healthians.com|cs@healthians.com, corporatesales@healthians.com, media@healthians.com, partners@healthians.com, marketing@healthians.com, careers@healthians.com, tech@healthians.com
+redcliffelabs.com|care@redcliffelabs.com
+cure.fit|hello@cult.fit
+healthifyme.com|support@healthifyme.com
+fitternity.com|— none
+cult.fit|hello@cult.fit
+niramai.com|contact@niramai.com
+tricog.com|sales@tricog.com, marketing@tricog.com, careers@tricog.com, support@tricog.com
+qure.ai|partner@qure.ai, careers@qure.ai
+sigtuple.com|info@sigtuple.com, demo@sigtuple.com
+darwinbox.com|contact@darwinbox.com
+keka.com|isales@keka.com, support@keka.com, marketing@keka.com
+greythr.com|sales.me@greytip.com, info@greytip.com
+hrone.cloud|connect@hrone.cloud, hr-one_support@hrone.cloud
+sumhr.com|help@sumhr.com, humans@sumhr.com
+kredily.com|hello@kredily.com, support@kredily.com
+pockethrms.com|sales@pockethrms.com, support@pockethrms.com
+hrmantra.com|sales@hrmantra.com
+zimyo.com|support@zimyo.com
+leena.ai|support@leena.ai
+workindia.in|help@workindia.in, issues@workindia.in
+apna.co|support@apna.co, apna_escalations@apna.co
+internshala.com|support@internshala.com, complaints@internshala.com, university.relations@internshala.com, pr@internshala.com
+unstop.com|— none
+cutshort.io|cs@cutshort.io
+iimjobs.com|hello@iimjobs.com, info@iimjobs.com
+interviewmocha.com|contact@imocha.io
+mettl.com|contact@mettl.com
+hackerearth.com|support@hackerearth.com, icc@hackerearth.com
+karat.com|press@karat.com, partner@karat.com, support@karat.com
+betterplace.co.in|contact@betterplace.co.in, hello@betterplace.co.in
+unacademy.com|press@unacademy.com, help@unacademy.com
+vedantu.com|vcare@vedantu.com
+pw.live|support@pw.live
+toppr.com|— none
+embibe.com|— none
+doubtnut.com|wecare@allen.in
+extramarks.com|customersupport@extramarks.com, info@extramarks.com, live@extramarks.com
+eruditus.com|info@emeritus.org, programsupport@emeritus.org, media@emeritus.org, partnerships@emeritus.org
+upgrad.com|customercare@upgrad.com, enterprise@upgrad.com, grievance.redressal@upgrad.com
+simplilearn.com|customersuccess@simplilearn.net
+mygreatlearning.com|info@mygreatlearning.com, press@mygreatlearning.com
+masaischool.com|admissions@masaischool.com
+scaler.com|info@scaler.com, hello@scaler.com
+codingninjas.com|contact@codingninjas.com
+newtonschool.co|support@newtonschool.co
+springboard.com|— none
+learnbay.co|contacts@learnbay.co
+analyticsvidhya.com|— none
+datacamp.com|— none
+herovired.com|hello@herovired.com, enterprise@herovired.com, press@herovired.com
+talentedge.com|— none
+niit.com|— none
+oliveboard.in|— none
+testbook.com|support@testbook.com
+adda247.com|support@adda247.com
+edurev.in|support@edurev.in
+toprankers.com|support@toprankers.com
+vskills.in|— none
+iide.co|social@iide.co, admissions@iide.co, careers@iide.co, marketing@iide.co, placements@iide.co
+digitalvidya.com|business@digitalvidya.com, info@digitalvidya.com
+wscubetech.com|jaipur@wscubetech.com, support@wscubetech.com, learner@wscubetech.com
+henryharvin.com|— none
+coursera.org|— none
+edx.org|— none
+udemy.com|— none
+skillshare.com|help@skillshare.com, legal@skillshare.com, teach@skillshare.com, teamhelp@skillshare.com
+udacity.com|media@udacity.com
+pluralsight.com|— none
+linkedin.com|— none
+degreed.com|— none
+cornerstoneondemand.com|— none
+talentlms.com|— none
+docebo.com|— none
+moodle.org|— none
+instructure.com|— none
+blackboard.com|— none
+powerschool.com|— none
+classdojo.com|security@classdojo.com
+pratilipi.com|contact@pratilipi.com
+storymirror.com|admin@storymirror.com, marketing@storymirror.com
+readjuggernaut.com|— none
+razorpay.com|— none
+cashfree.com|care@cashfree.com
+payu.in|— none
+ccavenue.com|contact@ccavenue.com
+instamojo.com|support@instamojo.com, jobs@instamojo.com, press@instamojo.com
+business.paytm.com|onboarding.support@paytmpayments.com
+billdesk.com|— none
+juspay.in|biz@juspay.in, media@juspay.in, bizpayment@juspay.in
+setu.co|sales@setu.co
+decentro.tech|— none
+finvu.in|— none
+perfios.com|info@perfios.com
+signzy.com|connect@signzy.com
+idfy.com|— none
+bureau.id|sales@bureau.id, jon@bureau.id
+digio.in|support@digio.in
+leegality.com|enquiry@leegality.com, support@leegality.com
+signdesk.com|— none
+vyaparapp.in|— none
+margcompusoft.com|— none
+bizanalyst.in|help@siliconveins.com
+khatabook.com|feedback@khatabook.com
+okcredit.in|contact@okcredit.in, help@okcredit.in
+enkash.com|support@enkash.com, careers@enkash.com, marketing@enkash.com
+happay.com|sales@happay.com, help@happay.com
+zaggle.in|care@zaggle.in, team@zaggle.in
+fi.money|hello@fi.money, press@fi.money
+jupiter.money|community@jupiter.money, edge-csb-support@jupiter.money, support@jupiter.money, contact@jupiter.money
+niyo.co|info@niyo.co
+freo.money|— none
+sliceit.com|— none
+uni.cards|— none
+getonecard.app|— none
+kreditbee.in|— none
+moneytap.com|hello@moneytap.com
+cashe.co.in|support@cashe.co.in
+lazypay.in|wecare@lazypay.in
+zestmoney.in|help@zestmoney.in
+kissht.com|care@kissht.com, mediaenquiries@kissht.com
+stashfin.com|grievance.officer@stashfin.com
+loantap.in|cs.fintech@loantap.in
+capitalfloat.com|— none
+lendingkart.com|care@lendingkart.com, grievance.redressal@lendingkart.com
+flexiloans.com|support@flexiloans.com, connect@flexiloans.com, partnerships@flexiloans.com, media@flexiloans.com
+neogrowth.in|— none
+indifi.com|cs@indifi.com, saas@indifi.com, sales@indifi.com, grievances@indifi.com
+rupifi.com|contact@rupifi.com
+cred.club|— none
+banksathi.com|customer@banksathi.com
+paisabazaar.com|care@paisabazaar.com, creditreport@paisabazaar.com, mutualfunds@paisabazaar.com, gold@paisabazaar.com
+policybazaar.com|care@policybazaar.com
+coverfox.com|help@coverfox.com, careers@coverfox.com
+acko.com|hello@acko.com, health@acko.com, travelinsurance@acko.com, support.life@acko.com
+godigit.com|hello@godigit.com, grievance@godigit.com, joinus@godigit.com, mediarelations@godigit.com
+turtlemint.com|support@turtlemint.com, careers@turtlemint.com, pospsupport@turtlemint.com
+insurancedekho.com|support@insurancedekho.com
+loophealth.com|info@loophealth.com, joinus@loophealth.com
+plumhq.com|media@plumhq.com, sales@plumhq.com, connect@plumhq.com
+onsurity.com|— none
+novabenefits.com|support@nova-benefits.com, support@getnovaapp.com
+navi.com|— none
+kuvera.in|— none
+groww.in|support@groww.in
+zerodha.com|— none
+upstox.com|support@upstox.com, compliance@upstox.com, complaints@upstox.com
+angelone.in|legal@angelone.in, support@angelone.in, escalation@angelone.in, compliance@angelone.in
+5paisa.com|support@5paisa.com, dp.grievance@5paisa.com, ciso@5paisa.com
+miraeassetcm.com|— none
+fisdom.com|compliance@fisdom.com, grievances@fisdom.com
+smallcase.com|support@smallcase.com, work@smallcase.com, press@smallcase.com
+dhan.co|help@dhan.co, grievance@dhan.co, complianceofficer@dhan.co
+fyers.in|support@fyers.in, partner-support@fyers.in, api-support@fyers.in, grievance@fyers.in
+samco.in|support@samco.in, samcopartners@samco.in, info@samco.in
+paytmmoney.com|exg.support@paytmmoney.com, feedback@paytmmoney.com
+etmoney.com|po@etmoney.com, careers@etmoney.com
+coin.zerodha.com|— none
+indmoney.com|— none
+wealthy.in|partner.support@wealthy.in, customer.support@wealthy.in, compliance@wealthy.in
+goalwise.com|— none
+scripbox.com|help@scripbox.com
+nobroker.in|assist@nobroker.in
+housing.com|support@housing.com
+magicbricks.com|— none
+99acres.com|services@99acres.com, feedback@99acres.com, legal@99acres.com
+squareyards.com|customercare@squareyards.com, connect@squareyards.com, careers@squareyards.com
+proptiger.com|customer.service@proptiger.com
+nestaway.com|help@nestaway.com
+stanzaliving.com|operations@stanzaliving.com
+zolostays.com|info@zolostays.com
+oyorooms.com|guestsupport.na@oyorooms.com
+treebo.com|hello@treebohotels.com
+fabhotels.com|support@fabhotels.com, bookings@fabhotels.com, feedback@fabhotels.com, partners@fabhotels.com, travelagents@fabhotels.com, jobs@fabhotels.com
+colive.com|— none
+coho.co.in|— none
+settl.in|hello@settlin.in
+apartmentadda.com|sales@adda.io
+mygate.com|contact@mygate.com
+nobrokerhood.com|— none
+godrejproperties.com|— none
+prestigeconstructions.com|investors@prestigeconstructions.com
+sobha.com|marketing@sobha.com, cpd.sales@sobha.com
+brigadegroup.com|here4you@brigadegroup.com, pr@brigadegroup.com, salesenquiry@brigadegroup.com
+mahindralifespaces.com|info@mahindralifespaces.com
+lntrealty.com|homes@larsentoubro.com
+puravankara.com|sales@puravankara.com, crm@puravankara.com
+koltepatil.com|sales@koltepatil.com, service@koltepatil.com
+hiranandani.com|sales@hiranandani.net
+lodhagroup.in|service.support@lodhagroup.com, careers@lodhagroup.com
+dlf.in|info@dlf.in
+emaar.com|— none
+m3mindia.com|media@m3mindia.com, sales@m3mindia.com, feedback@m3mindia.com
+signatureglobal.in|customercare@signatureglobal.in, info@signatureglobal.in, feedback@signatureglobal.in, media@signatureglobal.in
+shapoorjipallonji.com|— none
+embassygroup.in|— none
+omaxe.com|mail@omaxe.com
+gaursgroup.com|— none
+rahejadev.com|— none
+eldeco.in|— none
+supertechindia.com|— none
+pyramidinfratech.com|— none
+atshomekraft.com|— none
+tatahousing.in|tatacare@tatahousing.com
+oberoirealty.com|ir@oberoirealty.com, bd@oberoirealty.com
+housr.in|customersupport@housr.in, hr@housr.in
+goodspace.co|— none
+stayabode.com|— none
+your-space.in|info@your-space.in
+rentofly.com|info@rentofly.com
+furlenco.com|— none
+rentomojo.com|jo@rentomojo.com
+olaelectric.com|ir@olaelectric.com, support@olaelectric.com
+atherenergy.com|customercare@atherenergy.com
+heroelectric.in|— none
+bounce.bike|— none
+yulu.bike|— none
+rapido.bike|— none
+pureev.in|— none
+okinawa.co.in|— none
+revoltmotors.com|contact@revoltmotors.com
+torkmotors.com|— none
+simpleenergy.in|care@simpleenergy.in
+river.in|— none
+ultraviolette.com|support@ultraviolette.com, info@ultraviolette.com, careers@ultraviolette.com
+kabiramobility.com|info@kabiramobility.com, helpdesk@kabiramobility.com
+greaveselectric.com|— none
+amperevehicles.com|— none
+kineticgreen.in|— none
+matter.in|— none
+lalamove.com|— none
+porter.in|help@theporter.in
+shiprocket.in|— none
+delhivery.com|— none
+ecomexpress.in|— none
+shadowfax.in|hello@shadowfax.in, careers@shadowfax.in, media@shadowfax.in
+xpressbees.com|— none
+dunzo.com|— none
+zeptonow.com|support@zeptonow.com
+blinkit.com|— none
+swiggy.com|— none
+bigbasket.com|— none
+milkbasket.com|— none
+countrydelight.in|— none
+licious.in|— none
+freshtohome.com|customercare@freshtohome.com, careers@freshtohome.com, media@freshtohome.com
+meatigo.com|— none
+ninjacart.in|— none
+waycoolfoods.com|— none
+dehaat.com|— none
+jaikisan.co|— none
+agrostar.in|— none
+bighaat.com|— none
+cropin.com|— none
+fasal.co|connect@wolkus.com
+satsure.co|info@satsure.co, eosolutions@satsure.co
+stellapps.com|grievance.committee@stellapps.com
+animall.in|— none
+aquaconnect.blue|gr.support@aquaconnect.blue, info@aquaconnect.blue
+intellolabs.com|hello@intellolabs.com, contact@intellolabs.com
+farmeasy.co|admin@farmeasy.co
+kisaantrade.com|info@kisaantrade.com
+zomato.com|— none
+dotpe.in|— none
+petpooja.com|inquiry@petpooja.com, getposs@petpooja.com
+gofrugal.com|— none
+posist.com|support@posist.com
+restroworks.com|info@restroworks.com
+inresto.com|— none
+torqus.com|— none
+urbanpiper.com|sales@urbanpiper.com, support@urbanpiper.com, partnerships@urbanpiper.com
+eatclub.in|hello@eatclub.in, corporatesales@eatclub.in, partnerships@eatclub.in
+rebelfoods.com|info@rebelfoods.com, careers@rebelfoods.com, franchising@rebelfoods.com
+box8.in|talk@box8.in, corporatesales@box8.in, partnership@box8.in, jobs@box8.in
+biryanibykilo.com|contact@biryanibykilo.com, refund@biryanibykilo.com
+behrouzbiryani.com|help@behrouzbiryani.com
+freshmenu.com|— none
+epigamia.com|— none
+sleepyowl.co|help@sleepyowl.co, business@sleepyowl.co, marketing@sleepyowl.co
+bluetokaicoffee.com|getcoffee@bluetokaicoffee.com
+ragecoffee.in|— none
+vahdam.com|help@vahdam.com
+teabox.com|— none
+chaayos.com|bazaar@chaayos.com, letstalk@chaayos.com
+nykaa.com|— none
+amul.com|— none
+motherdairy.com|— none
+heritagefoods.in|hfl@heritagefoods.in, customercare@heritagefoods.in
+hatsun.com|— none
+paragmilkfoods.com|— none
+marico.com|— none
+dabur.com|— none
+emamigroup.com|— none
+himalayawellness.com|— none
+patanjaliayurved.net|— none
+baidyanath.com|cc@baidyanath.com
+keralaayurveda.biz|— none
+forestessentialsindia.com|— none
+kamaayurveda.com|— none
+thegoodchai.in|— none
+bikaji.com|online@bikaji.com, care@bikaji.com
+haldiramsdelhincr.com|— none
+parleproducts.com|— none
+britannia.co.in|feedback@britindia.com, media@britindia.com
+itcportal.com|— none
+nestle.in|— none
+thirdwavecoffee.in|orders@thirdwavecoffee.in
+sevenbeansco.com|— none
+nimblepos.com|— none
+menukart.in|— none
+zappfresh.com|support@zappfresh.com, info@zappfresh.com
+dream11.com|— none
+mpl.live|— none
+winzogames.com|— none
+gamezop.com|helpdesk@gamezop.com
+zupee.com|care@zupee.com
+my11circle.com|— none
+rummycircle.com|support@rummycircle.com
+adda52.com|info@adda52.com
+pokerbaazi.com|info@pokerbaazi.com
+a23games.com|— none
+jungleegames.com|— none
+nazara.com|— none
+nodwingaming.com|— none
+skyesports.gg|— none
+rooter.gg|support@rooter.io
+loco.gg|— none
+hungama.com|— none
+mxplayer.in|support@mxplayer.in
+sonyliv.com|livsupport@sonyliv.com, help@sonyliv.com
+zee5.com|support.in@zee5.com
+voot.com|— none
+altbalaji.com|— none
+erosnow.com|support@erosnow.com
+jiocinema.com|— none
+mojapp.in|— none
+share.myjosh.in|yourfriends@myjosh.in
+chingari.io|— none
+sharechat.com|grievance@sharechat.co
+kooapp.com|— none
+dailyhunt.in|— none
+inshorts.com|— none
+matrubharti.com|info@matrubharti.com
+lokal.app|— none
+publicapp.io|— none
+newspoint.com|help@newspoint.com
+gameskraft.com|grievance.officer@gameskraft.com
+spartanpoker.com|— none
+pocketfm.in|— none
+kukufm.com|support@kukufm.com
+gaana.com|— none
+jiosaavn.com|— none
+wynk.in|— none
+resso.com|— none
+stageott.com|— none
+hoichoi.tv|— none
+planetmarathi.com|— none
+in.cinepolis.com|— none
+in.bookmyshow.com|— none
+postman.com|info@postman.com, info-jp@postman.com
+hasura.io|— none
+appsmith.com|sales@appsmith.com
+budibase.com|— none
+tooljet.com|hello@tooljet.com, support@tooljet.com
+dronahq.com|inquiries@dronahq.com
+superblocks.com|contact@superblocks.com
+retool.com|support@retool.com
+jetadmin.io|— none
+supabase.com|legal@supabase.com, privacy@supabase.com, abuse@supabase.com, security@supabase.com, help-events@supabase.com
+planetscale.com|— none
+railway.app|team@railway.com
+render.com|support@render.com
+fly.io|— none
+vercel.com|— none
+netlify.com|fraud@netlify.com
+cloudflare.com|— none
+gumlet.com|support@gumlet.com
+cloudinary.com|support@cloudinary.com, hr.operations@cloudinary.com
+imagekit.io|support@imagekit.io
+uploadcare.com|help@uploadcare.com, hello@uploadcare.com
+filestack.com|support@filestack.com
+transloadit.com|support@transloadit.com, hello@transloadit.com
+bytescale.com|hello@bytescale.com
+sirv.com|sales@sirv.com, support@sirv.com
+quickheal.co.in|estore@quickheal.co.in, renew@quickheal.co.in, support@quickheal.co.in
+k7computing.com|— none
+seqrite.com|support@seqrite.com, sales_dubai@seqrite.com
+escanav.com|sales@escanav.com, support@escanav.com
+tatacommunications.com|analystrelations@tatacommunications.com
+sify.com|— none
+wipro.com|— none
+hcltech.com|— none
+infosys.com|— none
+tcs.com|— none
+techmahindra.com|investor.relations@techmahindra.com, ruchie.khanna@techmahindra.com
+mphasis.com|— none

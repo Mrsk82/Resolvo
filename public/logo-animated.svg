@@ -1,0 +1,21 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Resolvo">
+  <defs>
+    <linearGradient id="rvNodeAnim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <style>
+      @keyframes rvDraw { from { stroke-dashoffset: 40; opacity:.2 } to { stroke-dashoffset: 0; opacity:1 } }
+      @keyframes rvPulse { 0%,100% { transform: scale(1); opacity:1 } 50% { transform: scale(1.18); opacity:.85 } }
+      .rv-l { stroke-dasharray: 40; animation: rvDraw 2.8s ease-in-out infinite; }
+      .rv-l2 { animation-delay: .25s; }
+      .rv-l3 { animation-delay: .5s; }
+      .rv-node { transform-origin: 46px 32px; animation: rvPulse 2.8s ease-in-out infinite; }
+    </style>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="#0d1220"/>
+  <path class="rv-l" d="M14 22 H34" stroke="#10B981" stroke-width="3.5" stroke-linecap="round"/>
+  <path class="rv-l rv-l2" d="M14 32 H40" stroke="#34D0B0" stroke-width="3.5" stroke-linecap="round"/>
+  <path class="rv-l rv-l3" d="M14 42 H34" stroke="#6366F1" stroke-width="3.5" stroke-linecap="round"/>
+  <circle class="rv-node" cx="46" cy="32" r="7" fill="url(#rvNodeAnim)"/>
+</svg>
