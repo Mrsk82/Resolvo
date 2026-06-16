@@ -5583,6 +5583,56 @@ async function sendNurtureEmails(){
   writeOwner(owner);
 }
 
+// ── PROSPECT LEAD DRIP ────────────────────────────────────────────────────
+// Follow-up sequence for website demo leads (owner.prospects) who haven't signed up yet.
+const PROSPECT_DRIP=[
+  {day:2,subject:'Resolvo replaces 5 tools — here\'s the breakdown',
+   body:(n,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Thanks again for checking out Resolvo. Quick context on why teams switch to us:</p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:12px 0;">${[['Jira / Linear','Issue tracking, kanban, sprints'],['Freshdesk / Zendesk','Email tickets, SLA, CSAT'],['Intercom','Customer portal, roadmap voting'],['PagerDuty','On-call scheduling, escalation'],['A KB tool','Knowledge base + AI articles']].map(([t,d])=>`<div style="display:flex;gap:10px;margin-bottom:8px;"><span style="color:#10B981;font-weight:700;">✓</span><div><strong style="font-size:13px;">${t}</strong> <span style="font-size:12px;color:#6b7280;">— ${d}</span></div></div>`).join('')}</div><p style="font-size:14px;">All in one platform, one login, no per-agent fees.</p>${nurtureBtn('Start free →',BASE_URL+'/signup')}`,unsub)},
+  {day:5,subject:'Free access for early teams — no card needed',
+   body:(n,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>We're giving full free access to a handful of early teams in exchange for honest feedback — no credit card, no expiry.</p><p>If you handle any customer emails or track bugs today, Resolvo will save your team hours every week.</p>${nurtureBtn('Claim free access →',BASE_URL+'/signup')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Reply to this email and I'll set your workspace up personally.</p>`,unsub)},
+  {day:9,subject:'Want me to set up your workspace?',
+   body:(n,unsub)=>nurtureShell(`<p style="font-size:16px;font-weight:700;color:#111827;">Hi ${n},</p><p>Last note from me — I don't want to crowd your inbox.</p><p>If you're still curious about Resolvo, I'm happy to set up your workspace and connect your support inbox for you. Takes about 10 minutes on a quick call.</p>${nurtureBtn('Book a 10-min setup →',BASE_URL+'/demo')}<p style="margin-top:16px;font-size:13px;color:#6b7280;">Either way, thanks for your interest — the door's always open.<br>— Asif, Resolvo</p>`,unsub)}
+];
+async function sendProspectDrip(){
+  const owner=readOwner();
+  owner.prospectDripSent=owner.prospectDripSent||{};
+  owner.prospectUnsub=owner.prospectUnsub||{};
+  const now=Date.now();
+  const brandEmails=new Set((owner.brands||[]).map(b=>(b.majorAdminEmail||'').toLowerCase()).filter(Boolean));
+  for(const p of (owner.prospects||[])){
+    try{
+      const email=(p.email||'').toLowerCase();
+      if(!email||p.status!=='lead')continue;          // only un-converted leads
+      if(brandEmails.has(email))continue;              // already signed up → stop
+      if(owner.prospectUnsub[email])continue;          // unsubscribed
+      const created=new Date(p.createdAt||now);
+      const daysSince=Math.floor((now-created.getTime())/86400000);
+      const name=(p.name||email.split('@')[0]).split(' ')[0];
+      const unsub=`${BASE_URL}/api/lead/unsubscribe?email=${encodeURIComponent(p.email)}`;
+      for(const d of PROSPECT_DRIP){
+        if(daysSince!==d.day)continue;
+        const sentKey=`lead_${p.id}_day${d.day}`;
+        if(owner.prospectDripSent[sentKey])continue;
+        await sendEmail(p.email,d.subject,d.body(name,unsub),d.subject).catch(()=>{});
+        owner.prospectDripSent[sentKey]=new Date().toISOString();
+        console.log(`[LeadDrip] Day ${d.day} → ${p.email}`);
+      }
+    }catch(e){console.error('[LeadDrip] Error for',p.email,e.message);}
+  }
+  writeOwner(owner);
+}
+// Lead drip unsubscribe
+app.get('/api/lead/unsubscribe',(req,res)=>{
+  const{email}=req.query;
+  if(!email)return res.send('<p>Invalid unsubscribe link.</p>');
+  const owner=readOwner();
+  owner.prospectUnsub=owner.prospectUnsub||{};
+  owner.prospectUnsub[(email||'').toLowerCase()]=true;
+  writeOwner(owner);
+  console.log(`[LeadDrip] Unsubscribed ${email}`);
+  res.send(`<!DOCTYPE html><html><body style="font-family:Arial;text-align:center;padding:60px 20px;background:#f0f2f5;"><div style="max-width:400px;margin:0 auto;background:#fff;border-radius:14px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="font-size:40px;margin-bottom:16px;">✅</div><h2 style="color:#111827;margin:0 0 12px;">Unsubscribed</h2><p style="color:#6b7280;font-size:14px;">You won't receive any more follow-up emails from Resolvo.</p></div></body></html>`);
+});
+
 // Unsubscribe endpoint
 app.get('/api/nurture/unsubscribe',(req,res)=>{
   const{slug,email}=req.query;
@@ -5648,6 +5698,7 @@ function runBackgroundJobs(){
   cron.schedule('0 10 * * *',async()=>{
     console.log('[Nurture] Checking nurture emails...');
     await sendNurtureEmails().catch(e=>console.error('[Nurture] Error:',e.message));
+    await sendProspectDrip().catch(e=>console.error('[LeadDrip] Error:',e.message));
   });
 
   // Follow-up nudges — check daily at 8am
