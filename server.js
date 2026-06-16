@@ -2075,13 +2075,21 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
       if(!ticket)return{success:false,error:'Not found'};
       const apiKey=getBrandGeminiKey(db);
-      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
       const thread=(ticket.thread||[]).slice(0,5).map(m=>`${m.type==='incoming'?'Customer':'Agent'}: ${(m.body||'').substring(0,300)}`).join('\n');
-      const prompt=`You are a helpful customer support agent. Read this ticket thread and generate 3 different reply options.\n\nSubject: ${ticket.subject}\nThread:\n${thread||'(No messages yet)'}\n\nRespond with ONLY this JSON (no markdown):\n{"drafts":[{"label":"Quick Ack","text":"..."},{"label":"Detailed","text":"..."},{"label":"Empathetic","text":"..."}]}`;
+      const prompt=`You are a customer support agent. Write a professional reply to this support ticket.\nSubject: ${ticket.subject}\nThread:\n${thread||'(No messages yet)'}\n\nReply with ONLY this JSON. Write an actual helpful reply in the text field:\n{"drafts":[{"label":"Reply","text":"Dear customer, thank you for reaching out..."}]}`;
       try{
-        const raw=await callGemini(apiKey,prompt,15000);
-        const parsed=parseGeminiJSON(raw);
-        return{success:true,drafts:parsed.drafts||[]};
+        const raw=await callGemini(apiKey,prompt,20000);
+        let parsed;try{
+          // Fix literal newlines inside JSON string values before parsing
+          const fixedRaw=raw.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g,(m)=>m.replace(/\n/g,'\\n').replace(/\r/g,''));
+          parsed=parseGeminiJSON(fixedRaw);
+        }catch(pe){
+          // Last resort: extract text value with regex
+          const tm=raw.match(/"text"\s*:\s*"([\s\S]{10,800}?)(?=",|"\s*\})/);
+          if(tm){const txt=tm[1].replace(/\\n/g,'\n').replace(/\\u([0-9a-fA-F]{4})/g,(_,h)=>String.fromCharCode(parseInt(h,16)));parsed={drafts:[{label:'Reply',text:txt}]};}
+        }
+        if(!parsed||!parsed.drafts||!parsed.drafts.length)return{success:false,error:'AI could not generate a reply. Please try again.'};
+        return{success:true,drafts:parsed.drafts};
       }catch(e){return{success:false,error:e.message};}
     },
 
@@ -4128,7 +4136,7 @@ app.post('/api/call',async(req,res)=>{
 
   const ah=aH[fn];if(ah){try{return res.json(await ah(...args));}catch(e){return res.json({success:false,error:e.message});}}
   const sh=sH[fn];if(!sh)return res.json({success:false,error:`Unknown function: ${fn}`});
-  try{res.json(sh(...args));}catch(e){res.json({success:false,error:e.message});}
+  try{const sr=sh(...args);res.json(sr&&typeof sr.then==="function"?await sr:sr);}catch(e){res.json({success:false,error:e.message});}
 });
 
 app.get('/api/backup',(req,res)=>{
@@ -4343,6 +4351,11 @@ app.post('/api/demo-request',async(req,res)=>{
   const{name,email,company,message}=req.body;
   if(!name||!email)return res.json({success:false,error:'Name and email required.'});
   const owner=readOwner();
+  owner.prospects=owner.prospects||[];
+  const ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim();
+  const existing=owner.prospects.find(p=>(p.email||'').toLowerCase()===email.toLowerCase());
+  if(existing){existing.updatedAt=new Date().toISOString();}else{owner.prospects.push({id:require('uuid').v4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),lastContact:null});}
+  writeOwner(owner);
   await sendEmail(owner.email,`Demo Request: ${name} from ${company||'unknown'}`,`<p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Company:</strong> ${company||'—'}<br><strong>Message:</strong> ${message||'—'}</p><p><a href="mailto:${email}">Reply to ${name}</a></p>`,`Demo request from ${name} (${email}) — ${company||''}`).catch(()=>{});
   // Auto-reply to prospect
   await sendEmail(email,`Thanks for your interest in Resolvo!`,`<div style="font-family:Arial;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#10B981;">Hi ${name}! 👋</h2><p>Thank you for your interest in Resolvo. We've received your request and will be in touch within 24 hours.</p><p>In the meantime, feel free to start a free trial:</p><a href="${BASE_URL}" style="display:inline-block;padding:12px 32px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Start Free Trial →</a><p style="margin-top:20px;color:#6b7280;font-size:13px;">— Team Resolvo<br><a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p></div>`,`Hi ${name}, we received your demo request and will be in touch shortly.`).catch(()=>{});
@@ -5091,6 +5104,7 @@ async function pollBrandInbox(slug) {
 
   const Imap = require('imap');
   const { simpleParser } = require('mailparser');
+  const decodeMimeWords=(str)=>{if(!str||str.indexOf('=?')===-1)return str;str=str.replace(/(\?=)\s+(=\?)/g,'$1$2');return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g,(m,charset,enc,text)=>{try{let bytes;if(enc.toUpperCase()==='B'){bytes=Buffer.from(text,'base64');}else{text=text.replace(/_/g,' ').replace(/=([0-9A-Fa-f]{2})/g,(x,h)=>String.fromCharCode(parseInt(h,16)));bytes=Buffer.from(text,'binary');}let cs=charset.toLowerCase();if(cs==='ansi_x3.4-1968'||cs==='us-ascii')cs='ascii';try{return new TextDecoder(cs).decode(bytes);}catch(e){return bytes.toString('latin1');}}catch(e){return m;}});};
 
   return new Promise((resolve) => {
     const imap = new Imap({
@@ -5137,7 +5151,7 @@ async function pollBrandInbox(slug) {
                 const emailData = {
                   messageId: msgId,
                   inReplyTo: parsed.inReplyTo,
-                  subject: parsed.subject || '(No Subject)',
+                  subject: decodeMimeWords(parsed.subject) || '(No Subject)',
                   from: parsed.from?.value?.[0]?.address || '',
                   fromName: parsed.from?.value?.[0]?.name || '',
                   text: parsed.text || '',
@@ -6757,33 +6771,7 @@ setInterval(async()=>{
 },24*60*60*1000);
 
 // ── AI Feature Endpoints ──────────────────────────────────────────────────
-function aiRoute(path,fn){
-  app.post(path,async(req,res)=>{
-    const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
-    const bm=brandModule(su);
-    try{const result=await bm[fn](...Object.values(req.body));res.json(result);}
-    catch(e){res.json({success:false,error:e.message});}
-  });
-  app.get(path,async(req,res)=>{
-    const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
-    const bm=brandModule(su);
-    try{const result=await bm[fn](...Object.values(req.query));res.json(result);}
-    catch(e){res.json({success:false,error:e.message});}
-  });
-}
-app.post('/api/ai/query',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).processAIQuery(req.body.query,req.body.context);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/summarize',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).summarizeTicket(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/suggest-kb',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).suggestKBArticles(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/detect-duplicates',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).detectDuplicateTickets(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/classify',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).autoClassifyTicket(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/score-reply',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).scoreAgentReply(req.params.id,req.body.reply||'');res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/generate-kb',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generateKBArticle(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/tickets/:id/churn-risk',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const db=readBrandDB(su.brandSlug);const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);if(!ticket||!ticket.from)return res.json({success:false,error:'Ticket or email not found'});try{const r=await brandModule(su).explainChurnRisk(ticket.from);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/issues/:id/triage',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAITriage(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/issues/:id/post-incident',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generatePostIncidentReport(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/changelog',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).generateAIChangelog(req.body.fromDate,req.body.toDate);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.post('/api/ai/sprints/:id/plan',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAISprintPlan(req.params.id);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
-app.get('/api/ai/query-history',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});try{const r=await brandModule(su).getAIQueryHistory(50);res.json(r);}catch(e){res.json({success:false,error:e.message});}});
+// Legacy /api/ai/* per-feature routes removed (referenced undefined brandModule). AI runs via /api/call.
 app.get('/api/ai/status',(req,res)=>{
   try{
     const su=getSessionUser(req);
@@ -6892,7 +6880,7 @@ async function callGemini(apiKey,prompt,timeoutMs=20000){
     if(or.ok){const oj=await or.json();const ot=(oj.response||'').trim();if(ot)return ot;}
   }catch(e){/* Ollama unavailable, fall through to Gemini */}
   // Fall back to Gemini if key available
-  if(!apiKey)throw new Error('AI unavailable. Ollama is not running and no Gemini API key configured.');
+  if(!apiKey)throw new Error('AI unavailable — Ollama returned no response. Try again.');
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]}),signal:AbortSignal.timeout(timeoutMs)});
   if(!r.ok){const err=await r.text();throw new Error(`Gemini API error ${r.status}: ${err.substring(0,200)}`);}
   const json=await r.json();
@@ -6905,7 +6893,7 @@ function parseGeminiJSON(raw){
   const match=clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
   if(!match)throw new Error('No JSON found in AI response');
   try{return JSON.parse(match[0]);}catch(e){
-    // Try to extract bullets array directly if JSON is malformed
+    // Repair fallback: extract bullets/sentiment/priority from malformed JSON
     const bulletsMatch=match[0].match(/"bullets"\s*:\s*\[([^\]]*)\]/);
     if(bulletsMatch){
       try{

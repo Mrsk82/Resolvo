@@ -31,6 +31,9 @@ select option{background:#0D1220;}
 .msg{display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;text-align:center;}
 @media(max-width:700px){.wrap{grid-template-columns:1fr;gap:32px;}.left h1{font-size:28px;}}
 </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-27BVPWPG8N");</script>
 </head>
 <body>
 <div class="wrap">
@@ -82,7 +85,7 @@ async function sendDemo(){
   if(!name||!email){showMsg('Name and email are required.','#FF4757');return;}
   btn.textContent='Sending...';btn.disabled=true;
   const r=await fetch('/api/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,company,message:`Team size: ${size||'Not specified'}\n${message}`})}).then(x=>x.json()).catch(()=>({success:false,error:'Network error'}));
-  if(r.success){showMsg("✅ Request sent! We'll email you within 2 hours.",'#00FF94');btn.textContent='✓ Request sent!';}
+  if(r.success){showMsg("✅ Request sent! We'll email you within 2 hours.",'#00FF94');btn.textContent='✓ Request sent!';if(typeof gtag==='function')gtag('event','generate_lead',{event_category:'engagement',event_label:'demo_request'});}
   else{showMsg(r.error||'Error. Try emailing contact@resolvogroup.com','#FF4757');btn.textContent='Book my demo →';btn.disabled=false;}
 }
 function showMsg(text,color){const el=document.getElementById('d_msg_el');el.textContent=text;el.style.display='block';el.style.background=color==='#00FF94'?'rgba(0,255,148,.1)':'rgba(255,71,87,.1)';el.style.border='1px solid '+color+'33';el.style.color=color;}
