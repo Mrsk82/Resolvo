@@ -1,0 +1,28 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ogNode" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0d1220"/>
+  <rect x="0" y="0" width="1200" height="6" fill="url(#ogNode)"/>
+  <!-- logo mark -->
+  <g transform="translate(80,70)">
+    <rect x="0" y="0" width="84" height="84" rx="22" fill="#0d1220" stroke="#1e2740" stroke-width="2"/>
+    <path d="M18 30 H46" stroke="#10B981" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M18 42 H54" stroke="#34D0B0" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M18 54 H46" stroke="#6366F1" stroke-width="5.5" stroke-linecap="round"/>
+    <circle cx="62" cy="42" r="10" fill="url(#ogNode)"/>
+    <text x="104" y="58" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" fill="#ffffff" letter-spacing="-1">Resolvo</text>
+  </g>
+  <!-- headline -->
+  <text x="80" y="300" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="800" fill="#ffffff" letter-spacing="-2">All-in-one support &amp;</text>
+  <text x="80" y="378" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="800" fill="#ffffff" letter-spacing="-2">issue tracking for startups</text>
+  <!-- subline -->
+  <text x="80" y="450" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="400" fill="#9aa4b2">Replaces Freshdesk + Jira + Intercom — one login, no per-agent fees.</text>
+  <!-- pill -->
+  <rect x="80" y="500" width="340" height="56" rx="28" fill="#10B981"/>
+  <text x="106" y="537" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#06231a">🎁 Free for early teams</text>
+  <text x="900" y="560" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600" fill="#6b7686">resolvogroup.com</text>
+</svg>
