@@ -4290,9 +4290,10 @@ app.get('/csat',(req,res)=>{
   try{
     const dirs=fs.readdirSync(BRANDS_DIR_local);
     for(const slug of dirs){
-      const dbPath=path.join(BRANDS_DIR_local,slug,'db.json');
-      if(!fs.existsSync(dbPath))continue;
-      const db=JSON.parse(fs.readFileSync(dbPath,'utf8'));
+      // Use the live SQLite store (not the legacy db.json) so ratings persist where the app reads them
+      const hasDb=fs.existsSync(path.join(BRANDS_DIR_local,slug,'db.sqlite'))||fs.existsSync(path.join(BRANDS_DIR_local,slug,'db.json'));
+      if(!hasDb)continue;
+      let db;try{db=readBrandDB(slug);}catch(e){continue;}
       const surveys=db.csatSurveys||[];
       const idx=surveys.findIndex(s=>s.token===token);
       if(idx>=0){
@@ -4301,7 +4302,7 @@ app.get('/csat',(req,res)=>{
           surveys[idx].rating=parseInt(rating);
           surveys[idx].respondedAt=new Date().toISOString();
           db.csatSurveys=surveys;
-          fs.writeFileSync(dbPath,JSON.stringify(db,null,2));
+          writeBrandDB(slug,db);
         }
         const r=surveys[idx].rating;
         const emoji=r>=4?'😊':r>=3?'😐':'😕';
