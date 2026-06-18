@@ -14867,18 +14867,30 @@ const App = {
       var isNote = msg.type === 'note';
       var bg = isNote ? 'var(--medium-dim)' : isIncoming ? 'var(--bg-elevated)' : 'var(--accent-dim)';
       var borderColor = isNote ? 'var(--medium)' : isIncoming ? 'var(--border)' : 'var(--border-accent)';
-      var align = isIncoming ? 'flex-start' : 'flex-end';
+      var avatarBg = isNote ? 'var(--medium)' : isIncoming ? 'var(--text-muted)' : 'var(--accent)';
+      var name = msg.fromName || msg.from || 'System';
+      var initial = (name || '?').charAt(0).toUpperCase();
       var ago = App._relTime ? App._relTime(msg.timestamp) : (msg.timestamp||'').replace('T',' ').substring(0,16);
-      return `<div style="display:flex;justify-content:${align};margin-bottom:20px;">
-        <div style="max-width:72%;${isIncoming?'':'order:1'}">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;${isIncoming?'':'justify-content:flex-end'}">
-            ${isNote?'<span style="font-size:10px;font-weight:700;background:var(--medium-dim);color:var(--medium);padding:1px 8px;border-radius:8px;">INTERNAL NOTE</span>':''}
-            <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">${self._esc(msg.fromName||msg.from||'System')}</span>
-            <span style="font-size:11px;color:var(--text-dim);">${ago}</span>
-          </div>
-          <div style="background:${bg};border:1px solid ${borderColor};border-radius:${isIncoming?'4px 14px 14px 14px':'14px 4px 14px 14px'};padding:12px 16px;font-size:13px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;">${self._esc(msg.body||'')}</div>
-        </div>
-      </div>`;
+      // body: escape for safety, linkify URLs, keep line breaks; graceful empty state
+      var raw = (msg.body||'').trim();
+      var bodyHtml;
+      if (!raw) {
+        bodyHtml = '<span style="color:var(--text-dim);font-style:italic;">(No text content — likely an image-only email)</span>';
+      } else {
+        bodyHtml = self._esc(raw).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);">$1</a>');
+      }
+      var avatar = '<div style="width:32px;height:32px;border-radius:50%;background:'+avatarBg+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">'+initial+'</div>';
+      return '<div style="display:flex;gap:10px;margin-bottom:18px;'+(isIncoming?'':'flex-direction:row-reverse;')+'">'
+        + avatar
+        + '<div style="max-width:78%;">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;'+(isIncoming?'':'flex-direction:row-reverse;')+'">'
+            + (isNote?'<span style="font-size:10px;font-weight:700;background:var(--medium-dim);color:var(--medium);padding:1px 8px;border-radius:8px;">INTERNAL NOTE</span>':'')
+            + '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">'+self._esc(name)+'</span>'
+            + '<span style="font-size:11px;color:var(--text-dim);">'+ago+'</span>'
+          + '</div>'
+          + '<div style="background:'+bg+';border:1px solid '+borderColor+';border-radius:'+(isIncoming?'4px 14px 14px 14px':'14px 4px 14px 14px')+';padding:12px 16px;font-size:13px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;word-break:break-word;">'+bodyHtml+'</div>'
+        + '</div>'
+      + '</div>';
     }
 
     area.innerHTML = `
