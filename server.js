@@ -3699,11 +3699,37 @@ app.post('/api/call',async(req,res)=>{
     },
     // Summary stats for dashboard
     getSummaryStats:()=>{
-      const db=rDB();const now=new Date();
-      const issues=db.issues||[];const tickets=db.tickets||[];
-      const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-      const breached=open.filter(i=>now>new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000));
-      return{success:true,openIssues:open.length,criticalIssues:open.filter(i=>i.priority==='Critical').length,slaBreached:breached.length,newTickets:tickets.filter(t=>t.status==='new').length,totalTickets:tickets.length};
+      const db=rDB();const now=new Date();const nowMs=now.getTime();
+      const issues=db.issues||[];const tickets=db.tickets||[];const users=(db.users||[]).filter(u=>u.active);
+      // ── Issues (product) ──
+      const openIssuesArr=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
+      const breachedIssues=openIssuesArr.filter(i=>now>new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000));
+      const byPriority={Critical:0,High:0,Medium:0,Low:0};openIssuesArr.forEach(i=>{if(byPriority[i.priority]!=null)byPriority[i.priority]++;});
+      const byStatus={};openIssuesArr.forEach(i=>{byStatus[i.status]=(byStatus[i.status]||0)+1;});
+      const weekAgo=nowMs-7*86400000;
+      const resolvedThisWeek=issues.filter(i=>['Resolved','Closed','Release Required'].includes(i.status)&&i.resolvedDate&&new Date(i.resolvedDate).getTime()>=weekAgo).length;
+      // ── Tickets (support) ──
+      const slaH={Critical:4,High:8,Medium:24,Low:72};
+      const openTickets=tickets.filter(t=>!['resolved','closed'].includes(t.status));
+      const tDeadline=t=>new Date(t.createdDate).getTime()+(slaH[t.priority]||24)*3600000;
+      const ticketBreached=openTickets.filter(t=>nowMs>tDeadline(t)).length;
+      const ticketDue=openTickets.filter(t=>{const d=tDeadline(t);return nowMs<=d&&nowMs>d-4*3600000;}).length;
+      const dayStart=new Date(now.toISOString().split('T')[0]).getTime();
+      const resolvedToday=tickets.filter(t=>['resolved','closed'].includes(t.status)&&t.resolvedDate&&new Date(t.resolvedDate).getTime()>=dayStart).length;
+      const frt=tickets.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
+      const avgFirstResponseMin=frt.length?Math.round(frt.reduce((a,b)=>a+b,0)/frt.length):null;
+      const byChannel={};tickets.forEach(t=>{const c=t.source||'email';byChannel[c]=(byChannel[c]||0)+1;});
+      const volume=[];for(let i=13;i>=0;i--){const day=new Date(nowMs-i*86400000).toISOString().split('T')[0];volume.push(tickets.filter(t=>(t.createdDate||'').startsWith(day)).length);}
+      const surveys=db.csatSurveys||[];
+      const leaderboard=users.map(u=>{
+        const a=tickets.filter(t=>t.assignedTo===u.email);
+        const cs=surveys.filter(c=>(c.agentEmail===u.email||c.agent===u.email)&&c.rating!=null);
+        return{name:(u.name||u.email).split(' ')[0],email:u.email,resolved:a.filter(t=>['resolved','closed'].includes(t.status)).length,open:a.filter(t=>!['resolved','closed'].includes(t.status)).length,csat:cs.length?Math.round(cs.reduce((s,c)=>s+(c.rating||0),0)/cs.length*20):null};
+      }).filter(a=>a.resolved>0||a.open>0).sort((a,b)=>b.resolved-a.resolved).slice(0,5);
+      return{success:true,
+        openIssues:openIssuesArr.length,criticalIssues:byPriority.Critical,slaBreached:breachedIssues.length,newTickets:tickets.filter(t=>t.status==='new').length,totalTickets:tickets.length,
+        totalOpen:openIssuesArr.length,byPriority,byStatus,resolvedThisWeek,
+        support:{openTickets:openTickets.length,unassigned:openTickets.filter(t=>!t.assignedTo).length,slaBreached:ticketBreached,slaDue:ticketDue,onTime:Math.max(0,openTickets.length-ticketBreached),avgFirstResponseMin,resolvedToday,byChannel,volume,leaderboard}};
     },
     // Notifications (in-app)
     getNotifications:()=>{
