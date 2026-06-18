@@ -14428,12 +14428,13 @@ const App = {
     var area = document.getElementById('contentArea');
     area.innerHTML = App._skeleton(4,'table');
 
-    var [r, cfgR, allR] = await Promise.all([
-      self.callAsync('getTickets', { status: self._ticketFilter || 'all' }),
-      self.callAsync('getEmailTicketingConfig'),
-      // Always fetch all tickets for accurate sidebar counts
-      self.callAsync('getTickets', {status:'all'})
+    var statusFilter = self._ticketFilter || 'all';
+    var [r, cfgR] = await Promise.all([
+      self.callAsync('getTickets', { status: statusFilter }),
+      self.callAsync('getEmailTicketingConfig')
     ]);
+    // Reuse the same result for sidebar counts when already on 'all' — avoids a second full fetch
+    var allR = statusFilter === 'all' ? r : await self.callAsync('getTickets', {status:'all'});
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
     // Use all-tickets for sidebar badge counts
     var allTickets = (allR && allR.success) ? allR.tickets : r.tickets;
