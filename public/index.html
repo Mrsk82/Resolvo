@@ -19184,21 +19184,19 @@ const App = {
     }).join('');
 
     area.innerHTML =
-      '<div class="reports-tabs-container" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:10px 0;flex-wrap:wrap;">'+
+      '<div class="reports-tabs-container" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap;">'+
         '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📊 Report:</span>'+
-        '<select class="filter-select" style="font-size:13px;min-width:240px;font-weight:600;" onchange="App._reportTab=this.value;App.renderReports(this.value)">'+tabsHtml+'</select>'+
+        '<select class="filter-select" style="font-size:13px;min-width:200px;font-weight:600;" onchange="App._reportTab=this.value;App.renderReports(this.value)">'+tabsHtml+'</select>'+
+        '<div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>'+
+        '<span style="font-size:11px;color:var(--text-dim);">📅</span>'+
+        '<input type="date" id="rpt_from" class="filter-select" style="font-size:12px;padding:5px 8px;" value="'+(self._rptFrom||'')+'" onchange="App._rptFrom=this.value">'+
+        '<span style="font-size:11px;color:var(--text-dim);">→</span>'+
+        '<input type="date" id="rpt_to" class="filter-select" style="font-size:12px;padding:5px 8px;" value="'+(self._rptTo||'')+'" onchange="App._rptTo=this.value">'+
+        '<button onclick="App.renderReports(App._reportTab)" class="btn-primary btn-sm" style="padding:5px 12px;">Apply</button>'+
+        '<button onclick="App._rptFrom=\'\';App._rptTo=\'\';document.getElementById(\'rpt_from\').value=\'\';document.getElementById(\'rpt_to\').value=\'\';App.renderReports(App._reportTab)" class="btn-secondary btn-sm" style="padding:5px 10px;">✕</button>'+
+        (self._rptFrom&&self._rptTo?'<span style="font-size:11px;color:var(--accent);font-weight:600;">'+self._rptFrom+' → '+self._rptTo+'</span>':'<span style="font-size:11px;color:var(--text-dim);">All time</span>')+
       '</div>'+
-      // Feature 1: Global date range picker for ALL report tabs
-      '<div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;">'+
-        '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📅 Date Range:</span>'+
-        '<input type="date" id="rpt_from" class="filter-select" style="font-size:12px;" value="'+(self._rptFrom||'')+'" onchange="App._rptFrom=this.value">'+
-        '<span style="font-size:12px;color:var(--text-dim);">to</span>'+
-        '<input type="date" id="rpt_to" class="filter-select" style="font-size:12px;" value="'+(self._rptTo||'')+'" onchange="App._rptTo=this.value">'+
-        '<button onclick="App.renderReports(App._reportTab)" class="btn-primary btn-sm">Apply</button>'+
-        '<button onclick="App._rptFrom=\'\';App._rptTo=\'\';document.getElementById(\'rpt_from\').value=\'\';document.getElementById(\'rpt_to\').value=\'\';App.renderReports(App._reportTab)" class="btn-secondary btn-sm">Clear</button>'+
-        '<span style="font-size:11px;color:var(--text-dim);margin-left:auto;">'+(self._rptFrom&&self._rptTo?self._rptFrom+' → '+self._rptTo:'All time')+'</span>'+
-      '</div>'+
-      '<div id="reportContent">'+App._skeleton(4,'table')+'</div>';
+      '<div id="reportContent" style="padding-top:18px;">'+App._skeleton(4,'table')+'</div>';
 
     var reportEl = document.getElementById('reportContent');
     var tid = self._reportTab;
@@ -19326,11 +19324,11 @@ const App = {
             '</div>'+
           '</div>'+
 
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px;">'+
-            statCard('🎫','Total',d2.total,'issues in range')+
-            statCard('✅','Resolved',d2.totalResolved,'','var(--low)')+
-            statCard('🔴','SLA Breached',d2.slaBreached,'currently overdue',d2.slaBreached>0?'var(--critical)':null)+
-            statCard('📊','SLA Compliance',(d2.slaComplianceRate)+'%','','var(--low)')+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px;">'+
+            statCard('🎫','Total',d2.total||0,'issues in range')+
+            statCard('✅','Resolved',d2.totalResolved||0,'all time','var(--low)')+
+            statCard('🔴','SLA Breached',d2.slaBreached||0,'currently overdue',d2.slaBreached>0?'var(--critical)':'var(--low)')+
+            statCard('📊','SLA Compliance',d2.slaComplianceRate!=null?d2.slaComplianceRate+'%':'—','within SLA',d2.slaComplianceRate>=80?'var(--low)':d2.slaComplianceRate>=60?'var(--accent)':'var(--critical)')+
             statCard('⏱','Avg Resolution',d2.avgResHours?d2.avgResHours+'h':'—','time to resolve')+
           '</div>'+
 
