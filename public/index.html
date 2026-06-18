@@ -19171,6 +19171,7 @@ const App = {
       {id:'queue-report', icon:'🔄', label:'Queue Performance',     adminOnly:true},
       {id:'follow-ups',   icon:'⏰', label:'Follow-ups Due',         adminOnly:false},
       {id:'appointments', icon:'📅', label:'Appointments',           adminOnly:false},
+      {id:'csat',         icon:'⭐', label:'CSAT / Satisfaction',     adminOnly:true},
       {id:'impact',       icon:'💥', label:'Issue Impact',           adminOnly:true},
       {id:'coaching',     icon:'🎯', label:'Agent Coaching',         adminOnly:true},
       {id:'cost',         icon:'💰', label:'Cost Report',            adminOnly:true},
@@ -19185,7 +19186,7 @@ const App = {
     }).join('');
 
     area.innerHTML =
-      '<div class="reports-tabs-container" style="border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:0;">'+tabsHtml+'</div>'+
+      '<div class="reports-tabs-container" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:0;overflow-x:auto;">'+tabsHtml+'</div>'+
       // Feature 1: Global date range picker for ALL report tabs
       '<div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;">'+
         '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📅 Date Range:</span>'+
@@ -19789,6 +19790,27 @@ const App = {
             }).join('')+
             (apts.length===0?'<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--text-dim);">No appointments yet. Enable booking in Settings → 📅 Appointment Booking.</td></tr>':'')+
             '</tbody></table></div>';
+      }
+      else if (tid === 'csat') {
+        var cr = await self.callAsync('getCSATResults', {});
+        if (!cr || !cr.success) { reportEl.innerHTML = '<div style="color:var(--critical);padding:20px;">Failed to load CSAT results</div>'; return; }
+        var dist = cr.distribution || {};
+        var maxD = Math.max(1, dist[1]||0, dist[2]||0, dist[3]||0, dist[4]||0, dist[5]||0);
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">⭐ Customer Satisfaction (CSAT)</h2><div style="font-size:12px;color:var(--text-muted);">Post-resolution survey results</div></div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px;">'+
+            statCard('⭐','Avg Rating',(cr.avgRating!=null?cr.avgRating+' / 5':'—'),'across '+cr.responded+' responses',(cr.avgRating>=4?'var(--low)':cr.avgRating>=3?'var(--medium)':'var(--critical)'))+
+            statCard('📨','Surveys Sent',cr.total,'total sent')+
+            statCard('✅','Responded',cr.responded,'response rate '+cr.responseRate+'%','var(--status-ack)')+
+          '</div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:18px;">'+
+            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:14px;">Rating Distribution</div>'+
+            [5,4,3,2,1].map(function(star){var c=dist[star]||0;var col=(star>=4?'var(--low)':(star===3?'var(--medium)':'var(--critical)'));return miniBar(star+' ★',c,maxD,col);}).join('')+
+          '</div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;">'+
+            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:14px;">Recent Feedback</div>'+
+            ((cr.recentFeedback||[]).length?cr.recentFeedback.map(function(f){return '<div style="padding:10px 0;border-bottom:1px solid var(--border);"><div style="font-size:13px;color:var(--text-primary);">'+('★'.repeat(f.rating||0))+' <span style="color:var(--text-secondary);">'+App._esc(f.comment||'')+'</span></div>'+(f.customerEmail?'<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">'+App._esc(f.customerEmail)+'</div>':'')+'</div>';}).join(''):'<div style="font-size:13px;color:var(--text-dim);">No written feedback yet.</div>')+
+          '</div>';
       }
 
       // ── ISSUE IMPACT SCORE ────────────────────────────────────────────────
