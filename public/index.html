@@ -19181,12 +19181,12 @@ const App = {
     var tabsHtml = TABS.map(function(t){
       var active = t.id === self._reportTab;
       return '<button onclick="App._reportTab=\''+t.id+'\';App.renderReports(\''+t.id+'\')" '+
-        'style="display:flex;align-items:center;gap:7px;padding:9px 16px;border:none;border-bottom:2px solid '+(active?'var(--accent)':'transparent')+';background:none;cursor:pointer;font-size:13px;font-weight:'+(active?700:500)+';color:'+(active?'var(--accent)':'var(--text-muted)')+';white-space:nowrap;transition:all .15s;">'+
-        '<span style="font-size:15px;">'+t.icon+'</span>'+t.label+'</button>';
+        'style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid '+(active?'var(--border-accent)':'var(--border)')+';border-radius:8px;background:'+(active?'var(--accent-dim)':'transparent')+';cursor:pointer;font-size:12px;font-weight:'+(active?700:500)+';color:'+(active?'var(--accent)':'var(--text-muted)')+';white-space:nowrap;transition:all .15s;">'+
+        '<span style="font-size:13px;">'+t.icon+'</span>'+t.label+'</button>';
     }).join('');
 
     area.innerHTML =
-      '<div class="reports-tabs-container" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:0;overflow-x:auto;">'+tabsHtml+'</div>'+
+      '<div class="reports-tabs-container" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);margin-bottom:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 0;">'+tabsHtml+'</div>'+
       // Feature 1: Global date range picker for ALL report tabs
       '<div style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;">'+
         '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📅 Date Range:</span>'+
