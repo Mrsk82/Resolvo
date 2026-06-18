@@ -11532,7 +11532,7 @@ const App = {
     
     this.updateMobileNav(page);
     switch(page) {
-      case 'dashboard': this.renderDashboard(); break;
+      case 'dashboard': (this.renderNovaBentoDashboard ? this.renderNovaBentoDashboard() : this.renderDashboard()); break;
       case 'create-issue': this.renderCreateIssue(params); break;
       case 'issue-list': this.renderIssueList(); break;
       case 'my-issues': this.renderMyIssues(); break;
