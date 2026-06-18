@@ -7774,10 +7774,6 @@ tbody tr.row-selected {
               <span class="nav-icon">📬</span>
               <span class="nav-text">Ticket Inbox <span id="ticketNewBadge" style="display:none;background:var(--critical);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px;"></span></span>
             </a>
-            <a href="#" class="nav-item" data-page="ticket-queue" data-tooltip="Ticket Queue">
-              <span class="nav-icon">🎫</span>
-              <span class="nav-text">Queue View</span>
-            </a>
           </div>
 
           <div class="nav-section">
@@ -11565,7 +11561,6 @@ const App = {
       case 'announcements': this.renderAnnouncements(); break;
       case 'teams': this.renderTeams(); break;
       case 'ticket-inbox': this.renderTicketInbox(); break;
-      case 'ticket-queue': this.renderTicketQueue(); break;
       case 'ticket-detail': this.renderTicketDetail(params && params.id); break;
       case 'settings': this.renderUnifiedSettings(params && params.tab); break;
       case 'email-ticketing': this.renderEmailTicketing(); break;
@@ -14426,107 +14421,6 @@ const App = {
 
   // ── SUPPORT INBOX (Freshdesk-style) ──────────────────────────────────────────
   _ticketFilter: 'all',
-
-  _queueFilter: 'all',
-  renderTicketQueue: async function() {
-    var self = this;
-    self.setPage('Ticket Queue', 'Support / Queue');
-    var area = document.getElementById('contentArea');
-    area.innerHTML = App._skeleton(4,'table');
-    var [r, cfgR] = await Promise.all([
-      self.callAsync('getTickets', { status: 'all' }),
-      self.callAsync('getEmailTicketingConfig')
-    ]);
-    if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
-    var all = r.tickets || [], counts = r.counts || {};
-    var me = (self.currentUser && self.currentUser.email) || '';
-    var statusColors = { new:'#7C3AED', open:'#2563EB', pending:'#D97706', resolved:'#16A34A', closed:'#6B7280' };
-    var priorityColors = { Critical:'#DC2626', High:'#D97706', Medium:'#CA8A04', Low:'#16A34A' };
-    var chMeta = { email:{i:'✉',c:'#2563EB',n:'Email'}, widget:{i:'🌐',c:'#0F6E56',n:'Web'}, whatsapp:{i:'💬',c:'#0F6E56',n:'WhatsApp'}, api:{i:'⚙',c:'#6B7280',n:'API'}, slack:{i:'💬',c:'#534AB7',n:'Slack'}, manual:{i:'✏',c:'#6B7280',n:'Manual'}, phone:{i:'📞',c:'#534AB7',n:'Phone'}, portal:{i:'🌐',c:'#185FA5',n:'Portal'} };
-    var ageH = function(t){ return (Date.now() - new Date(t.createdDate||t.lastActivity).getTime())/3600000; };
-    var openish = function(t){ return !['resolved','closed'].includes(t.status); };
-    var qf = self._queueFilter || 'all';
-    var filtered = all.filter(function(t){
-      if (qf==='mine') return t.assignedTo===me && openish(t);
-      if (qf==='overdue') return openish(t) && ageH(t)>24;
-      if (qf==='unassigned') return !t.assignedTo && openish(t);
-      if (qf.indexOf('ch:')===0) return (t.source||'email')===qf.slice(3);
-      return true;
-    });
-    var chCounts = {}; all.forEach(function(t){ var s=t.source||'email'; chCounts[s]=(chCounts[s]||0)+1; });
-    var openT = all.filter(openish);
-    var breached = openT.filter(function(t){ return ageH(t)>24; }).length;
-    var due = openT.filter(function(t){ return ageH(t)>4 && ageH(t)<=24; }).length;
-    var safe = openT.length - breached - due;
-    var pct = function(n){ return openT.length ? Math.round(n/openT.length*100) : 0; };
-    var mineN = all.filter(function(t){ return t.assignedTo===me && openish(t); }).length;
-    var unassignedN = all.filter(function(t){ return !t.assignedTo && openish(t); }).length;
-    var overdueN = openT.filter(function(t){ return ageH(t)>24; }).length;
-    var qItem = function(k,label,n,color){ return '<div onclick="App._queueFilter=\''+k+'\';App.renderTicketQueue();" style="padding:6px 9px;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;'+(qf===k?'background:var(--accent-dim);color:var(--accent);font-weight:700;':'color:var(--text-secondary);')+'"><span>'+label+'</span><span'+(color?' style="color:'+color+';"':'')+'>'+n+'</span></div>'; };
-    var sRow = function(label,n,color){ return '<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;"><span style="color:var(--text-secondary);">'+label+'</span><span style="font-weight:700;'+(color?'color:'+color+';':'')+'">'+n+'</span></div>'; };
-
-    var feed = filtered.length===0
-      ? '<div style="padding:50px;text-align:center;color:var(--text-dim);">No tickets in this queue ✅</div>'
-      : filtered.map(function(t){
-          var sc = statusColors[t.status]||'#6B7280', pc = priorityColors[t.priority]||'#6B7280';
-          var ch = chMeta[t.source||'email']||chMeta.email;
-          var h = ageH(t), slaColor = h>24?'#EF4444':h>4?'#F59E0B':'#10B981';
-          var ago = App._relTime ? App._relTime(t.lastActivity||t.createdDate) : '';
-          var prev = t.lastMessage ? (t.lastMessage.body||'').substring(0,80) : '';
-          return '<div onclick="App.navigate(\'ticket-detail\',{id:\''+t.id+'\'})" style="padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\'none\'">'
-            + '<div style="display:flex;align-items:center;gap:8px;">'
-              + '<span style="width:20px;height:20px;border-radius:5px;background:'+ch.c+';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;" title="'+ch.n+'">'+ch.i+'</span>'
-              + (t.isVIP||(t.tags||[]).includes('VIP')?'<span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:8px;background:#F59E0B22;color:#F59E0B;">⭐</span>':'')
-              + '<span style="font-size:13px;font-weight:600;color:var(--text-primary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+self._esc(t.subject)+'</span>'
-              + (openish(t)?'<span style="font-size:11px;font-weight:700;color:'+slaColor+';white-space:nowrap;">⏱'+Math.floor(h)+'h</span>':'<span style="font-size:10px;color:var(--text-dim);">'+ago+'</span>')
-            + '</div>'
-            + '<div style="font-size:11px;color:var(--text-muted);margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:var(--text-secondary);">'+self._esc(t.fromName||t.from)+'</strong>'+(prev?' — '+self._esc(prev):'')+'</div>'
-            + '<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">'
-              + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:9px;background:'+sc+'18;color:'+sc+';">'+t.status.toUpperCase()+'</span>'
-              + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:9px;background:'+pc+'18;color:'+pc+';">'+t.priority+'</span>'
-              + (t.assignedTo?'<span style="font-size:10px;color:var(--text-dim);">👤 '+self._esc(t.assignedTo.split('@')[0])+'</span>':'<span style="font-size:10px;color:var(--critical);font-weight:700;">⚠ Unassigned</span>')
-              + (t.linkedIssueId?'<span style="font-size:10px;color:var(--status-ack);">🎫 '+t.linkedIssueId+'</span>':'')
-              + '<span style="margin-left:auto;font-size:10px;color:var(--accent);">Open →</span>'
-            + '</div>'
-          + '</div>';
-        }).join('');
-
-    var chRail = Object.keys(chCounts).sort().map(function(s){ var c=chMeta[s]||{i:'•',n:s}; return qItem('ch:'+s, c.i+' '+c.n, chCounts[s]); }).join('');
-
-    area.innerHTML =
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
-        + '<div style="display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;font-size:12px;">'
-          + '<span onclick="App.navigate(\'ticket-inbox\')" style="padding:6px 14px;color:var(--text-secondary);cursor:pointer;">Inbox</span>'
-          + '<span style="padding:6px 14px;background:var(--accent-dim);color:var(--accent);font-weight:700;">Queue</span>'
-        + '</div>'
-        + '<span style="font-size:12px;color:var(--text-dim);">'+filtered.length+' shown · '+all.length+' total</span>'
-        + '<button onclick="App._showCreateManualTicket()" style="margin-left:auto;background:var(--accent);color:#0D0E14;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">+ New Ticket</button>'
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:170px 1fr 200px;gap:10px;align-items:start;">'
-        + '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px;">'
-          + '<div style="font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;">Queues</div>'
-          + qItem('all','All', all.length)
-          + qItem('mine','My open', mineN)
-          + qItem('overdue','Overdue', overdueN, '#EF4444')
-          + qItem('unassigned','Unassigned', unassignedN, unassignedN?'#EF4444':'')
-          + '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Channels</div>'
-          + chRail
-        + '</div>'
-        + '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+feed+'</div>'
-        + '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px;">'
-          + '<div style="font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Live · '+all.length+' tickets</div>'
-          + sRow('New', counts.new||0)
-          + sRow('Open', counts.open||0)
-          + sRow('Pending', counts.pending||0)
-          + sRow('Resolved', counts.resolved||0)
-          + sRow('Overdue SLA', overdueN, '#EF4444')
-          + '<div style="margin:12px 0 6px;height:8px;border-radius:4px;overflow:hidden;display:flex;background:var(--bg-elevated);">'
-            + '<div style="width:'+pct(safe)+'%;background:#16A34A;"></div><div style="width:'+pct(due)+'%;background:#F59E0B;"></div><div style="width:'+pct(breached)+'%;background:#EF4444;"></div>'
-          + '</div>'
-          + '<div style="font-size:10px;color:var(--text-dim);">SLA: '+pct(safe)+'% safe · '+pct(due)+'% due · '+pct(breached)+'% breached</div>'
-        + '</div>'
-      + '</div>';
-  },
 
   renderTicketInbox: async function() {
     var self = this;
