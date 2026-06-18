@@ -14429,19 +14429,18 @@ const App = {
     area.innerHTML = App._skeleton(4,'table');
 
     var statusFilter = self._ticketFilter || 'all';
+    if (self._lastTicketFilter !== statusFilter) { self._ticketLimit = 10; self._lastTicketFilter = statusFilter; }
+    self._ticketLimit = self._ticketLimit || 10;
+    // Server-side pagination: fetch only the current page; counts come back computed over all tickets
     var [r, cfgR] = await Promise.all([
-      self.callAsync('getTickets', { status: statusFilter }),
+      self.callAsync('getTickets', { status: statusFilter, limit: self._ticketLimit }),
       self.callAsync('getEmailTicketingConfig')
     ]);
-    // Reuse the same result for sidebar counts when already on 'all' — avoids a second full fetch
-    var allR = statusFilter === 'all' ? r : await self.callAsync('getTickets', {status:'all'});
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
-    // Use all-tickets for sidebar badge counts
-    var allTickets = (allR && allR.success) ? allR.tickets : r.tickets;
-    if (allR && allR.success) r.counts = allR.counts;
 
     var tickets = r.tickets || [];
     var counts = r.counts || {};
+    var total = (r.total != null) ? r.total : tickets.length;
     var emailCfg = (cfgR && cfgR.success && cfgR.config) ? cfgR.config : {};
     var isEmailEnabled = emailCfg.enabled === true;
     var hasCredentials = !!(emailCfg.host && emailCfg.user && emailCfg.pass);
@@ -14454,9 +14453,6 @@ const App = {
 
     // Selected ticket IDs for bulk actions
     self._selectedTickets = self._selectedTickets || new Set();
-    // Pagination: render in pages for speed (reset to 25 when the filter changes)
-    if (self._lastTicketFilter !== self._ticketFilter) { self._ticketLimit = 10; self._lastTicketFilter = self._ticketFilter; }
-    self._ticketLimit = self._ticketLimit || 10;
 
     var html = `
       ${!isEmailEnabled ? `
@@ -14483,9 +14479,8 @@ const App = {
           <!-- MY QUEUE section -->
           <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green,#10B981);">👤 My Queue</div>
           ${(function(){
-            var myEmail = ((self.currentUser&&self.currentUser.email)||'').toLowerCase().trim();
-            var mineCount = allTickets.filter(function(t){return (t.assignedTo||'').toLowerCase().trim()===myEmail&&!['resolved','closed'].includes(t.status);}).length;
-            var unassignedCount = allTickets.filter(function(t){return !t.assignedTo&&!['resolved','closed'].includes(t.status);}).length;
+            var mineCount = counts.mine || 0;
+            var unassignedCount = counts.unassigned || 0;
             return [
               {k:'mine',       l:'My Tickets',  n:mineCount,       c:'#10B981'},
               {k:'unassigned', l:'Unassigned',  n:unassignedCount, c:'#EF4444'},
@@ -14530,7 +14525,7 @@ const App = {
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:0;" id="ticketToolbar">
               <input type="checkbox" id="selectAllTickets" onchange="App._selectAllTickets(this.checked)" style="accent-color:var(--accent);">
               <input id="ticketSearch" class="search-input" placeholder="Search tickets…" style="flex:1;" oninput="App._filterTicketList(this.value)">
-              <span style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;">${Math.min(self._ticketLimit,tickets.length)} of ${tickets.length}</span>
+              <span style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;">${tickets.length} of ${total}</span>
               <button onclick="App._showCreateManualTicket()" style="background:var(--accent);color:#0D0E14;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ New Ticket</button>
             </div>
             <!-- Bulk action bar (shown when items selected) -->
@@ -14559,7 +14554,7 @@ const App = {
             </div>
           ` : `
           <div id="ticketListRows">
-          ${tickets.slice(0, self._ticketLimit).map(t => {
+          ${tickets.map(t => {
             const sc = statusColors[t.status] || '#6B7280';
             const pc = priorityColors[t.priority] || '#6B7280';
             const lastMsg = t.lastMessage;
@@ -14602,7 +14597,7 @@ const App = {
             </div>`;
           }).join('')}
           </div>
-          ${tickets.length > self._ticketLimit ? `<div style="padding:14px;text-align:center;border-top:1px solid var(--border);"><button onclick="App._ticketLimit=(App._ticketLimit||10)+10;App.renderTicketInbox();" style="background:var(--bg-elevated);color:var(--accent);border:1px solid var(--border-accent);border-radius:8px;padding:8px 24px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Load 10 more (${tickets.length - self._ticketLimit} remaining)</button></div>` : ''}`}
+          ${total > tickets.length ? `<div style="padding:14px;text-align:center;border-top:1px solid var(--border);"><button onclick="App._ticketLimit=(App._ticketLimit||10)+10;App.renderTicketInbox();" style="background:var(--bg-elevated);color:var(--accent);border:1px solid var(--border-accent);border-radius:8px;padding:8px 24px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Load 10 more (${total - tickets.length} remaining)</button></div>` : ''}`}
         </div>
       </div>`;
 

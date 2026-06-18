@@ -1712,8 +1712,12 @@ app.post('/api/call',async(req,res)=>{
         if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
         if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}
       }
+      // Server-side pagination: send only the requested page (counts still computed over all)
+      const total=tickets.length;
+      const lim=(filters&&filters.limit)?filters.limit:0, off=(filters&&filters.offset)?filters.offset:0;
+      const page=lim?tickets.slice(off,off+lim):tickets;
       // Return list without full thread for performance
-      return{success:true,tickets:tickets.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0]})),counts:{all:(db.tickets||[]).length,new:(db.tickets||[]).filter(t=>t.status==='new').length,open:(db.tickets||[]).filter(t=>t.status==='open').length,pending:(db.tickets||[]).filter(t=>t.status==='pending').length,resolved:(db.tickets||[]).filter(t=>t.status==='resolved').length,closed:(db.tickets||[]).filter(t=>t.status==='closed').length}};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0]})),counts:{all:(db.tickets||[]).length,new:(db.tickets||[]).filter(t=>t.status==='new').length,open:(db.tickets||[]).filter(t=>t.status==='open').length,pending:(db.tickets||[]).filter(t=>t.status==='pending').length,resolved:(db.tickets||[]).filter(t=>t.status==='resolved').length,closed:(db.tickets||[]).filter(t=>t.status==='closed').length,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!['resolved','closed'].includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length}};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
