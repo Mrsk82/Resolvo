@@ -25752,8 +25752,7 @@ document.addEventListener('keydown', function(e) {
 
 // ── NOVA BENTO DASHBOARD ──────────────────────────────────────────
 App.renderNovaBentoDashboard = async function() {
-  if (document.documentElement.getAttribute('data-theme') !== 'nova') return false;
-
+  // Enhanced dashboard renders on all themes (bento CSS is theme-adaptive)
   var area = document.getElementById('contentArea');
   if (!area) return false;
 
