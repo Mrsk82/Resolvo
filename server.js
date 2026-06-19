@@ -1514,7 +1514,7 @@ app.post('/api/call',async(req,res)=>{
   };
 
   const sH={
-    getCurrentUser:()=>({success:true,user:su}),
+    getCurrentUser:()=>{const o=readOwner();const b=(o.brands||[]).find(b=>b.slug===slug);const freshName=b?b.name:su.brandName;if(su&&freshName!==su.brandName)su.brandName=freshName;return{success:true,user:{...su,brandName:freshName}};},
     getUsers:ao=>{const db=rDB();let u=db.users||[];if(ao)u=u.filter(u=>u.active);return{success:true,users:u.map(u=>({...u,passwordHash:undefined}))};},
     getDevelopers:()=>{const db=rDB();return{success:true,developers:(db.users||[]).filter(u=>u.role==='Developer'&&u.active).map(u=>({...u,passwordHash:undefined}))};},
     updateUser:(uid,ud)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const idx=(db.users||[]).findIndex(u=>u.id===uid);if(idx===-1)return{success:false,error:'Not found'};['name','team','role','skill','slackId','maxTickets','active'].forEach(f=>{if(ud[f]!==undefined)db.users[idx][f]=ud[f];});wDB(db);return{success:true};},
