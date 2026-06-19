@@ -15780,6 +15780,7 @@ const App = {
       {id:'canned',        icon:'⚡', label:'Canned Responses',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
       {id:'templates',     icon:'📋', label:'Ticket Templates',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
       {id:'ooo',           icon:'🏖', label:'Out of Office',       group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'csat-config',   icon:'⭐', label:'CSAT Settings',        group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
       {id:'queue-config',  icon:'🔄', label:'Assignment Queue',    group:'Email & Support', requires:'QUEUE_ENABLED'},
       {id:'vip-config',    icon:'⭐', label:'VIP Customers',       group:'Email & Support', requires:'QUEUE_ENABLED'},
       {id:'booking-config',icon:'📅', label:'Appointment Booking', group:'Email & Support', requires:'APPOINTMENT_BOOKING_ENABLED'},
@@ -16346,6 +16347,52 @@ const App = {
           ])+
           '<div style="margin-bottom:16px;"><label class="form-label">Auto-Reply Message</label><textarea id="ooo_msg" class="form-textarea" style="min-height:100px;">'+App._esc(ooo.message||'We are currently out of office. We will respond within 24 hours.')+'</textarea></div>'+
           '<button onclick="App._saveOOOConfig()" class="btn-primary">Save OOO Settings</button>';
+      }
+
+      // ── CSAT SETTINGS ────────────────────────────────────────────────────────
+      else if (tid === 'csat-config') {
+        var csatCfgR = await self.callAsync('getCSATConfig');
+        var cc = (csatCfgR && csatCfgR.config) || {};
+        var csatStats = await self.callAsync('getCSATResults');
+        var sent = (csatStats && csatStats.total) || 0;
+        var responded = (csatStats && csatStats.responded) || 0;
+        var posRate = (csatStats && csatStats.positiveRate);
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">⭐ CSAT / Satisfaction Settings</h3>'+
+          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Configure how satisfaction surveys are sent after tickets are resolved.</p>'+
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">'+
+            '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;">'+
+              '<div style="font-size:22px;font-weight:900;color:var(--accent);">'+sent+'</div>'+
+              '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Surveys Sent</div>'+
+            '</div>'+
+            '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;">'+
+              '<div style="font-size:22px;font-weight:900;color:var(--status-ack);">'+responded+'</div>'+
+              '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Responded</div>'+
+            '</div>'+
+            '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;">'+
+              '<div style="font-size:22px;font-weight:900;color:'+(posRate>=80?'var(--low)':posRate>=60?'var(--accent)':'var(--critical)')+';">'+(posRate!=null?posRate+'%':'—')+'</div>'+
+              '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Positive Rate</div>'+
+            '</div>'+
+          '</div>'+
+          App._sSection('Survey Trigger',[
+            App._sRow('Auto-send on Resolve','Send CSAT email when a ticket is marked Resolved',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="csat_enabled" '+(cc.enabled!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;color:var(--text-secondary);">'+(cc.enabled!==false?'Enabled':'Disabled')+'</span></label>'),
+            App._sRow('Send Delay','Wait before sending (avoids surveys on tickets that get re-opened)',
+              '<select id="csat_delay" class="filter-select" style="font-size:12px;">'+
+                ['0','15','30','60'].map(function(v){return '<option value="'+v+'"'+(String(cc.delayMinutes||0)===v?' selected':'')+'>'+({0:'Immediately',15:'After 15 min',30:'After 30 min',60:'After 1 hour'}[v])+'</option>';}).join('')+
+              '</select>'),
+            App._sRow('Skip Automated Senders','Don\'t send to noreply@, mailer-daemon@ etc.',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="csat_skip_auto" '+(cc.skipAutomated!==false?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;color:var(--text-secondary);">Skip</span></label>'),
+          ])+
+          App._sSection('Survey Email',[
+            App._sRow('Subject Line','Email subject the customer sees',
+              '<input id="csat_subject" class="form-input" style="width:100%;max-width:400px;" value="'+App._esc(cc.subject||'How did we do? — Quick feedback')+'">'),
+            App._sRow('Intro Message','Text shown above the 👍 👎 buttons',
+              '<textarea id="csat_message" class="form-textarea" style="min-height:80px;max-width:400px;">'+App._esc(cc.message||'Hi! Your support request has been resolved. Was our response helpful?')+'</textarea>'),
+            App._sRow('From Name','Name shown in the customer\'s inbox',
+              '<input id="csat_from_name" class="form-input" style="width:200px;" value="'+App._esc(cc.fromName||'Support Team')+'">'),
+          ])+
+          '<button onclick="App._saveCSATConfig()" class="btn-primary">Save CSAT Settings</button>';
       }
 
       // ── ESCALATION RULES ─────────────────────────────────────────────────────
@@ -17146,6 +17193,20 @@ const App = {
   },
 
   // ── OOO SAVE ────────────────────────────────────────────────────────────────
+  _saveCSATConfig: async function() {
+    var config = {
+      enabled: document.getElementById('csat_enabled')?.checked !== false,
+      delayMinutes: parseInt(document.getElementById('csat_delay')?.value||0),
+      skipAutomated: document.getElementById('csat_skip_auto')?.checked !== false,
+      subject: document.getElementById('csat_subject')?.value?.trim()||'How did we do? — Quick feedback',
+      message: document.getElementById('csat_message')?.value?.trim()||'Hi! Your support request has been resolved. Was our response helpful?',
+      fromName: document.getElementById('csat_from_name')?.value?.trim()||'Support Team',
+    };
+    var r = await App.callAsync('saveCSATConfig', config);
+    if (r&&r.success) { App.showToast('⭐ CSAT settings saved','success'); App.renderUnifiedSettings('csat-config'); }
+    else App.showToast('Failed','error');
+  },
+
   _saveOOOConfig: async function() {
     var enabled = document.getElementById('ooo_enabled')?.checked||false;
     var startDate = document.getElementById('ooo_start')?.value||'';

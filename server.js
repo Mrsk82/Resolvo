@@ -1738,21 +1738,22 @@ app.post('/api/call',async(req,res)=>{
       wDB(db);
       if(status==='resolved'||status==='closed'){sendSlackAlert(slug,'resolved',db.tickets[idx]).catch(()=>{});}
       const ticket=db.tickets[idx];
-      // Don't send CSAT to automated senders — they cause bounce loops
+      // Send 1-click CSAT on resolve — respects csatConfig settings
+      const csatCfg=rDB().csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'};
       const isAutomatedSender=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|alert|automated|newsletter|unsubscribe)@/i.test(ticket.from||'');
-      // Send 1-click CSAT on resolve (only to real humans)
-      if(status==='resolved'&&ticket.from&&!ticket.csatSent&&!isAutomatedSender){
+      if(status==='resolved'&&ticket.from&&!ticket.csatSent&&csatCfg.enabled!==false&&!(csatCfg.skipAutomated!==false&&isAutomatedSender)){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#10B981';
         const csatToken=Buffer.from(JSON.stringify({ticketId,slug,email:ticket.from,ts:Date.now()})).toString('base64url');
         const csatUrl=`${BASE_URL}/csat-ticket?token=${csatToken}`;
         db.tickets[idx].csatToken=csatToken;db.tickets[idx].csatSent=true;
         writeBrandDB(slug,db);
-        // Use brand email so customer sees reply from the brand, not contact@resolvogroup.com
-        sendBrandEmail(slug,ticket.from,`✅ Your issue has been resolved — [${brandName}] ${ticket.subject}`,
-          `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:20px 24px;text-align:center;"><div style="font-size:32px;margin-bottom:6px;">✅</div><h2 style="margin:0;color:#fff;font-size:18px;">Issue Resolved</h2></div><div style="padding:28px;text-align:center;"><p style="color:#374151;font-size:14px;margin:0 0 20px;">Hi there! Your support request has been resolved. Was this helpful?</p><div style="display:flex;gap:12px;justify-content:center;margin:0 0 20px;"><a href="${csatUrl}&rating=yes" style="background:#10B981;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👍 Yes</a><a href="${csatUrl}&rating=no" style="background:#EF4444;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👎 No</a></div><p style="color:#9ca3af;font-size:12px;margin:0;">Ref: ${ticketId}</p></div></div></body></html>`,
+        const sendCSAT=()=>sendBrandEmail(slug,ticket.from,csatCfg.subject||`How did we do? — ${brandName}`,
+          `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:20px 24px;text-align:center;"><div style="font-size:32px;margin-bottom:6px;">✅</div><h2 style="margin:0;color:#fff;font-size:18px;">Issue Resolved</h2></div><div style="padding:28px;text-align:center;"><p style="color:#374151;font-size:14px;margin:0 0 20px;">${csatCfg.message||'Hi! Your support request has been resolved. Was our response helpful?'}</p><div style="display:flex;gap:12px;justify-content:center;margin:0 0 20px;"><a href="${csatUrl}&rating=yes" style="background:#10B981;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👍 Yes</a><a href="${csatUrl}&rating=no" style="background:#EF4444;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👎 No</a></div><p style="color:#9ca3af;font-size:12px;margin:0;">Ref: ${ticketId}</p></div></div></body></html>`,
           `Your ticket ${ticketId} has been resolved. Was this helpful? Reply YES or NO.`
         ).catch(()=>{});
+        const delayMs=(csatCfg.delayMinutes||0)*60000;
+        if(delayMs>0){setTimeout(sendCSAT,delayMs);}else{sendCSAT();}
       }
       // Notify watchers — use brand email
       const brand2=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
@@ -2841,6 +2842,8 @@ app.post('/api/call',async(req,res)=>{
     // ══════════════════════════════════════════════════════════════════════
     // FEATURE 8: OUT-OF-OFFICE AUTO REPLY
     // ══════════════════════════════════════════════════════════════════════
+    getCSATConfig:()=>{const db=rDB();return{success:true,config:db.csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'}};},
+    saveCSATConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.csatConfig=config;wDB(db);return{success:true};},
     getOOOConfig:()=>{const db=rDB();return{success:true,config:db.oooConfig||{enabled:false,message:'We are currently out of office. We will respond within 24 hours.',startDate:'',endDate:'',expectedResponseHours:24}};},
     saveOOOConfig:(config)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
