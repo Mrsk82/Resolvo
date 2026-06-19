@@ -1717,7 +1717,11 @@ app.post('/api/call',async(req,res)=>{
       const lim=(filters&&filters.limit)?filters.limit:0, off=(filters&&filters.offset)?filters.offset:0;
       const page=lim?tickets.slice(off,off+lim):tickets;
       // Return list without full thread for performance
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0]})),counts:{all:(db.tickets||[]).length,new:(db.tickets||[]).filter(t=>t.status==='new').length,open:(db.tickets||[]).filter(t=>t.status==='open').length,pending:(db.tickets||[]).filter(t=>t.status==='pending').length,resolved:(db.tickets||[]).filter(t=>t.status==='resolved').length,closed:(db.tickets||[]).filter(t=>t.status==='closed').length,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!['resolved','closed'].includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length}};
+      const defSt=[{id:'new'},{id:'open'},{id:'pending'},{id:'on-hold'},{id:'escalated'},{id:'resolved',triggersCsat:true},{id:'closed',isTerminal:true}];
+      const allSt=db.statusConfig||defSt;
+      const terminalIds=allSt.filter(s=>s.isTerminal||s.triggersCsat).map(s=>s.id);
+      const perStatus={};allSt.forEach(s=>{perStatus[s.id]=(db.tickets||[]).filter(t=>t.status===s.id).length;});
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0]})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length}};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -1727,21 +1731,28 @@ app.post('/api/call',async(req,res)=>{
     updateTicketStatus:(ticketId,status)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
+      const defStatuses=[
+        {id:'new',isTerminal:false,triggersCsat:false},{id:'open',isTerminal:false,triggersCsat:false},
+        {id:'pending',isTerminal:false,triggersCsat:false},{id:'on-hold',isTerminal:false,triggersCsat:false},
+        {id:'escalated',isTerminal:false,triggersCsat:false},{id:'resolved',isTerminal:false,triggersCsat:true},
+        {id:'closed',isTerminal:true,triggersCsat:false},
+      ];
+      const allStatuses=db.statusConfig||defStatuses;
+      const sCfg=allStatuses.find(s=>s.id===status)||{isTerminal:false,triggersCsat:false};
       const prevStatus=db.tickets[idx].status;
       const now=new Date().toISOString();
       db.tickets[idx].status=status;
       db.tickets[idx].lastActivity=now;
-      if(status==='resolved'||status==='closed')db.tickets[idx].resolvedDate=now;
-      // Add timeline event
+      if(sCfg.isTerminal||sCfg.triggersCsat)db.tickets[idx].resolvedDate=db.tickets[idx].resolvedDate||now;
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:'status_changed',by:su.email,byName:su.name||su.email,at:now,detail:`${prevStatus} → ${status}`});
       wDB(db);
-      if(status==='resolved'||status==='closed'){sendSlackAlert(slug,'resolved',db.tickets[idx]).catch(()=>{});}
+      if(sCfg.isTerminal||sCfg.triggersCsat){sendSlackAlert(slug,'resolved',db.tickets[idx]).catch(()=>{});}
       const ticket=db.tickets[idx];
-      // Send 1-click CSAT on resolve — respects csatConfig settings
+      // Send 1-click CSAT — fires on statuses with triggersCsat=true (respects csatConfig)
       const csatCfg=rDB().csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'};
       const isAutomatedSender=/^(mailer-daemon|postmaster|noreply|no-reply|donotreply|bounce|daemon|system|notification|alert|automated|newsletter|unsubscribe)@/i.test(ticket.from||'');
-      if(status==='resolved'&&ticket.from&&!ticket.csatSent&&csatCfg.enabled!==false&&!(csatCfg.skipAutomated!==false&&isAutomatedSender)){
+      if(sCfg.triggersCsat&&ticket.from&&!ticket.csatSent&&csatCfg.enabled!==false&&!(csatCfg.skipAutomated!==false&&isAutomatedSender)){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#10B981';
         const csatToken=Buffer.from(JSON.stringify({ticketId,slug,email:ticket.from,ts:Date.now()})).toString('base64url');
@@ -2842,6 +2853,16 @@ app.post('/api/call',async(req,res)=>{
     // ══════════════════════════════════════════════════════════════════════
     // FEATURE 8: OUT-OF-OFFICE AUTO REPLY
     // ══════════════════════════════════════════════════════════════════════
+    getStatusConfig:()=>{const db=rDB();const def=[
+      {id:'new',      label:'New',       color:'#7C3AED',order:1,isDefault:true, triggersCsat:false,isTerminal:false,requireClassification:false},
+      {id:'open',     label:'Open',      color:'#2563EB',order:2,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+      {id:'pending',  label:'Pending',   color:'#D97706',order:3,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+      {id:'on-hold',  label:'On Hold',   color:'#64748B',order:4,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+      {id:'escalated',label:'Escalated', color:'#EF4444',order:5,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+      {id:'resolved', label:'Resolved',  color:'#16A34A',order:6,isDefault:false,triggersCsat:true, isTerminal:false,requireClassification:true},
+      {id:'closed',   label:'Closed',    color:'#6B7280',order:7,isDefault:false,triggersCsat:false,isTerminal:true, requireClassification:false},
+    ];return{success:true,statuses:db.statusConfig||def};},
+    saveStatusConfig:(statuses)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};if(!Array.isArray(statuses)||!statuses.length)return{success:false,error:'At least one status required'};const db=rDB();db.statusConfig=statuses;wDB(db);return{success:true};},
     getClassificationConfig:()=>{const db=rDB();return{success:true,config:db.classificationConfig||{types:['Question','Incident','Problem','Feature Request','Billing','Other'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'],requireDisposition:false}};},
     saveClassificationConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.classificationConfig=config;wDB(db);return{success:true};},
     updateTicketField:(ticketId,field,value)=>{

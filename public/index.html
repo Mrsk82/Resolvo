@@ -14432,10 +14432,18 @@ const App = {
     if (self._lastTicketFilter !== statusFilter) { self._ticketLimit = 10; self._lastTicketFilter = statusFilter; }
     self._ticketLimit = self._ticketLimit || 10;
     // Server-side pagination: fetch only the current page; counts come back computed over all tickets
-    var [r, cfgR] = await Promise.all([
+    var [r, cfgR, stR] = await Promise.all([
       self.callAsync('getTickets', { status: statusFilter, limit: self._ticketLimit }),
-      self.callAsync('getEmailTicketingConfig')
+      self.callAsync('getEmailTicketingConfig'),
+      self.callAsync('getStatusConfig')
     ]);
+    var customStatuses = (stR && stR.success && stR.statuses) ? stR.statuses.slice().sort((a,b)=>a.order-b.order) : [
+      {id:'new',label:'New',color:'#7C3AED',order:1},{id:'open',label:'Open',color:'#2563EB',order:2},
+      {id:'pending',label:'Pending',color:'#D97706',order:3},{id:'on-hold',label:'On Hold',color:'#64748B',order:4},
+      {id:'escalated',label:'Escalated',color:'#EF4444',order:5},{id:'resolved',label:'Resolved',color:'#16A34A',order:6},
+      {id:'closed',label:'Closed',color:'#6B7280',order:7}
+    ];
+    self._customStatuses = customStatuses;
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
 
     var tickets = r.tickets || [];
@@ -14444,7 +14452,7 @@ const App = {
     var emailCfg = (cfgR && cfgR.success && cfgR.config) ? cfgR.config : {};
     var isEmailEnabled = emailCfg.enabled === true;
     var hasCredentials = !!(emailCfg.host && emailCfg.user && emailCfg.pass);
-    var statusColors = { new:'#7C3AED', open:'#2563EB', pending:'#D97706', resolved:'#16A34A', closed:'#6B7280' };
+    var statusColors = {}; customStatuses.forEach(function(s){statusColors[s.id]=s.color||'#6B7280';});
     var priorityColors = { Critical:'#DC2626', High:'#D97706', Medium:'#CA8A04', Low:'#16A34A' };
 
     // Update new ticket badge in sidebar
@@ -14492,17 +14500,15 @@ const App = {
 
           <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
           <div style="padding:6px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);">Filter by Status</div>
-          ${[
-            {k:'all',  l:'All Tickets',  n:counts.all||0,  c:'var(--text-muted)'},
-            {k:'new',  l:'New',          n:counts.new||0,  c:statusColors.new},
-            {k:'open', l:'Open',         n:counts.open||0, c:statusColors.open},
-            {k:'pending',l:'Pending',    n:counts.pending||0,c:statusColors.pending},
-            {k:'resolved',l:'Resolved',  n:counts.resolved||0,c:statusColors.resolved},
-            {k:'closed',l:'Closed',      n:counts.closed||0,c:statusColors.closed}
-          ].map(s => `<div onclick="App._ticketFilter='${s.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;cursor:pointer;border-left:3px solid ${self._ticketFilter===s.k?s.c:'transparent'};background:${self._ticketFilter===s.k?'var(--bg-hover)':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${self._ticketFilter===s.k?'var(--bg-hover)':'none'}'">
-            <span style="font-size:13px;color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
-            <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0&&s.k!=='all'?s.c+'20':'var(--bg-elevated)'};color:${s.n>0&&s.k!=='all'?s.c:'var(--text-dim)'};">${s.n}</span>
-          </div>`).join('')}
+          ${(function(){
+            var allItems = [{k:'all', l:'All Tickets', n:counts.all||0, c:'var(--text-muted)'}].concat(
+              customStatuses.map(s=>({k:s.id, l:s.label||s.id, n:counts[s.id]||0, c:s.color||'#6B7280'}))
+            );
+            return allItems.map(s => `<div onclick="App._ticketFilter='${s.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;cursor:pointer;border-left:3px solid ${self._ticketFilter===s.k?s.c:'transparent'};background:${self._ticketFilter===s.k?'var(--bg-hover)':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${self._ticketFilter===s.k?'var(--bg-hover)':'none'}'">
+              <span style="font-size:13px;color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
+              <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0&&s.k!=='all'?s.c+'20':'var(--bg-elevated)'};color:${s.n>0&&s.k!=='all'?s.c:'var(--text-dim)'};">${s.n}</span>
+            </div>`).join('');
+          })()}
           <!-- Feature 7: Queue Dashboard -->
           <div style="padding:10px 14px;border-top:1px solid var(--border);" id="queueDashPanel">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;">Queue Dashboard</div>
@@ -14739,12 +14745,16 @@ const App = {
     var area = document.getElementById('contentArea');
     area.innerHTML = App._skeleton(3,'ticket');
 
-    var [tRes, usersRes, devsRes, clsRes] = await Promise.all([
+    var [tRes, usersRes, devsRes, clsRes, stRes] = await Promise.all([
       self.callAsync('getTicketById', ticketId),
       self.callAsync('getUsers', true),
       self.callAsync('getDevelopers'),
-      self.callAsync('getClassificationConfig')
+      self.callAsync('getClassificationConfig'),
+      self.callAsync('getStatusConfig')
     ]);
+    if (stRes && stRes.success && stRes.statuses) {
+      self._customStatuses = stRes.statuses.slice().sort(function(a,b){return (a.order||0)-(b.order||0);});
+    }
     if (!tRes || !tRes.success) { area.innerHTML = '<div class="empty-state"><p>Ticket not found</p></div>'; return; }
     var t = tRes.ticket;
     var users = (usersRes && usersRes.success) ? usersRes.users : [];
@@ -14755,7 +14765,8 @@ const App = {
     self._clsDispositions = (clsCfg.dispositions && clsCfg.dispositions.length) ? clsCfg.dispositions : ['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'];
     self._clsRequireDisposition = !!clsCfg.requireDisposition;
 
-    var statusColors = { new:'#7C3AED', open:'#2563EB', pending:'#D97706', resolved:'#16A34A', closed:'#6B7280' };
+    var statusColors = {}; (self._customStatuses||[]).forEach(function(s){statusColors[s.id]=s.color||'#6B7280';});
+    if(!Object.keys(statusColors).length){ statusColors={new:'#7C3AED',open:'#2563EB',pending:'#D97706',resolved:'#16A34A',closed:'#6B7280'}; }
     var priorityColors = { Critical:'#DC2626', High:'#D97706', Medium:'#CA8A04', Low:'#16A34A' };
     var sc = statusColors[t.status] || '#6B7280';
 
@@ -14848,7 +14859,7 @@ const App = {
                 <button onclick="App._insertBookingLink('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:5px 10px;background:none;cursor:pointer;" title="Insert booking link">📅 Book Call</button>
                 <div style="display:flex;gap:8px;">
                   <select onchange="App._changeTicketStatus('${t.id}',this.value,this)" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);">
-                    ${['new','open','pending','resolved','closed'].map(s=>`<option value="${s}" ${t.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                    ${(self._customStatuses||[{id:'new',label:'New'},{id:'open',label:'Open'},{id:'pending',label:'Pending'},{id:'resolved',label:'Resolved'},{id:'closed',label:'Closed'}]).map(s=>`<option value="${s.id}" ${t.status===s.id?'selected':''}>${s.label||s.id}</option>`).join('')}
                   </select>
                   <button id="sendReplyBtn" onclick="App._submitTicketReply('${t.id}')" class="btn-primary" style="padding:8px 20px;font-size:13px;">Send Reply →</button>
                 </div>
@@ -15810,6 +15821,7 @@ const App = {
       {id:'booking-config',icon:'📅', label:'Appointment Booking', group:'Email & Support', requires:'APPOINTMENT_BOOKING_ENABLED'},
       // ── WORKFLOW ──
       {id:'ticket-classification', icon:'🏷', label:'Ticket Classification', group:'Workflow'},
+      {id:'status-management', icon:'🔖', label:'Ticket Statuses', group:'Workflow'},
       {id:'issue-form',    icon:'📝', label:'Issue Form Builder',  group:'Workflow', requires:'ISSUE_TEMPLATES_ENABLED'},
       {id:'escalation',    icon:'🚨', label:'Escalation Rules',    group:'Workflow'},
       {id:'recurring-tkt', icon:'🔁', label:'Recurring Tickets',   group:'Workflow'},
@@ -16492,6 +16504,53 @@ const App = {
             '<textarea id="cls_disps" class="form-textarea" style="min-height:160px;font-size:13px;">'+App._esc(disps.join('\n'))+'</textarea>',
           ])+
           '<button onclick="App._saveClassificationConfig()" class="btn-primary">Save Classification Settings</button>';
+      }
+
+      else if (tid === 'status-management') {
+        var stCfgR = await self.callAsync('getStatusConfig');
+        var defSts = [
+          {id:'new',label:'New',color:'#7C3AED',order:1,isDefault:true,triggersCsat:false,isTerminal:false,requireClassification:false},
+          {id:'open',label:'Open',color:'#2563EB',order:2,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+          {id:'pending',label:'Pending',color:'#D97706',order:3,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+          {id:'on-hold',label:'On Hold',color:'#64748B',order:4,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+          {id:'escalated',label:'Escalated',color:'#EF4444',order:5,isDefault:false,triggersCsat:false,isTerminal:false,requireClassification:false},
+          {id:'resolved',label:'Resolved',color:'#16A34A',order:6,isDefault:false,triggersCsat:true,isTerminal:false,requireClassification:true},
+          {id:'closed',label:'Closed',color:'#6B7280',order:7,isDefault:false,triggersCsat:false,isTerminal:true,requireClassification:false},
+        ];
+        var sts = (stCfgR && stCfgR.success && stCfgR.statuses && stCfgR.statuses.length) ? stCfgR.statuses : defSts;
+        sts = sts.slice().sort(function(a,b){return (a.order||0)-(b.order||0);});
+
+        function renderStatusRow(s, i) {
+          return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto auto auto auto auto auto;gap:10px;align-items:center;" data-st-idx="'+i+'">'+
+            '<span style="font-size:15px;cursor:grab;color:var(--text-dim);" title="Drag to reorder">⠿</span>'+
+            '<div style="display:flex;align-items:center;gap:8px;">'+
+              '<input type="color" value="'+(s.color||'#6B7280')+'" data-st-color="'+i+'" style="width:28px;height:28px;border-radius:4px;border:none;padding:0;cursor:pointer;" title="Color">'+
+              '<input class="form-input" style="font-size:13px;font-weight:600;" value="'+App._esc(s.label||s.id)+'" data-st-label="'+i+'" placeholder="Status label">'+
+            '</div>'+
+            '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;" title="New tickets start in this status"><input type="checkbox" data-st-default="'+i+'" '+(s.isDefault?'checked':'')+' style="width:13px;height:13px;"> Default</label>'+
+            '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;" title="Triggers CSAT email on entering this status"><input type="checkbox" data-st-csat="'+i+'" '+(s.triggersCsat?'checked':'')+' style="width:13px;height:13px;"> CSAT</label>'+
+            '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;" title="Terminal: tickets cannot be re-opened from this status"><input type="checkbox" data-st-terminal="'+i+'" '+(s.isTerminal?'checked':'')+' style="width:13px;height:13px;"> Terminal</label>'+
+            '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;" title="Require disposition before setting this status"><input type="checkbox" data-st-cls="'+i+'" '+(s.requireClassification?'checked':'')+' style="width:13px;height:13px;"> Req. Disp.</label>'+
+            '<button onclick="App._deleteStatusRow(this)" style="background:var(--critical-dim);color:var(--critical);border:1px solid var(--critical-dim);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;" title="Delete">✕</button>'+
+          '</div>';
+        }
+
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔖 Ticket Statuses</h3>'+
+          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Customize the statuses that tickets move through. Reorder by dragging. Flags control automation behaviour.</p>'+
+          '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+
+            '<strong>Default</strong> — new tickets start here &nbsp;·&nbsp; <strong>CSAT</strong> — triggers satisfaction email &nbsp;·&nbsp; <strong>Terminal</strong> — ticket cannot be reopened &nbsp;·&nbsp; <strong>Req. Disp.</strong> — disposition required before entering'+
+          '</div>'+
+          '<div style="display:grid;grid-template-columns:auto 1fr auto auto auto auto auto auto;gap:10px;padding:4px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:6px;">'+
+            '<span></span><span>Label / Color</span><span>Default</span><span>CSAT</span><span>Terminal</span><span>Req.Disp</span><span></span>'+
+          '</div>'+
+          '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;" id="statusRowsList">'+
+          sts.map(renderStatusRow).join('')+
+          '</div>'+
+          '<div style="display:flex;gap:8px;margin-bottom:20px;">'+
+            '<button onclick="App._addStatusRow()" class="btn-secondary btn-sm">+ Add Status</button>'+
+          '</div>'+
+          '<button onclick="App._saveStatusConfig()" class="btn-primary">Save Statuses</button>';
       }
 
       else if (tid === 'issue-form') {
@@ -17246,8 +17305,10 @@ const App = {
   _changeTicketStatus: async function(ticketId, newStatus, selectEl) {
     var self = this;
     var prevStatus = selectEl.dataset.prev || selectEl.querySelector('option[selected]')?.value;
-    // Gate: require disposition before resolving
-    if ((newStatus === 'resolved' || newStatus === 'closed') && self._clsRequireDisposition) {
+    // Gate: require disposition if status has requireClassification flag
+    var sCfgEntry = (self._customStatuses||[]).find(function(s){return s.id===newStatus;});
+    var needsClassification = sCfgEntry ? sCfgEntry.requireClassification : (newStatus==='resolved'||newStatus==='closed');
+    if (needsClassification && self._clsRequireDisposition) {
       var dispEl = document.getElementById('tkt_disp_' + ticketId);
       var currentDisp = dispEl ? dispEl.value : '';
       if (!currentDisp) {
@@ -17296,6 +17357,53 @@ const App = {
     var r = await App.callAsync('saveClassificationConfig',{types,dispositions:disps,requireDisposition});
     if(r&&r.success){App.showToast('🏷 Classification settings saved','success');App.renderUnifiedSettings('ticket-classification');}
     else App.showToast('Failed','error');
+  },
+
+  _addStatusRow: function() {
+    var list = document.getElementById('statusRowsList');
+    if (!list) return;
+    var idx = list.children.length;
+    var html = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto auto auto auto auto auto;gap:10px;align-items:center;" data-st-idx="'+idx+'">'+
+      '<span style="font-size:15px;cursor:grab;color:var(--text-dim);">⠿</span>'+
+      '<div style="display:flex;align-items:center;gap:8px;">'+
+        '<input type="color" value="#6B7280" data-st-color="'+idx+'" style="width:28px;height:28px;border-radius:4px;border:none;padding:0;cursor:pointer;">'+
+        '<input class="form-input" style="font-size:13px;font-weight:600;" value="" data-st-label="'+idx+'" placeholder="Status label">'+
+      '</div>'+
+      '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;"><input type="checkbox" data-st-default="'+idx+'" style="width:13px;height:13px;"> Default</label>'+
+      '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;"><input type="checkbox" data-st-csat="'+idx+'" style="width:13px;height:13px;"> CSAT</label>'+
+      '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;"><input type="checkbox" data-st-terminal="'+idx+'" style="width:13px;height:13px;"> Terminal</label>'+
+      '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);white-space:nowrap;cursor:pointer;"><input type="checkbox" data-st-cls="'+idx+'" style="width:13px;height:13px;"> Req. Disp.</label>'+
+      '<button onclick="App._deleteStatusRow(this)" style="background:var(--critical-dim);color:var(--critical);border:1px solid var(--critical-dim);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">✕</button>'+
+    '</div>';
+    list.insertAdjacentHTML('beforeend', html);
+  },
+
+  _deleteStatusRow: function(btn) {
+    var row = btn.closest('[data-st-idx]');
+    if (row) row.remove();
+  },
+
+  _saveStatusConfig: async function() {
+    var list = document.getElementById('statusRowsList');
+    if (!list) return;
+    var rows = Array.from(list.querySelectorAll('[data-st-idx]'));
+    var statuses = rows.map(function(row, i) {
+      var idx = row.getAttribute('data-st-idx');
+      var label = (row.querySelector('[data-st-label="'+idx+'"]')?.value||'').trim();
+      var color = row.querySelector('[data-st-color="'+idx+'"]')?.value||'#6B7280';
+      var isDefault = row.querySelector('[data-st-default="'+idx+'"]')?.checked||false;
+      var triggersCsat = row.querySelector('[data-st-csat="'+idx+'"]')?.checked||false;
+      var isTerminal = row.querySelector('[data-st-terminal="'+idx+'"]')?.checked||false;
+      var requireClassification = row.querySelector('[data-st-cls="'+idx+'"]')?.checked||false;
+      var id = label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || ('status-'+i);
+      return {id, label, color, order:i+1, isDefault, triggersCsat, isTerminal, requireClassification};
+    }).filter(function(s){return s.label;});
+    if (!statuses.length) { App.showToast('Add at least one status','error'); return; }
+    var defaults = statuses.filter(function(s){return s.isDefault;});
+    if (defaults.length > 1) { App.showToast('Only one status can be the default','error'); return; }
+    var r = await App.callAsync('saveStatusConfig', statuses);
+    if (r && r.success) { App.showToast('🔖 Statuses saved','success'); App._customStatuses = statuses; App.renderUnifiedSettings('status-management'); }
+    else App.showToast(r?.error||'Failed to save','error');
   },
 
   _saveCSATConfig: async function() {
