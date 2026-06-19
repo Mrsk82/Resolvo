@@ -4631,22 +4631,26 @@ input:focus,select:focus,textarea:focus{border-color:${accent};}
 </div>
 <script>
 var selectedSlot=null;
-function showErr(msg){var e=document.getElementById('bk_err');e.textContent=msg;e.style.display='block';e.scrollIntoView({behavior:'smooth',block:'center'});}
+function showErr(msg){var e=document.getElementById('bk_err');e.textContent=msg;e.style.display='block';e.scrollIntoView({behavior:'smooth',block:'nearest'});}
 function hideErr(){document.getElementById('bk_err').style.display='none';}
 function loadSlots(date){
   var g=document.getElementById('slotsGrid');
-  g.innerHTML='<p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Loading…</p>';
+  g.innerHTML='<p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Loading slots...</p>';
   selectedSlot=null;
-  fetch('/book/${slug}/slots?date='+date).then(r=>r.json()).then(data=>{
+  fetch('/book/${slug}/slots?date='+date).then(function(r){return r.json();}).then(function(data){
     if(!data.slots||!data.slots.length){
-      var msg=data.message||'No available slots on this day';
+      var msg=data.message||'No slots available on this day. Try another date.';
       g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">'+msg+'</p>';
       return;
     }
-    g.innerHTML=data.slots.map(s=>'<div class="slot'+(s.taken?' taken':'')+(selectedSlot===s.time?' selected':'')+'" onclick="'+(s.taken?'':'selectSlot(this,\''+s.time+'\')')+'">'+s.label+'</div>').join('');
-  }).catch(()=>{g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">Failed to load slots. Please refresh.</p>';});
+    g.innerHTML=data.slots.map(function(s){
+      var cls='slot'+(s.taken?' taken':'');
+      var attr=s.taken?'':'data-time="'+s.time+'" onclick="selectSlot(this)"';
+      return '<div class="'+cls+'" '+attr+'>'+s.label+'</div>';
+    }).join('');
+  }).catch(function(){g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">Failed to load slots. Please refresh.</p>';});
 }
-function selectSlot(el,time){selectedSlot=time;document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));el.classList.add('selected');hideErr();}
+function selectSlot(el){selectedSlot=el.getAttribute('data-time');document.querySelectorAll('.slot').forEach(function(s){s.classList.remove('selected');});el.classList.add('selected');hideErr();}
 function submitBooking(){
   var name=document.getElementById('bk_name').value.trim();
   var email=document.getElementById('bk_email').value.trim();
