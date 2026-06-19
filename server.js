@@ -1747,7 +1747,7 @@ app.post('/api/call',async(req,res)=>{
         const csatToken=Buffer.from(JSON.stringify({ticketId,slug,email:ticket.from,ts:Date.now()})).toString('base64url');
         const csatUrl=`${BASE_URL}/csat-ticket?token=${csatToken}`;
         db.tickets[idx].csatToken=csatToken;db.tickets[idx].csatSent=true;
-        writeBrandDB(slug,rDB());
+        writeBrandDB(slug,db);
         // Use brand email so customer sees reply from the brand, not contact@resolvogroup.com
         sendBrandEmail(slug,ticket.from,`✅ Your issue has been resolved — [${brandName}] ${ticket.subject}`,
           `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:20px 24px;text-align:center;"><div style="font-size:32px;margin-bottom:6px;">✅</div><h2 style="margin:0;color:#fff;font-size:18px;">Issue Resolved</h2></div><div style="padding:28px;text-align:center;"><p style="color:#374151;font-size:14px;margin:0 0 20px;">Hi there! Your support request has been resolved. Was this helpful?</p><div style="display:flex;gap:12px;justify-content:center;margin:0 0 20px;"><a href="${csatUrl}&rating=yes" style="background:#10B981;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👍 Yes</a><a href="${csatUrl}&rating=no" style="background:#EF4444;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">👎 No</a></div><p style="color:#9ca3af;font-size:12px;margin:0;">Ref: ${ticketId}</p></div></div></body></html>`,
@@ -4625,33 +4625,46 @@ input:focus,select:focus,textarea:focus{border-color:${accent};}
     <div class="fg"><label>Select Date</label><input id="bk_date" type="date" oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" min="${new Date().toISOString().split('T')[0]}"></div>
     <div class="fg"><label>Select Time Slot</label><div class="slots" id="slotsGrid"><p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Pick a date first</p></div></div>
     <div id="bk_err" style="color:#ef4444;font-size:12px;margin-bottom:8px;display:none;"></div>
-    <button class="btn" onclick="submitBooking()">📅 Confirm Appointment</button>
+    <button class="btn" id="bk_btn" onclick="submitBooking()">📅 Confirm Appointment</button>
   </div>
   <div id="success"><div style="font-size:52px;margin-bottom:16px;">✅</div><h2 style="color:#111827;margin-bottom:8px;">Appointment Booked!</h2><p style="color:#6b7280;" id="successMsg">We'll send a confirmation to your email.</p></div>
 </div>
 <script>
 var selectedSlot=null;
+function showErr(msg){var e=document.getElementById('bk_err');e.textContent=msg;e.style.display='block';e.scrollIntoView({behavior:'smooth',block:'center'});}
+function hideErr(){document.getElementById('bk_err').style.display='none';}
 function loadSlots(date){
+  var g=document.getElementById('slotsGrid');
+  g.innerHTML='<p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Loading…</p>';
+  selectedSlot=null;
   fetch('/book/${slug}/slots?date='+date).then(r=>r.json()).then(data=>{
-    var g=document.getElementById('slotsGrid');
-    if(!data.slots||!data.slots.length){g.innerHTML='<p style="color:#9ca3af;font-size:13px;grid-column:span 3;">No slots available on this day</p>';return;}
+    if(!data.slots||!data.slots.length){
+      var msg=data.message||'No available slots on this day';
+      g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">'+msg+'</p>';
+      return;
+    }
     g.innerHTML=data.slots.map(s=>'<div class="slot'+(s.taken?' taken':'')+(selectedSlot===s.time?' selected':'')+'" onclick="'+(s.taken?'':'selectSlot(this,\''+s.time+'\')')+'">'+s.label+'</div>').join('');
-  });
+  }).catch(()=>{g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">Failed to load slots. Please refresh.</p>';});
 }
-function selectSlot(el,time){selectedSlot=time;document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));el.classList.add('selected');}
+function selectSlot(el,time){selectedSlot=time;document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));el.classList.add('selected');hideErr();}
 function submitBooking(){
   var name=document.getElementById('bk_name').value.trim();
   var email=document.getElementById('bk_email').value.trim();
   var topic=document.getElementById('bk_topic').value.trim();
   var date=document.getElementById('bk_date').value;
-  var err=document.getElementById('bk_err');
-  if(!name||!email||!topic||!date||!selectedSlot){err.textContent='Please fill all required fields and select a time slot.';err.style.display='block';return;}
-  err.style.display='none';
+  var btn=document.getElementById('bk_btn');
+  if(!name){showErr('Please enter your name.');return;}
+  if(!email||!email.includes('@')){showErr('Please enter a valid email address.');return;}
+  if(!topic){showErr('Please describe the topic or reason for your appointment.');return;}
+  if(!date){showErr('Please select a date.');return;}
+  if(!selectedSlot){showErr('Please select a time slot from the grid above.');return;}
+  hideErr();
+  btn.textContent='Booking…';btn.disabled=true;
   fetch('/book/${slug}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,phone:document.getElementById('bk_phone').value,topic,date,time:selectedSlot})})
   .then(r=>r.json()).then(d=>{
     if(d.success){document.getElementById('bookForm').style.display='none';document.getElementById('success').style.display='block';document.getElementById('successMsg').textContent='Confirmation sent to '+email+'. Ref: '+d.appointmentId;}
-    else{err.textContent=d.error||'Booking failed';err.style.display='block';}
-  });
+    else{showErr(d.error||'Booking failed. Please try again.');btn.textContent='📅 Confirm Appointment';btn.disabled=false;}
+  }).catch(()=>{showErr('Network error. Please check your connection and try again.');btn.textContent='📅 Confirm Appointment';btn.disabled=false;});
 }
 </script></body></html>`);
 });
