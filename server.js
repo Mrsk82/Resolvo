@@ -1587,7 +1587,7 @@ app.post('/api/call',async(req,res)=>{
     getModules:()=>{const db=rDB(),s=(db.settings||{}).MODULES;return{success:true,modules:s?s.split(',').map(m=>m.trim()):['API','Dashboard','Reports','Authentication','Database','UI','Integration','Backend','Frontend','DevOps']};},
     updateModules:ma=>{const db=rDB();db.settings=db.settings||{};db.settings.MODULES=ma.join(',');wDB(db);return{success:true};},
     getSettings:()=>{const db=rDB();return{success:true,settings:db.settings||{}};},
-    updateSetting:(k,v)=>{const db=rDB();db.settings=db.settings||{};db.settings[k]=v;wDB(db);return{success:true};},
+    updateSetting:(k,v)=>{const db=rDB();db.settings=db.settings||{};db.settings[k]=v;wDB(db);if(k==='APP_NAME'&&v){const o=readOwner();const bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){o.brands[bi].name=v;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])sessions[t].brandName=v;}return{success:true};},
     getSLAConfig:()=>{const db=rDB();return{success:true,config:db.slaConfig||{Critical:4,High:8,Medium:24,Low:72}};},
     updateSLAConfig:(p,h)=>{const db=rDB();db.slaConfig=db.slaConfig||{};db.slaConfig[p]=h;wDB(db);return{success:true};},
     getKanbanData:()=>{const db=rDB(),now=new Date(),cols=['Open','Acknowledged','WIP','Testing','Blocked','Need Info'],board={};cols.forEach(s=>{board[s]=[];});(db.issues||[]).filter(i=>cols.includes(i.status)).forEach(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);board[i.status].push({...i,slaBreached:now>d});});return{success:true,board,columns:cols};},
