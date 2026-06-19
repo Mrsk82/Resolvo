@@ -1603,6 +1603,7 @@ app.post('/api/call',async(req,res)=>{
     getCustomFields:()=>{const db=rDB();return{success:true,fields:db.customFields||[]};},
     saveCustomField:f=>{const db=rDB();db.customFields=db.customFields||[];const idx=db.customFields.findIndex(x=>x.id===f.id);if(idx>=0)db.customFields[idx]=f;else db.customFields.push({...f,id:generateId('CF')});wDB(db);return{success:true};},
     deleteCustomField:id=>{const db=rDB();db.customFields=(db.customFields||[]).filter(f=>f.id!==id);wDB(db);return{success:true};},
+    saveTicketCustomField:(ticketId,fieldId,value)=>{const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);if(idx===-1)return{success:false,error:'Not found'};db.tickets[idx].customFields=db.tickets[idx].customFields||{};db.tickets[idx].customFields[fieldId]=value;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);return{success:true};},
     getCustomFieldValues:ii=>{const db=rDB();return{success:true,values:(db.customFieldValues||[]).filter(v=>v.issueId===ii)};},
     saveCustomFieldValues:(ii,vals)=>{const db=rDB();db.customFieldValues=(db.customFieldValues||[]).filter(v=>v.issueId!==ii);(vals||[]).forEach(v=>db.customFieldValues.push({...v,issueId:ii}));wDB(db);return{success:true};},
     getOnCallSchedule:()=>{const db=rDB();return{success:true,schedule:db.onCallSchedule||[]};},
@@ -2915,13 +2916,15 @@ app.post('/api/call',async(req,res)=>{
             tags,cc:ccList,isVIP:t.isVIP?'Yes':'No',
             slaPaused:t.slaPaused?'Yes':'No',
             linkedIssueId:t.linkedIssueId||'',parentId:t.parentId||'',
-            templateId:t.templateId||'',internalNote:t.internalNote||''
+            templateId:t.templateId||'',internalNote:t.internalNote||'',
+            customFields:t.customFields||{}
           };
         };
-        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
-        const headers=['ID','Subject','From Email','From Name','Status','Priority','Assigned To','Team','Closed By','Source','Created Date','First Response Date','Resolved Date','Last Activity','First Response (min)','Resolution Time (hrs)','SLA Hours','SLA Breached','Total Messages','Agent Replies','Incoming Messages','Reopen Count','Type','Disposition','CSAT Rating','CSAT Score','CSAT Date','Tags','CC','VIP','SLA Paused','Linked Issue ID','Parent ID','Template ID','Internal Note'];
+        const customFieldDefs=db.customFields||[];
         const escape=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
-        const csvRows=[headers.join(','),...rows.map(t=>{const r=mapTicket(t);return[r.id,r.subject,r.from,r.fromName,r.status,r.priority,r.assignedTo,r.team,r.closedBy,r.source,r.createdDate,r.firstResponseDate,r.resolvedDate,r.lastActivity,r.firstResponseMinutes,r.resolutionTimeHours,r.slaHours,r.slaBreached,r.totalMessages,r.agentReplies,r.incomingMessages,r.reopenCount,r.type,r.disposition,r.csatRating,r.csatScore,r.csatAt,r.tags,r.cc,r.isVIP,r.slaPaused,r.linkedIssueId,r.parentId,r.templateId,r.internalNote].map(escape).join(',')})];
+        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
+        const headers=['ID','Subject','From Email','From Name','Status','Priority','Assigned To','Team','Closed By','Source','Created Date','First Response Date','Resolved Date','Last Activity','First Response (min)','Resolution Time (hrs)','SLA Hours','SLA Breached','Total Messages','Agent Replies','Incoming Messages','Reopen Count','Type','Disposition','CSAT Rating','CSAT Score','CSAT Date','Tags','CC','VIP','SLA Paused','Linked Issue ID','Parent ID','Template ID','Internal Note',...customFieldDefs.map(f=>f.name)];
+        const csvRows=[headers.join(','),...rows.map(t=>{const r=mapTicket(t);return[r.id,r.subject,r.from,r.fromName,r.status,r.priority,r.assignedTo,r.team,r.closedBy,r.source,r.createdDate,r.firstResponseDate,r.resolvedDate,r.lastActivity,r.firstResponseMinutes,r.resolutionTimeHours,r.slaHours,r.slaBreached,r.totalMessages,r.agentReplies,r.incomingMessages,r.reopenCount,r.type,r.disposition,r.csatRating,r.csatScore,r.csatAt,r.tags,r.cc,r.isVIP,r.slaPaused,r.linkedIssueId,r.parentId,r.templateId,r.internalNote,...customFieldDefs.map(f=>r.customFields[f.id]||'')].map(escape).join(',')})];
         return{success:true,data:csvRows.join('\n'),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.csv`,count:rows.length};
       }
       if(dataset==='csat'){

@@ -15190,6 +15190,9 @@ const App = {
             <input id="newTagInput" class="form-input" style="font-size:11px;padding:4px 8px;width:100%;" placeholder="Add tag + Enter..." onkeydown="if(event.key==='Enter'){App.callAsync('addTicketTag','${t.id}',this.value.trim()).then(()=>{App.renderTicketDetail('${t.id}')});event.preventDefault();}">
           </div>
 
+          <!-- 🗂 CUSTOM FIELDS -->
+          <div id="ticketCustomFieldsPanel" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;"></div>
+
           <!-- ✅ CHECKLIST (Feature 7) -->
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -15238,6 +15241,38 @@ const App = {
     self._startTypingPoll(ticketId);
     // Load advanced features panels
     self._loadAdvancedTicketPanels(ticketId, t);
+    // Load custom fields panel
+    self._loadTicketCustomFields(ticketId, t);
+  },
+
+  _loadTicketCustomFields: async function(ticketId, t) {
+    var self = this;
+    var panel = document.getElementById('ticketCustomFieldsPanel');
+    if (!panel) return;
+    var r = await self.callAsync('getCustomFields');
+    var fields = (r && r.success) ? r.fields : [];
+    if (!fields.length) { panel.style.display = 'none'; return; }
+    var vals = t.customFields || {};
+    var typeInput = function(f) {
+      var v = self._esc(String(vals[f.id] || ''));
+      var base = 'style="width:100%;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);" onchange="App.callAsync(\'saveTicketCustomField\',\''+ticketId+'\',\''+f.id+'\',this.value).then(function(r){if(r&&r.success)App.showToast(\'Saved\',\'success\');})"';
+      if (f.type === 'dropdown') {
+        return '<select '+base+'>'+(f.options||[]).map(function(o){return '<option value="'+App._esc(o)+'"'+(vals[f.id]===o?' selected':'')+'>'+App._esc(o)+'</option>';}).join('')+'</select>';
+      }
+      if (f.type === 'checkbox') {
+        return '<input type="checkbox" '+(vals[f.id]?'checked':'')+' onchange="App.callAsync(\'saveTicketCustomField\',\''+ticketId+'\',\''+f.id+'\',this.checked?\'true\':\'\').then(function(r){if(r&&r.success)App.showToast(\'Saved\',\'success\');})" style="width:16px;height:16px;cursor:pointer;">';
+      }
+      if (f.type === 'date') return '<input type="date" value="'+v+'" '+base+'>';
+      if (f.type === 'number') return '<input type="number" value="'+v+'" placeholder="0" '+base+'>';
+      return '<input type="text" value="'+v+'" placeholder="Enter value..." '+base+'>';
+    };
+    panel.innerHTML = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">🗂 Custom Fields</div>'+
+      fields.map(function(f){
+        return '<div style="margin-bottom:10px;">'+
+          '<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">'+self._esc(f.name)+(f.required?'<span style="color:var(--critical);"> *</span>':'')+' <span style="font-size:10px;color:var(--text-dim);">('+f.type+')</span></div>'+
+          typeInput(f)+
+        '</div>';
+      }).join('');
   },
 
   _loadAdvancedTicketPanels: async function(ticketId, t) {
@@ -17512,6 +17547,9 @@ const App = {
           <input id="ct_tags" class="form-input" placeholder="billing, urgent, mobile">
         </div>
 
+        <!-- Custom Fields -->
+        <div id="ct_custom_fields_section"></div>
+
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
@@ -17520,6 +17558,24 @@ const App = {
     </div></div>`;
 
     document.body.insertAdjacentHTML('beforeend', html);
+    // Load global custom fields into create form
+    App.callAsync('getCustomFields').then(function(r) {
+      var fields = (r && r.success) ? r.fields : [];
+      var sec = document.getElementById('ct_custom_fields_section');
+      if (!sec || !fields.length) return;
+      sec.innerHTML = '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:14px;">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">🗂 Custom Fields</div>'+
+        fields.map(function(f) {
+          var inp;
+          if (f.type==='dropdown') inp='<select id="ctcf_'+f.id+'" class="form-select" style="font-size:13px;">'+(f.options||[]).map(function(o){return '<option>'+App._esc(o)+'</option>';}).join('')+'</select>';
+          else if (f.type==='checkbox') inp='<input type="checkbox" id="ctcf_'+f.id+'" style="width:16px;height:16px;vertical-align:middle;">';
+          else if (f.type==='date') inp='<input type="date" id="ctcf_'+f.id+'" class="form-input">';
+          else if (f.type==='number') inp='<input type="number" id="ctcf_'+f.id+'" class="form-input" placeholder="0">';
+          else inp='<input type="text" id="ctcf_'+f.id+'" class="form-input" placeholder="Enter '+App._esc(f.name)+'...">';
+          return '<div style="margin-bottom:10px;"><label class="form-label">'+App._esc(f.name)+(f.required?' <span style="color:var(--critical);">*</span>':'')+' <span style="font-size:10px;color:var(--text-dim);">('+f.type+')</span></label>'+inp+'</div>';
+        }).join('')+
+      '</div>';
+    });
   },
 
   _applyTicketTemplate: async function(templateId) {
@@ -17561,10 +17617,14 @@ const App = {
     });
     if (missing.length) { App.showToast('Fill required fields: ' + missing.join(', '), 'warning'); return; }
 
-    // Collect custom fields from template
+    // Collect custom fields (template required fields + global custom fields)
     var customFields = {};
     document.querySelectorAll('[data-required-field]').forEach(function(inp){
       customFields[inp.getAttribute('data-required-field')] = inp.value.trim();
+    });
+    document.querySelectorAll('[id^="ctcf_"]').forEach(function(inp){
+      var fieldId = inp.id.replace('ctcf_','');
+      customFields[fieldId] = inp.type==='checkbox' ? (inp.checked?'true':'') : inp.value;
     });
 
     var btn = document.getElementById('createTicketBtn');
