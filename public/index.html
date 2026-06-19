@@ -14894,7 +14894,7 @@ const App = {
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">SLA & Escalation</div>
             ${t.slaPaused?`<div style="background:var(--medium-dim);border:1px solid var(--medium)44;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:8px;">⏸ SLA Paused — waiting for customer</div>`:''}
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
-              Created: <strong style="color:var(--text-secondary);">${(t.createdDate||'').replace('T',' ').substring(0,16)}</strong><br>
+              Created: <strong style="color:var(--text-secondary);">${App._fmtDT(t.createdDate)}</strong><br>
               ${t.firstResponseMinutes!=null?`First Response: <strong style="color:${t.firstResponseMinutes<=60?'var(--low)':t.firstResponseMinutes<=240?'var(--medium)':'var(--critical)'};">${t.firstResponseMinutes<60?t.firstResponseMinutes+'m':Math.round(t.firstResponseMinutes/60*10)/10+'h'}</strong>`:'First Response: <span style="color:var(--text-dim);">Pending</span>'}
             </div>
             <div style="display:flex;gap:5px;flex-wrap:wrap;">
@@ -14908,7 +14908,7 @@ const App = {
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Details</div>
             ${[
-              ['Created', (t.createdDate||'').split('T')[0]],
+              ['Created', App._fmtDT(t.createdDate, true)],
               ['Messages', (thread.length||0)],
               ['Source', t.source||'email'],
               ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
@@ -23432,6 +23432,12 @@ App.bulkUpdateIssuesPhase5 = async function(action, value) {
 // ─── HELPER UTILITIES ──────────────────────────────────────────
 App._esc = function(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+};
+App._fmtDT = function(d, dateOnly) {
+  if (!d) return '—';
+  var dt = new Date(d); if (isNaN(dt)) return d;
+  if (dateOnly) return dt.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'});
+  return dt.toLocaleString('en-IN', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true});
 };
 App._relTime = function(d) {
   if (!d) return '—';
