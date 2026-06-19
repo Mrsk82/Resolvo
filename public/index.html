@@ -7814,6 +7814,10 @@ tbody tr.row-selected {
               <span class="nav-icon">📊</span>
               <span class="nav-text">Workload</span>
             </a>
+            <a href="#" class="nav-item" data-page="export" data-tooltip="Export Data">
+              <span class="nav-icon">📥</span>
+              <span class="nav-text">Export</span>
+            </a>
           </div>
 
           <!-- ADMIN — only shown to admins -->
@@ -11561,6 +11565,7 @@ const App = {
       case 'announcements': this.renderAnnouncements(); break;
       case 'teams': this.renderTeams(); break;
       case 'ticket-inbox': this.renderTicketInbox(); break;
+      case 'export': this.renderExport(); break;
       case 'ticket-detail': this.renderTicketDetail(params && params.id); break;
       case 'settings': this.renderUnifiedSettings(params && params.tab); break;
       case 'email-ticketing': this.renderEmailTicketing(); break;
@@ -14422,6 +14427,177 @@ const App = {
   // ── SUPPORT INBOX (Freshdesk-style) ──────────────────────────────────────────
   _ticketFilter: 'all',
 
+  renderExport: async function() {
+    var self = this;
+    self.setPage('Export Data', 'Reports / Export');
+    var area = document.getElementById('contentArea');
+    area.innerHTML = App._skeleton(3, 'table');
+
+    var [usersRes, stRes] = await Promise.all([
+      self.callAsync('getUsers', true),
+      self.callAsync('getStatusConfig')
+    ]);
+    var agents = (usersRes && usersRes.success) ? usersRes.users : [];
+    var statuses = (stRes && stRes.success && stRes.statuses) ? stRes.statuses : [
+      {id:'new',label:'New'},{id:'open',label:'Open'},{id:'pending',label:'Pending'},
+      {id:'resolved',label:'Resolved'},{id:'closed',label:'Closed'}
+    ];
+
+    // Preset date ranges
+    var today = new Date();
+    var iso = function(d){ return d.toISOString().split('T')[0]; };
+    var presets = [
+      {l:'Today', f:iso(today), t:iso(today)},
+      {l:'Last 7 days', f:iso(new Date(today-6*864e5)), t:iso(today)},
+      {l:'Last 30 days', f:iso(new Date(today-29*864e5)), t:iso(today)},
+      {l:'This month', f:iso(new Date(today.getFullYear(),today.getMonth(),1)), t:iso(today)},
+      {l:'Last month', f:iso(new Date(today.getFullYear(),today.getMonth()-1,1)), t:iso(new Date(today.getFullYear(),today.getMonth(),0))},
+      {l:'All time', f:'', t:''},
+    ];
+
+    area.innerHTML =
+      '<div style="max-width:820px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">' +
+          '<div><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">📥 Export Data</h2>' +
+          '<p style="margin:0;font-size:13px;color:var(--text-dim);">Download your tickets, CSAT results and more as CSV or JSON.</p></div>' +
+        '</div>' +
+
+        // Dataset + Format
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">' +
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;">' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:12px;">What to Export</div>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;" id="datasetPicker">' +
+              [
+                {id:'tickets', icon:'🎫', label:'Tickets', desc:'All ticket data with status, agent, CSAT'},
+                {id:'csat',    icon:'⭐', label:'CSAT Responses', desc:'Customer satisfaction survey results'},
+              ].map(function(d, i){
+                return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:2px solid '+(i===0?'var(--accent)':'var(--border)')+';border-radius:9px;cursor:pointer;transition:border .12s;" onclick="document.querySelectorAll(\'[data-ds-opt]\').forEach(function(el){el.style.border=\'2px solid var(--border)\';});this.style.border=\'2px solid var(--accent)\';document.getElementById(\'exp_dataset\').value=\''+d.id+'\'">' +
+                  '<input type="radio" name="dataset" value="'+d.id+'" '+(i===0?'checked':'')+' style="margin-top:2px;" data-ds-opt>' +
+                  '<div><div style="font-size:13px;font-weight:700;">'+d.icon+' '+d.label+'</div>' +
+                  '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">'+d.desc+'</div></div>' +
+                '</label>';
+              }).join('') +
+            '</div>' +
+            '<input type="hidden" id="exp_dataset" value="tickets">' +
+          '</div>' +
+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;">' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:12px;">Format</div>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;">' +
+              [
+                {id:'csv',  icon:'📄', label:'CSV', desc:'Open in Excel, Google Sheets'},
+                {id:'json', icon:'📦', label:'JSON', desc:'For developers, APIs, data pipelines'},
+              ].map(function(d, i){
+                return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:2px solid '+(i===0?'var(--accent)':'var(--border)')+';border-radius:9px;cursor:pointer;" onclick="document.querySelectorAll(\'[data-fmt-opt]\').forEach(function(el){el.style.border=\'2px solid var(--border)\';});this.style.border=\'2px solid var(--accent)\';document.getElementById(\'exp_format\').value=\''+d.id+'\'">' +
+                  '<input type="radio" name="format" value="'+d.id+'" '+(i===0?'checked':'')+' style="margin-top:2px;" data-fmt-opt>' +
+                  '<div><div style="font-size:13px;font-weight:700;">'+d.icon+' '+d.label+'</div>' +
+                  '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">'+d.desc+'</div></div>' +
+                '</label>';
+              }).join('') +
+            '</div>' +
+            '<input type="hidden" id="exp_format" value="csv">' +
+          '</div>' +
+        '</div>' +
+
+        // Date range
+        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;">' +
+          '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:12px;">Date Range</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">' +
+            presets.map(function(p, i){
+              return '<button onclick="App._setExportPreset(\''+p.f+'\',\''+p.t+'\',this)" style="padding:5px 12px;border-radius:20px;border:1px solid '+(i===0?'var(--accent)':'var(--border)')+';background:'+(i===0?'var(--accent-dim)':'var(--bg-elevated)')+';color:'+(i===0?'var(--accent)':'var(--text-secondary)')+';font-size:12px;cursor:pointer;" data-preset>'+p.l+'</button>';
+            }).join('') +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+            '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px;">From</label>' +
+            '<input type="date" id="exp_from" class="form-input" style="width:170px;" value="'+iso(new Date(today-29*864e5))+'"></div>' +
+            '<div style="font-size:18px;color:var(--text-dim);margin-top:16px;">→</div>' +
+            '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px;">To</label>' +
+            '<input type="date" id="exp_to" class="form-input" style="width:170px;" value="'+iso(today)+'"></div>' +
+          '</div>' +
+        '</div>' +
+
+        // Filters
+        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:20px;">' +
+          '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:12px;">Filters <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">' +
+            '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Status</label>' +
+            '<select id="exp_status" class="form-select" style="font-size:12px;"><option value="all">All statuses</option>' +
+            statuses.map(function(s){return '<option value="'+s.id+'">'+s.label+'</option>';}).join('') +
+            '</select></div>' +
+            '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Priority</label>' +
+            '<select id="exp_priority" class="form-select" style="font-size:12px;"><option value="all">All priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></div>' +
+            '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Agent</label>' +
+            '<select id="exp_agent" class="form-select" style="font-size:12px;"><option value="all">All agents</option>' +
+            agents.map(function(u){return '<option value="'+App._esc(u.email)+'">'+App._esc(u.name||u.email)+'</option>';}).join('') +
+            '</select></div>' +
+            '<div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Source</label>' +
+            '<select id="exp_source" class="form-select" style="font-size:12px;"><option value="all">All sources</option><option value="email">Email</option><option value="widget">Widget</option><option value="web">Web</option><option value="manual">Manual</option><option value="booking">Booking</option></select></div>' +
+          '</div>' +
+        '</div>' +
+
+        // Download button
+        '<div style="display:flex;align-items:center;gap:12px;">' +
+          '<button onclick="App._runExport()" class="btn-primary" style="padding:12px 32px;font-size:14px;font-weight:700;">📥 Prepare & Download</button>' +
+          '<div id="expStatus" style="font-size:12px;color:var(--text-dim);"></div>' +
+        '</div>' +
+
+        // Recent exports log
+        '<div style="margin-top:28px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px;">' +
+          '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:12px;">How it works</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">' +
+            [
+              {n:'1', t:'Choose dataset & format', d:'Tickets or CSAT · CSV or JSON'},
+              {n:'2', t:'Set date range & filters', d:'Filter by status, agent, priority or source'},
+              {n:'3', t:'Download instantly', d:'File downloads directly to your device'},
+            ].map(function(s){
+              return '<div style="display:flex;gap:10px;align-items:flex-start;">' +
+                '<div style="width:24px;height:24px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+s.n+'</div>' +
+                '<div><div style="font-size:12px;font-weight:700;color:var(--text-secondary);">'+s.t+'</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">'+s.d+'</div></div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  },
+
+  _setExportPreset: function(f, t, btn) {
+    document.querySelectorAll('[data-preset]').forEach(function(el){
+      el.style.border = '1px solid var(--border)';
+      el.style.background = 'var(--bg-elevated)';
+      el.style.color = 'var(--text-secondary)';
+    });
+    btn.style.border = '1px solid var(--accent)';
+    btn.style.background = 'var(--accent-dim)';
+    btn.style.color = 'var(--accent)';
+    if (document.getElementById('exp_from')) document.getElementById('exp_from').value = f;
+    if (document.getElementById('exp_to')) document.getElementById('exp_to').value = t;
+  },
+
+  _runExport: async function() {
+    var statusEl = document.getElementById('expStatus');
+    statusEl.textContent = '⏳ Preparing export...';
+    var opts = {
+      dataset: document.getElementById('exp_dataset')?.value || 'tickets',
+      format:  document.getElementById('exp_format')?.value || 'csv',
+      dateFrom: document.getElementById('exp_from')?.value || '',
+      dateTo:   document.getElementById('exp_to')?.value || '',
+      status:   document.getElementById('exp_status')?.value || 'all',
+      priority: document.getElementById('exp_priority')?.value || 'all',
+      agent:    document.getElementById('exp_agent')?.value || 'all',
+      source:   document.getElementById('exp_source')?.value || 'all',
+    };
+    var r = await App.callAsync('exportData', opts);
+    if (!r || !r.success) { statusEl.textContent = '❌ ' + (r && r.error || 'Export failed'); return; }
+    // Trigger browser download
+    var mime = opts.format === 'json' ? 'application/json' : 'text/csv';
+    var blob = new Blob([r.data], {type: mime + ';charset=utf-8;'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = r.filename; a.click();
+    URL.revokeObjectURL(url);
+    statusEl.innerHTML = '✅ Downloaded <strong>' + r.filename + '</strong> — ' + r.count + ' records';
+  },
+
   renderTicketInbox: async function() {
     var self = this;
     self.setPage('Support Inbox', 'Support / Tickets');
@@ -15848,6 +16024,73 @@ const App = {
     if(TABS.length>0 && !TABS.find(function(t){return t.id===self._settingsTab;})){
       self._settingsTab = 'general';
     }
+
+    // Settings home: show card grid when navigating to settings without a specific tab
+    if (!tab && self._settingsTab === 'general' && !self._settingsFromSidebar) {
+      self._settingsFromSidebar = false;
+      self.setPage('Settings','Admin / Settings');
+      var groupDescs = {
+        'Core': 'Brand identity, SLA, team, security and platform settings',
+        'Email & Support': 'Email inbox, canned responses, CSAT and booking',
+        'Workflow': 'Ticket statuses, classification, escalation and automation',
+        'Content': 'Knowledge base and public roadmap',
+        'Integrations': 'Connect external tools and APIs',
+        'Security': 'Two-factor auth, GDPR and compliance',
+        'Compliance': 'Privacy, data retention and GDPR tools',
+      };
+      var cardDescs = {
+        'general':'Brand name, logo, theme, timezone and email profile',
+        'sla':'Define response and resolution SLA targets by priority',
+        'team':'Invite agents, set roles and manage team members',
+        'features':'Enable or disable platform features and modules',
+        'advanced-features':'AI, automation and enterprise-tier features',
+        'api-tokens':'Generate and manage API access tokens',
+        'slack-alerts':'Send ticket and issue alerts to Slack channels',
+        'security':'Password policy, session timeout and access controls',
+        'notify-prefs':'Control which alerts and digests you receive',
+        'data-export':'Export your data at any time',
+        'email':'Connect Gmail or IMAP inbox for email ticketing',
+        'canned':'Create reusable reply templates for fast responses',
+        'templates':'Set up auto-reply and ticket acknowledgement templates',
+        'ooo':'Configure out-of-office auto-reply messages',
+        'csat-config':'Trigger and customise CSAT surveys on ticket resolve',
+        'queue-config':'Set up round-robin and skills-based ticket assignment',
+        'vip-config':'Flag VIP customers for priority handling',
+        'booking-config':'Let customers book calls directly from email replies',
+        'ticket-classification':'Define ticket types and close dispositions',
+        'status-management':'Customise ticket statuses, colors and automation flags',
+        'issue-form':'Choose which fields appear on the issue creation form',
+        'escalation':'Auto-escalate tickets that breach SLA or go unassigned',
+        'recurring-tkt':'Schedule recurring tickets on a cron-like schedule',
+        'approval-rules':'Define multi-step approval workflows for tickets',
+        'knowledge-base':'Build a self-service help centre for customers',
+        'roadmap':'Share a public product roadmap with your users',
+        'integrations':'Connect Slack, webhooks, Zapier and more',
+        'api-keys':'Manage API keys for external integrations',
+        'two-fa':'Require two-factor authentication for all agents',
+        'gdpr':'Data export, right-to-erasure and retention policies',
+      };
+      var groupOrder = ['Core','Email & Support','Workflow','Content','Integrations','Security','Compliance'];
+      var gridHtml = groupOrder.filter(function(g){return groups[g]&&groups[g].length;}).map(function(g){
+        return '<div style="margin-bottom:28px;">'+
+          '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);">'+g+'</div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">'+
+          groups[g].map(function(t){
+            return '<div onclick="App._settingsFromSidebar=true;App.renderUnifiedSettings(\''+t.id+'\')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:all .15s;display:flex;gap:12px;align-items:flex-start;" onmouseover="this.style.background=\'var(--bg-elevated)\';this.style.borderColor=\'var(--border-accent)\'" onmouseout="this.style.background=\'var(--bg-card)\';this.style.borderColor=\'var(--border)\'">'+
+              '<span style="font-size:22px;flex-shrink:0;margin-top:1px;">'+t.icon+'</span>'+
+              '<div><div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">'+t.label+'</div>'+
+              '<div style="font-size:11px;color:var(--text-dim);line-height:1.4;">'+(cardDescs[t.id]||'Configure '+t.label.toLowerCase())+'</div></div>'+
+            '</div>';
+          }).join('')+
+          '</div></div>';
+      }).join('');
+      area.innerHTML =
+        '<div style="margin-bottom:24px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">⚙ Settings</h2>'+
+        '<p style="margin:0;font-size:13px;color:var(--text-dim);">Configure your workspace, team, ticketing and integrations.</p></div>'+
+        gridHtml;
+      return;
+    }
+    self._settingsFromSidebar = false;
 
     // Group tabs visually
     var groups = {};

@@ -2863,6 +2863,39 @@ app.post('/api/call',async(req,res)=>{
       {id:'closed',   label:'Closed',    color:'#6B7280',order:7,isDefault:false,triggersCsat:false,isTerminal:true, requireClassification:false},
     ];return{success:true,statuses:db.statusConfig||def};},
     saveStatusConfig:(statuses)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};if(!Array.isArray(statuses)||!statuses.length)return{success:false,error:'At least one status required'};const db=rDB();db.statusConfig=statuses;wDB(db);return{success:true};},
+    exportData:(opts)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const fmt=opts&&opts.format==='json'?'json':'csv';
+      const dateFrom=opts&&opts.dateFrom?new Date(opts.dateFrom):null;
+      const dateTo=opts&&opts.dateTo?new Date(opts.dateTo+'T23:59:59'):null;
+      const dataset=opts&&opts.dataset||'tickets';
+
+      if(dataset==='tickets'){
+        let rows=(db.tickets||[]).filter(t=>{
+          if(dateFrom&&new Date(t.createdDate||t.createdAt)<dateFrom)return false;
+          if(dateTo&&new Date(t.createdDate||t.createdAt)>dateTo)return false;
+          if(opts.status&&opts.status!=='all'&&t.status!==opts.status)return false;
+          if(opts.priority&&opts.priority!=='all'&&t.priority!==opts.priority)return false;
+          if(opts.agent&&opts.agent!=='all'&&t.assignedTo!==opts.agent)return false;
+          if(opts.source&&opts.source!=='all'&&t.source!==opts.source)return false;
+          return true;
+        });
+        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(t=>({id:t.id,subject:t.subject,from:t.from,fromName:t.fromName,status:t.status,priority:t.priority,assignedTo:t.assignedTo,source:t.source,createdDate:t.createdDate||t.createdAt,resolvedDate:t.resolvedDate,lastActivity:t.lastActivity,type:t.type||'',disposition:t.disposition||'',csatRating:t.csatRating||'',messageCount:(t.thread||[]).length})),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
+        const headers=['ID','Subject','From','From Name','Status','Priority','Assigned To','Source','Created','Resolved','Last Activity','Type','Disposition','CSAT','Messages'];
+        const escape=v=>`"${String(v||'').replace(/"/g,'""')}"`;
+        const csvRows=[headers.join(','),...rows.map(t=>[t.id,t.subject,t.from,t.fromName||'',t.status,t.priority||'',t.assignedTo||'',t.source||'email',t.createdDate||t.createdAt||'',t.resolvedDate||'',t.lastActivity||'',t.type||'',t.disposition||'',t.csatRating||'',(t.thread||[]).length].map(escape).join(','))];
+        return{success:true,data:csvRows.join('\n'),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.csv`,count:rows.length};
+      }
+      if(dataset==='csat'){
+        const tickets=db.tickets||[];
+        const responded=tickets.filter(t=>(t.csatRating==='yes'||t.csatRating==='no')&&(!dateFrom||new Date(t.resolvedDate||t.lastActivity)>=dateFrom)&&(!dateTo||new Date(t.resolvedDate||t.lastActivity)<=dateTo));
+        if(fmt==='json')return{success:true,data:JSON.stringify(responded.map(t=>({ticketId:t.id,subject:t.subject,from:t.from,rating:t.csatRating,resolvedDate:t.resolvedDate,assignedTo:t.assignedTo}))),filename:`csat-export-${new Date().toISOString().split('T')[0]}.json`,count:responded.length};
+        const csvRows=[['Ticket ID','Subject','Customer','Rating','Resolved Date','Agent'].join(','),...responded.map(t=>[t.id,t.subject,t.from,t.csatRating,t.resolvedDate||'',t.assignedTo||''].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','))];
+        return{success:true,data:csvRows.join('\n'),filename:`csat-export-${new Date().toISOString().split('T')[0]}.csv`,count:responded.length};
+      }
+      return{success:false,error:'Unknown dataset'};
+    },
     getClassificationConfig:()=>{const db=rDB();return{success:true,config:db.classificationConfig||{types:['Question','Incident','Problem','Feature Request','Billing','Other'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'],requireDisposition:false}};},
     saveClassificationConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.classificationConfig=config;wDB(db);return{success:true};},
     updateTicketField:(ticketId,field,value)=>{
