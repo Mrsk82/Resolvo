@@ -19793,22 +19793,57 @@ const App = {
       else if (tid === 'csat') {
         var cr = await self.callAsync('getCSATResults', {});
         if (!cr || !cr.success) { reportEl.innerHTML = '<div style="color:var(--critical);padding:20px;">Failed to load CSAT results</div>'; return; }
-        var dist = cr.distribution || {};
-        var maxD = Math.max(1, dist[1]||0, dist[2]||0, dist[3]||0, dist[4]||0, dist[5]||0);
+        var posRate = cr.positiveRate;
+        var posColor = posRate==null?'var(--text-dim)':posRate>=80?'var(--low)':posRate>=60?'var(--accent)':'var(--critical)';
+        var posBar = cr.responded>0?Math.round(cr.positive/cr.responded*100):0;
+        var negBar = cr.responded>0?Math.round(cr.negative/cr.responded*100):0;
         reportEl.innerHTML =
-          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">⭐ Customer Satisfaction (CSAT)</h2><div style="font-size:12px;color:var(--text-muted);">Post-resolution survey results</div></div>'+
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px;">'+
-            statCard('⭐','Avg Rating',(cr.avgRating!=null?cr.avgRating+' / 5':'—'),'across '+cr.responded+' responses',(cr.avgRating>=4?'var(--low)':cr.avgRating>=3?'var(--medium)':'var(--critical)'))+
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">⭐ Customer Satisfaction (CSAT)</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Sent automatically when tickets are resolved</div></div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;">'+
+            statCard('😊','Positive CSAT',posRate!=null?posRate+'%':'—',cr.positive+' thumbs up',posColor)+
             statCard('📨','Surveys Sent',cr.total,'total sent')+
             statCard('✅','Responded',cr.responded,'response rate '+cr.responseRate+'%','var(--status-ack)')+
+            statCard('👎','Negative',cr.negative||0,'thumbs down',cr.negative>0?'var(--critical)':'var(--low)')+
           '</div>'+
           '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:18px;">'+
-            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:14px;">Rating Distribution</div>'+
-            [5,4,3,2,1].map(function(star){var c=dist[star]||0;var col=(star>=4?'var(--low)':(star===3?'var(--medium)':'var(--critical)'));return miniBar(star+' ★',c,maxD,col);}).join('')+
+            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:16px;">Satisfaction Breakdown</div>'+
+            (cr.responded===0?'<div style="font-size:13px;color:var(--text-dim);padding:8px 0;">No responses yet. Surveys are sent automatically when tickets are marked resolved.</div>':
+            '<div style="display:flex;flex-direction:column;gap:10px;">'+
+              '<div style="display:flex;align-items:center;gap:12px;">'+
+                '<span style="font-size:18px;">👍</span>'+
+                '<div style="font-size:13px;font-weight:700;color:var(--text-primary);width:80px;">Positive</div>'+
+                '<div style="flex:1;background:var(--bg-elevated);border-radius:6px;height:14px;overflow:hidden;">'+
+                  '<div style="width:'+posBar+'%;height:100%;background:var(--low);border-radius:6px;transition:width .4s;"></div></div>'+
+                '<span style="font-size:13px;font-weight:800;color:var(--low);min-width:40px;text-align:right;">'+posBar+'%</span>'+
+              '</div>'+
+              '<div style="display:flex;align-items:center;gap:12px;">'+
+                '<span style="font-size:18px;">👎</span>'+
+                '<div style="font-size:13px;font-weight:700;color:var(--text-primary);width:80px;">Negative</div>'+
+                '<div style="flex:1;background:var(--bg-elevated);border-radius:6px;height:14px;overflow:hidden;">'+
+                  '<div style="width:'+negBar+'%;height:100%;background:var(--critical);border-radius:6px;transition:width .4s;"></div></div>'+
+                '<span style="font-size:13px;font-weight:800;color:var(--critical);min-width:40px;text-align:right;">'+negBar+'%</span>'+
+              '</div>'+
+            '</div>')+
           '</div>'+
           '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;">'+
-            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:14px;">Recent Feedback</div>'+
-            ((cr.recentFeedback||[]).length?cr.recentFeedback.map(function(f){return '<div style="padding:10px 0;border-bottom:1px solid var(--border);"><div style="font-size:13px;color:var(--text-primary);">'+('★'.repeat(f.rating||0))+' <span style="color:var(--text-secondary);">'+App._esc(f.comment||'')+'</span></div>'+(f.customerEmail?'<div style="font-size:11px;color:var(--text-dim);margin-top:2px;">'+App._esc(f.customerEmail)+'</div>':'')+'</div>';}).join(''):'<div style="font-size:13px;color:var(--text-dim);">No written feedback yet.</div>')+
+            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:14px;">Recent Responses</div>'+
+            ((cr.recentFeedback||[]).length?
+              '<table style="width:100%;border-collapse:collapse;">'+
+              (cr.recentFeedback||[]).map(function(f){
+                var isYes=f.rating==='yes';
+                return '<tr style="border-bottom:1px solid var(--border);">'+
+                  '<td style="padding:10px 0;width:32px;"><span style="font-size:20px;">'+(isYes?'👍':'👎')+'</span></td>'+
+                  '<td style="padding:10px 8px;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc((f.subject||'').substring(0,60))+'</div>'+
+                    '<div style="font-size:11px;color:var(--text-dim);">'+(f.customerName?App._esc(f.customerName)+' · ':'')+App._esc(f.customerEmail||'')+'</div></td>'+
+                  '<td style="padding:10px 0;text-align:right;white-space:nowrap;">'+
+                    '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;background:'+(isYes?'var(--low)':'var(--critical)')+'18;color:'+(isYes?'var(--low)':'var(--critical)')+';">'+(isYes?'Positive':'Negative')+'</span>'+
+                    (f.ticketId?'<span onclick="App.navigate(\'ticket-detail\',{id:\''+f.ticketId+'\'})" style="font-size:11px;color:var(--accent);cursor:pointer;margin-left:8px;">'+f.ticketId+'</span>':'')+
+                  '</td>'+
+                '</tr>';
+              }).join('')+
+              '</table>':
+              '<div style="font-size:13px;color:var(--text-dim);">No responses yet.</div>')+
           '</div>';
       }
 

@@ -2067,11 +2067,21 @@ app.post('/api/call',async(req,res)=>{
       return{success:true,surveyToken,surveyUrl};
     },
     getCSATResults:()=>{
-      const db=rDB();const surveys=db.csatSurveys||[];
-      const responded=surveys.filter(s=>s.rating!==null);
-      const avgRating=responded.length>0?Math.round(responded.reduce((s,sv)=>s+(sv.rating||0),0)/responded.length*10)/10:null;
-      const dist={1:0,2:0,3:0,4:0,5:0};responded.forEach(s=>{if(dist[s.rating]!==undefined)dist[s.rating]++;});
-      return{success:true,total:surveys.length,responded:responded.length,responseRate:surveys.length>0?Math.round(responded.length/surveys.length*100):0,avgRating,distribution:dist,recentFeedback:responded.filter(s=>s.comment).slice(-5).reverse()};
+      const db=rDB();const tickets=db.tickets||[];
+      // csatSent was not persisted before the bug-fix, so treat any ticket with csatToken OR csatRating as "sent"
+      const sent=tickets.filter(t=>t.csatSent||t.csatToken||t.csatRating);
+      const responded=tickets.filter(t=>t.csatRating==='yes'||t.csatRating==='no');
+      const positive=responded.filter(t=>t.csatRating==='yes');
+      const negative=responded.filter(t=>t.csatRating==='no');
+      const positiveRate=responded.length>0?Math.round(positive.length/responded.length*100):null;
+      const responseRate=sent.length>0?Math.round(responded.length/sent.length*100):0;
+      const recent=responded.slice().sort((a,b)=>new Date(b.csatAt||b.resolvedDate||0)-new Date(a.csatAt||a.resolvedDate||0)).slice(0,10);
+      return{success:true,
+        total:sent.length,responded:responded.length,
+        positive:positive.length,negative:negative.length,
+        positiveRate,responseRate,
+        recentFeedback:recent.map(t=>({ticketId:t.id,subject:t.subject,customerEmail:t.from,customerName:t.fromName,rating:t.csatRating,at:t.csatAt}))
+      };
     },
 
     // 8. SMART REPLY DRAFTS (via Gemini)
