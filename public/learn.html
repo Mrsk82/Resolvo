@@ -317,10 +317,10 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     <div class="module active" id="mod-quickstart">
       <div class="learn-hero">
         <h1>Welcome to Resolvo 👋</h1>
-        <p>This Learning Center walks you through every feature — from your first issue to queue management, customer portal, knowledge base, API keys, 2FA, and AI-powered analytics.</p>
+        <p>This Learning Center walks you through every feature — from your first issue to queue management, customer portal, knowledge base, custom statuses, data export, and AI-powered analytics.</p>
         <div class="hero-meta">
-          <span>📚 16 Modules</span>
-          <span>⏱ ~75 min total</span>
+          <span>📚 19 Modules</span>
+          <span>⏱ ~90 min total</span>
           <span>✅ Track your progress</span>
           <span>🖥 Works on all screens</span>
         </div>
@@ -1335,6 +1335,50 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         </div>
       </div>
 
+      <div class="section-block">
+        <div class="section-title">🔖 Custom Ticket Statuses</div>
+        <div class="section-sub">Settings → 🔖 Ticket Statuses. Replace the default statuses with your own workflow stages, colors, and automation flags.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Create Custom Statuses</h4><p>Add any status (e.g. "Waiting on Customer", "In Testing") with a custom name and color. Drag to reorder the pipeline.</p></div>
+          <div class="feat-card"><h4>Terminal Flag</h4><p>Mark a status as Terminal — resolving a ticket sets SLA completion, stops timers, and triggers the CSAT survey automatically.</p></div>
+          <div class="feat-card"><h4>Require Classification</h4><p>Flag a status to require the agent to pick a Type + Disposition before moving the ticket there. Enforces data quality.</p></div>
+          <div class="feat-card"><h4>Live in Inbox</h4><p>Custom statuses appear in the left sidebar filter, the status dropdown, and in Reports — everything updates instantly.</p></div>
+        </div>
+        <div class="tip"><strong>💡 Default statuses:</strong> New → Open → Pending → On Hold → Escalated → Resolved → Closed. You can rename, recolor, or remove any of these.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📥 Download Data Page</div>
+        <div class="section-sub">Reports → 📥 Export. A dedicated two-column download hub — history on the left, new download form on the right.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Download History Table</h4><p>Every export you run is saved. See PAGE, FILTERS, FORMAT, DATE RANGE, RECORDS. Click DOWNLOAD to re-run any past export instantly.</p></div>
+          <div class="feat-card"><h4>Template</h4><p>Choose dataset: Tickets (827 columns of data) or CSAT Responses. Each downloads as a clean CSV or JSON file.</p></div>
+          <div class="feat-card"><h4>Filters</h4><p>Filter by Agent, Status, Priority before downloading. Combine with a date range (Today / 7 days / 30 days / This month / All time).</p></div>
+          <div class="feat-card"><h4>Format</h4><p>CSV opens directly in Excel / Google Sheets. JSON is for APIs, BI tools, and data pipelines.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚙ Settings Card Grid</div>
+        <div class="section-sub">Settings now opens as a clean card grid home — click any card to open just that panel, no sidebar clutter.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Click Settings in the sidebar</h4><p>Opens the card grid — all settings grouped: Core, Email & Support, Workflow, Content, Integrations, Security, Compliance.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Click any card</h4><p>Opens ONLY that settings panel — no sidebar of all tabs visible. Clean, focused view. Breadcrumb at top: ← All Settings › 🏢 General.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>← All Settings</h4><p>Click the breadcrumb to go back to the card grid. Or navigate via the main sidebar to get the full two-column layout with sidebar tabs.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⭐ CSAT Report Tab</div>
+        <div class="section-sub">Reports → ⭐ CSAT. See your customer satisfaction score at a glance with trends, response rate, and recent feedback.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>CSAT Score</h4><p>% of positive responses (👍) out of all received. Updated in real time as customers click the survey link in resolved ticket emails.</p></div>
+          <div class="feat-card"><h4>Response Rate</h4><p>Of all CSAT surveys sent, what % did customers actually respond to. Low rate = check your survey email subject line (Settings → CSAT Settings).</p></div>
+          <div class="feat-card"><h4>Recent Feedback</h4><p>Table of the latest CSAT responses — customer email, ticket subject, 👍/👎, and the date they responded.</p></div>
+          <div class="feat-card"><h4>Export CSAT</h4><p>Download all CSAT responses as CSV: Ticket ID, Subject, Customer, Rating, Survey Date, Resolved Date, Agent.</p></div>
+        </div>
+      </div>
+
       <button class="complete-btn" onclick="markDone('new-features','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
     </div>
 
@@ -1467,7 +1511,7 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
       <div class="learn-hero">
         <h1>📋 Full Feature Cheatsheet</h1>
         <p>Every single feature in Resolvo, one place. Bookmark this page for quick reference.</p>
-        <div class="hero-meta"><span>50+ features</span><span>All modules</span></div>
+        <div class="hero-meta"><span>120+ features</span><span>All modules</span><span>🆕 Custom statuses, Download Data, Settings grid</span></div>
       </div>
 
       <div class="section-block">
@@ -1603,7 +1647,13 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Queue Performance</div>
             <div class="cheat-item"><span>✓</span> Follow-ups Due</div>
             <div class="cheat-item"><span>✓</span> Appointments Calendar</div>
-            <div class="cheat-item"><span>✓</span> CSV export (21 columns)</div>
+            <div class="cheat-item"><span>✓</span> ⭐ CSAT Report tab</div>
+            <div class="cheat-item"><span>✓</span> CSAT score + response rate</div>
+            <div class="cheat-item"><span>✓</span> 📥 Download Data page</div>
+            <div class="cheat-item"><span>✓</span> Download history table</div>
+            <div class="cheat-item"><span>✓</span> CSV / JSON export</div>
+            <div class="cheat-item"><span>✓</span> Export filters (agent/status/priority)</div>
+            <div class="cheat-item"><span>✓</span> Re-download past exports</div>
             <div class="cheat-item"><span>✓</span> Custom date range filters</div>
             <div class="cheat-item"><span>✓</span> Clickable drill-downs</div>
             <div class="cheat-item"><span>✓</span> Revenue dashboard</div>
@@ -1627,6 +1677,9 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <div class="cheat-section">
           <h3>⚙️ Settings & Configuration</h3>
           <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Settings card grid home</div>
+            <div class="cheat-item"><span>✓</span> Click card → focused single panel</div>
+            <div class="cheat-item"><span>✓</span> ← All Settings breadcrumb</div>
             <div class="cheat-item"><span>✓</span> Brand themes & colors</div>
             <div class="cheat-item"><span>✓</span> Custom SLA config</div>
             <div class="cheat-item"><span>✓</span> Feature flag toggles</div>
@@ -1636,6 +1689,10 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Backup & restore</div>
             <div class="cheat-item"><span>✓</span> Audit trail</div>
             <div class="cheat-item"><span>✓</span> User invite & roles</div>
+            <div class="cheat-item"><span>✓</span> 🔖 Custom ticket statuses</div>
+            <div class="cheat-item"><span>✓</span> Status colors & order</div>
+            <div class="cheat-item"><span>✓</span> Terminal flag (triggers CSAT)</div>
+            <div class="cheat-item"><span>✓</span> Require classification flag</div>
             <div class="cheat-item"><span>✓</span> Rate limiting</div>
             <div class="cheat-item"><span>✓</span> bcrypt passwords</div>
             <div class="cheat-item"><span>✓</span> Session management</div>

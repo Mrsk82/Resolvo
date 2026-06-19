@@ -112,6 +112,7 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
     <button class="tab" onclick="go('email')">📧 Email System</button>
     <button class="tab" onclick="go('queue')">🎯 Queue Engine</button>
     <button class="tab" onclick="go('jobs')">⏰ Background Jobs</button>
+    <button class="tab" onclick="go('changes')">🆕 Recent Changes</button>
   </div>
   <a href="/" class="back">← App</a>
 </nav>
@@ -1002,13 +1003,107 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
     <div class="section-title">Real-Time Triggers (Not Cron)</div>
     <div class="flow-wrap"><table class="tbl">
       <tr><th>Trigger</th><th>What Happens</th></tr>
-      <tr><td>Ticket resolved/closed</td><td>1. CSAT email sent · 2. Queue pulls next ticket · 3. Agent auto-navigated</td></tr>
+      <tr><td>Ticket status → Terminal status</td><td>1. <code>resolvedDate</code> stamped · 2. SLA timer stops · 3. CSAT email auto-sent · 4. Queue pulls next ticket · 5. Agent auto-navigated</td></tr>
+      <tr><td>Ticket status → Requires Classification</td><td>Agent prompted to pick Type + Disposition before status change is saved</td></tr>
       <tr><td>Agent goes Away</td><td>All their open tickets redistributed to available agents</td></tr>
       <tr><td>New self-signup</td><td>Brand created · Welcome email · Owner notified · Nurture timer starts</td></tr>
       <tr><td>Issue created (Critical)</td><td>Assignee notified · Global webhook fired · Owner webhook fired</td></tr>
       <tr><td>Ticket created (sentiment &lt; 30)</td><td>Priority auto-escalated to Critical · autoEscalated flag set</td></tr>
       <tr><td>Ticket created (VIP customer)</td><td>VIP tag added · Admin instant notification</td></tr>
     </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 11: RECENT CHANGES                                                     -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-changes">
+  <div class="page-title">🆕 Recent Architecture Changes</div>
+  <div class="page-sub">New systems, data models, and flows added in the latest build cycle</div>
+
+  <div class="section">
+    <div class="section-title">Custom Ticket Status System</div>
+    <div class="highlight">Replaces the hardcoded 5-status pipeline with a fully configurable status engine per brand.</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📦 Data Model — <code>db.statusConfig[]</code></div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">🔑</span><div><strong>id</strong> — slug (e.g. <code>waiting-customer</code>)</div></div>
+          <div class="item"><span class="item-icon">🏷</span><div><strong>label</strong> — display name (e.g. "Waiting on Customer")</div></div>
+          <div class="item"><span class="item-icon">🎨</span><div><strong>color</strong> — hex color shown in badge + sidebar</div></div>
+          <div class="item"><span class="item-icon">🔢</span><div><strong>order</strong> — pipeline sort position</div></div>
+          <div class="item"><span class="item-icon">🔴</span><div><strong>isTerminal</strong> — if true: stamps <code>resolvedDate</code>, stops SLA, triggers CSAT</div></div>
+          <div class="item"><span class="item-icon">📋</span><div><strong>requireClassification</strong> — if true: agent must pick Type + Disposition first</div></div>
+          <div class="item"><span class="item-icon">💬</span><div><strong>triggersCsat</strong> — set automatically when isTerminal = true</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Server Logic Changes</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><code>updateTicketStatus</code> — reads <code>isTerminal</code>/<code>triggersCsat</code> from <code>db.statusConfig</code> instead of hardcoded <code>status==='resolved'</code></div></div>
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><code>getTickets</code> — dynamic per-status counts from custom statusConfig</div></div>
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><code>getStatusConfig</code> / <code>saveStatusConfig</code> — read/write <code>db.statusConfig</code> with 7 safe defaults</div></div>
+          <div class="item"><span class="item-icon" style="color:var(--amber);">→</span><div>All status comparisons now dynamic — adding a new terminal status just works</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Download Data / Export System</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🖥️ Frontend — Two-Column Layout</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">◀</span><div><strong>Left:</strong> History table (PAGE · FILTERS · FORMAT · DATE RANGE · RECORDS · DOWNLOAD)</div></div>
+          <div class="item"><span class="item-icon">▶</span><div><strong>Right:</strong> New Download form (date range, template, agent, status, priority, format)</div></div>
+          <div class="item"><span class="item-icon">💾</span><div>History persisted in <code>localStorage</code> key <code>resolvo_export_history</code> (max 50 entries)</div></div>
+          <div class="item"><span class="item-icon">🔁</span><div>DOWNLOAD button on history rows re-runs same export with original params</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Server — <code>exportData</code> Handler</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">🎫</span><div><strong>tickets</strong> dataset — 15 columns CSV / JSON. Filters: status, priority, agent, source, date range.</div></div>
+          <div class="item"><span class="item-icon">⭐</span><div><strong>csat</strong> dataset — any non-null <code>csatRating</code>. Columns: Ticket ID, Subject, Customer Email, Customer Name, Rating, Survey Date, Resolved Date, Agent.</div></div>
+          <div class="item"><span class="item-icon">🔐</span><div>Admin-only. Date filter uses <code>resolvedDate || lastActivity || createdDate</code> fallback chain.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Settings Navigation Redesign</div>
+    <div class="card">
+      <div class="card-title">🗺️ Two Navigation Modes</div>
+      <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;text-transform:uppercase;">Card Grid Mode (from Settings nav)</div>
+          <div class="item"><span class="item-icon">1</span><div>Click Settings → card grid home renders</div></div>
+          <div class="item"><span class="item-icon">2</span><div>Card click sets <code>App._fromSettingsGrid = true</code></div></div>
+          <div class="item"><span class="item-icon">3</span><div>Panel renders content-only: breadcrumb + content, NO sidebar tabs</div></div>
+          <div class="item"><span class="item-icon">4</span><div>← All Settings resets flag, returns to grid</div></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--violet);margin-bottom:8px;text-transform:uppercase;">Sidebar Mode (from main nav shortcuts)</div>
+          <div class="item"><span class="item-icon">1</span><div><code>_fromSettingsGrid</code> is false (not set by shortcut)</div></div>
+          <div class="item"><span class="item-icon">2</span><div>Full two-column: 195px sidebar tabs + content panel</div></div>
+          <div class="item"><span class="item-icon">3</span><div>← All Settings link in sidebar returns to grid</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Timestamp Display Fix — IST Timezone</div>
+    <div class="card">
+      <div class="card-title">🕐 <code>App._fmtDT()</code> Helper</div>
+      <div class="card-body">
+        <div class="item"><span class="item-icon" style="color:var(--red);">✗</span><div><strong>Before:</strong> Raw string slicing <code>t.createdDate.replace('T',' ').substring(0,16)</code> — showed UTC, caused "55 min ago" for 6-day-old tickets</div></div>
+        <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><strong>After:</strong> <code>dt.toLocaleString('en-IN', {hour12:true})</code> — browser converts UTC → IST automatically</div></div>
+        <div class="item"><span class="item-icon">📍</span><div>Applied across: ticket inbox, ticket detail, reports, export history, timeline events</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
