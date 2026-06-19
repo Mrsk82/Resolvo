@@ -16101,7 +16101,8 @@ const App = {
     });
 
     // Build grouped sidebar
-    var tabsHtml = Object.entries(groups).map(function(entry){
+    var tabsHtml = '<div onclick="App.renderUnifiedSettings()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;border-radius:7px;margin-bottom:6px;border-bottom:1px solid var(--border);color:var(--text-dim);font-size:12px;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text-dim)\'">← All Settings</div>'+
+    Object.entries(groups).map(function(entry){
       var groupName = entry[0];
       var groupTabs = entry[1];
       var tabItems = groupTabs.map(function(t){
