@@ -16026,7 +16026,7 @@ const App = {
     }
 
     // Settings home: show card grid when navigating to settings without a specific tab
-    if (!tab && self._settingsTab === 'general' && !self._settingsFromSidebar) {
+    if (!tab && !self._settingsFromSidebar) {
       self._settingsFromSidebar = false;
       self.setPage('Settings','Admin / Settings');
       var groupDescs = {
