@@ -18671,7 +18671,14 @@ const App = {
     await App.callAsync('updateSetting','LOGO_URL',logo);
     await App.callAsync('updateSetting','SUPPORT_EMAIL',supportEmail);
     App.showToast('General settings saved','success');
-    var el=document.querySelector('.brand-name');if(el&&appName)el.textContent=appName;
+    if(appName){
+      // Update sidebar immediately
+      var el=document.querySelector('.brand-name');if(el)el.textContent=appName;
+      // Persist so refresh keeps the new name
+      localStorage.setItem('tt_brand_name',appName);
+      // Update in-memory currentUser so navigation doesn't revert
+      if(App.currentUser)App.currentUser.brandName=appName;
+    }
   },
 
   _saveEmailFromSettings: async function() {
