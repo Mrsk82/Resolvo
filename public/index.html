@@ -7110,20 +7110,53 @@ tbody tr.row-selected {
   -webkit-background-clip: text; background-clip: text;
 }
 .bento-stat-label {
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.1em; color: rgba(164,159,200,0.7); margin-top: 6px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 6px;
 }
 .bento-stat-trend {
-  font-size: 11px; font-weight: 700; font-family: 'DM Mono', monospace;
+  font-size: 11px; font-weight: 600;
   margin-top: 8px; display: flex; align-items: center; gap: 4px;
+  color: var(--text-muted);
 }
-.bento-stat-trend.up   { color: #ff4d6d; }
-.bento-stat-trend.down { color: #34d399; }
-/* Bento cell accent glow color variants */
-.nova-bento-cell.accent-red::before  { background: linear-gradient(90deg, transparent, rgba(255,77,109,0.5), transparent); }
-.nova-bento-cell.accent-green::before{ background: linear-gradient(90deg, transparent, rgba(52,211,153,0.4), transparent); }
-.nova-bento-cell.accent-cyan::before { background: linear-gradient(90deg, transparent, rgba(34,211,238,0.4), transparent); }
-.nova-bento-cell.accent-pink::before { background: linear-gradient(90deg, transparent, rgba(232,121,249,0.4), transparent); }
+.bento-stat-trend.up   { color: #ef4444; }
+.bento-stat-trend.down { color: #10b981; }
+.bento-stat-trend.flat { color: var(--text-dim); }
+/* Bento KPI icon */
+.bento-kpi-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; margin-bottom: 12px; flex-shrink: 0;
+}
+/* Bento cell accent variants — light-theme friendly */
+.nova-bento-cell.accent-red   { border-top: 3px solid #ef4444; }
+.nova-bento-cell.accent-green { border-top: 3px solid #10b981; }
+.nova-bento-cell.accent-pink  { border-top: 3px solid #f59e0b; }
+.nova-bento-cell.accent-cyan  { border-top: 3px solid #3b82f6; }
+.nova-bento-cell.accent-red   .bento-stat-num { color: #ef4444; background: none; -webkit-text-fill-color: #ef4444; }
+.nova-bento-cell.accent-green .bento-stat-num { color: #10b981; background: none; -webkit-text-fill-color: #10b981; }
+.nova-bento-cell.accent-pink  .bento-stat-num { color: #f59e0b; background: none; -webkit-text-fill-color: #f59e0b; }
+.nova-bento-cell.accent-red::before  { background: linear-gradient(90deg, transparent, rgba(239,68,68,0.15), transparent); }
+.nova-bento-cell.accent-green::before{ background: linear-gradient(90deg, transparent, rgba(16,185,129,0.12), transparent); }
+.nova-bento-cell.accent-cyan::before { background: linear-gradient(90deg, transparent, rgba(59,130,246,0.12), transparent); }
+.nova-bento-cell.accent-pink::before { background: linear-gradient(90deg, transparent, rgba(245,158,11,0.15), transparent); }
+/* Light theme bento overrides */
+[data-theme="arctic"] .nova-bento-cell,
+[data-theme="clarity"] .nova-bento-cell {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.08);
+}
+[data-theme="arctic"] .nova-bento-cell:hover,
+[data-theme="clarity"] .nova-bento-cell:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06);
+  transform: translateY(-2px);
+}
+[data-theme="arctic"] .bento-stat-num,
+[data-theme="clarity"] .bento-stat-num {
+  background: none; -webkit-text-fill-color: var(--text-primary); color: var(--text-primary);
+  font-size: 36px; letter-spacing: -1px;
+}
+[data-theme="arctic"] .nova-bento-cell::before,
+[data-theme="clarity"] .nova-bento-cell::before { display: none; }
 
 /* ── NOVA: ISSUE AURA (critical card breathing glow) ─────────────── */
 [data-theme="nova"] .kanban-card[data-priority="Critical"] {
@@ -26212,46 +26245,18 @@ App.renderGoodMorning = async function(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
 
-  var name = (App._currentUser && App._currentUser.name) || 'there';
+  var cu = App.currentUser || App._currentUser;
+  var name = (cu && cu.name) || 'there';
   var firstName = name.split(' ')[0];
   var h = new Date().getHours();
   var greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  var emoji = h < 12 ? '☀️' : h < 17 ? '🌤' : '🌙';
-
-  // Build quick stats
-  var stats = [];
-  try {
-    var r = await App.callAsync('getSummaryStats', {});
-    if (r && r.success && r.stats) {
-      var s = r.stats;
-      stats = [
-        { value: s.totalOpen || 0,       label: 'Open',       cls: '' },
-        { value: s.byPriority.Critical||0,label: 'Critical',  cls: 'critical' },
-        { value: s.slaBreached || 0,      label: 'SLA Risk',  cls: 'breach' },
-        { value: s.resolvedThisWeek || 0, label: 'Resolved ↗',cls: 'resolved' }
-      ];
-    }
-  } catch(e) {}
-
-  var statsHtml = stats.map(function(s) {
-    return '<div class="gm-stat ' + s.cls + '"><div class="gm-stat-value nova-counter">' + s.value + '</div><div class="gm-stat-label">' + s.label + '</div></div>';
-  }).join('');
-
-  // Build assigned/unread sub-line
-  var sub = '';
-  if (App._currentUser) {
-    var assigned = stats[0] ? stats[0].value : '...';
-    sub = 'You have <strong>' + (App._currentUser.assignedCount || '–') + '</strong> assigned issues';
-    if (stats[1] && stats[1].value > 0) sub += ' · <strong style="color:var(--critical)">' + stats[1].value + ' critical</strong> need attention';
-  }
+  var emoji = h < 12 ? '☀️' : h < 17 ? '🌤️' : '🌙';
 
   container.innerHTML =
     '<div class="gm-header">' +
       '<div>' +
         '<div class="gm-greeting">' + greet + ', <em>' + App._esc(firstName) + '</em> ' + emoji + '</div>' +
-        (sub ? '<div class="gm-sub">' + sub + '</div>' : '') +
       '</div>' +
-      (statsHtml ? '<div class="gm-stats">' + statsHtml + '</div>' : '') +
     '</div>';
 
   // Trigger count-up for Nova
@@ -26467,7 +26472,8 @@ App.renderNovaBentoDashboard = async function() {
 
   var assignedIssues = [];
   try {
-    var ai = await App.callAsync('getIssues', { assignedTo: App._currentUser && App._currentUser.email });
+    var _cu = App.currentUser || App._currentUser;
+    var ai = await App.callAsync('getIssues', { assignedTo: _cu && _cu.email });
     if (ai && ai.success) assignedIssues = ai.issues.filter(function(i) { return !['Resolved','Closed'].includes(i.status); }).slice(0,4);
   } catch(e) {}
 
@@ -26479,7 +26485,28 @@ App.renderNovaBentoDashboard = async function() {
   var TRACK = 'var(--bg-elevated)', LINE = 'var(--border)';
   var chMeta = {email:['\u2709\uFE0F Email','#2563EB'],whatsapp:['\uD83D\uDCAC WhatsApp','#0F6E56'],widget:['\uD83C\uDF10 Web','#534AB7'],portal:['\uD83C\uDF10 Portal','#185FA5'],api:['\u2699 API','#888780'],manual:['\u270F Manual','#888780'],phone:['\uD83D\uDCDE Phone','#534AB7']};
   var frt = (sup.avgFirstResponseMin!=null) ? (sup.avgFirstResponseMin<60 ? sup.avgFirstResponseMin+'m' : Math.round(sup.avgFirstResponseMin/60*10)/10+'h') : '\u2014';
-  function kpi(cls,label,val,trendCls,trend,nav){var click=nav?' onclick="App.navigate(\''+nav+'\')" style="cursor:pointer;"':'';return '<div class="nova-bento-cell bento-3x1 '+cls+'"'+click+'><div class="bento-stat-label">'+label+'</div><div class="bento-stat-num nova-counter">'+val+'</div><div class="bento-stat-trend '+trendCls+'">'+trend+'</div></div>';}
+  var kpiIcons={
+    'Open Tickets':'🎫','Unassigned':'⚠️','SLA Breached':'🔥','Resolved Today':'✅',
+    'Open Issues':'📋','Critical Issues':'🚨','Resolved (week)':'🚀','Issue SLA Breach':'⏰'
+  };
+  var kpiBg={
+    'accent-red':'rgba(239,68,68,0.1)','accent-green':'rgba(16,185,129,0.1)',
+    'accent-pink':'rgba(245,158,11,0.1)','accent-cyan':'rgba(59,130,246,0.1)',''  :'rgba(99,102,241,0.1)'
+  };
+  function kpi(cls,label,val,trendCls,trend,nav){
+    var click=nav?' onclick="App.navigate(\''+nav+'\')" style="cursor:pointer;"':'';
+    var icon=kpiIcons[label]||'📊';
+    var ibg=kpiBg[cls]||'rgba(99,102,241,0.1)';
+    return '<div class="nova-bento-cell bento-3x1 '+cls+'"'+click+'>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">'+
+        '<div class="bento-kpi-icon" style="background:'+ibg+';">'+icon+'</div>'+
+        (nav?'<span style="font-size:10px;color:var(--text-dim);font-weight:600;">VIEW →</span>':'')+
+      '</div>'+
+      '<div class="bento-stat-label">'+label+'</div>'+
+      '<div class="bento-stat-num nova-counter">'+val+'</div>'+
+      '<div class="bento-stat-trend '+trendCls+'">'+trend+'</div>'+
+    '</div>';
+  }
   var html = '<div class="nova-bento-grid">';
   html += '<div class="nova-bento-cell bento-12x1" style="padding:0;overflow:hidden;" id="bentogm"></div>';
   html += '<div style="grid-column:1 / -1;padding:14px 4px 2px;"><span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--text-dim);text-transform:uppercase;">\uD83C\uDFA7 Customer Support</span></div>';
