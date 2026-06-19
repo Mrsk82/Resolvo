@@ -2842,6 +2842,19 @@ app.post('/api/call',async(req,res)=>{
     // ══════════════════════════════════════════════════════════════════════
     // FEATURE 8: OUT-OF-OFFICE AUTO REPLY
     // ══════════════════════════════════════════════════════════════════════
+    getClassificationConfig:()=>{const db=rDB();return{success:true,config:db.classificationConfig||{types:['Question','Incident','Problem','Feature Request','Billing','Other'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'],requireDisposition:false}};},
+    saveClassificationConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.classificationConfig=config;wDB(db);return{success:true};},
+    updateTicketField:(ticketId,field,value)=>{
+      const allowed=['type','disposition','internalNote'];
+      if(!allowed.includes(field))return{success:false,error:'Field not allowed'};
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx][field]=value;
+      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'field_updated',field,value,by:su.email,byName:su.name||su.email,at:new Date().toISOString()});
+      wDB(db);return{success:true};
+    },
     getCSATConfig:()=>{const db=rDB();return{success:true,config:db.csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'}};},
     saveCSATConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.csatConfig=config;wDB(db);return{success:true};},
     getOOOConfig:()=>{const db=rDB();return{success:true,config:db.oooConfig||{enabled:false,message:'We are currently out of office. We will respond within 24 hours.',startDate:'',endDate:'',expectedResponseHours:24}};},

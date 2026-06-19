@@ -14739,16 +14739,21 @@ const App = {
     var area = document.getElementById('contentArea');
     area.innerHTML = App._skeleton(3,'ticket');
 
-    var [tRes, usersRes, devsRes] = await Promise.all([
+    var [tRes, usersRes, devsRes, clsRes] = await Promise.all([
       self.callAsync('getTicketById', ticketId),
       self.callAsync('getUsers', true),
-      self.callAsync('getDevelopers')
+      self.callAsync('getDevelopers'),
+      self.callAsync('getClassificationConfig')
     ]);
     if (!tRes || !tRes.success) { area.innerHTML = '<div class="empty-state"><p>Ticket not found</p></div>'; return; }
     var t = tRes.ticket;
     var users = (usersRes && usersRes.success) ? usersRes.users : [];
     var devs = (devsRes && devsRes.success) ? devsRes.developers : [];
     var allAgents = users;
+    var clsCfg = (clsRes && clsRes.config) || {};
+    self._clsTypes = (clsCfg.types && clsCfg.types.length) ? clsCfg.types : ['Question','Incident','Problem','Feature Request','Billing','Other'];
+    self._clsDispositions = (clsCfg.dispositions && clsCfg.dispositions.length) ? clsCfg.dispositions : ['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'];
+    self._clsRequireDisposition = !!clsCfg.requireDisposition;
 
     var statusColors = { new:'#7C3AED', open:'#2563EB', pending:'#D97706', resolved:'#16A34A', closed:'#6B7280' };
     var priorityColors = { Critical:'#DC2626', High:'#D97706', Medium:'#CA8A04', Low:'#16A34A' };
@@ -14842,7 +14847,7 @@ const App = {
                 <button onclick="App._showCannedResponses('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:5px 10px;background:none;cursor:pointer;" title="Canned Responses">⚡ Canned</button>
                 <button onclick="App._insertBookingLink('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:5px 10px;background:none;cursor:pointer;" title="Insert booking link">📅 Book Call</button>
                 <div style="display:flex;gap:8px;">
-                  <select onchange="App.callAsync('updateTicketStatus','${t.id}',this.value).then(()=>App.renderTicketDetail('${t.id}'))" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);">
+                  <select onchange="App._changeTicketStatus('${t.id}',this.value,this)" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);">
                     ${['new','open','pending','resolved','closed'].map(s=>`<option value="${s}" ${t.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
                   </select>
                   <button id="sendReplyBtn" onclick="App._submitTicketReply('${t.id}')" class="btn-primary" style="padding:8px 20px;font-size:13px;">Send Reply →</button>
@@ -14898,6 +14903,25 @@ const App = {
               ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
               ...(t.parentId?[['Parent', t.parentId]]:[]),
             ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;"><span style="color:var(--text-muted);">${k}</span><span style="color:var(--text-secondary);">${v}</span></div>`).join('')}
+          </div>
+
+          <!-- Classification -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;" id="classificationCard_${t.id}">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">🏷 Classification</div>
+            <div style="margin-bottom:8px;">
+              <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Type</label>
+              <select id="tkt_type_${t.id}" onchange="App.callAsync('updateTicketField','${t.id}','type',this.value).then(function(){App.showToast('Type saved','success');})" class="form-select" style="font-size:12px;width:100%;">
+                <option value="">— Select type —</option>
+                ${(self._clsTypes||['Question','Incident','Problem','Feature Request','Billing','Other']).map(function(tp){return '<option value="'+tp+'"'+(t.type===tp?' selected':'')+'>'+tp+'</option>';}).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Disposition</label>
+              <select id="tkt_disp_${t.id}" onchange="App.callAsync('updateTicketField','${t.id}','disposition',this.value).then(function(){App.showToast('Disposition saved','success');})" class="form-select" style="font-size:12px;width:100%;">
+                <option value="">— Select disposition —</option>
+                ${(self._clsDispositions||['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam']).map(function(d){return '<option value="'+d+'"'+(t.disposition===d?' selected':'')+'>'+d+'</option>';}).join('')}
+              </select>
+            </div>
           </div>
 
           <!-- Assign & Priority -->
@@ -15785,6 +15809,7 @@ const App = {
       {id:'vip-config',    icon:'⭐', label:'VIP Customers',       group:'Email & Support', requires:'QUEUE_ENABLED'},
       {id:'booking-config',icon:'📅', label:'Appointment Booking', group:'Email & Support', requires:'APPOINTMENT_BOOKING_ENABLED'},
       // ── WORKFLOW ──
+      {id:'ticket-classification', icon:'🏷', label:'Ticket Classification', group:'Workflow'},
       {id:'issue-form',    icon:'📝', label:'Issue Form Builder',  group:'Workflow', requires:'ISSUE_TEMPLATES_ENABLED'},
       {id:'escalation',    icon:'🚨', label:'Escalation Rules',    group:'Workflow'},
       {id:'recurring-tkt', icon:'🔁', label:'Recurring Tickets',   group:'Workflow'},
@@ -16444,6 +16469,31 @@ const App = {
       }
 
       // ── ISSUE FORM BUILDER ────────────────────────────────────────────────
+      else if (tid === 'ticket-classification') {
+        var clsCfgR = await self.callAsync('getClassificationConfig');
+        var cls = (clsCfgR && clsCfgR.config) || {};
+        var defTypes = ['Question','Incident','Problem','Feature Request','Billing','Other'];
+        var defDisps = ['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'];
+        var types = (cls.types && cls.types.length) ? cls.types : defTypes;
+        var disps = (cls.dispositions && cls.dispositions.length) ? cls.dispositions : defDisps;
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🏷 Ticket Classification</h3>'+
+          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Define ticket types and close dispositions. These appear as dropdowns on every ticket.</p>'+
+          App._sSection('Behaviour',[
+            App._sRow('Require Disposition on Resolve','Agent must pick a disposition before marking a ticket Resolved',
+              '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="cls_require" '+(cls.requireDisposition?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;color:var(--text-secondary);">'+(cls.requireDisposition?'Required':'Optional')+'</span></label>'),
+          ])+
+          App._sSection('Ticket Types',[
+            '<p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">One per line. Agents pick the type from a dropdown on the ticket.</p>'+
+            '<textarea id="cls_types" class="form-textarea" style="min-height:130px;font-size:13px;">'+App._esc(types.join('\n'))+'</textarea>',
+          ])+
+          App._sSection('Close Dispositions',[
+            '<p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">One per line. Agents select why the ticket was closed (shown at resolve time).</p>'+
+            '<textarea id="cls_disps" class="form-textarea" style="min-height:160px;font-size:13px;">'+App._esc(disps.join('\n'))+'</textarea>',
+          ])+
+          '<button onclick="App._saveClassificationConfig()" class="btn-primary">Save Classification Settings</button>';
+      }
+
       else if (tid === 'issue-form') {
         var ifr = await self.callAsync('getIssueFormConfig');
         // Fallback: if API fails or returns empty, use hardcoded defaults
@@ -17193,6 +17243,61 @@ const App = {
   },
 
   // ── OOO SAVE ────────────────────────────────────────────────────────────────
+  _changeTicketStatus: async function(ticketId, newStatus, selectEl) {
+    var self = this;
+    var prevStatus = selectEl.dataset.prev || selectEl.querySelector('option[selected]')?.value;
+    // Gate: require disposition before resolving
+    if ((newStatus === 'resolved' || newStatus === 'closed') && self._clsRequireDisposition) {
+      var dispEl = document.getElementById('tkt_disp_' + ticketId);
+      var currentDisp = dispEl ? dispEl.value : '';
+      if (!currentDisp) {
+        // Revert select to previous value
+        selectEl.value = prevStatus || 'open';
+        // Show disposition modal
+        var disps = self._clsDispositions || ['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'];
+        var html = '<div class="modal-overlay" id="dispGateModal"><div class="modal" style="max-width:400px;">'+
+          '<div class="modal-header"><span class="modal-title">🏷 Select Disposition</span></div>'+
+          '<div class="modal-body">'+
+            '<p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px;">A disposition is required before resolving this ticket. Why is it being closed?</p>'+
+            '<select id="dispGateSelect" class="form-select" style="width:100%;margin-bottom:16px;">'+
+              '<option value="">— Choose disposition —</option>'+
+              disps.map(function(d){return '<option value="'+d+'">'+d+'</option>';}).join('')+
+            '</select>'+
+            '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+              '<button onclick="document.getElementById(\'dispGateModal\').remove()" class="btn-secondary">Cancel</button>'+
+              '<button onclick="App._confirmDispositionResolve(\''+ticketId+'\',\''+newStatus+'\')" class="btn-primary">Resolve →</button>'+
+            '</div>'+
+          '</div>'+
+        '</div></div>';
+        document.body.insertAdjacentHTML('beforeend', html);
+        return;
+      }
+    }
+    selectEl.dataset.prev = newStatus;
+    await self.callAsync('updateTicketStatus', ticketId, newStatus);
+    self.renderTicketDetail(ticketId);
+  },
+
+  _confirmDispositionResolve: async function(ticketId, status) {
+    var disp = document.getElementById('dispGateSelect')?.value;
+    if (!disp) { App.showToast('Please select a disposition','error'); return; }
+    document.getElementById('dispGateModal')?.remove();
+    await App.callAsync('updateTicketField', ticketId, 'disposition', disp);
+    await App.callAsync('updateTicketStatus', ticketId, status);
+    App.renderTicketDetail(ticketId);
+  },
+
+  _saveClassificationConfig: async function() {
+    var types = (document.getElementById('cls_types')?.value||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    var disps = (document.getElementById('cls_disps')?.value||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    var requireDisposition = document.getElementById('cls_require')?.checked||false;
+    if(!types.length){App.showToast('Add at least one ticket type','error');return;}
+    if(!disps.length){App.showToast('Add at least one disposition','error');return;}
+    var r = await App.callAsync('saveClassificationConfig',{types,dispositions:disps,requireDisposition});
+    if(r&&r.success){App.showToast('🏷 Classification settings saved','success');App.renderUnifiedSettings('ticket-classification');}
+    else App.showToast('Failed','error');
+  },
+
   _saveCSATConfig: async function() {
     var config = {
       enabled: document.getElementById('csat_enabled')?.checked !== false,
