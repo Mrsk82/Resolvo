@@ -2872,6 +2872,7 @@ app.post('/api/call',async(req,res)=>{
       const dataset=opts&&opts.dataset||'tickets';
 
       if(dataset==='tickets'){
+        const slaConfig=db.slaConfig||{Critical:4,High:8,Medium:24,Low:72};
         let rows=(db.tickets||[]).filter(t=>{
           if(dateFrom&&new Date(t.createdDate||t.createdAt)<dateFrom)return false;
           if(dateTo&&new Date(t.createdDate||t.createdAt)>dateTo)return false;
@@ -2881,10 +2882,46 @@ app.post('/api/call',async(req,res)=>{
           if(opts.source&&opts.source!=='all'&&t.source!==opts.source)return false;
           return true;
         });
-        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(t=>({id:t.id,subject:t.subject,from:t.from,fromName:t.fromName,status:t.status,priority:t.priority,assignedTo:t.assignedTo,source:t.source,createdDate:t.createdDate||t.createdAt,resolvedDate:t.resolvedDate,lastActivity:t.lastActivity,type:t.type||'',disposition:t.disposition||'',csatRating:t.csatRating||'',messageCount:(t.thread||[]).length})),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
-        const headers=['ID','Subject','From','From Name','Status','Priority','Assigned To','Source','Created','Resolved','Last Activity','Type','Disposition','CSAT','Messages'];
-        const escape=v=>`"${String(v||'').replace(/"/g,'""')}"`;
-        const csvRows=[headers.join(','),...rows.map(t=>[t.id,t.subject,t.from,t.fromName||'',t.status,t.priority||'',t.assignedTo||'',t.source||'email',t.createdDate||t.createdAt||'',t.resolvedDate||'',t.lastActivity||'',t.type||'',t.disposition||'',t.csatRating||'',(t.thread||[]).length].map(escape).join(','))];
+        const mapTicket=t=>{
+          const created=new Date(t.createdDate||t.createdAt||'');
+          const resolved=t.resolvedDate?new Date(t.resolvedDate):null;
+          const resolutionHours=resolved&&!isNaN(created)?Math.round((resolved-created)/36000)/100:null;
+          const slaHours=slaConfig[t.priority]||null;
+          const slaBreachTime=slaHours&&!isNaN(created)?new Date(created.getTime()+slaHours*3600000):null;
+          const slaBreached=slaBreachTime?(resolved?resolved>slaBreachTime:new Date()>slaBreachTime):false;
+          const thread=t.thread||[];
+          const agentReplies=thread.filter(m=>m.type==='outgoing'||m.type==='reply').length;
+          const incomingMsgs=thread.filter(m=>m.type==='incoming').length;
+          const firstReply=thread.find(m=>m.type==='outgoing'||m.type==='reply');
+          const firstResponseDate=firstReply?firstReply.timestamp:'';
+          const firstResponseMinutes=firstReply&&!isNaN(created)?Math.round((new Date(firstReply.timestamp)-created)/60000):null;
+          const reopenCount=(t.timeline||[]).filter(e=>e.event==='status_changed'&&e.to==='open'&&e.from&&e.from!=='open').length;
+          const closedBy=(t.timeline||[]).filter(e=>e.event==='status_changed'&&(e.to==='Resolved'||e.to==='resolved'||e.to==='closed')).slice(-1)[0]?.by||'';
+          const team=(db.users||[]).find(u=>u.email===t.assignedTo)?.team||'';
+          const ccList=Array.isArray(t.cc)?t.cc.join('; '):t.cc||'';
+          const tags=Array.isArray(t.tags)?t.tags.join('; '):t.tags||'';
+          return{
+            id:t.id,subject:t.subject,from:t.from,fromName:t.fromName||'',
+            status:t.status,priority:t.priority||'',assignedTo:t.assignedTo||'',
+            team,closedBy,source:t.source||'email',
+            createdDate:t.createdDate||t.createdAt||'',firstResponseDate,
+            resolvedDate:t.resolvedDate||'',lastActivity:t.lastActivity||'',
+            firstResponseMinutes:firstResponseMinutes!=null?firstResponseMinutes:'',
+            resolutionTimeHours:resolutionHours!=null?resolutionHours:'',
+            slaHours:slaHours||'',slaBreached:slaBreached?'Yes':'No',
+            totalMessages:thread.length,agentReplies,incomingMessages:incomingMsgs,
+            reopenCount,type:t.type||'',disposition:t.disposition||'',
+            csatRating:t.csatRating||'',csatScore:t.csatScore||'',csatAt:t.csatAt||'',
+            tags,cc:ccList,isVIP:t.isVIP?'Yes':'No',
+            slaPaused:t.slaPaused?'Yes':'No',
+            linkedIssueId:t.linkedIssueId||'',parentId:t.parentId||'',
+            templateId:t.templateId||'',internalNote:t.internalNote||''
+          };
+        };
+        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
+        const headers=['ID','Subject','From Email','From Name','Status','Priority','Assigned To','Team','Closed By','Source','Created Date','First Response Date','Resolved Date','Last Activity','First Response (min)','Resolution Time (hrs)','SLA Hours','SLA Breached','Total Messages','Agent Replies','Incoming Messages','Reopen Count','Type','Disposition','CSAT Rating','CSAT Score','CSAT Date','Tags','CC','VIP','SLA Paused','Linked Issue ID','Parent ID','Template ID','Internal Note'];
+        const escape=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
+        const csvRows=[headers.join(','),...rows.map(t=>{const r=mapTicket(t);return[r.id,r.subject,r.from,r.fromName,r.status,r.priority,r.assignedTo,r.team,r.closedBy,r.source,r.createdDate,r.firstResponseDate,r.resolvedDate,r.lastActivity,r.firstResponseMinutes,r.resolutionTimeHours,r.slaHours,r.slaBreached,r.totalMessages,r.agentReplies,r.incomingMessages,r.reopenCount,r.type,r.disposition,r.csatRating,r.csatScore,r.csatAt,r.tags,r.cc,r.isVIP,r.slaPaused,r.linkedIssueId,r.parentId,r.templateId,r.internalNote].map(escape).join(',')})];
         return{success:true,data:csvRows.join('\n'),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.csv`,count:rows.length};
       }
       if(dataset==='csat'){
