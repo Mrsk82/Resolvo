@@ -2889,9 +2889,9 @@ app.post('/api/call',async(req,res)=>{
       }
       if(dataset==='csat'){
         const tickets=db.tickets||[];
-        const responded=tickets.filter(t=>(t.csatRating==='yes'||t.csatRating==='no')&&(!dateFrom||new Date(t.resolvedDate||t.lastActivity)>=dateFrom)&&(!dateTo||new Date(t.resolvedDate||t.lastActivity)<=dateTo));
-        if(fmt==='json')return{success:true,data:JSON.stringify(responded.map(t=>({ticketId:t.id,subject:t.subject,from:t.from,rating:t.csatRating,resolvedDate:t.resolvedDate,assignedTo:t.assignedTo}))),filename:`csat-export-${new Date().toISOString().split('T')[0]}.json`,count:responded.length};
-        const csvRows=[['Ticket ID','Subject','Customer','Rating','Resolved Date','Agent'].join(','),...responded.map(t=>[t.id,t.subject,t.from,t.csatRating,t.resolvedDate||'',t.assignedTo||''].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','))];
+        const responded=tickets.filter(t=>t.csatRating!=null&&t.csatRating!==''&&(!dateFrom||new Date(t.resolvedDate||t.lastActivity||t.createdDate)>=dateFrom)&&(!dateTo||new Date(t.resolvedDate||t.lastActivity||t.createdDate)<=dateTo));
+        if(fmt==='json')return{success:true,data:JSON.stringify(responded.map(t=>({ticketId:t.id,subject:t.subject,from:t.from,fromName:t.fromName||'',rating:t.csatRating,csatAt:t.csatAt||'',resolvedDate:t.resolvedDate||'',assignedTo:t.assignedTo||''}))),filename:`csat-export-${new Date().toISOString().split('T')[0]}.json`,count:responded.length};
+        const csvRows=[['Ticket ID','Subject','Customer Email','Customer Name','Rating','Survey Date','Resolved Date','Agent'].join(','),...responded.map(t=>[t.id,t.subject,t.from,t.fromName||'',t.csatRating,t.csatAt||'',t.resolvedDate||'',t.assignedTo||''].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','))];
         return{success:true,data:csvRows.join('\n'),filename:`csat-export-${new Date().toISOString().split('T')[0]}.csv`,count:responded.length};
       }
       return{success:false,error:'Unknown dataset'};
