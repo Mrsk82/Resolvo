@@ -1095,6 +1095,56 @@ code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);bac
   </div>
 
   <div class="section">
+    <div class="section-title">WhatsApp Channel Integration</div>
+    <div class="highlight"><strong>New inbound channel:</strong> WhatsApp messages → auto-created tickets via Twilio webhook. Agents reply from the existing ticket inbox with full SLA, assignment, and audit trail — no new app or interface.</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📦 Architecture Overview</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon" style="color:var(--cyan);">1</span><div>Customer sends WhatsApp message to business number</div></div>
+          <div class="item"><span class="item-icon" style="color:var(--cyan);">2</span><div>Twilio receives it, sends POST to <code>/api/whatsapp/webhook</code></div></div>
+          <div class="item"><span class="item-icon" style="color:var(--cyan);">3</span><div>Server matches brand by <code>To</code> number → creates ticket with <code>channel:'whatsapp'</code></div></div>
+          <div class="item"><span class="item-icon" style="color:var(--cyan);">4</span><div>Agent replies in ticket inbox → Twilio sends WhatsApp reply to customer</div></div>
+          <div class="item"><span class="item-icon" style="color:var(--amber);">→</span><div>Thread tracking via <code>t.waThread</code> (customer phone number)</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Config & Data Model</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">🔑</span><div><code>db.whatsappConfig</code> — <code>{enabled, number}</code> per brand</div></div>
+          <div class="item"><span class="item-icon">📱</span><div><code>ticket.channel = 'whatsapp'</code> — new channel value alongside <code>'email'</code>, <code>'widget'</code>, <code>'manual'</code></div></div>
+          <div class="item"><span class="item-icon">🌐</span><div>Env vars: <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_WHATSAPP_FROM</code> — set once at platform level</div></div>
+          <div class="item"><span class="item-icon">🔍</span><div>Inbox channel filter: <code>getTickets({channel:'whatsapp'})</code> — server filters by <code>t.channel||t.source</code></div></div>
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div>Settings → Integrations → WhatsApp section for per-brand toggle + number</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Inbox Channel Filter</div>
+    <div class="card">
+      <div class="card-title">🗂️ Multi-Channel Inbox Filtering</div>
+      <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;text-transform:uppercase;">Frontend State</div>
+          <div class="item"><span class="item-icon">◀</span><div><code>App._ticketChannel = 'all'</code> — default state</div></div>
+          <div class="item"><span class="item-icon">◀</span><div>Sidebar "Channel" section: All · Email · WhatsApp · Web Widget · Manual</div></div>
+          <div class="item"><span class="item-icon">◀</span><div>Each filter renders a colored dot — no emoji/icon rendering issues</div></div>
+          <div class="item"><span class="item-icon">◀</span><div>Channel filter passed to <code>getTickets({channel: channelFilter})</code></div></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--violet);margin-bottom:8px;text-transform:uppercase;">Server Logic</div>
+          <div class="item"><span class="item-icon">▶</span><div>Filter: <code>(t.channel||t.source||'email') === filters.channel</code></div></div>
+          <div class="item"><span class="item-icon">▶</span><div>Handles legacy tickets using <code>t.source</code> field and new tickets using <code>t.channel</code></div></div>
+          <div class="item"><span class="item-icon">▶</span><div>WhatsApp tickets: <code>t.channel = 'whatsapp'</code></div></div>
+          <div class="item"><span class="item-icon">▶</span><div>Email tickets: <code>t.source = 'email'</code> (legacy) or <code>t.channel = 'email'</code></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-title">Timestamp Display Fix — IST Timezone</div>
     <div class="card">
       <div class="card-title">🕐 <code>App._fmtDT()</code> Helper</div>

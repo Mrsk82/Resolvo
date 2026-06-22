@@ -72,6 +72,23 @@ body{
   cursor:auto;
 }
 
+/* ══ TOP BAR ═══════════════════════════════════════════════════════════════ */
+.topbar{
+  background:linear-gradient(90deg,rgba(0,229,160,.15),rgba(139,92,246,.12),rgba(0,229,160,.15));
+  border-bottom:1px solid rgba(0,229,160,.2);
+  text-align:center;padding:9px 16px;
+  font-size:12.5px;font-weight:600;color:var(--t1);
+  letter-spacing:.01em;
+  position:relative;overflow:hidden;
+  background-size:200% 100%;
+  animation:tbSlide 4s linear infinite;
+}
+.topbar::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(0,229,160,.07) 50%,transparent 100%);animation:tbSweep 2.5s ease-in-out infinite;}
+@keyframes tbSlide{0%{background-position:0% 0%;}100%{background-position:200% 0%;}}
+@keyframes tbSweep{0%,100%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
+.topbar strong{color:var(--green);}
+.topbar a{color:var(--green);text-decoration:none;font-weight:700;border-bottom:1px solid rgba(0,229,160,.3);}
+
 /* ══ NOISE GRAIN OVERLAY (premium depth cue) ═══════════════════════════════ */
 body::after{
   content:'';
@@ -697,6 +714,11 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
 <div id="c-dot"></div>
 <div id="c-ring"></div>
 
+<!-- ── TOP URGENCY BAR ── -->
+<div class="topbar">
+  <strong>🚀 New:</strong> WhatsApp Channel is now live — support customers directly on WhatsApp &nbsp;·&nbsp; <a href="/signup">Start free for 3 months →</a>
+</div>
+
 <!-- ── NAV ── -->
 <nav id="nav">
   <div class="nav-w">
@@ -742,18 +764,18 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
   <div class="hero-inner">
 
     <div class="hero-left">
-      <a href="/" class="badge">
-        <span class="badge-pill">New</span>
-        <span class="badge-text">Custom Statuses + Download Data + Settings Grid now live</span>
+      <a href="/signup" class="badge">
+        <span class="badge-pill">WhatsApp</span>
+        <span class="badge-text">WhatsApp channel + AI replies + 20+ new features live</span>
         <span class="badge-arr">→</span>
       </a>
 
       <h1 class="h1">
-        <span>Stop losing issues.</span><br>
-        <span class="gw">Start resolving them.</span>
+        <span>Freshdesk charges ₹20k.</span><br>
+        <span class="gw">We charge ₹3,999.</span>
       </h1>
 
-      <p class="sub">The complete engineering &amp; support platform. Issue tracking, smart email ticketing, AI queue, customer portal — everything connected, nothing missed.</p>
+      <p class="sub">Replace Freshdesk, Jira & Intercom with <strong style="color:var(--t1)">one platform</strong>. Email + WhatsApp ticketing, AI replies, SLA tracking, issue tracker, customer portal — all included, no add-ons, no per-agent pricing.</p>
 
       <div class="ctas">
         <a href="/signup" class="btn-p">Get started free <span class="arr">→</span></a>
@@ -868,13 +890,13 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
       <div>
         <div class="sc-ey r">Email &amp; Ticketing</div>
         <h3 class="sc-t r">A full helpdesk,<br>built right in.</h3>
-        <p class="sc-d r">Gmail connects → tickets appear automatically → agents reply from one inbox. No extra tools. No extra logins.</p>
+        <p class="sc-d r">Email + WhatsApp → tickets appear automatically → agents reply from one inbox. No switching apps, no missed messages, no extra tools.</p>
         <div class="sc-bls r">
+          <div class="sc-bl">WhatsApp Channel — customers message you on WhatsApp, auto-creates a ticket</div>
           <div class="sc-bl">Smart Queue auto-assigns tickets via round robin, skill, domain, or keyword routing</div>
           <div class="sc-bl">Canned responses — type / and insert pre-written replies in 2 seconds</div>
           <div class="sc-bl">1-Click CSAT 👍/👎 sent automatically on every ticket resolution</div>
-          <div class="sc-bl">Ticket DNA — full audit timeline of every action, forever</div>
-          <div class="sc-bl">VIP customer routing with instant admin notification</div>
+          <div class="sc-bl">Channel filter — view All / Email / WhatsApp / Web Widget / Manual in one inbox</div>
         </div>
       </div>
       <div class="win r">
@@ -973,7 +995,8 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
     <h2 class="ttl r d1">Everything ships<br>out of the box.</h2>
     <p class="lead r d2">No plugins. No add-ons. No setup marathons.</p>
     <div class="bento">
-      <div class="bc r"><div class="bc-i">🧬</div><div class="bc-t">Ticket DNA Timeline</div><div class="bc-d">Full audit of every action on every ticket, forever</div></div>
+      <div class="bc r" style="border-top:2px solid rgba(0,229,160,.3);"><div class="bc-i">📱</div><div class="bc-t">WhatsApp Channel<span class="new">New</span></div><div class="bc-d">Tickets from WhatsApp messages. Reply from inbox. Zero app switching.</div></div>
+      <div class="bc r d1"><div class="bc-i">🧬</div><div class="bc-t">Ticket DNA Timeline</div><div class="bc-d">Full audit of every action on every ticket, forever</div></div>
       <div class="bc r d1"><div class="bc-i">🌐</div><div class="bc-t">Customer Portal<span class="new">New</span></div><div class="bc-d">/portal/:brand — OTP login, self-service</div></div>
       <div class="bc r d2"><div class="bc-i">💬</div><div class="bc-t">Embed Widget<span class="new">New</span></div><div class="bc-d">1 script tag → floating chat → auto ticket</div></div>
       <div class="bc r d3"><div class="bc-i">📖</div><div class="bc-t">Knowledge Base<span class="new">New</span></div><div class="bc-d">Public FAQ. Cuts ticket volume 30-40%.</div></div>
@@ -1074,6 +1097,7 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
           </tr>
         </thead>
         <tbody>
+          <tr><td>WhatsApp → ticket (auto)</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="cx">✗</span> No</td><td><span class="cx">✗</span> No</td></tr>
           <tr><td>Email → ticket (auto)</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="ck">✓</span> Zendesk only</td><td><span class="cx">✗</span> No</td></tr>
           <tr><td>Engineering issue tracker</td><td class="hi"><span class="ck">✓</span> Built-in</td><td><span class="ck">✓</span> Jira only</td><td><span class="ck">✓</span> Linear only</td></tr>
           <tr><td>Support + engineering connected</td><td class="hi"><span class="ck">✓</span> Native</td><td><span class="cp">~ Zapier/manual</span></td><td><span class="cp">~ Zapier/manual</span></td></tr>
@@ -1101,11 +1125,11 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
   </div>
   <div class="mq-wrap">
     <div class="mq">
-      <div class="ip">🔷 Jira</div><div class="ip">🐙 GitHub</div><div class="ip">💬 Slack</div>
+      <div class="ip">🟢 WhatsApp</div><div class="ip">🔷 Jira</div><div class="ip">🐙 GitHub</div><div class="ip">💬 Slack</div>
       <div class="ip">🤖 Google Gemini</div><div class="ip">📧 Gmail / SMTP</div>
       <div class="ip">🔔 ServiceNow</div><div class="ip">🔗 REST API</div>
       <div class="ip">⚡ Webhooks</div><div class="ip">📊 Zapier / n8n</div>
-      <div class="ip">🔷 Jira</div><div class="ip">🐙 GitHub</div><div class="ip">💬 Slack</div>
+      <div class="ip">🟢 WhatsApp</div><div class="ip">🔷 Jira</div><div class="ip">🐙 GitHub</div><div class="ip">💬 Slack</div>
       <div class="ip">🤖 Google Gemini</div><div class="ip">📧 Gmail / SMTP</div>
       <div class="ip">🔔 ServiceNow</div><div class="ip">🔗 REST API</div>
       <div class="ip">⚡ Webhooks</div><div class="ip">📊 Zapier / n8n</div>
@@ -1367,8 +1391,8 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
 <section style="background:var(--bg-1);padding:120px 0;">
   <div class="w">
     <div class="cta-box r">
-      <div class="cta-t">Ready to<br><span class="gw">resolve everything?</span></div>
-      <p class="cta-s">Free to start. No credit card. Running in 5 minutes.</p>
+      <div class="cta-t">Stop paying ₹20,000/month<br><span class="gw">for mediocre support tools.</span></div>
+      <p class="cta-s">Resolvo replaces Freshdesk + Jira + Intercom. Free for 3 months. No credit card. Live in 5 minutes.</p>
       <!-- Self-signup form -->
       <div id="signupForm" style="max-width:440px;margin:0 auto 16px;position:relative;z-index:1;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">

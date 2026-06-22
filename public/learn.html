@@ -284,6 +284,9 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     <a class="sb-item" onclick="showModule('ticket-sources')" href="#">
       <div class="sb-check" id="chk-ticket-sources"></div><span>🌐 Ticket Sources & Widget</span>
     </a>
+    <a class="sb-item" onclick="showModule('whatsapp')" href="#">
+      <div class="sb-check" id="chk-whatsapp"></div><span>📱 WhatsApp Channel <span style="background:var(--green);color:#0B0F19;font-size:9px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:4px;">New</span></span>
+    </a>
   </div>
   <div class="sb-section">
     <div class="sb-section-title">New Features</div>
@@ -1218,6 +1221,129 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 
     <!-- MODULE: CHEATSHEET                         -->
     <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: WHATSAPP CHANNEL                   -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-whatsapp">
+      <div class="learn-hero" style="background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(99,102,241,.08));">
+        <h1>📱 WhatsApp Channel</h1>
+        <p>Support customers directly on WhatsApp. Messages auto-create tickets in your inbox — with SLA, assignment, and full audit trail. No new app, no switching.</p>
+        <div class="hero-meta"><span>⏱ 5 min setup</span><span>📱 WhatsApp Business</span><span>🆕 New feature</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">How it works</div>
+        <div class="section-sub">WhatsApp messages flow into Resolvo as tickets, just like email — but faster.</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>Customer sends a WhatsApp message</h4>
+              <p>Customer messages your WhatsApp Business number. Twilio receives it and forwards it to Resolvo's webhook at <code>/api/whatsapp/webhook</code>.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>Ticket created automatically</h4>
+              <p>Resolvo creates a ticket with <code>channel: 'whatsapp'</code>. The customer's phone number is stored as their identifier. Subject is the first message. SLA clock starts.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>Agent replies from the inbox</h4>
+              <p>Your team sees it in the normal ticket inbox. Reply from Resolvo → Twilio sends the reply back to the customer on WhatsApp. Full thread, no app switching.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h4>Filter your inbox by channel</h4>
+              <p>Use the Channel filter in the sidebar: <strong>All / Email / WhatsApp / Web Widget / Manual</strong>. Each shows a colored dot so your queue stays organised by source.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Enable WhatsApp for your brand</div>
+        <div class="section-sub">WhatsApp is configured in Settings → Integrations.</div>
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#FF5F57"></div>
+            <div class="mockup-dot" style="background:#FFBD2E"></div>
+            <div class="mockup-dot" style="background:#28CA42"></div>
+            <div class="mockup-title">Settings → Integrations → WhatsApp</div>
+          </div>
+          <div class="mockup-body">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;margin-bottom:2px;">📱 WhatsApp Channel</div>
+                <div style="font-size:11px;color:var(--muted);">Receive tickets from WhatsApp Business messages</div>
+              </div>
+              <div style="background:var(--green);color:#0B0F19;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;">Enabled</div>
+            </div>
+            <div style="padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Your WhatsApp Business Number</div>
+              <div style="font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--green);">+91 98765 43210</div>
+            </div>
+          </div>
+        </div>
+        <div class="steps" style="margin-top:20px;">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>Go to Settings → Integrations</h4>
+              <p>Scroll to the WhatsApp section. Toggle <strong>Enable WhatsApp Channel</strong> to on.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>Enter your WhatsApp Business number</h4>
+              <p>This is the number customers will message. Must match the number registered in Twilio. Format: <code>+91XXXXXXXXXX</code></p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>Save and test</h4>
+              <p>Click Save. Send a WhatsApp message to your number — within seconds a ticket should appear in your inbox with a <strong>WhatsApp</strong> channel tag.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Channel filter in the inbox</div>
+        <div class="section-sub">Filter your ticket queue by where tickets came from.</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#94A3B8;margin:0 auto 6px;"></div>
+            <div style="font-size:11px;font-weight:600;">All</div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:10px;text-align:center;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#6366F1;margin:0 auto 6px;"></div>
+            <div style="font-size:11px;font-weight:600;color:#6366F1;">Email</div>
+          </div>
+          <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px;text-align:center;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#10B981;margin:0 auto 6px;"></div>
+            <div style="font-size:11px;font-weight:600;color:#10B981;">WhatsApp</div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:10px;text-align:center;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#F59E0B;margin:0 auto 6px;"></div>
+            <div style="font-size:11px;font-weight:600;color:#F59E0B;">Widget</div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:10px;text-align:center;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#8B5CF6;margin:0 auto 6px;"></div>
+            <div style="font-size:11px;font-weight:600;color:#8B5CF6;">Manual</div>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7;">The Channel filter appears in the left sidebar of your ticket inbox. Click any channel to see only those tickets. Click <strong>All</strong> to return to the full queue. Counts update live as new tickets arrive.</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
     <!-- ═══════════════════════════════════════════ -->
     <!-- MODULE: NEW FEATURES GUIDE                 -->
     <!-- ═══════════════════════════════════════════ -->
@@ -1808,6 +1934,7 @@ var TITLES = {
   settings:'⚙️ Settings Guide',team:'🤝 Team & Users',
   queue:'🔄 Smart Queue',appointments:'📅 Appointments',tasks:'✅ Tasks & Follow-ups',
   'new-features':'🆕 New Features Guide',
+  'whatsapp':'📱 WhatsApp Channel',
   cheatsheet:'📋 Full Cheatsheet'
 };
 
