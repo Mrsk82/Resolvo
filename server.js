@@ -1709,6 +1709,7 @@ app.post('/api/call',async(req,res)=>{
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
+        if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
         if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}
@@ -5477,6 +5478,27 @@ app.get('/api/email-ticketing/config', (req, res) => {
   const db = readBrandDB(su.brandSlug);
   const config = db.emailTicketing || {};
   res.json({ success: true, config: { ...config, pass: config.pass ? '••••••••' : '' } });
+});
+
+// ── WhatsApp config ───────────────────────────────────────────────────────
+app.get('/api/whatsapp/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const cfg=db.whatsappConfig||{};
+  res.json({success:true,config:{enabled:!!cfg.enabled,number:cfg.number||'',webhookUrl:`${BASE_URL}/api/whatsapp/webhook`}});
+});
+
+app.post('/api/whatsapp/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const{enabled,number}=req.body;
+  const db=readBrandDB(su.brandSlug);
+  db.whatsappConfig={enabled:!!enabled,number:(number||'').trim()};
+  // also write to features so webhook handler picks it up
+  db.features=db.features||{};
+  db.features.whatsapp=!!enabled;
+  db.features.whatsappNumber=(number||'').trim();
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
 });
 
 // API: test IMAP connection

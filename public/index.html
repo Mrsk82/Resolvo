@@ -11614,6 +11614,7 @@ const App = {
       case 'ticket-detail': this.renderTicketDetail(params && params.id); break;
       case 'settings': this.renderUnifiedSettings(params && params.tab); break;
       case 'email-ticketing': this.renderEmailTicketing(); break;
+      case 'whatsapp-settings': this.renderWhatsAppSettings(); break;
       case 'api-integration': this.renderAPIIntegration(); break;
       case 'integrations': this.renderIntegrations(); break;
       case 'leaderboard': this.renderLeaderboard(); break;
@@ -14471,6 +14472,7 @@ const App = {
 
   // ── SUPPORT INBOX (Freshdesk-style) ──────────────────────────────────────────
   _ticketFilter: 'all',
+  _ticketChannel: 'all',
 
   renderExport: async function() {
     var self = this;
@@ -14689,11 +14691,12 @@ const App = {
     area.innerHTML = App._skeleton(4,'table');
 
     var statusFilter = self._ticketFilter || 'all';
-    if (self._lastTicketFilter !== statusFilter) { self._ticketLimit = 10; self._lastTicketFilter = statusFilter; }
+    var channelFilter = self._ticketChannel || 'all';
+    if (self._lastTicketFilter !== statusFilter+channelFilter) { self._ticketLimit = 10; self._lastTicketFilter = statusFilter+channelFilter; }
     self._ticketLimit = self._ticketLimit || 10;
     // Server-side pagination: fetch only the current page; counts come back computed over all tickets
     var [r, cfgR, stR] = await Promise.all([
-      self.callAsync('getTickets', { status: statusFilter, limit: self._ticketLimit }),
+      self.callAsync('getTickets', { status: statusFilter, channel: channelFilter, limit: self._ticketLimit }),
       self.callAsync('getEmailTicketingConfig'),
       self.callAsync('getStatusConfig')
     ]);
@@ -14769,6 +14772,25 @@ const App = {
               <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0&&s.k!=='all'?s.c+'20':'var(--bg-elevated)'};color:${s.n>0&&s.k!=='all'?s.c:'var(--text-dim)'};">${s.n}</span>
             </div>`).join('');
           })()}
+          <!-- Filter by Channel -->
+          <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
+          <div style="padding:6px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);">Channel</div>
+          ${[
+            {k:'all',       l:'All Channels', icon:'📬', c:'var(--text-muted)'},
+            {k:'email',     l:'Email',        icon:'✉️',  c:'#2563EB'},
+            {k:'whatsapp',  l:'WhatsApp',     icon:'💬', c:'#25D366'},
+            {k:'widget',    l:'Web Widget',   icon:'🌐', c:'#6366F1'},
+            {k:'manual',    l:'Manual',       icon:'✏️',  c:'#9CA3AF'},
+          ].map(ch => {
+            var isActive = (self._ticketChannel||'all') === ch.k;
+            return `<div onclick="App._ticketChannel='${ch.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;border-left:3px solid ${isActive?ch.c:'transparent'};background:${isActive?ch.c+'15':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${isActive?ch.c+'15':'none'}'">
+              <span style="font-size:12px;font-weight:${isActive?700:500};color:${isActive?ch.c:'var(--text-secondary)'};">${ch.icon} ${ch.l}</span>
+            </div>`;
+          }).join('')}
+          <div style="padding:4px 10px 6px;">
+            <button onclick="App.navigate('whatsapp-settings')" style="width:100%;background:none;color:var(--text-dim);border:none;font-size:10px;cursor:pointer;padding:3px;">⚙ WhatsApp Settings</button>
+          </div>
+
           <!-- Queue Dashboard — compact -->
           <div style="padding:8px 12px;border-top:1px solid var(--border);margin-top:auto;" id="queueDashPanel">
             <div id="queueAgentList">
@@ -18808,6 +18830,100 @@ const App = {
   },
 
 
+
+    renderWhatsAppSettings: async function() {
+      var self = this;
+      self.setPage('WhatsApp Channel', 'Support / WhatsApp');
+      var area = document.getElementById('contentArea');
+      area.innerHTML = App._skeleton(3, 'table');
+
+      var token = localStorage.getItem('sessionToken');
+      var r = await fetch('/api/whatsapp/config', { headers: { 'x-session-token': token } }).then(x => x.json()).catch(() => ({ success: false }));
+      var cfg = (r && r.success && r.config) ? r.config : { enabled: false, number: '', webhookUrl: '' };
+
+      area.innerHTML = `
+        <div style="max-width:680px;margin:0 auto;padding:8px 0;">
+          <!-- Header -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:#25D36620;display:flex;align-items:center;justify-content:center;font-size:22px;">💬</div>
+            <div>
+              <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-primary);">WhatsApp Channel</h2>
+              <p style="margin:2px 0 0;font-size:13px;color:var(--text-dim);">Receive and reply to WhatsApp messages as tickets via Twilio</p>
+            </div>
+            <div style="margin-left:auto;">
+              <span style="padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;background:${cfg.enabled?'#25D36620':'var(--bg-elevated)'};color:${cfg.enabled?'#25D366':'var(--text-dim)'};">${cfg.enabled?'● Active':'○ Inactive'}</span>
+            </div>
+          </div>
+
+          <!-- Enable toggle -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:3px;">Enable WhatsApp Ticketing</div>
+                <div style="font-size:12px;color:var(--text-dim);">Incoming WhatsApp messages become tickets automatically</div>
+              </div>
+              <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
+                <input type="checkbox" id="wa_enabled" ${cfg.enabled?'checked':''} style="opacity:0;width:0;height:0;">
+                <span onclick="this.previousElementSibling.click();this.style.background=this.previousElementSibling.checked?'#25D366':'#374151';" style="position:absolute;inset:0;border-radius:24px;background:${cfg.enabled?'#25D366':'#374151'};transition:background .2s;display:flex;align-items:center;padding:0 3px;">
+                  <span style="width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;transform:${cfg.enabled?'translateX(20px)':'translateX(0)'};display:block;" id="wa_toggle_knob"></span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- WhatsApp number -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:8px;">Your WhatsApp Business Number</label>
+            <input id="wa_number" class="form-input" value="${self._esc(cfg.number||'')}" placeholder="+91XXXXXXXXXX" style="width:100%;box-sizing:border-box;font-family:var(--font-mono);font-size:14px;">
+            <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Enter in international format. Must match the number registered in your Twilio WhatsApp Sandbox.</div>
+          </div>
+
+          <!-- Webhook URL -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:8px;">Twilio Webhook URL <span style="font-weight:400;color:var(--text-dim);">— paste this in your Twilio console</span></label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input class="form-input" value="${self._esc(cfg.webhookUrl||'')}" readonly style="flex:1;box-sizing:border-box;font-family:var(--font-mono);font-size:12px;background:var(--bg-elevated);cursor:text;">
+              <button onclick="navigator.clipboard.writeText('${self._esc(cfg.webhookUrl||'')}').then(()=>App.showToast('Copied!','success'))" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;white-space:nowrap;">📋 Copy</button>
+            </div>
+          </div>
+
+          <!-- Twilio setup guide -->
+          <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:18px;margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;">📋 Twilio Setup (one-time)</div>
+            <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+              <li style="font-size:12px;color:var(--text-secondary);">Sign up free at <strong>twilio.com</strong> → go to Messaging → Try WhatsApp</li>
+              <li style="font-size:12px;color:var(--text-secondary);">Copy your <strong>Account SID</strong>, <strong>Auth Token</strong>, and <strong>Sandbox number</strong></li>
+              <li style="font-size:12px;color:var(--text-secondary);">Add to your VPS <code style="background:var(--bg-elevated);padding:1px 5px;border-radius:3px;">.env</code>:<br>
+                <code style="background:var(--bg-elevated);padding:4px 8px;border-radius:4px;display:block;margin-top:4px;font-size:11px;">TWILIO_ACCOUNT_SID=ACxxxxxxx<br>TWILIO_AUTH_TOKEN=xxxxxxx<br>TWILIO_WHATSAPP_FROM=+14155238886</code>
+              </li>
+              <li style="font-size:12px;color:var(--text-secondary);">In Twilio Sandbox settings → paste the Webhook URL above as <strong>When a message comes in</strong></li>
+              <li style="font-size:12px;color:var(--text-secondary);">Enter your number above → click Save → done ✅</li>
+            </ol>
+          </div>
+
+          <!-- Save button -->
+          <div style="display:flex;gap:10px;">
+            <button onclick="App._saveWhatsAppConfig()" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;">Save Settings</button>
+            <button onclick="App.navigate('ticket-inbox')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;padding:11px 20px;font-size:14px;cursor:pointer;">← Back to Inbox</button>
+          </div>
+        </div>`;
+
+      // Toggle knob animation
+      var cb = document.getElementById('wa_enabled');
+      var knob = document.getElementById('wa_toggle_knob');
+      if (cb && knob) cb.addEventListener('change', function() {
+        knob.style.transform = this.checked ? 'translateX(20px)' : 'translateX(0)';
+      });
+    },
+
+    _saveWhatsAppConfig: async function() {
+      var token = localStorage.getItem('sessionToken');
+      var enabled = document.getElementById('wa_enabled')?.checked || false;
+      var number = document.getElementById('wa_number')?.value?.trim() || '';
+      var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number }) }).then(x => x.json()).catch(() => ({ success: false }));
+      if (r && r.success) { App.showToast('WhatsApp settings saved ✓', 'success'); App.renderWhatsAppSettings(); }
+      else App.showToast('Save failed: ' + (r && r.error || 'Unknown error'), 'error');
+    },
 
     renderEmailTicketing: async function() {
     var self = this;
