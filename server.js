@@ -7288,6 +7288,65 @@ app.post('/api/voice-ticket',async(req,res)=>{
 // END ADVANCED FEATURES
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── Demo booking page ─────────────────────────────────────────────────────
+app.get(['/book','/demo'],(req,res)=>{
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Book a Demo — Resolvo</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0B0F19;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .card{background:#111827;border:1px solid #1f2937;border-radius:20px;padding:48px 40px;width:100%;max-width:520px;text-align:center;}
+  .logo{font-size:24px;font-weight:800;color:#10B981;letter-spacing:-.5px;margin-bottom:32px;display:block;}
+  h1{font-size:28px;font-weight:800;margin-bottom:10px;line-height:1.2;}
+  .sub{font-size:15px;color:#9ca3af;margin-bottom:36px;line-height:1.6;}
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}
+  .slot{background:#1f2937;border:1px solid #374151;border-radius:12px;padding:16px 12px;cursor:pointer;transition:all .2s;text-decoration:none;color:#fff;display:block;}
+  .slot:hover{border-color:#10B981;background:#0d1f17;transform:translateY(-2px);}
+  .slot-time{font-size:15px;font-weight:700;margin-bottom:3px;}
+  .slot-label{font-size:11px;color:#6b7280;}
+  .divider{display:flex;align-items:center;gap:12px;margin-bottom:24px;color:#4b5563;font-size:12px;}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:#1f2937;}
+  .email-btn{display:block;width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#6366F1,#10B981);color:#fff;font-size:15px;font-weight:700;text-decoration:none;transition:opacity .2s;margin-bottom:16px;}
+  .email-btn:hover{opacity:.9;}
+  .meta{font-size:12px;color:#4b5563;line-height:1.8;}
+  .meta a{color:#6b7280;text-decoration:none;}.meta a:hover{color:#10B981;}
+  .badge{display:inline-flex;align-items:center;gap:6px;background:#0d1f17;border:1px solid #10B98133;border-radius:100px;padding:6px 14px;font-size:12px;color:#10B981;font-weight:600;margin-bottom:28px;}
+  </style></head><body>
+  <div class="card">
+    <a href="/pitch" class="logo">resolvo</a>
+    <div class="badge">🟢 Free 3-month trial · No credit card</div>
+    <h1>Book a 15-min demo</h1>
+    <p class="sub">See Resolvo live. Asif will walk you through setup, answer your questions, and get your team started — all in 15 minutes.</p>
+
+    <div class="slots">
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Morning&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Morning%20(10am%20-%2012pm%20IST)%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">☀️ Morning</div>
+        <div class="slot-label">10am – 12pm IST</div>
+      </a>
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Afternoon&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Afternoon%20(2pm%20-%204pm%20IST)%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">🌤 Afternoon</div>
+        <div class="slot-label">2pm – 4pm IST</div>
+      </a>
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Evening&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Evening%20(5pm%20-%207pm%20IST)%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">🌆 Evening</div>
+        <div class="slot-label">5pm – 7pm IST</div>
+      </a>
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Flexible&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Flexible%20-%20you%20pick%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">🔄 Flexible</div>
+        <div class="slot-label">You pick the time</div>
+      </a>
+    </div>
+
+    <div class="divider">or reach out directly</div>
+
+    <a class="email-btn" href="mailto:contact@resolvogroup.com?subject=Demo%20Request&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20see%20Resolvo%20in%20action.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0ABest%20time%3A%20%0A%0AThanks">Email contact@resolvogroup.com →</a>
+
+    <div class="meta">
+      15 minutes · Google Meet or Zoom · Mon–Sat IST<br>
+      <a href="/pitch">← Back to pitch</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+    </div>
+  </div>
+  </body></html>`);
+});
+
 // ── Legal pages ───────────────────────────────────────────────────────────
 function legalPage(title, body) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Resolvo</title>
