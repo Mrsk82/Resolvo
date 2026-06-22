@@ -1709,7 +1709,7 @@ app.post('/api/call',async(req,res)=>{
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
-        if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||'email')===filters.channel);
+        if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
         if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}

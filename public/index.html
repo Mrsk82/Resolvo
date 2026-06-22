@@ -16455,7 +16455,20 @@ const App = {
               '<select id="notif_threshold" class="form-select" style="width:140px;"><option value="false"'+(st.WEBHOOK_CRITICAL_ONLY!=='true'?' selected':'')+'>All Issues</option><option value="true"'+(st.WEBHOOK_CRITICAL_ONLY==='true'?' selected':'')+'>Critical Only</option></select>'),
             '<div style="text-align:right;margin-top:12px;"><button onclick="App.saveNotifChannels()" class="btn-primary">Save Webhooks</button></div>'
           ])+
-          await App._sGeminiCard();
+          await App._sGeminiCard()+
+          await (async function(){
+            var waR2 = await fetch('/api/whatsapp/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false,config:{}};});
+            var waCfg2 = (waR2&&waR2.success&&waR2.config)?waR2.config:{enabled:false,number:'',webhookUrl:''};
+            return App._sSection('WhatsApp Channel',[
+              App._sRow('Enable WhatsApp Ticketing','Incoming WhatsApp messages become tickets',
+                '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="wa_integ_enabled" '+(waCfg2.enabled?'checked':'')+' style="width:16px;height:16px;accent-color:#25D366;"><span style="font-size:12px;color:var(--text-secondary);">'+(waCfg2.enabled?'Active':'Inactive')+'</span></label>'),
+              App._sRow('WhatsApp Business Number','International format e.g. +91XXXXXXXXXX',
+                '<input id="wa_integ_number" class="form-input" style="width:280px;font-family:var(--font-mono);" placeholder="+91XXXXXXXXXX" value="'+App._esc(waCfg2.number||'')+'">'),
+              App._sRow('Twilio Webhook URL','Paste this in your Twilio console → When a message comes in',
+                '<div style="display:flex;gap:6px;align-items:center;"><input class="form-input" readonly style="width:280px;font-family:var(--font-mono);font-size:11px;background:var(--bg-elevated);" value="'+App._esc(waCfg2.webhookUrl||'')+'"><button onclick="navigator.clipboard.writeText(\''+App._esc(waCfg2.webhookUrl||'')+'\').then(function(){App.showToast(\'Copied!\',\'success\');})" class="btn-secondary btn-sm">Copy</button></div>'),
+              '<div style="text-align:right;margin-top:12px;"><button onclick="App._saveWhatsAppInteg2()" class="btn-primary" style="background:#25D366;border-color:#25D366;">Save WhatsApp</button></div>'
+            ]);
+          })();
       }
       else if (tid === 'team') {
         var tr = await self.callAsync('getTeams');
@@ -18837,7 +18850,7 @@ const App = {
       var area = document.getElementById('contentArea');
       area.innerHTML = App._skeleton(3, 'table');
 
-      var token = localStorage.getItem('sessionToken');
+      var token = localStorage.getItem('tt_session_token');
       var r = await fetch('/api/whatsapp/config', { headers: { 'x-session-token': token } }).then(x => x.json()).catch(() => ({ success: false }));
       var cfg = (r && r.success && r.config) ? r.config : { enabled: false, number: '', webhookUrl: '' };
 
@@ -18916,8 +18929,17 @@ const App = {
       });
     },
 
+    _saveWhatsAppInteg2: async function() {
+      var token = localStorage.getItem('tt_session_token');
+      var enabled = document.getElementById('wa_integ_enabled')?.checked || false;
+      var number = document.getElementById('wa_integ_number')?.value?.trim() || '';
+      var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number }) }).then(x => x.json()).catch(() => ({ success: false }));
+      if (r && r.success) { App.showToast('WhatsApp settings saved ✓', 'success'); App.renderUnifiedSettings('integrations'); }
+      else App.showToast('Save failed: ' + (r && r.error || 'Unknown error'), 'error');
+    },
+
     _saveWhatsAppInteg: async function() {
-      var token = localStorage.getItem('sessionToken');
+      var token = localStorage.getItem('tt_session_token');
       var enabled = document.getElementById('integ_wa_enabled')?.checked || false;
       var number = document.getElementById('integ_wa_number')?.value?.trim() || '';
       var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number }) }).then(x => x.json()).catch(() => ({ success: false }));
@@ -18926,7 +18948,7 @@ const App = {
     },
 
     _saveWhatsAppConfig: async function() {
-      var token = localStorage.getItem('sessionToken');
+      var token = localStorage.getItem('tt_session_token');
       var enabled = document.getElementById('wa_enabled')?.checked || false;
       var number = document.getElementById('wa_number')?.value?.trim() || '';
       var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number }) }).then(x => x.json()).catch(() => ({ success: false }));
@@ -19431,7 +19453,7 @@ const App = {
     html += '<div style="margin-top:8px;"><button class="btn-primary btn-sm" onclick="App.saveSlackInt()">Save Webhook</button></div></div>';
 
     // WhatsApp Channel
-    var waR = await fetch('/api/whatsapp/config', {headers:{'x-session-token':localStorage.getItem('sessionToken')}}).then(function(r){return r.json();}).catch(function(){return {success:false,config:{}};});
+    var waR = await fetch('/api/whatsapp/config', {headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false,config:{}};});
     var waCfg = (waR && waR.success && waR.config) ? waR.config : {enabled:false, number:'', webhookUrl:''};
     html += '<div class="ai-admin-section">';
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
