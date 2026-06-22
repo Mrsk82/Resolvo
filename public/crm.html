@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#08090A;--s1:#0D1117;--s2:#161B22;--card:#0D1117;
+  --b0:rgba(255,255,255,.04);--b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.12);--b3:rgba(255,255,255,.22);
+  --green:#00E5A0;--violet:#8B5CF6;--blue:#3B82F6;--amber:#F59E0B;--red:#F43F5E;--cyan:#22D3EE;--pink:#F472B6;
+  --t1:#F0F6FF;--t2:rgba(240,246,255,.65);--t3:rgba(240,246,255,.35);--t4:rgba(240,246,255,.18);
+  --g:linear-gradient(135deg,#00E5A0,#8B5CF6);
+  --sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  --sw:240px;
+}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--t1);font-family:var(--sans);display:flex;font-size:14px;}
+
+/* ── SIDEBAR ── */
+#sidebar{width:var(--sw);flex-shrink:0;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;height:100vh;overflow-y:auto;}
+.sb-top{padding:18px 16px 14px;border-bottom:1px solid var(--b1);}
+.sb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;margin-bottom:16px;}
+.sb-logo-mark{width:28px;height:28px;border-radius:7px;background:var(--g);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#000;}
+.sb-logo-text{font-size:14px;font-weight:800;color:var(--t1);}
+.sb-logo-badge{font-size:9px;font-weight:800;background:rgba(0,229,160,.15);color:var(--green);border:1px solid rgba(0,229,160,.25);padding:2px 7px;border-radius:20px;}
+.sb-brand{font-size:11px;color:var(--t4);font-weight:500;padding:0 4px;}
+.sb-section{padding:8px 0;}
+.sb-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t4);padding:6px 16px 4px;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 16px;font-size:13px;color:var(--t3);cursor:pointer;transition:all .12s;border-left:2px solid transparent;text-decoration:none;}
+.sb-item:hover{color:var(--t1);background:var(--b0);}
+.sb-item.active{color:var(--green);background:rgba(0,229,160,.06);border-left-color:var(--green);font-weight:600;}
+.sb-item-icon{width:16px;text-align:center;font-size:14px;flex-shrink:0;}
+.sb-item-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;}
+.sb-bottom{margin-top:auto;padding:12px 16px;border-top:1px solid var(--b1);}
+.sb-bottom a{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);text-decoration:none;padding:6px 0;transition:color .12s;}
+.sb-bottom a:hover{color:var(--t1);}
+
+/* ── MAIN ── */
+#main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.topbar{height:52px;border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;background:var(--s1);}
+.topbar-title{font-size:15px;font-weight:700;flex:1;}
+.topbar-actions{display:flex;gap:8px;align-items:center;}
+
+/* ── CONTENT ── */
+#content{flex:1;overflow-y:auto;padding:28px 28px 60px;}
+.view{display:none;}
+.view.active{display:block;}
+
+/* ── KPI CARDS ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
+.kpi{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;position:relative;overflow:hidden;transition:border-color .15s;}
+.kpi:hover{border-color:var(--b2);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi.k-green::before{background:var(--green);}
+.kpi.k-violet::before{background:var(--violet);}
+.kpi.k-amber::before{background:var(--amber);}
+.kpi.k-blue::before{background:var(--blue);}
+.kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t4);margin-bottom:8px;}
+.kpi-val{font-size:32px;font-weight:800;letter-spacing:-.04em;line-height:1;margin-bottom:4px;}
+.kpi-sub{font-size:11px;color:var(--t3);}
+
+/* ── SECTION HEADER ── */
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.sec-title{font-size:16px;font-weight:700;letter-spacing:-.02em;}
+.sec-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--sans);transition:all .12s;text-decoration:none;}
+.btn-primary{background:var(--t1);color:#08090A;}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);}
+.btn-green{background:var(--green);color:#000;}
+.btn-green:hover{opacity:.9;}
+.btn-ghost{background:var(--b0);color:var(--t2);border:1px solid var(--b1);}
+.btn-ghost:hover{background:var(--b1);color:var(--t1);}
+.btn-danger{background:rgba(244,63,94,.12);color:var(--red);border:1px solid rgba(244,63,94,.2);}
+.btn-danger:hover{background:rgba(244,63,94,.2);}
+.btn-sm{padding:5px 11px;font-size:11px;}
+
+/* ── TABLE ── */
+.tbl-wrap{background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t4);background:rgba(255,255,255,.02);border-bottom:1px solid var(--b1);}
+.tbl td{padding:12px 16px;border-bottom:1px solid var(--b0);color:var(--t2);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--b0);}
+.tbl-name{color:var(--t1);font-weight:600;cursor:pointer;}
+.tbl-name:hover{color:var(--green);}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;}
+.badge-prospect{background:rgba(240,246,255,.08);color:var(--t3);}
+.badge-qualified{background:rgba(59,130,246,.12);color:var(--blue);}
+.badge-demo{background:rgba(139,92,246,.12);color:var(--violet);}
+.badge-proposal{background:rgba(245,158,11,.12);color:var(--amber);}
+.badge-won{background:rgba(0,229,160,.12);color:var(--green);}
+.badge-lost{background:rgba(244,63,94,.12);color:var(--red);}
+.badge-source{background:var(--b1);color:var(--t3);}
+.badge-overdue{background:rgba(244,63,94,.12);color:var(--red);}
+.badge-today{background:rgba(245,158,11,.12);color:var(--amber);}
+.badge-done{background:rgba(0,229,160,.08);color:var(--green);}
+
+/* ── SEARCH BAR ── */
+.search-row{display:flex;gap:10px;margin-bottom:16px;align-items:center;}
+.search-input{background:var(--b0);border:1px solid var(--b1);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--t1);font-family:var(--sans);outline:none;min-width:240px;transition:border-color .15s;}
+.search-input:focus{border-color:var(--b2);}
+.search-input::placeholder{color:var(--t4);}
+select.search-input{cursor:pointer;}
+
+/* ── KANBAN ── */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start;}
+.k-col{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:12px;min-height:200px;}
+.k-col-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.k-col-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+.k-col-count{font-size:10px;background:var(--b1);padding:2px 7px;border-radius:20px;color:var(--t3);}
+.k-card{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,transform .12s;}
+.k-card:hover{border-color:var(--b2);transform:translateY(-1px);}
+.k-card:last-child{margin-bottom:0;}
+.k-card-title{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:6px;line-height:1.4;}
+.k-card-company{font-size:10px;color:var(--t4);margin-bottom:8px;}
+.k-card-foot{display:flex;align-items:center;justify-content:space-between;}
+.k-card-val{font-size:11px;font-weight:700;color:var(--green);}
+.k-card-date{font-size:10px;color:var(--t4);}
+.k-add{width:100%;background:none;border:1px dashed var(--b1);border-radius:8px;padding:8px;font-size:11px;color:var(--t4);cursor:pointer;font-family:var(--sans);transition:all .15s;margin-top:4px;}
+.k-add:hover{border-color:var(--b2);color:var(--t2);}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:520px;max-width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.7);}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--b1);}
+.modal-title{font-size:15px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:5px;transition:color .12s;}
+.modal-close:hover{color:var(--t1);}
+.modal-body{padding:20px 24px;}
+.modal-footer{padding:14px 24px 20px;border-top:1px solid var(--b1);display:flex;justify-content:flex-end;gap:8px;}
+
+/* ── FORM ── */
+.form-row{margin-bottom:16px;}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+label{display:block;font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],select,textarea{
+  width:100%;background:var(--b0);border:1px solid var(--b1);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--t1);font-family:var(--sans);outline:none;transition:border-color .15s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);}
+input::placeholder,textarea::placeholder{color:var(--t4);}
+select option{background:#0D1117;}
+textarea{resize:vertical;min-height:72px;line-height:1.5;}
+
+/* ── ACTIVITY ITEM ── */
+.act-list{display:flex;flex-direction:column;gap:8px;}
+.act-item{display:flex;gap:12px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;transition:border-color .15s;}
+.act-item:hover{border-color:var(--b2);}
+.act-item.done{opacity:.5;}
+.act-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.act-body{flex:1;}
+.act-subject{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px;}
+.act-meta{font-size:11px;color:var(--t4);}
+.act-actions{display:flex;gap:6px;align-items:center;}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:60px 20px;color:var(--t3);}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4;}
+.empty-title{font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px;}
+.empty-sub{font-size:13px;}
+
+/* ── PIPELINE BAR ── */
+.pipeline-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:8px;gap:2px;}
+.pb-seg{height:100%;border-radius:4px;transition:width .4s ease;}
+
+/* ── DETAIL PANEL ── */
+.detail-grid{display:grid;grid-template-columns:1fr 320px;gap:20px;}
+.detail-main{min-width:0;}
+.detail-side{display:flex;flex-direction:column;gap:14px;}
+.detail-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px;}
+.detail-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t4);margin-bottom:12px;}
+.detail-field{margin-bottom:10px;}
+.detail-field-label{font-size:10px;color:var(--t4);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;}
+.detail-field-val{font-size:13px;color:var(--t1);}
+
+/* ── MISC ── */
+.tag{display:inline-flex;align-items:center;background:var(--b1);color:var(--t3);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;gap:4px;}
+.dots{position:relative;}
+.dots-btn{background:none;border:none;color:var(--t3);cursor:pointer;padding:4px 8px;border-radius:5px;font-size:16px;}
+.dots-btn:hover{background:var(--b1);color:var(--t1);}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#000;flex-shrink:0;}
+code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:rgba(34,211,238,.08);padding:1px 6px;border-radius:4px;}
+.divider{height:1px;background:var(--b1);margin:20px 0;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:12px 18px;font-size:13px;font-weight:600;z-index:9999;transform:translateY(60px);opacity:0;transition:all .3s;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:rgba(0,229,160,.3);color:var(--green);}
+.toast.err{border-color:rgba(244,63,94,.3);color:var(--red);}
+</style>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<div id="sidebar">
+  <div class="sb-top">
+    <a href="/crm" class="sb-logo">
+      <div class="sb-logo-mark">R</div>
+      <span class="sb-logo-text">Resolvo</span>
+      <span class="sb-logo-badge">CRM</span>
+    </a>
+    <div class="sb-brand" id="sb-brand">Loading…</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">Overview</div>
+    <a class="sb-item active" onclick="nav('dashboard')">
+      <span class="sb-item-icon">📊</span> Dashboard
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">Sales</div>
+    <a class="sb-item" onclick="nav('deals')">
+      <span class="sb-item-icon">💰</span> Deals
+    </a>
+    <a class="sb-item" onclick="nav('contacts')">
+      <span class="sb-item-icon">👤</span> Contacts
+    </a>
+    <a class="sb-item" onclick="nav('companies')">
+      <span class="sb-item-icon">🏢</span> Companies
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">Tasks</div>
+    <a class="sb-item" onclick="nav('activities')">
+      <span class="sb-item-icon">📋</span> Activities
+      <span class="sb-item-badge" id="overdue-badge" style="display:none">0</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">Insights</div>
+    <a class="sb-item" onclick="nav('reports')">
+      <span class="sb-item-icon">📈</span> Reports
+    </a>
+  </div>
+
+  <div class="sb-bottom">
+    <a href="/">← Back to Support</a>
+    <a href="/pitch" target="_blank">About Resolvo</a>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div id="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+
+  <div id="content">
+
+    <!-- ═══════════════ DASHBOARD ═══════════════ -->
+    <div class="view active" id="v-dashboard">
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi k-green"><div class="kpi-label">Pipeline Value</div><div class="kpi-val" id="kpi-pipeline">—</div><div class="kpi-sub">Open deals</div></div>
+        <div class="kpi k-violet"><div class="kpi-label">Open Deals</div><div class="kpi-val" id="kpi-open">—</div><div class="kpi-sub" id="kpi-open-sub">Active</div></div>
+        <div class="kpi k-amber"><div class="kpi-label">Won This Month</div><div class="kpi-val" id="kpi-won">—</div><div class="kpi-sub" id="kpi-won-val">Revenue</div></div>
+        <div class="kpi k-blue"><div class="kpi-label">Total Contacts</div><div class="kpi-val" id="kpi-contacts">—</div><div class="kpi-sub" id="kpi-acts">Activities due</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <!-- Pipeline by stage -->
+        <div>
+          <div class="sec-hd"><div><div class="sec-title">Pipeline Stages</div><div class="sec-sub">Deals by stage</div></div></div>
+          <div class="tbl-wrap" id="stage-breakdown" style="padding:16px;"></div>
+        </div>
+        <!-- Recent Activities -->
+        <div>
+          <div class="sec-hd">
+            <div><div class="sec-title">Upcoming Activities</div><div class="sec-sub">Pending tasks & follow-ups</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="nav('activities')">View all</button>
+          </div>
+          <div id="dash-activities" class="act-list"></div>
+        </div>
+      </div>
+
+      <!-- Recent deals -->
+      <div style="margin-top:20px;">
+        <div class="sec-hd">
+          <div><div class="sec-title">Recent Deals</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="nav('deals')">View all</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Deal</th><th>Company</th><th>Stage</th><th>Value</th><th>Expected Close</th></tr></thead>
+            <tbody id="dash-deals"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ DEALS ═══════════════ -->
+    <div class="view" id="v-deals">
+      <div class="sec-hd" style="margin-bottom:16px;">
+        <div>
+          <div class="sec-title">Deals</div>
+          <div class="sec-sub" id="deals-count">0 deals</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="deals-view-toggle" onclick="toggleDealsView()">📋 List</button>
+          <button class="btn btn-primary btn-sm" onclick="openDealModal()">+ New Deal</button>
+        </div>
+      </div>
+
+      <!-- Kanban -->
+      <div id="deals-kanban" class="kanban">
+        <div class="k-col">
+          <div class="k-col-hd"><span class="k-col-title" style="color:var(--t3)">Prospect</span><span class="k-col-count" id="kc-prospect">0</span></div>
+          <div id="kc-prospect-cards"></div>
+          <button class="k-add" onclick="openDealModal('prospect')">+ Add deal</button>
+        </div>
+        <div class="k-col">
+          <div class="k-col-hd"><span class="k-col-title" style="color:var(--blue)">Qualified</span><span class="k-col-count" id="kc-qualified">0</span></div>
+          <div id="kc-qualified-cards"></div>
+          <button class="k-add" onclick="openDealModal('qualified')">+ Add deal</button>
+        </div>
+        <div class="k-col">
+          <div class="k-col-hd"><span class="k-col-title" style="color:var(--violet)">Demo</span><span class="k-col-count" id="kc-demo">0</span></div>
+          <div id="kc-demo-cards"></div>
+          <button class="k-add" onclick="openDealModal('demo')">+ Add deal</button>
+        </div>
+        <div class="k-col">
+          <div class="k-col-hd"><span class="k-col-title" style="color:var(--amber)">Proposal</span><span class="k-col-count" id="kc-proposal">0</span></div>
+          <div id="kc-proposal-cards"></div>
+          <button class="k-add" onclick="openDealModal('proposal')">+ Add deal</button>
+        </div>
+        <div class="k-col">
+          <div class="k-col-hd"><span class="k-col-title" style="color:var(--green)">Won</span><span class="k-col-count" id="kc-won">0</span></div>
+          <div id="kc-won-cards"></div>
+          <button class="k-add" onclick="openDealModal('won')">+ Add deal</button>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div id="deals-list" style="display:none;">
+        <div class="search-row">
+          <input class="search-input" placeholder="Search deals…" oninput="filterDeals(this.value)" id="deals-search">
+          <select class="search-input" style="width:160px;" onchange="filterDeals()" id="deals-stage-filter">
+            <option value="all">All stages</option>
+            <option value="prospect">Prospect</option>
+            <option value="qualified">Qualified</option>
+            <option value="demo">Demo</option>
+            <option value="proposal">Proposal</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Deal</th><th>Contact</th><th>Stage</th><th>Value</th><th>Close Date</th><th>Owner</th><th></th></tr></thead>
+            <tbody id="deals-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ CONTACTS ═══════════════ -->
+    <div class="view" id="v-contacts">
+      <div class="sec-hd" style="margin-bottom:16px;">
+        <div><div class="sec-title">Contacts</div><div class="sec-sub" id="contacts-count">0 contacts</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openContactModal()">+ New Contact</button>
+      </div>
+      <div class="search-row">
+        <input class="search-input" placeholder="Search by name, email, company…" oninput="loadContacts()" id="contacts-search">
+        <select class="search-input" style="width:160px;" onchange="loadContacts()" id="contacts-source">
+          <option value="all">All sources</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="referral">Referral</option>
+          <option value="cold-email">Cold Email</option>
+          <option value="website">Website</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="event">Event</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th>Source</th><th>Lead Score</th><th></th></tr></thead>
+          <tbody id="contacts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════ COMPANIES ═══════════════ -->
+    <div class="view" id="v-companies">
+      <div class="sec-hd" style="margin-bottom:16px;">
+        <div><div class="sec-title">Companies</div><div class="sec-sub" id="companies-count">0 companies</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openCompanyModal()">+ New Company</button>
+      </div>
+      <div class="search-row">
+        <input class="search-input" placeholder="Search companies…" oninput="loadCompanies()" id="companies-search">
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Company</th><th>Industry</th><th>Size</th><th>City</th><th>GST</th><th>Website</th><th></th></tr></thead>
+          <tbody id="companies-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════ ACTIVITIES ═══════════════ -->
+    <div class="view" id="v-activities">
+      <div class="sec-hd" style="margin-bottom:16px;">
+        <div><div class="sec-title">Activities</div><div class="sec-sub">Calls, emails, meetings, follow-ups</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openActivityModal()">+ Log Activity</button>
+      </div>
+      <div class="search-row">
+        <select class="search-input" style="width:160px;" onchange="loadActivities()" id="act-filter">
+          <option value="all">All activities</option>
+          <option value="pending">Pending only</option>
+        </select>
+        <select class="search-input" style="width:160px;" onchange="loadActivities()" id="act-type-filter">
+          <option value="">All types</option>
+          <option value="call">📞 Call</option>
+          <option value="email">📧 Email</option>
+          <option value="meeting">🤝 Meeting</option>
+          <option value="whatsapp">📱 WhatsApp</option>
+          <option value="follow-up">🔔 Follow-up</option>
+          <option value="note">📝 Note</option>
+        </select>
+      </div>
+      <div class="act-list" id="activities-list"></div>
+    </div>
+
+    <!-- ═══════════════ REPORTS ═══════════════ -->
+    <div class="view" id="v-reports">
+      <div class="sec-hd" style="margin-bottom:20px;">
+        <div><div class="sec-title">Reports</div><div class="sec-sub">Pipeline performance & conversion</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="tbl-wrap" style="padding:20px;" id="report-conversion">
+          <div class="detail-card-title">Conversion by Stage</div>
+          <div id="rep-conversion-body"></div>
+        </div>
+        <div class="tbl-wrap" style="padding:20px;">
+          <div class="detail-card-title">Deal Sources</div>
+          <div id="rep-sources"></div>
+        </div>
+        <div class="tbl-wrap" style="padding:20px;">
+          <div class="detail-card-title">Monthly Won Deals</div>
+          <div id="rep-monthly"></div>
+        </div>
+        <div class="tbl-wrap" style="padding:20px;">
+          <div class="detail-card-title">Top Contacts by Deal Value</div>
+          <div id="rep-top-contacts"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: DEAL                                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="deal-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="deal-modal-title">New Deal</div>
+      <button class="modal-close" onclick="closeModal('deal-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="deal-id">
+      <div class="form-row">
+        <label>Deal Title *</label>
+        <input type="text" id="deal-title" placeholder="e.g. Acme Corp — Growth Plan">
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Value (₹)</label>
+          <input type="number" id="deal-value" placeholder="0">
+        </div>
+        <div>
+          <label>Stage</label>
+          <select id="deal-stage">
+            <option value="prospect">Prospect</option>
+            <option value="qualified">Qualified</option>
+            <option value="demo">Demo</option>
+            <option value="proposal">Proposal</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Contact Name</label>
+          <input type="text" id="deal-contact" placeholder="Person name">
+        </div>
+        <div>
+          <label>Company</label>
+          <input type="text" id="deal-company" placeholder="Company name">
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Expected Close</label>
+          <input type="date" id="deal-close">
+        </div>
+        <div>
+          <label>Win Probability %</label>
+          <input type="number" id="deal-prob" placeholder="50" min="0" max="100">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="deal-notes" placeholder="Key info, next steps…"></textarea>
+      </div>
+      <div class="form-row" id="deal-lost-row" style="display:none;">
+        <label>Lost Reason</label>
+        <select id="deal-lost-reason">
+          <option value="">Select reason</option>
+          <option value="price">Price too high</option>
+          <option value="competitor">Chose competitor</option>
+          <option value="no-budget">No budget</option>
+          <option value="no-decision">No decision made</option>
+          <option value="timing">Bad timing</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deal-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDeal()">Save Deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: CONTACT                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="contact-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="contact-modal-title">New Contact</div>
+      <button class="modal-close" onclick="closeModal('contact-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="contact-id">
+      <div class="form-row-2">
+        <div>
+          <label>Full Name *</label>
+          <input type="text" id="contact-name" placeholder="Rahul Sharma">
+        </div>
+        <div>
+          <label>Role / Title</label>
+          <input type="text" id="contact-role" placeholder="Founder, CTO…">
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Email</label>
+          <input type="email" id="contact-email" placeholder="rahul@company.com">
+        </div>
+        <div>
+          <label>Phone / WhatsApp</label>
+          <input type="tel" id="contact-phone" placeholder="+91 98765 43210">
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Company</label>
+          <input type="text" id="contact-company" placeholder="Company name">
+        </div>
+        <div>
+          <label>Source</label>
+          <select id="contact-source">
+            <option value="other">Other</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="referral">Referral</option>
+            <option value="cold-email">Cold Email</option>
+            <option value="website">Website</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="event">Event</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Lead Score (0-100)</label>
+        <input type="number" id="contact-score" placeholder="50" min="0" max="100">
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="contact-notes" placeholder="Background, interests, context…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('contact-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContact()">Save Contact</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: COMPANY                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="company-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="company-modal-title">New Company</div>
+      <button class="modal-close" onclick="closeModal('company-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="company-id">
+      <div class="form-row">
+        <label>Company Name *</label>
+        <input type="text" id="company-name" placeholder="Acme Corp Pvt Ltd">
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Industry</label>
+          <select id="company-industry">
+            <option value="">Select</option>
+            <option value="saas">SaaS / Software</option>
+            <option value="ecommerce">E-Commerce / D2C</option>
+            <option value="fintech">Fintech</option>
+            <option value="edtech">EdTech</option>
+            <option value="healthtech">HealthTech</option>
+            <option value="agency">Agency / Services</option>
+            <option value="manufacturing">Manufacturing</option>
+            <option value="retail">Retail</option>
+            <option value="logistics">Logistics</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label>Team Size</label>
+          <select id="company-size">
+            <option value="">Select</option>
+            <option value="1-10">1–10</option>
+            <option value="11-50">11–50</option>
+            <option value="51-200">51–200</option>
+            <option value="200+">200+</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>City</label>
+          <input type="text" id="company-city" placeholder="Mumbai">
+        </div>
+        <div>
+          <label>GST Number</label>
+          <input type="text" id="company-gst" placeholder="27AAAA0000A1Z5">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Website</label>
+        <input type="text" id="company-website" placeholder="https://company.com">
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="company-notes" placeholder="Background, key contacts, context…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('company-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCompany()">Save Company</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: ACTIVITY                                           -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="activity-modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="activity-modal-title">Log Activity</div>
+      <button class="modal-close" onclick="closeModal('activity-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="act-id">
+      <div class="form-row-2">
+        <div>
+          <label>Type</label>
+          <select id="act-type">
+            <option value="call">📞 Call</option>
+            <option value="email">📧 Email</option>
+            <option value="meeting">🤝 Meeting</option>
+            <option value="whatsapp">📱 WhatsApp</option>
+            <option value="follow-up">🔔 Follow-up</option>
+            <option value="note">📝 Note</option>
+          </select>
+        </div>
+        <div>
+          <label>Due Date</label>
+          <input type="date" id="act-due">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Subject *</label>
+        <input type="text" id="act-subject" placeholder="e.g. Follow-up call with Rahul">
+      </div>
+      <div class="form-row">
+        <label>Contact Name</label>
+        <input type="text" id="act-contact" placeholder="Who is this about?">
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="act-notes" placeholder="What was discussed, next steps…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('activity-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveActivity()">Save Activity</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+const TOKEN = localStorage.getItem('tt_session_token');
+if (!TOKEN) { window.location.href = '/?redirect=/crm'; }
+
+function api(path, opts = {}) {
+  return fetch(path, {
+    headers: { 'x-session-token': TOKEN, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    ...opts
+  }).then(r => r.json());
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+const VIEWS = { dashboard: 'Dashboard', deals: 'Deals', contacts: 'Contacts', companies: 'Companies', activities: 'Activities', reports: 'Reports' };
+let currentView = 'dashboard';
+
+function nav(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  document.getElementById('v-' + view).classList.add('active');
+  document.querySelectorAll('.sb-item').forEach(i => { if (i.textContent.trim().toLowerCase().includes(view.split('-')[0])) i.classList.add('active'); });
+  document.getElementById('topbar-title').textContent = VIEWS[view] || view;
+  currentView = view;
+  const actions = document.getElementById('topbar-actions');
+  actions.innerHTML = '';
+  if (view === 'deals') { actions.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openDealModal()">+ New Deal</button>`; }
+  if (view === 'contacts') { actions.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openContactModal()">+ New Contact</button>`; }
+  if (view === 'companies') { actions.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openCompanyModal()">+ New Company</button>`; }
+  if (view === 'activities') { actions.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openActivityModal()">+ Log Activity</button>`; }
+  loaders[view]?.();
+}
+
+const loaders = {
+  dashboard: loadDashboard,
+  deals: loadDeals,
+  contacts: loadContacts,
+  companies: loadCompanies,
+  activities: loadActivities,
+  reports: loadReports,
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function stageBadge(s) {
+  const map = { prospect:'prospect', qualified:'qualified', demo:'demo', proposal:'proposal', won:'won', lost:'lost' };
+  const labels = { prospect:'Prospect', qualified:'Qualified', demo:'Demo', proposal:'Proposal', won:'Won ✓', lost:'Lost' };
+  return `<span class="badge badge-${map[s]||'prospect'}">${labels[s]||s}</span>`;
+}
+function sourceLabel(s) {
+  const m = { linkedin:'LinkedIn', referral:'Referral', 'cold-email':'Cold Email', website:'Website', whatsapp:'WhatsApp', event:'Event', other:'Other' };
+  return m[s] || s || '—';
+}
+function actIcon(type) {
+  const m = { call:'📞', email:'📧', meeting:'🤝', whatsapp:'📱', 'follow-up':'🔔', note:'📝' };
+  const colors = { call:'rgba(59,130,246,.15)', email:'rgba(139,92,246,.15)', meeting:'rgba(0,229,160,.12)', whatsapp:'rgba(0,229,160,.15)', 'follow-up':'rgba(245,158,11,.15)', note:'rgba(240,246,255,.06)' };
+  return { icon: m[type] || '📋', color: colors[type] || 'var(--b1)' };
+}
+function scoreBar(n) {
+  const pct = Math.min(100, Math.max(0, n || 0));
+  const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+  return `<div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:4px;background:var(--b1);border-radius:2px;"><div style="width:${pct}%;height:4px;background:${col};border-radius:2px;"></div></div><span style="font-size:10px;color:${col};font-weight:700;">${pct}</span></div>`;
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = `toast show ${type}`;
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+document.querySelectorAll('.modal-bg').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const [stats, acts, deals] = await Promise.all([
+    api('/api/crm/dashboard'),
+    api('/api/crm/activities?pending=1'),
+    api('/api/crm/deals'),
+  ]);
+
+  document.getElementById('kpi-pipeline').textContent = fmt(stats.pipelineValue);
+  document.getElementById('kpi-open').textContent = stats.openDeals;
+  document.getElementById('kpi-won').textContent = stats.wonThisMonth;
+  document.getElementById('kpi-won-val').textContent = fmt(stats.wonValue) + ' won';
+  document.getElementById('kpi-contacts').textContent = stats.totalContacts;
+  document.getElementById('kpi-acts').textContent = `${stats.overdueActivities} overdue · ${stats.todayActivities} today`;
+
+  // Overdue badge
+  const ob = document.getElementById('overdue-badge');
+  if (stats.overdueActivities > 0) { ob.textContent = stats.overdueActivities; ob.style.display = ''; }
+
+  // Stage breakdown
+  const stages = [
+    { key: 'prospect', label: 'Prospect', color: 'var(--t3)' },
+    { key: 'qualified', label: 'Qualified', color: 'var(--blue)' },
+    { key: 'demo', label: 'Demo', color: 'var(--violet)' },
+    { key: 'proposal', label: 'Proposal', color: 'var(--amber)' },
+    { key: 'won', label: 'Won', color: 'var(--green)' },
+    { key: 'lost', label: 'Lost', color: 'var(--red)' },
+  ];
+  const total = Object.values(stats.stageBreakdown).reduce((a, b) => a + b, 0) || 1;
+  const sb = document.getElementById('stage-breakdown');
+  const barSegs = stages.map(s => `<div class="pb-seg" style="width:${(stats.stageBreakdown[s.key]||0)/total*100}%;background:${s.color};min-width:${stats.stageBreakdown[s.key]?4:0}px;"></div>`).join('');
+  sb.innerHTML = `<div class="pipeline-bar">${barSegs}</div>` +
+    stages.map(s => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);">
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:8px;height:8px;border-radius:50%;background:${s.color};"></div><span style="font-size:12px;color:var(--t2);">${s.label}</span></div>
+      <span style="font-size:13px;font-weight:700;color:var(--t1);">${stats.stageBreakdown[s.key]||0}</span>
+    </div>`).join('');
+
+  // Upcoming activities
+  const da = document.getElementById('dash-activities');
+  const upcoming = acts.slice(0, 5);
+  if (!upcoming.length) { da.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All clear!</div><div class="empty-sub">No pending activities</div></div>`; }
+  else da.innerHTML = upcoming.map(a => renderActivityItem(a)).join('');
+
+  // Recent deals
+  const dd = document.getElementById('dash-deals');
+  const recent = deals.slice(0, 6);
+  if (!recent.length) { dd.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--t4);">No deals yet — <button class="btn btn-ghost btn-sm" onclick="nav('deals')">Create your first deal</button></td></tr>`; }
+  else dd.innerHTML = recent.map(d => `<tr>
+    <td><span class="tbl-name" onclick="nav('deals')">${d.title}</span></td>
+    <td style="color:var(--t3);">${d.company||'—'}</td>
+    <td>${stageBadge(d.stage)}</td>
+    <td style="font-weight:700;color:var(--green);">${d.value ? fmt(d.value) : '—'}</td>
+    <td style="color:var(--t3);">${fmtDate(d.expectedClose)}</td>
+  </tr>`).join('');
+}
+
+// ── DEALS ────────────────────────────────────────────────────────────────────
+let allDeals = [];
+let dealsViewMode = 'kanban';
+
+function toggleDealsView() {
+  dealsViewMode = dealsViewMode === 'kanban' ? 'list' : 'kanban';
+  document.getElementById('deals-kanban').style.display = dealsViewMode === 'kanban' ? '' : 'none';
+  document.getElementById('deals-list').style.display = dealsViewMode === 'list' ? '' : 'none';
+  document.getElementById('deals-view-toggle').textContent = dealsViewMode === 'kanban' ? '📋 List' : '🗂 Kanban';
+  renderDeals(allDeals);
+}
+
+async function loadDeals() {
+  allDeals = await api('/api/crm/deals');
+  document.getElementById('deals-count').textContent = allDeals.length + ' deals';
+  renderDeals(allDeals);
+}
+
+function filterDeals(q) {
+  const search = (document.getElementById('deals-search')?.value || '').toLowerCase();
+  const stage = document.getElementById('deals-stage-filter')?.value || 'all';
+  let filtered = allDeals;
+  if (search) filtered = filtered.filter(d => (d.title + d.company + d.contact).toLowerCase().includes(search));
+  if (stage !== 'all') filtered = filtered.filter(d => d.stage === stage);
+  renderDeals(filtered);
+}
+
+function renderDeals(deals) {
+  const stages = ['prospect', 'qualified', 'demo', 'proposal', 'won'];
+  if (dealsViewMode === 'kanban') {
+    stages.forEach(s => {
+      const col = deals.filter(d => d.stage === s);
+      document.getElementById('kc-' + s).textContent = col.length;
+      document.getElementById('kc-' + s + '-cards').innerHTML = col.map(d => `
+        <div class="k-card" onclick="editDeal('${d.id}')">
+          <div class="k-card-title">${d.title}</div>
+          ${d.company ? `<div class="k-card-company">🏢 ${d.company}</div>` : ''}
+          <div class="k-card-foot">
+            <span class="k-card-val">${d.value ? fmt(d.value) : 'No value'}</span>
+            <span class="k-card-date">${d.expectedClose ? fmtDate(d.expectedClose) : ''}</span>
+          </div>
+        </div>`).join('');
+    });
+  } else {
+    const tb = document.getElementById('deals-tbody');
+    if (!deals.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t4);">No deals found</td></tr>`; return; }
+    tb.innerHTML = deals.map(d => `<tr>
+      <td><span class="tbl-name" onclick="editDeal('${d.id}')">${d.title}</span></td>
+      <td style="color:var(--t3);">${d.contact || '—'}</td>
+      <td>${stageBadge(d.stage)}</td>
+      <td style="font-weight:700;color:${d.stage==='won'?'var(--green)':'var(--t1)'};">${d.value ? fmt(d.value) : '—'}</td>
+      <td style="color:var(--t3);">${fmtDate(d.expectedClose)}</td>
+      <td style="color:var(--t3);">${d.ownerId ? d.ownerId.slice(0,6)+'…' : '—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="deleteDeal('${d.id}')">Delete</button></td>
+    </tr>`).join('');
+  }
+}
+
+function openDealModal(stage = 'prospect') {
+  document.getElementById('deal-id').value = '';
+  document.getElementById('deal-title').value = '';
+  document.getElementById('deal-value').value = '';
+  document.getElementById('deal-stage').value = stage;
+  document.getElementById('deal-contact').value = '';
+  document.getElementById('deal-company').value = '';
+  document.getElementById('deal-close').value = '';
+  document.getElementById('deal-prob').value = '';
+  document.getElementById('deal-notes').value = '';
+  document.getElementById('deal-modal-title').textContent = 'New Deal';
+  document.getElementById('deal-lost-row').style.display = stage === 'lost' ? '' : 'none';
+  openModal('deal-modal');
+}
+
+async function editDeal(id) {
+  const d = await api('/api/crm/deals').then(ds => ds.find(x => x.id === id));
+  if (!d) return;
+  document.getElementById('deal-id').value = d.id;
+  document.getElementById('deal-title').value = d.title || '';
+  document.getElementById('deal-value').value = d.value || '';
+  document.getElementById('deal-stage').value = d.stage || 'prospect';
+  document.getElementById('deal-contact').value = d.contact || '';
+  document.getElementById('deal-company').value = d.company || '';
+  document.getElementById('deal-close').value = d.expectedClose ? d.expectedClose.slice(0,10) : '';
+  document.getElementById('deal-prob').value = d.probability || '';
+  document.getElementById('deal-notes').value = d.notes || '';
+  document.getElementById('deal-lost-reason').value = d.lostReason || '';
+  document.getElementById('deal-lost-row').style.display = d.stage === 'lost' ? '' : 'none';
+  document.getElementById('deal-modal-title').textContent = 'Edit Deal';
+  openModal('deal-modal');
+}
+
+document.getElementById('deal-stage').addEventListener('change', function() {
+  document.getElementById('deal-lost-row').style.display = this.value === 'lost' ? '' : 'none';
+});
+
+async function saveDeal() {
+  const id = document.getElementById('deal-id').value;
+  const body = {
+    title: document.getElementById('deal-title').value.trim(),
+    value: parseFloat(document.getElementById('deal-value').value) || 0,
+    stage: document.getElementById('deal-stage').value,
+    contact: document.getElementById('deal-contact').value.trim(),
+    company: document.getElementById('deal-company').value.trim(),
+    expectedClose: document.getElementById('deal-close').value || null,
+    probability: parseInt(document.getElementById('deal-prob').value) || 0,
+    notes: document.getElementById('deal-notes').value.trim(),
+    lostReason: document.getElementById('deal-lost-reason').value,
+  };
+  if (!body.title) { toast('Deal title is required', 'err'); return; }
+  const r = id
+    ? await api(`/api/crm/deals/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    : await api('/api/crm/deals', { method: 'POST', body: JSON.stringify(body) });
+  if (r.success) { toast(id ? 'Deal updated' : 'Deal created ✓'); closeModal('deal-modal'); loadDeals(); }
+  else toast(r.error || 'Error saving deal', 'err');
+}
+
+async function deleteDeal(id) {
+  if (!confirm('Delete this deal?')) return;
+  await api(`/api/crm/deals/${id}`, { method: 'DELETE' });
+  toast('Deal deleted'); loadDeals();
+}
+
+// ── CONTACTS ─────────────────────────────────────────────────────────────────
+async function loadContacts() {
+  const q = document.getElementById('contacts-search')?.value || '';
+  const source = document.getElementById('contacts-source')?.value || 'all';
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (source !== 'all') params.set('source', source);
+  const contacts = await api('/api/crm/contacts?' + params);
+  document.getElementById('contacts-count').textContent = contacts.length + ' contacts';
+  const tb = document.getElementById('contacts-tbody');
+  if (!contacts.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t4);">No contacts yet</td></tr>`; return; }
+  tb.innerHTML = contacts.map(c => `<tr>
+    <td><div style="display:flex;align-items:center;gap:9px;">
+      <div class="avatar" style="background:${avatarColor(c.name)};width:28px;height:28px;font-size:11px;">${(c.name||'?')[0].toUpperCase()}</div>
+      <div><div class="tbl-name" onclick="editContact('${c.id}')">${c.name}</div><div style="font-size:10px;color:var(--t4);">${c.role||''}</div></div>
+    </div></td>
+    <td style="color:var(--t3);">${c.email||'—'}</td>
+    <td style="color:var(--t3);">${c.phone||'—'}</td>
+    <td style="color:var(--t2);">${c.company||'—'}</td>
+    <td><span class="badge badge-source">${sourceLabel(c.source)}</span></td>
+    <td>${scoreBar(c.leadScore)}</td>
+    <td><button class="btn btn-ghost btn-sm" onclick="deleteContact('${c.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function avatarColor(name) {
+  const colors = ['#6366F1','#8B5CF6','#00E5A0','#F59E0B','#F43F5E','#3B82F6','#22D3EE','#F472B6'];
+  let h = 0; for (const c of (name||'?')) h += c.charCodeAt(0);
+  return colors[h % colors.length];
+}
+
+function openContactModal() {
+  ['contact-id','contact-name','contact-role','contact-email','contact-phone','contact-company','contact-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('contact-score').value = '';
+  document.getElementById('contact-source').value = 'other';
+  document.getElementById('contact-modal-title').textContent = 'New Contact';
+  openModal('contact-modal');
+}
+
+async function editContact(id) {
+  const contacts = await api('/api/crm/contacts');
+  const c = contacts.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('contact-id').value = c.id;
+  document.getElementById('contact-name').value = c.name || '';
+  document.getElementById('contact-role').value = c.role || '';
+  document.getElementById('contact-email').value = c.email || '';
+  document.getElementById('contact-phone').value = c.phone || '';
+  document.getElementById('contact-company').value = c.company || '';
+  document.getElementById('contact-source').value = c.source || 'other';
+  document.getElementById('contact-score').value = c.leadScore || '';
+  document.getElementById('contact-notes').value = c.notes || '';
+  document.getElementById('contact-modal-title').textContent = 'Edit Contact';
+  openModal('contact-modal');
+}
+
+async function saveContact() {
+  const id = document.getElementById('contact-id').value;
+  const body = {
+    name: document.getElementById('contact-name').value.trim(),
+    role: document.getElementById('contact-role').value.trim(),
+    email: document.getElementById('contact-email').value.trim(),
+    phone: document.getElementById('contact-phone').value.trim(),
+    company: document.getElementById('contact-company').value.trim(),
+    source: document.getElementById('contact-source').value,
+    leadScore: parseInt(document.getElementById('contact-score').value) || 0,
+    notes: document.getElementById('contact-notes').value.trim(),
+  };
+  if (!body.name) { toast('Name is required', 'err'); return; }
+  const r = id
+    ? await api(`/api/crm/contacts/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    : await api('/api/crm/contacts', { method: 'POST', body: JSON.stringify(body) });
+  if (r.success) { toast(id ? 'Contact updated' : 'Contact added ✓'); closeModal('contact-modal'); loadContacts(); }
+  else toast(r.error || 'Error', 'err');
+}
+
+async function deleteContact(id) {
+  if (!confirm('Delete this contact?')) return;
+  await api(`/api/crm/contacts/${id}`, { method: 'DELETE' });
+  toast('Contact deleted'); loadContacts();
+}
+
+// ── COMPANIES ────────────────────────────────────────────────────────────────
+async function loadCompanies() {
+  const q = document.getElementById('companies-search')?.value || '';
+  const companies = await api('/api/crm/companies' + (q ? '?q=' + encodeURIComponent(q) : ''));
+  document.getElementById('companies-count').textContent = companies.length + ' companies';
+  const tb = document.getElementById('companies-tbody');
+  if (!companies.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t4);">No companies yet</td></tr>`; return; }
+  tb.innerHTML = companies.map(c => `<tr>
+    <td><span class="tbl-name" onclick="editCompany('${c.id}')">${c.name}</span></td>
+    <td style="color:var(--t3);">${c.industry||'—'}</td>
+    <td style="color:var(--t3);">${c.size||'—'}</td>
+    <td style="color:var(--t3);">${c.city||'—'}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--t4);">${c.gst||'—'}</td>
+    <td>${c.website?`<a href="${c.website}" target="_blank" style="color:var(--green);font-size:12px;">${c.website.replace('https://','')}</a>`:'—'}</td>
+    <td><button class="btn btn-ghost btn-sm" onclick="deleteCompany('${c.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function openCompanyModal() {
+  ['company-id','company-name','company-city','company-gst','company-website','company-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('company-industry').value = '';
+  document.getElementById('company-size').value = '';
+  document.getElementById('company-modal-title').textContent = 'New Company';
+  openModal('company-modal');
+}
+
+async function editCompany(id) {
+  const companies = await api('/api/crm/companies');
+  const c = companies.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('company-id').value = c.id;
+  document.getElementById('company-name').value = c.name || '';
+  document.getElementById('company-industry').value = c.industry || '';
+  document.getElementById('company-size').value = c.size || '';
+  document.getElementById('company-city').value = c.city || '';
+  document.getElementById('company-gst').value = c.gst || '';
+  document.getElementById('company-website').value = c.website || '';
+  document.getElementById('company-notes').value = c.notes || '';
+  document.getElementById('company-modal-title').textContent = 'Edit Company';
+  openModal('company-modal');
+}
+
+async function saveCompany() {
+  const id = document.getElementById('company-id').value;
+  const body = {
+    name: document.getElementById('company-name').value.trim(),
+    industry: document.getElementById('company-industry').value,
+    size: document.getElementById('company-size').value,
+    city: document.getElementById('company-city').value.trim(),
+    gst: document.getElementById('company-gst').value.trim(),
+    website: document.getElementById('company-website').value.trim(),
+    notes: document.getElementById('company-notes').value.trim(),
+  };
+  if (!body.name) { toast('Company name is required', 'err'); return; }
+  const r = id
+    ? await api(`/api/crm/companies/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    : await api('/api/crm/companies', { method: 'POST', body: JSON.stringify(body) });
+  if (r.success) { toast(id ? 'Company updated' : 'Company added ✓'); closeModal('company-modal'); loadCompanies(); }
+  else toast(r.error || 'Error', 'err');
+}
+
+async function deleteCompany(id) {
+  if (!confirm('Delete this company?')) return;
+  await api(`/api/crm/companies/${id}`, { method: 'DELETE' });
+  toast('Company deleted'); loadCompanies();
+}
+
+// ── ACTIVITIES ───────────────────────────────────────────────────────────────
+function renderActivityItem(a) {
+  const now = new Date().toISOString().slice(0,10);
+  const ic = actIcon(a.type);
+  const isOverdue = !a.completedDate && a.dueDate && a.dueDate < now;
+  const isToday = !a.completedDate && a.dueDate === now;
+  const isDone = !!a.completedDate;
+  let dateBadge = '';
+  if (isDone) dateBadge = `<span class="badge badge-done">Done</span>`;
+  else if (isOverdue) dateBadge = `<span class="badge badge-overdue">Overdue</span>`;
+  else if (isToday) dateBadge = `<span class="badge badge-today">Today</span>`;
+  else if (a.dueDate) dateBadge = `<span style="font-size:10px;color:var(--t4);">${fmtDate(a.dueDate)}</span>`;
+  return `<div class="act-item${isDone?' done':''}">
+    <div class="act-icon" style="background:${ic.color};">${ic.icon}</div>
+    <div class="act-body">
+      <div class="act-subject">${a.subject}</div>
+      <div class="act-meta">${a.contact ? '👤 ' + a.contact + ' · ' : ''}${dateBadge}</div>
+      ${a.notes ? `<div style="font-size:11px;color:var(--t4);margin-top:4px;">${a.notes}</div>` : ''}
+    </div>
+    <div class="act-actions">
+      ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="completeActivity('${a.id}')">✓ Done</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="deleteActivity('${a.id}')">✕</button>
+    </div>
+  </div>`;
+}
+
+async function loadActivities() {
+  const pending = document.getElementById('act-filter')?.value === 'pending';
+  const type = document.getElementById('act-type-filter')?.value || '';
+  let acts = await api('/api/crm/activities' + (pending ? '?pending=1' : ''));
+  if (type) acts = acts.filter(a => a.type === type);
+  const el = document.getElementById('activities-list');
+  if (!acts.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No activities</div><div class="empty-sub">Log a call, email, or meeting to get started</div></div>`; return; }
+  el.innerHTML = acts.map(a => renderActivityItem(a)).join('');
+}
+
+function openActivityModal() {
+  document.getElementById('act-id').value = '';
+  document.getElementById('act-type').value = 'call';
+  document.getElementById('act-subject').value = '';
+  document.getElementById('act-contact').value = '';
+  document.getElementById('act-due').value = new Date().toISOString().slice(0,10);
+  document.getElementById('act-notes').value = '';
+  document.getElementById('activity-modal-title').textContent = 'Log Activity';
+  openModal('activity-modal');
+}
+
+async function saveActivity() {
+  const id = document.getElementById('act-id').value;
+  const body = {
+    type: document.getElementById('act-type').value,
+    subject: document.getElementById('act-subject').value.trim(),
+    contact: document.getElementById('act-contact').value.trim(),
+    dueDate: document.getElementById('act-due').value || null,
+    notes: document.getElementById('act-notes').value.trim(),
+  };
+  if (!body.subject) { toast('Subject is required', 'err'); return; }
+  const r = id
+    ? await api(`/api/crm/activities/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    : await api('/api/crm/activities', { method: 'POST', body: JSON.stringify(body) });
+  if (r.success) { toast('Activity saved ✓'); closeModal('activity-modal'); if (currentView === 'activities') loadActivities(); if (currentView === 'dashboard') loadDashboard(); }
+  else toast(r.error || 'Error', 'err');
+}
+
+async function completeActivity(id) {
+  await api(`/api/crm/activities/${id}`, { method: 'PUT', body: JSON.stringify({ complete: true }) });
+  toast('Marked as done ✓'); loadActivities();
+}
+
+async function deleteActivity(id) {
+  await api(`/api/crm/activities/${id}`, { method: 'DELETE' });
+  toast('Activity deleted'); loadActivities();
+}
+
+// ── REPORTS ──────────────────────────────────────────────────────────────────
+async function loadReports() {
+  const [deals, contacts] = await Promise.all([api('/api/crm/deals'), api('/api/crm/contacts')]);
+
+  // Conversion funnel
+  const stages = ['prospect','qualified','demo','proposal','won'];
+  const labels = { prospect:'Prospect',qualified:'Qualified',demo:'Demo',proposal:'Proposal',won:'Won' };
+  const stageCounts = {};
+  stages.forEach(s => stageCounts[s] = deals.filter(d => d.stage === s || (stages.indexOf(d.stage) > stages.indexOf(s))).length);
+  const maxCount = stageCounts.prospect || 1;
+  document.getElementById('rep-conversion-body').innerHTML = stages.map(s => {
+    const count = deals.filter(d => d.stage === s).length;
+    const pct = Math.round(count / (deals.length || 1) * 100);
+    return `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:4px;"><span>${labels[s]}</span><span>${count} (${pct}%)</span></div>
+      <div style="height:6px;background:var(--b1);border-radius:3px;"><div style="width:${pct}%;height:6px;background:var(--green);border-radius:3px;transition:width .5s;"></div></div>
+    </div>`;
+  }).join('');
+
+  // Sources
+  const sources = {};
+  contacts.forEach(c => { const s = c.source||'other'; sources[s] = (sources[s]||0)+1; });
+  const srcMax = Math.max(...Object.values(sources), 1);
+  document.getElementById('rep-sources').innerHTML = Object.entries(sources).sort((a,b)=>b[1]-a[1]).map(([s,n]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <div style="width:80px;font-size:11px;color:var(--t3);">${sourceLabel(s)}</div>
+      <div style="flex:1;height:6px;background:var(--b1);border-radius:3px;"><div style="width:${n/srcMax*100}%;height:6px;background:var(--violet);border-radius:3px;"></div></div>
+      <span style="font-size:11px;font-weight:700;color:var(--t1);width:20px;text-align:right;">${n}</span>
+    </div>`).join('') || '<div style="color:var(--t4);font-size:12px;">No data yet</div>';
+
+  // Monthly won
+  const monthly = {};
+  deals.filter(d => d.stage === 'won' && d.wonDate).forEach(d => {
+    const m = d.wonDate.slice(0,7); monthly[m] = (monthly[m]||0) + (d.value||0);
+  });
+  const months = Object.keys(monthly).sort().slice(-6);
+  const maxVal = Math.max(...months.map(m => monthly[m]), 1);
+  document.getElementById('rep-monthly').innerHTML = months.length
+    ? months.map(m => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="width:60px;font-size:10px;color:var(--t3);">${m}</div>
+        <div style="flex:1;height:6px;background:var(--b1);border-radius:3px;"><div style="width:${monthly[m]/maxVal*100}%;height:6px;background:var(--amber);border-radius:3px;"></div></div>
+        <span style="font-size:11px;color:var(--green);font-weight:700;">${fmt(monthly[m])}</span>
+      </div>`).join('')
+    : '<div style="color:var(--t4);font-size:12px;">No won deals yet</div>';
+
+  // Top contacts by deal value
+  const contactDeals = {};
+  deals.forEach(d => { if (d.contact) { contactDeals[d.contact] = (contactDeals[d.contact]||0) + (d.value||0); } });
+  const top = Object.entries(contactDeals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById('rep-top-contacts').innerHTML = top.length
+    ? top.map(([name, val]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b0);">
+        <span style="font-size:12px;color:var(--t2);">${name}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--green);">${fmt(val)}</span>
+      </div>`).join('')
+    : '<div style="color:var(--t4);font-size:12px;">No deal data yet</div>';
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  // Load brand name from session
+  try {
+    const me = await api('/api/me');
+    if (me && me.brandName) document.getElementById('sb-brand').textContent = me.brandName;
+  } catch(e) {}
+  loadDashboard();
+}
+init();
+</script>
+</body>
+</html>

@@ -192,6 +192,14 @@ function _openDB(slug){
     CREATE INDEX IF NOT EXISTS idx_us_email    ON users(json_extract(data,'$.email'));
     CREATE INDEX IF NOT EXISTS idx_cm_issue    ON comments(json_extract(data,'$.issueId'));
     CREATE INDEX IF NOT EXISTS idx_al_ts       ON activity_log(ts);
+    CREATE TABLE IF NOT EXISTS crm_contacts(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_companies(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_deals(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_activities(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_crm_ct_email  ON crm_contacts(json_extract(data,'$.email'));
+    CREATE INDEX IF NOT EXISTS idx_crm_dl_stage  ON crm_deals(json_extract(data,'$.stage'));
+    CREATE INDEX IF NOT EXISTS idx_crm_dl_owner  ON crm_deals(json_extract(data,'$.ownerId'));
+    CREATE INDEX IF NOT EXISTS idx_crm_ac_due    ON crm_activities(json_extract(data,'$.dueDate'));
   `);
   _dbConns[slug]=db;
   return db;
@@ -7478,6 +7486,161 @@ app.get('/refund',(req,res)=>{
     <h2>6. Contact</h2>
     <p>Email: <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p>
   `));
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CRM ROUTES
+// ══════════════════════════════════════════════════════════════════════════════
+function crmAuth(req,res){
+  const su=getSessionUser(req);
+  if(!su)return null;
+  return su;
+}
+function crmDb(slug){return _openDB(slug);}
+function crmAll(db,table){return db.prepare(`SELECT data FROM ${table}`).all().map(r=>JSON.parse(r.data));}
+function crmGet(db,table,id){const r=db.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id);return r?JSON.parse(r.data):null;}
+function crmSave(db,table,obj){db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`).run(obj.id,JSON.stringify(obj));}
+function crmDel(db,table,id){db.prepare(`DELETE FROM ${table} WHERE id=?`).run(id);}
+
+// ── CRM page route ────────────────────────────────────────────────────────────
+app.get('/crm',(req,res)=>res.sendFile(path.join(__dirname,'public','crm.html')));
+
+// ── Dashboard stats ───────────────────────────────────────────────────────────
+app.get('/api/crm/dashboard',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const deals=crmAll(db,'crm_deals');
+  const contacts=crmAll(db,'crm_contacts');
+  const activities=crmAll(db,'crm_activities');
+  const now=new Date().toISOString().slice(0,10);
+  const openDeals=deals.filter(d=>d.stage!=='won'&&d.stage!=='lost');
+  const wonThisMonth=deals.filter(d=>d.stage==='won'&&d.wonDate&&d.wonDate.slice(0,7)===now.slice(0,7));
+  const pipelineValue=openDeals.reduce((s,d)=>s+(d.value||0),0);
+  const wonValue=wonThisMonth.reduce((s,d)=>s+(d.value||0),0);
+  const overdueActs=activities.filter(a=>!a.completedDate&&a.dueDate&&a.dueDate<now);
+  const todayActs=activities.filter(a=>!a.completedDate&&a.dueDate===now);
+  res.json({totalContacts:contacts.length,totalDeals:deals.length,openDeals:openDeals.length,pipelineValue,wonThisMonth:wonThisMonth.length,wonValue,overdueActivities:overdueActs.length,todayActivities:todayActs.length,
+    stageBreakdown:{prospect:deals.filter(d=>d.stage==='prospect').length,qualified:deals.filter(d=>d.stage==='qualified').length,demo:deals.filter(d=>d.stage==='demo').length,proposal:deals.filter(d=>d.stage==='proposal').length,won:deals.filter(d=>d.stage==='won').length,lost:deals.filter(d=>d.stage==='lost').length}
+  });
+});
+
+// ── Contacts ──────────────────────────────────────────────────────────────────
+app.get('/api/crm/contacts',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  let contacts=crmAll(db,'crm_contacts');
+  const{q,source,stage}=req.query;
+  if(q){const ql=q.toLowerCase();contacts=contacts.filter(c=>(c.name||'').toLowerCase().includes(ql)||(c.email||'').toLowerCase().includes(ql)||(c.company||'').toLowerCase().includes(ql));}
+  if(source&&source!=='all')contacts=contacts.filter(c=>c.source===source);
+  contacts.sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  res.json(contacts);
+});
+app.post('/api/crm/contacts',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const c={id:uuidv4(),...req.body,createdDate:new Date().toISOString(),ownerId:su.userId};
+  crmSave(db,'crm_contacts',c);res.json({success:true,contact:c});
+});
+app.put('/api/crm/contacts/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_contacts',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id,updatedDate:new Date().toISOString()};
+  crmSave(db,'crm_contacts',updated);res.json({success:true,contact:updated});
+});
+app.delete('/api/crm/contacts/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_contacts',req.params.id);res.json({success:true});
+});
+
+// ── Companies ─────────────────────────────────────────────────────────────────
+app.get('/api/crm/companies',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  let companies=crmAll(crmDb(su.brandSlug),'crm_companies');
+  if(req.query.q){const ql=req.query.q.toLowerCase();companies=companies.filter(c=>(c.name||'').toLowerCase().includes(ql));}
+  companies.sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  res.json(companies);
+});
+app.post('/api/crm/companies',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const c={id:uuidv4(),...req.body,createdDate:new Date().toISOString()};
+  crmSave(crmDb(su.brandSlug),'crm_companies',c);res.json({success:true,company:c});
+});
+app.put('/api/crm/companies/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_companies',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id};
+  crmSave(db,'crm_companies',updated);res.json({success:true,company:updated});
+});
+app.delete('/api/crm/companies/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_companies',req.params.id);res.json({success:true});
+});
+
+// ── Deals ─────────────────────────────────────────────────────────────────────
+app.get('/api/crm/deals',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  let deals=crmAll(crmDb(su.brandSlug),'crm_deals');
+  if(req.query.stage&&req.query.stage!=='all')deals=deals.filter(d=>d.stage===req.query.stage);
+  if(req.query.q){const ql=req.query.q.toLowerCase();deals=deals.filter(d=>(d.title||'').toLowerCase().includes(ql));}
+  deals.sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  res.json(deals);
+});
+app.post('/api/crm/deals',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const d={id:uuidv4(),...req.body,stage:req.body.stage||'prospect',createdDate:new Date().toISOString(),ownerId:su.userId};
+  crmSave(crmDb(su.brandSlug),'crm_deals',d);res.json({success:true,deal:d});
+});
+app.put('/api/crm/deals/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_deals',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const body=req.body;
+  if(body.stage==='won'&&existing.stage!=='won')body.wonDate=new Date().toISOString();
+  const updated={...existing,...body,id:req.params.id,updatedDate:new Date().toISOString()};
+  crmSave(db,'crm_deals',updated);res.json({success:true,deal:updated});
+});
+app.delete('/api/crm/deals/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_deals',req.params.id);res.json({success:true});
+});
+
+// ── Activities ────────────────────────────────────────────────────────────────
+app.get('/api/crm/activities',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  let acts=crmAll(db,'crm_activities');
+  if(req.query.contactId)acts=acts.filter(a=>a.contactId===req.query.contactId);
+  if(req.query.dealId)acts=acts.filter(a=>a.dealId===req.query.dealId);
+  if(req.query.pending==='1')acts=acts.filter(a=>!a.completedDate);
+  acts.sort((a,b)=>{
+    if(a.completedDate&&!b.completedDate)return 1;
+    if(!a.completedDate&&b.completedDate)return-1;
+    return(a.dueDate||'')>(b.dueDate||'')?1:-1;
+  });
+  res.json(acts);
+});
+app.post('/api/crm/activities',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const a={id:uuidv4(),...req.body,createdDate:new Date().toISOString(),ownerId:su.userId};
+  crmSave(crmDb(su.brandSlug),'crm_activities',a);res.json({success:true,activity:a});
+});
+app.put('/api/crm/activities/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_activities',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id};
+  if(req.body.complete)updated.completedDate=new Date().toISOString();
+  crmSave(db,'crm_activities',updated);res.json({success:true,activity:updated});
+});
+app.delete('/api/crm/activities/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_activities',req.params.id);res.json({success:true});
 });
 
 app.listen(PORT,()=>{
