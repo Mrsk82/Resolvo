@@ -74,20 +74,17 @@ body{
 
 /* ══ TOP BAR ═══════════════════════════════════════════════════════════════ */
 .topbar{
+  position:fixed;top:0;left:0;right:0;z-index:1100;
   background:linear-gradient(90deg,rgba(0,229,160,.15),rgba(139,92,246,.12),rgba(0,229,160,.15));
   border-bottom:1px solid rgba(0,229,160,.2);
-  text-align:center;padding:9px 16px;
+  text-align:center;padding:8px 16px;
   font-size:12.5px;font-weight:600;color:var(--t1);
   letter-spacing:.01em;
-  position:relative;overflow:hidden;
-  background-size:200% 100%;
-  animation:tbSlide 4s linear infinite;
+  height:36px;
+  overflow:hidden;
 }
-.topbar::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(0,229,160,.07) 50%,transparent 100%);animation:tbSweep 2.5s ease-in-out infinite;}
-@keyframes tbSlide{0%{background-position:0% 0%;}100%{background-position:200% 0%;}}
-@keyframes tbSweep{0%,100%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
 .topbar strong{color:var(--green);}
-.topbar a{color:var(--green);text-decoration:none;font-weight:700;border-bottom:1px solid rgba(0,229,160,.3);}
+.topbar a{color:var(--green);text-decoration:none;font-weight:700;}
 
 /* ══ NOISE GRAIN OVERLAY (premium depth cue) ═══════════════════════════════ */
 body::after{
@@ -109,7 +106,7 @@ section{padding:140px 0;}
 
 /* ══ NAV ═══════════════════════════════════════════════════════════════════ */
 nav{
-  position:fixed;top:0;left:0;right:0;z-index:1000;
+  position:fixed;top:36px;left:0;right:0;z-index:1000;
   height:58px;display:flex;align-items:center;
   transition:background .4s,border-color .4s;
   border-bottom:1px solid transparent;
@@ -132,7 +129,7 @@ nav.s{background:rgba(8,9,10,.88);backdrop-filter:blur(24px);-webkit-backdrop-fi
 .nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
 .nav-burger.open span:nth-child(2){opacity:0;}
 .nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
-.nav-mobile{display:none;position:fixed;top:58px;left:0;right:0;background:rgba(8,9,10,.97);backdrop-filter:blur(24px);border-bottom:1px solid var(--b1);padding:16px 28px 24px;z-index:999;}
+.nav-mobile{display:none;position:fixed;top:94px;left:0;right:0;background:rgba(8,9,10,.97);backdrop-filter:blur(24px);border-bottom:1px solid var(--b1);padding:16px 28px 24px;z-index:999;}
 .nav-mobile.open{display:block;}
 .nav-mobile a{display:block;padding:11px 0;font-size:15px;color:var(--t2);text-decoration:none;border-bottom:1px solid var(--b1);}
 .nav-mobile a:last-child{border-bottom:none;}
@@ -171,7 +168,7 @@ nav.s{background:rgba(8,9,10,.88);backdrop-filter:blur(24px);-webkit-backdrop-fi
 .hero{
   min-height:100vh;
   display:flex;align-items:center;
-  padding:100px 0 80px;
+  padding:160px 0 80px;
   position:relative;overflow:hidden;
 }
 
@@ -770,9 +767,9 @@ footer{border-top:1px solid var(--b1);padding:28px 0;}
         <span class="badge-arr">→</span>
       </a>
 
-      <h1 class="h1">
-        <span>Freshdesk charges ₹20k.</span><br>
-        <span class="gw">We charge ₹3,999.</span>
+      <h1 class="h1" id="hero-h1">
+        <span id="h1-line1">Freshdesk charges ₹20k.</span><br>
+        <span class="gw" id="h1-line2">We charge ₹3,999.</span>
       </h1>
 
       <p class="sub">Replace Freshdesk, Jira & Intercom with <strong style="color:var(--t1)">one platform</strong>. Email + WhatsApp ticketing, AI replies, SLA tracking, issue tracker, customer portal — all included, no add-ons, no per-agent pricing.</p>
@@ -1594,6 +1591,39 @@ function showMsg(text, color) {
 ['su_name','su_company','su_email'].forEach(id => {
   document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
 });
+
+// ── ROTATING HERO HEADLINES ──────────────────────────────────────────────────
+const headlines = [
+  ['Freshdesk charges ₹20k.', 'We charge ₹3,999.'],
+  ['Jira + Zendesk + Intercom.', 'Replace all three. Today.'],
+  ['Email. WhatsApp. Widget.', 'One inbox. Zero chaos.'],
+  ['Your team is drowning.', 'Resolvo fixes that.'],
+  ['Setup in 5 minutes.', 'Not 5 days.'],
+  ['SLA breaches costing you clients?', 'Not anymore.'],
+];
+let hIdx = 0;
+const l1 = document.getElementById('h1-line1');
+const l2 = document.getElementById('h1-line2');
+const h1El = document.getElementById('hero-h1');
+setInterval(() => {
+  hIdx = (hIdx + 1) % headlines.length;
+  h1El.style.transition = 'opacity .35s ease, transform .35s ease';
+  h1El.style.opacity = '0';
+  h1El.style.transform = 'translateY(-12px)';
+  setTimeout(() => {
+    l1.textContent = headlines[hIdx][0];
+    l2.textContent = headlines[hIdx][1];
+    h1El.style.transform = 'translateY(10px)';
+    h1El.style.opacity = '0';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        h1El.style.transition = 'opacity .45s ease, transform .45s ease';
+        h1El.style.opacity = '1';
+        h1El.style.transform = 'translateY(0)';
+      });
+    });
+  }, 380);
+}, 10000);
 </script>
 </body>
 </html>
