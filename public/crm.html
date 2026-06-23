@@ -228,6 +228,17 @@ code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:rgba(34
   </div>
 
   <div class="sb-section">
+    <div class="sb-label">Outreach</div>
+    <a class="sb-item" onclick="nav('outreach')">
+      <span class="sb-item-icon">📞</span> Outreach Tracker
+      <span class="sb-item-badge" id="followup-badge" style="display:none">0</span>
+    </a>
+    <a class="sb-item" onclick="nav('templates')">
+      <span class="sb-item-icon">✉️</span> Email Templates
+    </a>
+  </div>
+
+  <div class="sb-section">
     <div class="sb-label">Tasks</div>
     <a class="sb-item" onclick="nav('activities')">
       <span class="sb-item-icon">📋</span> Activities
@@ -455,11 +466,121 @@ code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:rgba(34
       </div>
     </div>
 
+    <!-- ═══════════════ OUTREACH TRACKER ═══════════════ -->
+    <div class="view" id="v-outreach">
+      <div class="sec-hd" style="margin-bottom:20px;">
+        <div><div class="sec-title">Outreach Tracker</div><div class="sec-sub">Track every prospect — status, follow-ups, notes</div></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="ot-filter-status" onchange="loadOutreach()" style="background:var(--s2);color:var(--t2);border:1px solid var(--b2);border-radius:7px;padding:6px 10px;font-size:12px;font-family:var(--sans);">
+            <option value="">All Statuses</option>
+            <option value="not-contacted">Not Contacted</option>
+            <option value="emailed">Emailed</option>
+            <option value="called">Called</option>
+            <option value="whatsapped">WhatsApp'd</option>
+            <option value="demo-scheduled">Demo Scheduled</option>
+            <option value="converted">Converted</option>
+            <option value="dead">Dead</option>
+          </select>
+          <input id="ot-search" oninput="loadOutreach()" placeholder="Search name / company…" style="background:var(--s2);color:var(--t2);border:1px solid var(--b2);border-radius:7px;padding:6px 12px;font-size:12px;font-family:var(--sans);width:200px;">
+          <button class="btn btn-green btn-sm" onclick="openOtModal()">+ Add Prospect</button>
+        </div>
+      </div>
+
+      <!-- Status pipeline strip -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;" id="ot-pipeline-strip"></div>
+
+      <div class="tbl-wrap">
+        <table class="tbl" id="ot-table">
+          <thead><tr>
+            <th>Name</th><th>Company</th><th>Phone</th><th>Email</th>
+            <th>Status</th><th>Follow-up</th><th>Last Note</th><th style="width:90px"></th>
+          </tr></thead>
+          <tbody id="ot-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════ EMAIL TEMPLATES ═══════════════ -->
+    <div class="view" id="v-templates">
+      <div class="sec-hd" style="margin-bottom:20px;">
+        <div><div class="sec-title">Email Templates</div><div class="sec-sub">Quick-copy templates for outreach, follow-ups & partnerships</div></div>
+        <button class="btn btn-green btn-sm" onclick="openTplModal()">+ New Template</button>
+      </div>
+      <div id="tpl-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;"></div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
 <!-- ── TOAST ── -->
 <div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: OUTREACH PROSPECT                                   -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="ot-modal" style="display:none;" onclick="if(event.target===this)closeOtModal()">
+  <div class="modal" style="width:520px;">
+    <div class="modal-hd"><span class="modal-title">Prospect</span><button class="modal-close" onclick="closeOtModal()">✕</button></div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="ot-m-name" placeholder="Rahul Sharma"></div>
+        <div class="form-group"><label class="form-label">Company</label><input class="form-input" id="ot-m-company" placeholder="ABC Pvt Ltd"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="ot-m-phone" placeholder="+91 98765 43210"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ot-m-email" type="email" placeholder="rahul@abc.com"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-input" id="ot-m-status">
+            <option value="not-contacted">Not Contacted</option>
+            <option value="emailed">Emailed</option>
+            <option value="called">Called</option>
+            <option value="whatsapped">WhatsApp'd</option>
+            <option value="demo-scheduled">Demo Scheduled</option>
+            <option value="converted">Converted ✓</option>
+            <option value="dead">Dead</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Follow-up Date</label><input class="form-input" id="ot-m-followup" type="date"></div>
+      </div>
+      <div class="form-group" style="margin-top:4px;"><label class="form-label">Note</label><textarea class="form-input" id="ot-m-note" rows="3" placeholder="Last conversation, next step…" style="resize:vertical;"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeOtModal()">Cancel</button>
+      <button class="btn btn-green" onclick="saveOtLead()">Save Prospect</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: EMAIL TEMPLATE                                      -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="tpl-modal" style="display:none;" onclick="if(event.target===this)closeTplModal()">
+  <div class="modal" style="width:580px;">
+    <div class="modal-hd"><span class="modal-title">Email Template</span><button class="modal-close" onclick="closeTplModal()">✕</button></div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label class="form-label">Template Name *</label><input class="form-input" id="tpl-m-name" placeholder="Anchor Client Offer"></div>
+        <div class="form-group">
+          <label class="form-label">Tag</label>
+          <select class="form-input" id="tpl-m-tag">
+            <option value="Acquisition">Acquisition</option>
+            <option value="Follow-up">Follow-up</option>
+            <option value="Partnership">Partnership</option>
+            <option value="Sales">Sales</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:4px;"><label class="form-label">Subject Line *</label><input class="form-input" id="tpl-m-subject" placeholder="Free for 3 months — we just need your honest feedback"></div>
+      <div class="form-group" style="margin-top:4px;"><label class="form-label">Body</label><textarea class="form-input" id="tpl-m-body" rows="10" placeholder="Hi [Name],…" style="resize:vertical;font-family:var(--mono);font-size:12px;line-height:1.6;"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeTplModal()">Cancel</button>
+      <button class="btn btn-green" onclick="saveTpl()">Save Template</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: DEAL                                               -->
@@ -732,7 +853,7 @@ function api(path, opts = {}) {
 }
 
 // ── NAV ──────────────────────────────────────────────────────────────────────
-const VIEWS = { dashboard: 'Dashboard', deals: 'Deals', contacts: 'Contacts', companies: 'Companies', activities: 'Activities', reports: 'Reports' };
+const VIEWS = { dashboard: 'Dashboard', deals: 'Deals', contacts: 'Contacts', companies: 'Companies', activities: 'Activities', reports: 'Reports', outreach: 'Outreach Tracker', templates: 'Email Templates' };
 let currentView = 'dashboard';
 
 function nav(view) {
@@ -758,6 +879,8 @@ const loaders = {
   companies: loadCompanies,
   activities: loadActivities,
   reports: loadReports,
+  outreach: loadOutreach,
+  templates: loadTemplates,
 };
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -1253,6 +1376,263 @@ async function loadReports() {
         <span style="font-size:12px;font-weight:700;color:var(--green);">${fmt(val)}</span>
       </div>`).join('')
     : '<div style="color:var(--t4);font-size:12px;">No deal data yet</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// OUTREACH TRACKER
+// ══════════════════════════════════════════════════════════════
+const OT_STATUSES = [
+  { key:'not-contacted', label:'Not Contacted', color:'var(--t4)' },
+  { key:'emailed',       label:'Emailed',        color:'var(--blue)' },
+  { key:'called',        label:'Called',         color:'var(--violet)' },
+  { key:'whatsapped',    label:'WhatsApp\'d',    color:'var(--green)' },
+  { key:'demo-scheduled',label:'Demo Scheduled', color:'var(--amber)' },
+  { key:'converted',     label:'Converted',      color:'#00E5A0' },
+  { key:'dead',          label:'Dead',           color:'var(--red)' },
+];
+
+let otLeads = JSON.parse(localStorage.getItem('ot_leads') || '[]');
+function otSave() { localStorage.setItem('ot_leads', JSON.stringify(otLeads)); }
+
+function loadOutreach() {
+  const q = (document.getElementById('ot-search')?.value || '').toLowerCase();
+  const sf = document.getElementById('ot-filter-status')?.value || '';
+
+  // Pipeline strip counts
+  const strip = document.getElementById('ot-pipeline-strip');
+  if (strip) {
+    const counts = {};
+    OT_STATUSES.forEach(s => counts[s.key] = 0);
+    otLeads.forEach(l => { if (counts[l.status] !== undefined) counts[l.status]++; });
+    strip.innerHTML = OT_STATUSES.map(s => `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 14px;cursor:pointer;transition:border-color .12s;"
+           onclick="document.getElementById('ot-filter-status').value='${s.key}';loadOutreach()">
+        <div style="font-size:10px;color:${s.color};font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${s.label}</div>
+        <div style="font-size:22px;font-weight:800;color:var(--t1);margin-top:2px;">${counts[s.key]}</div>
+      </div>`).join('');
+  }
+
+  // Follow-up badge
+  const today = new Date().toISOString().split('T')[0];
+  const overdue = otLeads.filter(l => l.followUp && l.followUp <= today && l.status !== 'converted' && l.status !== 'dead').length;
+  const fb = document.getElementById('followup-badge');
+  if (fb) { fb.textContent = overdue; fb.style.display = overdue ? '' : 'none'; }
+
+  // Filter
+  let list = otLeads.filter(l => {
+    const matchQ = !q || (l.name||'').toLowerCase().includes(q) || (l.company||'').toLowerCase().includes(q);
+    const matchS = !sf || l.status === sf;
+    return matchQ && matchS;
+  }).sort((a,b) => (a.followUp||'9') < (b.followUp||'9') ? -1 : 1);
+
+  const tbody = document.getElementById('ot-tbody');
+  if (!tbody) return;
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--t4);padding:40px;">No prospects yet — add your first one</td></tr>`; return; }
+
+  tbody.innerHTML = list.map(l => {
+    const st = OT_STATUSES.find(s => s.key === l.status) || OT_STATUSES[0];
+    const isOverdue = l.followUp && l.followUp <= today && l.status !== 'converted' && l.status !== 'dead';
+    return `<tr>
+      <td style="font-weight:600;">${l.name||'—'}</td>
+      <td style="color:var(--t3);">${l.company||'—'}</td>
+      <td style="color:var(--t3);font-size:12px;">${l.phone||'—'}</td>
+      <td style="color:var(--t3);font-size:12px;">${l.email||'—'}</td>
+      <td><span style="background:rgba(0,0,0,.3);color:${st.color};border:1px solid ${st.color}33;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">${st.label}</span></td>
+      <td style="font-size:12px;color:${isOverdue?'var(--red)':'var(--t3)'};font-weight:${isOverdue?700:400};">${l.followUp ? fmtDate(l.followUp) + (isOverdue?' ⚠️':'') : '—'}</td>
+      <td style="font-size:11px;color:var(--t4);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.note||'—'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="openOtModal('${l.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="delOtLead('${l.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+let _otEditId = null;
+function openOtModal(id) {
+  _otEditId = id || null;
+  const l = id ? otLeads.find(x => x.id === id) : {};
+  document.getElementById('ot-modal').style.display = 'flex';
+  document.getElementById('ot-m-name').value    = l?.name    || '';
+  document.getElementById('ot-m-company').value = l?.company || '';
+  document.getElementById('ot-m-phone').value   = l?.phone   || '';
+  document.getElementById('ot-m-email').value   = l?.email   || '';
+  document.getElementById('ot-m-status').value  = l?.status  || 'not-contacted';
+  document.getElementById('ot-m-followup').value= l?.followUp|| '';
+  document.getElementById('ot-m-note').value    = l?.note    || '';
+}
+function closeOtModal() { document.getElementById('ot-modal').style.display = 'none'; }
+function saveOtLead() {
+  const obj = {
+    id:       _otEditId || 'ot_' + Date.now(),
+    name:     document.getElementById('ot-m-name').value.trim(),
+    company:  document.getElementById('ot-m-company').value.trim(),
+    phone:    document.getElementById('ot-m-phone').value.trim(),
+    email:    document.getElementById('ot-m-email').value.trim(),
+    status:   document.getElementById('ot-m-status').value,
+    followUp: document.getElementById('ot-m-followup').value,
+    note:     document.getElementById('ot-m-note').value.trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (!obj.name) { showToast('Name is required'); return; }
+  if (_otEditId) { const i = otLeads.findIndex(x => x.id === _otEditId); if (i > -1) otLeads[i] = obj; }
+  else otLeads.unshift(obj);
+  otSave();
+  closeOtModal();
+  loadOutreach();
+  showToast(_otEditId ? 'Prospect updated' : 'Prospect added');
+}
+function delOtLead(id) {
+  if (!confirm('Delete this prospect?')) return;
+  otLeads = otLeads.filter(x => x.id !== id);
+  otSave();
+  loadOutreach();
+  showToast('Deleted');
+}
+
+// ══════════════════════════════════════════════════════════════
+// EMAIL TEMPLATES
+// ══════════════════════════════════════════════════════════════
+const DEFAULT_TEMPLATES = [
+  {
+    id: 'tpl_anchor', name: 'Anchor Client Offer', tag: 'Acquisition',
+    subject: 'Free for 3 months — we just need your honest feedback',
+    body: `Hi [Name],
+
+I'm Asif, founder of Resolvo — a support + WhatsApp ticketing tool built for Indian SMBs.
+
+We're onboarding 3 anchor clients this month at zero cost for 3 months. In return, all we ask is:
+- Use it for your real support tickets
+- Give us honest feedback
+- A short testimonial if you like it
+
+No credit card. No contract. If it's not useful after 3 months, you walk away.
+
+We replace Freshdesk, Zendesk, and WhatsApp chaos — at ₹3,999/month after the free period (vs ₹20,000+ elsewhere).
+
+Can I set it up for you this week? Takes 10 minutes.
+
+— Asif
+Resolvo | resolvogroup.com`
+  },
+  {
+    id: 'tpl_followup', name: 'Follow-up (No Reply)', tag: 'Follow-up',
+    subject: 'Quick follow-up — Resolvo',
+    body: `Hi [Name],
+
+Just following up on my previous email about Resolvo.
+
+I know inboxes get busy — wanted to make sure this didn't get buried.
+
+We're still offering 3 months free to a small batch of anchor clients. If this isn't the right time, no worries at all — just let me know and I'll stop following up.
+
+If you're curious, I can show you a 10-minute demo at your convenience.
+
+— Asif
+Resolvo | resolvogroup.com`
+  },
+  {
+    id: 'tpl_ca', name: 'CA / Consultant Partner Pitch', tag: 'Partnership',
+    subject: 'Revenue share opportunity — software your clients actually need',
+    body: `Hi [Name],
+
+You work with business owners who struggle with customer support chaos — missed WhatsApp messages, no follow-up, zero visibility.
+
+We built Resolvo to solve exactly this. It's a made-in-India support tool at ₹3,999/month.
+
+Partnership deal:
+- You refer a client → they sign up → you earn 20% recurring every month (₹800/client/month)
+- 10 clients = ₹8,000/month passive income, zero extra work
+- Your clients get 1 month free on your referral
+
+I handle all setup, support, and training. You just make the intro.
+
+Interested? I can share a one-pager and referral link in 10 minutes.
+
+— Asif | Resolvo`
+  },
+  {
+    id: 'tpl_demo', name: 'Demo Confirmation', tag: 'Sales',
+    subject: 'Your Resolvo demo — confirmed',
+    body: `Hi [Name],
+
+Looking forward to our demo!
+
+Here's what we'll cover in 20 minutes:
+1. Your current support setup — pain points
+2. How Resolvo handles Email + WhatsApp in one inbox
+3. Live walkthrough of your brand's setup
+4. Pricing & next steps
+
+If you need to reschedule, just reply to this email.
+
+See you soon!
+
+— Asif
+Resolvo | resolvogroup.com`
+  },
+];
+
+let tplList = JSON.parse(localStorage.getItem('ot_templates') || 'null') || [...DEFAULT_TEMPLATES];
+function tplSave() { localStorage.setItem('ot_templates', JSON.stringify(tplList)); }
+
+const TPL_TAG_COLORS = { Acquisition:'var(--green)', 'Follow-up':'var(--amber)', Partnership:'var(--violet)', Sales:'var(--blue)', Other:'var(--t3)' };
+
+function loadTemplates() {
+  const grid = document.getElementById('tpl-grid');
+  if (!grid) return;
+  grid.innerHTML = tplList.map(t => `
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--b2)'" onmouseout="this.style.borderColor='var(--b1)'">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;font-weight:700;color:${TPL_TAG_COLORS[t.tag]||'var(--t3)'};background:${TPL_TAG_COLORS[t.tag]||'var(--t3)'}18;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.06em;">${t.tag}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--t4);">${t.name}</span>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:var(--t1);">📧 ${t.subject}</div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow:hidden;mask-image:linear-gradient(180deg,var(--t1) 60%,transparent);">${t.body}</div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-green btn-sm" style="flex:1;" onclick="copyTpl('${t.id}')">📋 Copy</button>
+        <button class="btn btn-ghost btn-sm" onclick="openTplModal('${t.id}')">Edit</button>
+        ${!DEFAULT_TEMPLATES.find(d=>d.id===t.id) ? `<button class="btn btn-danger btn-sm" onclick="delTpl('${t.id}')">✕</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function copyTpl(id) {
+  const t = tplList.find(x => x.id === id);
+  if (!t) return;
+  const text = `Subject: ${t.subject}\n\n${t.body}`;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!')).catch(() => showToast('Copy failed — select manually'));
+}
+function delTpl(id) {
+  if (!confirm('Delete this template?')) return;
+  tplList = tplList.filter(x => x.id !== id);
+  tplSave(); loadTemplates();
+}
+
+let _tplEditId = null;
+function openTplModal(id) {
+  _tplEditId = id || null;
+  const t = id ? tplList.find(x => x.id === id) : {};
+  document.getElementById('tpl-modal').style.display = 'flex';
+  document.getElementById('tpl-m-name').value    = t?.name    || '';
+  document.getElementById('tpl-m-tag').value     = t?.tag     || 'Other';
+  document.getElementById('tpl-m-subject').value = t?.subject || '';
+  document.getElementById('tpl-m-body').value    = t?.body    || '';
+}
+function closeTplModal() { document.getElementById('tpl-modal').style.display = 'none'; }
+function saveTpl() {
+  const obj = {
+    id:      _tplEditId || 'tpl_' + Date.now(),
+    name:    document.getElementById('tpl-m-name').value.trim(),
+    tag:     document.getElementById('tpl-m-tag').value,
+    subject: document.getElementById('tpl-m-subject').value.trim(),
+    body:    document.getElementById('tpl-m-body').value.trim(),
+  };
+  if (!obj.name || !obj.subject) { showToast('Name and subject required'); return; }
+  if (_tplEditId) { const i = tplList.findIndex(x => x.id === _tplEditId); if (i > -1) tplList[i] = obj; }
+  else tplList.unshift(obj);
+  tplSave(); closeTplModal(); loadTemplates();
+  showToast(_tplEditId ? 'Template updated' : 'Template saved');
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
