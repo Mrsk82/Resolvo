@@ -1,7 +1,11 @@
 // TechTrack — Multi-Tenant SaaS Server
+process.env.TZ='Asia/Kolkata'; // all new Date() and cron schedules run on IST
 require('dotenv').config();
+// IST timestamp — use instead of nowIST() everywhere
+function nowIST(){const d=new Date();const off=d.getTimezoneOffset();const ist=new Date(d.getTime()-off*60000);return ist.toISOString().replace('Z','+05:30');}
 const express=require('express'),cors=require('cors'),path=require('path'),fs=require('fs'),{v4:uuidv4}=require('uuid');
 const bcrypt=require('bcryptjs');
+const helmet=require('helmet');
 const app=express(),PORT=process.env.PORT||3000;
 // BASE_URL is a getter so it always reflects the latest value (updated via /api/owner/base-url)
 Object.defineProperty(global,'BASE_URL',{
@@ -12,12 +16,15 @@ const OWNER_PATH=path.join(__dirname,'data','owner.json'),BRANDS_DIR=path.join(_
 // Auto-create data directories on fresh deploy (VPS without data/)
 const fs_init=require('fs');
 if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
+app.use(helmet({contentSecurityPolicy:false})); // security headers (CSP off — inline scripts in SPA)
 app.use(cors());app.use(express.json({limit:'20mb'}));
 app.use(express.static(path.join(__dirname,'public')));
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
 
 // ── Password helpers ──────────────────────────────────────────────────────────
 function hashPwd(plain){return bcrypt.hashSync(plain,10);}
+function sanitize(v){if(typeof v!=='string')return v;return v.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]*on\w+\s*=\s*["'][^"']*["'][^>]*>/gi,'').replace(/javascript:/gi,'');}
+function sanitizeObj(obj){if(!obj||typeof obj!=='object')return obj;const out={};for(const k of Object.keys(obj))out[k]=typeof obj[k]==='string'?sanitize(obj[k]):obj[k];return out;}
 function checkPwd(plain,hash){
   if(!hash||!plain)return false;
   if(hash.startsWith('$2'))return bcrypt.compareSync(plain,hash); // bcrypt
@@ -130,7 +137,7 @@ function requireFeature(flags,key){
   if(!flags[key])return{success:false,error:`Feature not available on your plan. Contact your platform admin to enable ${key}.`,featureRequired:key};
   return null;
 }
-function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[];owner.auditLog.unshift({id:uuidv4().substring(0,8),action,details,by,timestamp:new Date().toISOString()});if(owner.auditLog.length>500)owner.auditLog=owner.auditLog.slice(0,500);}
+function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[];owner.auditLog.unshift({id:uuidv4().substring(0,8),action,details,by,timestamp:nowIST()});if(owner.auditLog.length>500)owner.auditLog=owner.auditLog.slice(0,500);}
 function readOwner(){return JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}
 function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf8');}
 function brandDbPath(slug){return path.join(BRANDS_DIR,slug,'db.json');}
@@ -273,7 +280,7 @@ function writeBrandDB(slug,data){
         const newEntries=incoming.slice(stored);
         const ins=db.prepare('INSERT INTO activity_log(ts,data) VALUES(?,?)');
         for(const entry of newEntries){
-          ins.run(entry.timestamp||entry.at||new Date().toISOString(),JSON.stringify(entry));
+          ins.run(entry.timestamp||entry.at||nowIST(),JSON.stringify(entry));
         }
       }
       // Cap: keep only last 2000
@@ -306,9 +313,9 @@ function writeBrandDB(slug,data){
 }
 function generateId(p){return p+'-'+uuidv4().substring(0,8).toUpperCase();}
 function generateIssueId(slug){const db=readBrandDB(slug);return 'ISS-'+String((db.issues||[]).length+1).padStart(4,'0');}
-function logActivity(db,issueId,action,user){db.activityLog=db.activityLog||[];db.activityLog.push({issueId,action,user,timestamp:new Date().toISOString()});}
+function logActivity(db,issueId,action,user){db.activityLog=db.activityLog||[];db.activityLog.push({issueId,action,user,timestamp:nowIST()});}
 function defaultBrandDB(brandName,email,name,pass){
-  const now=new Date().toISOString();
+  const now=nowIST();
   return{users:[{id:'USR-'+uuidv4().substring(0,8).toUpperCase(),email,name:name||email.split('@')[0],team:'Management',role:'Admin',skill:'',slackId:'',maxTickets:50,active:true,createdDate:now,passwordHash:pass||email.split('@')[0]+'123',firstLogin:true}],issues:[],comments:[],activityLog:[],slaConfig:{Critical:4,High:8,Medium:24,Low:72},settings:{AUTO_ASSIGN_ENABLED:'false',DUPLICATE_DETECTION_ENABLED:'true',MODULES:'API,Dashboard,Reports,Authentication,Database,UI,Integration,Backend,Frontend,DevOps',APP_NAME:brandName,GEMINI_API_KEY:'',SLACK_WEBHOOK_URL:'',WEBHOOK_ALERT_URL:'',WEBHOOK_CRITICAL_ONLY:'false',GOOGLE_CALENDAR_ID:'false'},sprints:[],dependencies:[],customFields:[],customFieldValues:[],onCallSchedule:[],savedFilters:[],escalationRules:[],recurringTemplates:[],commits:[],peerReviews:[],emailThreads:[],inboundRules:[],aiHistory:[],tags:[],coAssignees:[],votes:[],timeLogs:[],watchers:[],reactions:[],pinnedIssues:[],featureFlags:{},postMortems:[],auditTrail:[],announcements:[],teams:[]};
 }
 
@@ -469,7 +476,7 @@ app.post('/api/login',(req,res)=>{
     const token=uuidv4(),bdf=db.featureFlags||{};
     sessions[token]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#f5a623',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:user.role==='Admin',firstLogin:user.firstLogin===true,mustChangePassword:user.mustChangePassword===true,id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+ttl};
     const od=readOwner();const bi=od.brands.findIndex(b=>b.slug===brand.slug);
-    if(bi>=0){od.brands[bi].lastActive=new Date().toISOString();writeOwner(od);}
+    if(bi>=0){od.brands[bi].lastActive=nowIST();writeOwner(od);}
     return res.json({success:true,token,isOwner:false,user:sessions[token]});
   }
   return res.json({success:false,error:'Account not found. Check your email or contact your administrator.'});
@@ -550,7 +557,7 @@ app.post('/api/invite/:token/accept',async(req,res)=>{
   if((db.users||[]).find(u=>u.email===email))return res.json({success:false,error:'Email already registered in this workspace.'});
   const uid=generateId('USR');
   db.users=db.users||[];
-  db.users.push({id:uid,email,name,team:'',role:entry.role,skill:'',slackId:'',maxTickets:10,active:true,createdDate:new Date().toISOString(),passwordHash:hashPwd(password),firstLogin:false,joinedViaInvite:true});
+  db.users.push({id:uid,email,name,team:'',role:entry.role,skill:'',slackId:'',maxTickets:10,active:true,createdDate:nowIST(),passwordHash:hashPwd(password),firstLogin:false,joinedViaInvite:true});
   writeBrandDB(entry.brandSlug,db);
   delete inviteTokens[req.params.token];
   res.json({success:true,message:'Account created! You can now log in.',email,brandName:entry.brandName});
@@ -693,7 +700,7 @@ app.post('/api/owner/bulk-announce',ownerOnly,async(req,res)=>{
       );
       sent++;
       // Also push as in-app announcement
-      try{const db=readBrandDB(b.slug);db.announcements=db.announcements||[];db.announcements.push({id:generateId('ANN'),message:`📣 Platform: ${subject} — ${message.substring(0,150)}${message.length>150?'...':''}`,type:type||'info',active:true,expiresAt:null,createdBy:'platform',createdAt:new Date().toISOString()});writeBrandDB(b.slug,db);}catch(e){}
+      try{const db=readBrandDB(b.slug);db.announcements=db.announcements||[];db.announcements.push({id:generateId('ANN'),message:`📣 Platform: ${subject} — ${message.substring(0,150)}${message.length>150?'...':''}`,type:type||'info',active:true,expiresAt:null,createdBy:'platform',createdAt:nowIST()});writeBrandDB(b.slug,db);}catch(e){}
     }catch(e){failed++;}
   }
   ownerAuditLog(readOwner(),'bulk_announcement',{subject,sentTo:sent,failed},req.owner.email);const o=readOwner();ownerAuditLog(o,'bulk_announcement',{subject,sent,failed},req.owner.email);writeOwner(o);
@@ -1115,7 +1122,7 @@ app.post('/api/owner/crm-notes/:slug',ownerOnly,(req,res)=>{
   const owner=readOwner();const idx=(owner.brands||[]).findIndex(b=>b.slug===req.params.slug);
   if(idx===-1)return res.json({success:false,error:'Not found'});
   owner.brands[idx].crmNotes=owner.brands[idx].crmNotes||[];
-  owner.brands[idx].crmNotes.unshift({id:generateId('NOTE'),text,followUpDate:followUpDate||null,createdAt:new Date().toISOString(),by:req.owner.email});
+  owner.brands[idx].crmNotes.unshift({id:generateId('NOTE'),text,followUpDate:followUpDate||null,createdAt:nowIST(),by:req.owner.email});
   writeOwner(owner);res.json({success:true});
 });
 app.delete('/api/owner/crm-notes/:slug/:noteId',ownerOnly,(req,res)=>{
@@ -1149,7 +1156,7 @@ app.post('/api/owner/support-inbox/:ticketId/reply',ownerOnly,async(req,res)=>{
   const idx=(owner.supportTickets||[]).findIndex(t=>t.id===req.params.ticketId);
   if(idx===-1)return res.json({success:false,error:'Ticket not found'});
   owner.supportTickets[idx].replies=owner.supportTickets[idx].replies||[];
-  owner.supportTickets[idx].replies.push({text:reply,by:owner.email,at:new Date().toISOString()});
+  owner.supportTickets[idx].replies.push({text:reply,by:owner.email,at:nowIST()});
   owner.supportTickets[idx].status='replied';
   const ticket=owner.supportTickets[idx];
   writeOwner(owner);
@@ -1183,14 +1190,14 @@ app.get('/api/owner/prospects',ownerOnly,(req,res)=>{
 app.post('/api/owner/prospects',ownerOnly,(req,res)=>{
   const{name,email,company,status,notes,source}=req.body;
   const owner=readOwner();owner.prospects=owner.prospects||[];
-  const id=uuidv4().substring(0,8);const now=new Date().toISOString();
+  const id=uuidv4().substring(0,8);const now=nowIST();
   owner.prospects.push({id,name,email,company,status:status||'lead',notes:notes||'',source:source||'manual',createdAt:now,updatedAt:now,lastContact:null});
   writeOwner(owner);res.json({success:true,id});
 });
 app.put('/api/owner/prospects/:id',ownerOnly,(req,res)=>{
   const owner=readOwner();const idx=(owner.prospects||[]).findIndex(p=>p.id===req.params.id);
   if(idx===-1)return res.json({success:false,error:'Not found'});
-  Object.assign(owner.prospects[idx],req.body,{updatedAt:new Date().toISOString()});
+  Object.assign(owner.prospects[idx],req.body,{updatedAt:nowIST()});
   writeOwner(owner);res.json({success:true});
 });
 app.delete('/api/owner/prospects/:id',ownerOnly,(req,res)=>{
@@ -1205,7 +1212,7 @@ app.post('/api/owner/referral/generate/:slug',ownerOnly,(req,res)=>{
   if(!brand)return res.json({success:false,error:'Brand not found'});
   owner.referrals=owner.referrals||{};
   const code=req.params.slug.substring(0,6).toUpperCase()+Math.random().toString(36).substring(2,5).toUpperCase();
-  owner.referrals[code]={slug:req.params.slug,brandName:brand.name,email:brand.majorAdminEmail,createdAt:new Date().toISOString(),uses:0,freeMonthsEarned:0};
+  owner.referrals[code]={slug:req.params.slug,brandName:brand.name,email:brand.majorAdminEmail,createdAt:nowIST(),uses:0,freeMonthsEarned:0};
   // Also store on brand
   const idx=(owner.brands||[]).findIndex(b=>b.slug===req.params.slug);
   if(idx>=0)owner.brands[idx].referralCode=code;
@@ -1259,7 +1266,7 @@ app.post('/api/owner-support',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
   const{subject,message}=req.body;if(!subject||!message)return res.json({success:false,error:'subject and message required'});
   const owner=readOwner();owner.supportTickets=owner.supportTickets||[];
-  const ticket={id:generateId('OST'),subject,message,from:su.email,fromName:su.name||su.email,brandSlug:su.brandSlug,brandName:su.brandName,status:'open',createdAt:new Date().toISOString(),replies:[]};
+  const ticket={id:generateId('OST'),subject,message,from:su.email,fromName:su.name||su.email,brandSlug:su.brandSlug,brandName:su.brandName,status:'open',createdAt:nowIST(),replies:[]};
   owner.supportTickets.unshift(ticket);writeOwner(owner);
   sendEmail(owner.email,`[Support] ${subject} — ${su.brandName}`,`<div style="font-family:Arial;padding:24px;background:#f0f2f5;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;"><h3 style="margin:0 0 12px;color:#F5A623;">Support Request from ${su.brandName}</h3><p style="font-size:13px;color:#6b7280;margin-bottom:4px;"><strong>From:</strong> ${su.email}</p><p style="font-size:13px;color:#6b7280;margin-bottom:16px;"><strong>Brand:</strong> ${su.brandName}</p><div style="background:#f9fafb;border-radius:8px;padding:14px;font-size:14px;color:#374151;line-height:1.7;">${message}</div><p style="font-size:12px;color:#9ca3af;margin-top:12px;">Ticket ID: ${ticket.id}</p></div></div>`,`Support ticket from ${su.brandName}: ${subject}\n\n${message}`).catch(()=>{});
   res.json({success:true,ticketId:ticket.id});
@@ -1299,7 +1306,7 @@ app.post('/api/owner/brands',ownerOnly,async(req,res)=>{
   fs.mkdirSync(path.join(BRANDS_DIR,cs),{recursive:true});
   const ip=majorAdminPassword||majorAdminEmail.split('@')[0]+'123';
   writeBrandDB(cs,defaultBrandDB(name,majorAdminEmail,majorAdminName,ip));
-  const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#f5a623',theme:theme||'midnight',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:new Date().toISOString(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
+  const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#f5a623',theme:theme||'midnight',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:nowIST(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
   owner.brands=owner.brands||[];owner.brands.push(brand);ownerAuditLog(owner,'brand_created',{brandSlug:cs,brandName:name},req.owner.email);writeOwner(owner);
   await sendEmail(majorAdminEmail,`Your ${name} TechTrack Platform is Ready`,majorAdminWelcomeHTML({email:majorAdminEmail,name:majorAdminName||majorAdminEmail.split('@')[0]},name,accentColor,ip,BASE_URL),`Platform: ${BASE_URL} | Email: ${majorAdminEmail} | Pass: ${ip}`);
   res.json({success:true,brand,initialPassword:ip});
@@ -1355,7 +1362,7 @@ app.post('/api/call',async(req,res)=>{
       if((db.users||[]).filter(u=>u.active).length>=(lim.maxUsers||20))return{success:false,error:`User limit reached (${lim.maxUsers}).`};
       if((db.users||[]).find(u=>u.email===ud.email))return{success:false,error:'Email already registered.'};
       const uid=generateId('USR'),ip=ud.password||ud.email.split('@')[0]+'123';
-      const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:new Date().toISOString(),passwordHash:ip,firstLogin:true};
+      const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:nowIST(),passwordHash:ip,firstLogin:true};
       db.users=db.users||[];db.users.push(nu);wDB(db);
       await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
       return{success:true,userId:uid};
@@ -1364,7 +1371,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();
       if((db.settings||{}).DUPLICATE_DETECTION_ENABLED==='true'){const ws=(id.title||'').toLowerCase().split(' ').filter(w=>w.length>3);const dupes=(db.issues||[]).filter(issue=>{if(['Resolved','Release Required'].includes(issue.status))return false;const iw=issue.title.toLowerCase().split(' ').filter(w=>w.length>3);return ws.filter(w=>iw.includes(w)).length>=Math.min(3,ws.length*0.5);}).slice(0,5);if(dupes.length>0)return{success:false,duplicates:dupes,message:'Possible duplicate issues found'};}
       const issueId=generateIssueId(slug),slaHours=(db.slaConfig||{Critical:4,High:8,Medium:24,Low:72})[id.priority]||24;
-      const issue={id:issueId,title:id.title,description:id.description,module:id.module||'',priority:id.priority,status:'Open',environment:id.environment||'',raisedBy:su.email,assignedTo:id.assignedTo||'',createdDate:new Date().toISOString(),startedDate:'',resolvedDate:'',closedDate:'',impact:id.impact||'',slaHours,attachmentUrl:id.attachmentUrl||'',sprintId:id.sprintId||''};
+      const issue={id:issueId,title:id.title,description:id.description,module:id.module||'',priority:id.priority,status:'Open',environment:id.environment||'',raisedBy:su.email,assignedTo:id.assignedTo||'',createdDate:nowIST(),startedDate:'',resolvedDate:'',closedDate:'',impact:id.impact||'',slaHours,attachmentUrl:id.attachmentUrl||'',sprintId:id.sprintId||''};
       db.issues=db.issues||[];db.issues.push(issue);logActivity(db,issueId,'Issue Created',su.email);
       // Auto-detect revenue impact if provided
       if(id.revenueImpact){db.issues[db.issues.length-1].revenueImpact=parseFloat(id.revenueImpact)||0;db.issues[db.issues.length-1].revenueCurrency=id.revenueCurrency||'INR';}
@@ -1393,7 +1400,7 @@ app.post('/api/call',async(req,res)=>{
     },
     updateIssueStatus:async(issueId,newStatus,comment)=>{
       const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Issue not found'};
-      db.issues[idx].status=newStatus;const now=new Date().toISOString();
+      db.issues[idx].status=newStatus;const now=nowIST();
       if(newStatus==='WIP'&&!db.issues[idx].startedDate)db.issues[idx].startedDate=now;
       if(['Resolved','Release Required'].includes(newStatus))db.issues[idx].resolvedDate=now;
       if(newStatus==='Closed')db.issues[idx].closedDate=now;
@@ -1440,7 +1447,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);
       if(!issue)return{success:false,error:'Issue not found'};
       const newId=generateIssueId(slug);
-      const clone={...issue,id:newId,title:'[COPY] '+issue.title,status:'Open',createdDate:new Date().toISOString(),raisedBy:su.email,startedDate:'',resolvedDate:'',closedDate:'',sprintId:''};
+      const clone={...issue,id:newId,title:'[COPY] '+issue.title,status:'Open',createdDate:nowIST(),raisedBy:su.email,startedDate:'',resolvedDate:'',closedDate:'',sprintId:''};
       db.issues=db.issues||[];db.issues.push(clone);
       logActivity(db,newId,'Issue duplicated from '+issueId,su.email);wDB(db);
       return{success:true,issueId:newId};
@@ -1477,7 +1484,7 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Ticket not found'};
       const ticket=db.tickets[idx];
       const msgId=generateId('MSG');
-      const now=new Date().toISOString();
+      const now=nowIST();
       const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote};
       db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push(msg);
       db.tickets[idx].lastActivity=now;
@@ -1533,7 +1540,7 @@ app.post('/api/call',async(req,res)=>{
     getUserActivity:uid=>{const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const logs=(db.activityLog||[]).filter(l=>l.user===user.email);return{success:true,logs:logs.slice(-50).reverse(),totalActions:logs.length,issuesRaised:(db.issues||[]).filter(i=>i.raisedBy===user.email).length,issuesResolved:(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.assignedTo===user.email).length};},
     checkDuplicates:title=>{const db=rDB(),ws=(title||'').toLowerCase().split(' ').filter(w=>w.length>3);return{success:true,duplicates:(db.issues||[]).filter(issue=>{if(['Resolved','Release Required'].includes(issue.status))return false;const iw=issue.title.toLowerCase().split(' ').filter(w=>w.length>3);return ws.filter(w=>iw.includes(w)).length>=Math.min(3,ws.length*0.5);}).slice(0,5)};},
     addComment:(issueId,ct)=>{
-      const db=rDB(),cid=generateId('CMT'),now=new Date().toISOString();
+      const db=rDB(),cid=generateId('CMT'),now=nowIST();
       db.comments=db.comments||[];db.comments.push({id:cid,issueId,userEmail:su.email,comment:ct,timestamp:now});
       logActivity(db,issueId,'Comment added',su.email);wDB(db);
       // @mention detection — notify mentioned users
@@ -1554,7 +1561,7 @@ app.post('/api/call',async(req,res)=>{
       return{success:true,commentId:cid};
     },
     addCommentWithMentions:(issueId,ct)=>{
-      const db=rDB(),cid=generateId('CMT'),now=new Date().toISOString();
+      const db=rDB(),cid=generateId('CMT'),now=nowIST();
       db.comments=db.comments||[];db.comments.push({id:cid,issueId,userEmail:su.email,comment:ct,timestamp:now});
       logActivity(db,issueId,'Comment added',su.email);wDB(db);
       // @mention detection
@@ -1604,7 +1611,7 @@ app.post('/api/call',async(req,res)=>{
     updateSLAConfig:(p,h)=>{const db=rDB();db.slaConfig=db.slaConfig||{};db.slaConfig[p]=h;wDB(db);return{success:true};},
     getKanbanData:()=>{const db=rDB(),now=new Date(),cols=['Open','Acknowledged','WIP','Testing','Blocked','Need Info'],board={};cols.forEach(s=>{board[s]=[];});(db.issues||[]).filter(i=>cols.includes(i.status)).forEach(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);board[i.status].push({...i,slaBreached:now>d});});return{success:true,board,columns:cols};},
     getSprints:()=>{const db=rDB();return{success:true,sprints:db.sprints||[]};},
-    createSprint:data=>{const db=rDB(),s={id:generateId('SPR'),...data,createdDate:new Date().toISOString()};db.sprints=db.sprints||[];db.sprints.push(s);wDB(db);return{success:true,sprintId:s.id};},
+    createSprint:data=>{const db=rDB(),s={id:generateId('SPR'),...data,createdDate:nowIST()};db.sprints=db.sprints||[];db.sprints.push(s);wDB(db);return{success:true,sprintId:s.id};},
     assignIssueToSprint:(ii,si)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===ii);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].sprintId=si;wDB(db);return{success:true};},
     getSprintIssues:si=>{const db=rDB();return{success:true,issues:(db.issues||[]).filter(i=>i.sprintId===si)};},
     getBurndownData:si=>{const db=rDB(),issues=si?(db.issues||[]).filter(i=>i.sprintId===si):db.issues||[],total=issues.length,data=[];for(let d=9;d>=0;d--){const date=new Date();date.setDate(date.getDate()-d);const ds=date.toISOString().split('T')[0],resolved=issues.filter(i=>i.resolvedDate&&i.resolvedDate.substring(0,10)<=ds).length;data.push({date:ds,remaining:total-resolved,resolved});}return{success:true,data,total};},
@@ -1615,7 +1622,7 @@ app.post('/api/call',async(req,res)=>{
     getCustomFields:()=>{const db=rDB();return{success:true,fields:db.customFields||[]};},
     saveCustomField:f=>{const db=rDB();db.customFields=db.customFields||[];const idx=db.customFields.findIndex(x=>x.id===f.id);if(idx>=0)db.customFields[idx]=f;else db.customFields.push({...f,id:generateId('CF')});wDB(db);return{success:true};},
     deleteCustomField:id=>{const db=rDB();db.customFields=(db.customFields||[]).filter(f=>f.id!==id);wDB(db);return{success:true};},
-    saveTicketCustomField:(ticketId,fieldId,value)=>{const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);if(idx===-1)return{success:false,error:'Not found'};db.tickets[idx].customFields=db.tickets[idx].customFields||{};db.tickets[idx].customFields[fieldId]=value;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);return{success:true};},
+    saveTicketCustomField:(ticketId,fieldId,value)=>{const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);if(idx===-1)return{success:false,error:'Not found'};db.tickets[idx].customFields=db.tickets[idx].customFields||{};db.tickets[idx].customFields[fieldId]=value;db.tickets[idx].lastActivity=nowIST();wDB(db);return{success:true};},
     getCustomFieldValues:ii=>{const db=rDB();return{success:true,values:(db.customFieldValues||[]).filter(v=>v.issueId===ii)};},
     saveCustomFieldValues:(ii,vals)=>{const db=rDB();db.customFieldValues=(db.customFieldValues||[]).filter(v=>v.issueId!==ii);(vals||[]).forEach(v=>db.customFieldValues.push({...v,issueId:ii}));wDB(db);return{success:true};},
     getOnCallSchedule:()=>{const db=rDB();return{success:true,schedule:db.onCallSchedule||[]};},
@@ -1634,12 +1641,12 @@ app.post('/api/call',async(req,res)=>{
     getRecurringTemplates:()=>{const db=rDB();return{success:true,templates:db.recurringTemplates||[]};},
     saveRecurringTemplate:t=>{const db=rDB();db.recurringTemplates=db.recurringTemplates||[];db.recurringTemplates.push({...t,id:generateId('TPL')});wDB(db);return{success:true};},
     deleteRecurringTemplate:id=>{const db=rDB();db.recurringTemplates=(db.recurringTemplates||[]).filter(t=>t.id!==id);wDB(db);return{success:true};},
-    linkCommitToIssue:(ii,cd)=>{const db=rDB();db.commits=db.commits||[];db.commits.push({...cd,issueId:ii,linkedAt:new Date().toISOString()});wDB(db);return{success:true};},
+    linkCommitToIssue:(ii,cd)=>{const db=rDB();db.commits=db.commits||[];db.commits.push({...cd,issueId:ii,linkedAt:nowIST()});wDB(db);return{success:true};},
     getIssueCommits:ii=>{const db=rDB();return{success:true,commits:(db.commits||[]).filter(c=>c.issueId===ii)};},
-    requestPeerReview:(ii,re)=>{const db=rDB();db.peerReviews=db.peerReviews||[];db.peerReviews.push({id:generateId('REV'),issueId:ii,reviewer:re,status:'Pending',requestedBy:su.email,requestedAt:new Date().toISOString()});wDB(db);return{success:true};},
-    submitPeerReview:(rid,dec,com)=>{const db=rDB();const idx=(db.peerReviews||[]).findIndex(r=>r.id===rid);if(idx===-1)return{success:false,error:'Not found'};db.peerReviews[idx].status=dec;db.peerReviews[idx].comment=com;db.peerReviews[idx].reviewedAt=new Date().toISOString();wDB(db);return{success:true};},
+    requestPeerReview:(ii,re)=>{const db=rDB();db.peerReviews=db.peerReviews||[];db.peerReviews.push({id:generateId('REV'),issueId:ii,reviewer:re,status:'Pending',requestedBy:su.email,requestedAt:nowIST()});wDB(db);return{success:true};},
+    submitPeerReview:(rid,dec,com)=>{const db=rDB();const idx=(db.peerReviews||[]).findIndex(r=>r.id===rid);if(idx===-1)return{success:false,error:'Not found'};db.peerReviews[idx].status=dec;db.peerReviews[idx].comment=com;db.peerReviews[idx].reviewedAt=nowIST();wDB(db);return{success:true};},
     getPendingReviews:()=>{const db=rDB(),r=(db.peerReviews||[]).filter(r=>r.reviewer===su.email&&r.status==='Pending');return{success:true,reviews:r.map(r=>{const issue=(db.issues||[]).find(i=>i.id===r.issueId);return{...r,issueTitle:issue?issue.title:r.issueId};})};},
-    generatePostMortem:ii=>{const db=rDB(),issue=(db.issues||[]).find(i=>i.id===ii);if(!issue)return{success:false,error:'Not found'};const pm={id:generateId('PM'),issueId:ii,title:issue.title,priority:issue.priority,module:issue.module,raisedBy:issue.raisedBy,assignedTo:issue.assignedTo,createdDate:issue.createdDate,resolvedDate:issue.resolvedDate,resolutionTime:issue.resolvedDate?Math.round((new Date(issue.resolvedDate)-new Date(issue.createdDate))/3600000)+'h':'Unresolved',timeline:(db.comments||[]).filter(c=>c.issueId===ii).map(c=>({time:c.timestamp,user:c.userEmail,note:c.comment})),generatedAt:new Date().toISOString()};db.postMortems=db.postMortems||[];db.postMortems.push(pm);wDB(db);return{success:true,postMortem:pm};},
+    generatePostMortem:ii=>{const db=rDB(),issue=(db.issues||[]).find(i=>i.id===ii);if(!issue)return{success:false,error:'Not found'};const pm={id:generateId('PM'),issueId:ii,title:issue.title,priority:issue.priority,module:issue.module,raisedBy:issue.raisedBy,assignedTo:issue.assignedTo,createdDate:issue.createdDate,resolvedDate:issue.resolvedDate,resolutionTime:issue.resolvedDate?Math.round((new Date(issue.resolvedDate)-new Date(issue.createdDate))/3600000)+'h':'Unresolved',timeline:(db.comments||[]).filter(c=>c.issueId===ii).map(c=>({time:c.timestamp,user:c.userEmail,note:c.comment})),generatedAt:nowIST()};db.postMortems=db.postMortems||[];db.postMortems.push(pm);wDB(db);return{success:true,postMortem:pm};},
     getPostMortem:ii=>{const db=rDB();return{success:true,postMortem:(db.postMortems||[]).find(p=>p.issueId===ii)||null};},
     generateReleaseNotes:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),r=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&new Date(i.resolvedDate)>=from&&new Date(i.resolvedDate)<=to);return{success:true,notes:r.map(i=>`- [${i.priority}] ${i.id}: ${i.title} (${i.module||'General'})`).join('\n'),count:r.length};},
     getAuditTrail:f=>{const db=rDB();let l=db.activityLog||[];if(f&&f.issueId)l=l.filter(x=>x.issueId===f.issueId);return{success:true,trail:l.slice().reverse()};},
@@ -1651,7 +1658,7 @@ app.post('/api/call',async(req,res)=>{
       const prompt=`You are an AI assistant for Resolvo, a support and issue tracking platform. Answer the following query concisely and helpfully.\n\nPlatform context: ${ctx}\n${context?'Additional context: '+context+'\n':''}\nUser query: ${query}\n\nRespond in plain text, no markdown headers, keep it under 200 words.`;
       try{
         const answer=await callGemini(apiKey,prompt,15000);
-        const entry={id:generateId('AIQ'),query,answer,by:su.email,at:new Date().toISOString()};
+        const entry={id:generateId('AIQ'),query,answer,by:su.email,at:nowIST()};
         db.aiHistory=db.aiHistory||[];db.aiHistory.unshift(entry);if(db.aiHistory.length>100)db.aiHistory=db.aiHistory.slice(0,100);wDB(db);
         return{success:true,answer,id:entry.id};
       }catch(e){return{success:false,error:e.message};}
@@ -1669,7 +1676,7 @@ app.post('/api/call',async(req,res)=>{
     voteIssue:ii=>{const db=rDB();db.votes=db.votes||[];const ex=db.votes.find(v=>v.issueId===ii&&v.email===su.email);if(ex)db.votes=db.votes.filter(v=>!(v.issueId===ii&&v.email===su.email));else db.votes.push({issueId:ii,email:su.email});wDB(db);return{success:true,voted:!ex};},
     getVoteCounts:()=>{const db=rDB(),c={};(db.votes||[]).forEach(v=>{c[v.issueId]=(c[v.issueId]||0)+1;});return{success:true,counts:c};},
     setIssueDueDate:(ii,dd)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===ii);if(idx===-1)return{success:false};db.issues[idx].dueDate=dd;wDB(db);return{success:true};},
-    logTime:(ii,h,n,d)=>{const db=rDB();db.timeLogs=db.timeLogs||[];db.timeLogs.push({id:generateId('TL'),issueId:ii,hours:h,note:n,date:d||new Date().toISOString().split('T')[0],loggedBy:su.email,loggedAt:new Date().toISOString()});wDB(db);return{success:true};},
+    logTime:(ii,h,n,d)=>{const db=rDB();db.timeLogs=db.timeLogs||[];db.timeLogs.push({id:generateId('TL'),issueId:ii,hours:h,note:n,date:d||nowIST().split('T')[0],loggedBy:su.email,loggedAt:nowIST()});wDB(db);return{success:true};},
     getTimeLogs:ii=>{const db=rDB();return{success:true,logs:(db.timeLogs||[]).filter(l=>l.issueId===ii)};},
     toggleWatcher:(ii,ue)=>{const db=rDB();db.watchers=db.watchers||[];const ex=db.watchers.find(w=>w.issueId===ii&&w.email===ue);if(ex)db.watchers=db.watchers.filter(w=>!(w.issueId===ii&&w.email===ue));else db.watchers.push({issueId:ii,email:ue});wDB(db);return{success:true,watching:!ex};},
     getWatchers:ii=>{const db=rDB();return{success:true,watchers:(db.watchers||[]).filter(w=>w.issueId===ii)};},
@@ -1689,17 +1696,17 @@ app.post('/api/call',async(req,res)=>{
     getModuleHealthScores:()=>{const db=rDB(),mc={},mcc={};(db.issues||[]).filter(i=>!['Resolved','Release Required'].includes(i.status)).forEach(i=>{if(i.module){mc[i.module]=(mc[i.module]||0)+1;if(i.priority==='Critical')mcc[i.module]=(mcc[i.module]||0)+1;}});return{success:true,scores:Object.keys(mc).map(m=>({module:m,open:mc[m],critical:mcc[m]||0,health:Math.max(0,100-mc[m]*5-(mcc[m]||0)*20)}))};},
     getSLAComplianceReport:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),now=new Date(),issues=(db.issues||[]).filter(i=>new Date(i.createdDate)>=from&&new Date(i.createdDate)<=to),breached=issues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d&&!['Resolved','Release Required'].includes(i.status);}).length;return{success:true,total:issues.length,breached,compliant:issues.length-breached};},
     getPlatformStats:()=>{const db=rDB(),now=new Date(),issues=db.issues||[],owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{};return{success:true,users:{total:(db.users||[]).length,active:(db.users||[]).filter(u=>u.active).length,byRole:(db.users||[]).reduce((a,u)=>{a[u.role]=(a[u.role]||0)+1;return a;},{})},issues:{total:issues.length,open:issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status)).length,resolved:issues.filter(i=>['Resolved','Release Required'].includes(i.status)).length,slaBreached:issues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d&&!['Resolved','Release Required'].includes(i.status);}).length},data:{comments:(db.comments||[]).length,activityLogs:(db.activityLog||[]).length,sprints:(db.sprints||[]).length,customFields:(db.customFields||[]).length,dbSizeKB:Math.round(fs.statSync(brandDbPath(slug)).size/1024)},settings:db.settings||{},featureFlags:db.featureFlags||{},brand:{name:brand.name,tier:brand.tier,limits:brand.limits,accentColor:brand.accentColor,theme:brand.theme,logoUrl:brand.logoUrl}};},
-    exportAllData:()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};return{success:true,data:rDB(),exportedAt:new Date().toISOString()};},
+    exportAllData:()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};return{success:true,data:rDB(),exportedAt:nowIST()};},
     exportIssuesCSV:()=>{const db=rDB(),h=['IssueID','Title','Priority','Status','Module','RaisedBy','AssignedTo','CreatedDate','ResolvedDate','SLAHours'];return{success:true,csv:[h.join(','),...(db.issues||[]).map(i=>h.map(hh=>`"${(i[hh.charAt(0).toLowerCase()+hh.slice(1)]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n')};},
     uploadFile:(fn,mt,b64)=>{const dir=path.join(__dirname,'public','uploads');if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});const ext=fn.split('.').pop(),sn=generateId('FILE')+'.'+ext;fs.writeFileSync(path.join(dir,sn),Buffer.from(b64,'base64'));return{success:true,url:'/uploads/'+sn,fileId:sn};},
-    getAnnouncements:()=>{const db=rDB(),now=new Date().toISOString();return{success:true,announcements:(db.announcements||[]).filter(a=>a.active&&(!a.expiresAt||a.expiresAt>now))};},
-    saveAnnouncement:(msg,type,exp)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=db.announcements||[];db.announcements.push({id:generateId('ANN'),message:msg,type:type||'info',active:true,expiresAt:exp||null,createdBy:su.email,createdAt:new Date().toISOString()});wDB(db);return{success:true};},
+    getAnnouncements:()=>{const db=rDB(),now=nowIST();return{success:true,announcements:(db.announcements||[]).filter(a=>a.active&&(!a.expiresAt||a.expiresAt>now))};},
+    saveAnnouncement:(msg,type,exp)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=db.announcements||[];db.announcements.push({id:generateId('ANN'),message:msg,type:type||'info',active:true,expiresAt:exp||null,createdBy:su.email,createdAt:nowIST()});wDB(db);return{success:true};},
     getActiveAnnouncements:()=>{const db=rDB();return{success:true,announcements:db.announcements||[]};},
     updateAnnouncement:(id,updates)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const idx=(db.announcements||[]).findIndex(a=>a.id===id);if(idx>=0){db.announcements[idx]={...db.announcements[idx],...updates};wDB(db);}return{success:true};},
     deleteAnnouncement:id=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=(db.announcements||[]).filter(a=>a.id!==id);wDB(db);return{success:true};},
-    bulkUpdateIssues:(ids,action,value)=>{const db=rDB();let updated=0;const now=new Date().toISOString();(ids||[]).forEach(id=>{const idx=(db.issues||[]).findIndex(i=>i.id===id);if(idx===-1)return;if(action==='status'){db.issues[idx].status=value;if(value==='WIP'&&!db.issues[idx].startedDate)db.issues[idx].startedDate=now;if(['Resolved','Release Required'].includes(value))db.issues[idx].resolvedDate=now;if(value==='Closed')db.issues[idx].closedDate=now;logActivity(db,id,`Status changed to ${value}`,su.email);}else if(action==='priority'){db.issues[idx].priority=value;logActivity(db,id,`Priority changed to ${value}`,su.email);}else if(action==='assign'){db.issues[idx].assignedTo=value;logActivity(db,id,`Assigned to ${value}`,su.email);}else if(action==='module'){db.issues[idx].module=value;logActivity(db,id,`Module changed to ${value}`,su.email);}updated++;});wDB(db);return{success:true,updated};},
+    bulkUpdateIssues:(ids,action,value)=>{const db=rDB();let updated=0;const now=nowIST();(ids||[]).forEach(id=>{const idx=(db.issues||[]).findIndex(i=>i.id===id);if(idx===-1)return;if(action==='status'){db.issues[idx].status=value;if(value==='WIP'&&!db.issues[idx].startedDate)db.issues[idx].startedDate=now;if(['Resolved','Release Required'].includes(value))db.issues[idx].resolvedDate=now;if(value==='Closed')db.issues[idx].closedDate=now;logActivity(db,id,`Status changed to ${value}`,su.email);}else if(action==='priority'){db.issues[idx].priority=value;logActivity(db,id,`Priority changed to ${value}`,su.email);}else if(action==='assign'){db.issues[idx].assignedTo=value;logActivity(db,id,`Assigned to ${value}`,su.email);}else if(action==='module'){db.issues[idx].module=value;logActivity(db,id,`Module changed to ${value}`,su.email);}updated++;});wDB(db);return{success:true,updated};},
     getTeams:()=>{const db=rDB();return{success:true,teams:db.teams||[]};},
-    saveTeam:t=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.teams=db.teams||[];const idx=db.teams.findIndex(x=>x.id===t.id);if(idx>=0)db.teams[idx]=t;else db.teams.push({...t,id:generateId('TM'),createdAt:new Date().toISOString()});wDB(db);return{success:true};},
+    saveTeam:t=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.teams=db.teams||[];const idx=db.teams.findIndex(x=>x.id===t.id);if(idx>=0)db.teams[idx]=t;else db.teams.push({...t,id:generateId('TM'),createdAt:nowIST()});wDB(db);return{success:true};},
     deleteTeam:id=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.teams=(db.teams||[]).filter(t=>t.id!==id);wDB(db);return{success:true};},
     assignUserToTeam:(uid,tid)=>{const db=rDB();const idx=(db.users||[]).findIndex(u=>u.id===uid);if(idx<0)return{success:false,error:'Not found'};db.users[idx].teamId=tid;wDB(db);return{success:true};},
     getWorkingHours:()=>{const db=rDB();return{success:true,workingHours:db.workingHours||{startHour:9,endHour:18,timezone:'UTC',workDays:[1,2,3,4,5]}};},
@@ -1754,7 +1761,7 @@ app.post('/api/call',async(req,res)=>{
       const allStatuses=db.statusConfig||defStatuses;
       const sCfg=allStatuses.find(s=>s.id===status)||{isTerminal:false,triggersCsat:false};
       const prevStatus=db.tickets[idx].status;
-      const now=new Date().toISOString();
+      const now=nowIST();
       db.tickets[idx].status=status;
       db.tickets[idx].lastActivity=now;
       if(sCfg.isTerminal||sCfg.triggersCsat)db.tickets[idx].resolvedDate=db.tickets[idx].resolvedDate||now;
@@ -1832,12 +1839,12 @@ app.post('/api/call',async(req,res)=>{
             const nextIdx=(freshDb.tickets||[]).findIndex(t=>t.id===unassigned[0].id);
             if(nextIdx>=0){
               freshDb.tickets[nextIdx].assignedTo=nextAgent;
-              freshDb.tickets[nextIdx].lastActivity=new Date().toISOString();
+              freshDb.tickets[nextIdx].lastActivity=nowIST();
               freshDb.tickets[nextIdx].status='open';
               freshDb.tickets[nextIdx].timeline=freshDb.tickets[nextIdx].timeline||[];
               freshDb.tickets[nextIdx].timeline.push({
                 event:'auto_assigned_from_queue',by:'system',byName:'Queue System',
-                at:new Date().toISOString(),
+                at:nowIST(),
                 detail:`Bucket fill: assigned to ${nextAgent} (${currentOpen+1}/${resolverMax})`
               });
               totalAssigned++;
@@ -1856,21 +1863,21 @@ app.post('/api/call',async(req,res)=>{
     updateTicketPriority:(ticketId,priority)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      db.tickets[idx].priority=priority;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);return{success:true};
+      db.tickets[idx].priority=priority;db.tickets[idx].lastActivity=nowIST();wDB(db);return{success:true};
     },
     assignTicket:(ticketId,agentEmail)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);
+      db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=nowIST();wDB(db);
       sendSlackAlert(slug,'assigned',db.tickets[idx]).catch(()=>{});
       return{success:true};
     },
     addTicketNote:(ticketId,noteText)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      const note={id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:noteText,timestamp:new Date().toISOString()};
+      const note={id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:noteText,timestamp:nowIST()};
       db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push(note);
-      db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);return{success:true,noteId:note.id};
+      db.tickets[idx].lastActivity=nowIST();wDB(db);return{success:true,noteId:note.id};
     },
     addTicketTag:(ticketId,tag)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
@@ -1888,7 +1895,7 @@ app.post('/api/call',async(req,res)=>{
     bulkUpdateTickets:(ids,action,value)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();let updated=0;
-      const now=new Date().toISOString();
+      const now=nowIST();
       (ids||[]).forEach(id=>{
         const idx=(db.tickets||[]).findIndex(t=>t.id===id);
         if(idx===-1)return;
@@ -1902,7 +1909,7 @@ app.post('/api/call',async(req,res)=>{
     // Close all NEW tickets at once (clear spam batch)
     bulkCloseByStatus:(status,reason)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
-      const db=rDB();const now=new Date().toISOString();
+      const db=rDB();const now=nowIST();
       let count=0;
       (db.tickets||[]).forEach(t=>{
         if(t.status===status){t.status='closed';t.lastActivity=now;count++;}
@@ -2070,7 +2077,7 @@ app.post('/api/call',async(req,res)=>{
       const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
       const surveyToken=generateId('CSAT');
       db.csatSurveys=db.csatSurveys||[];
-      db.csatSurveys.push({token:surveyToken,ticketId,customerEmail:ticket.from,brandSlug:slug,createdAt:new Date().toISOString(),rating:null,comment:null,respondedAt:null});
+      db.csatSurveys.push({token:surveyToken,ticketId,customerEmail:ticket.from,brandSlug:slug,createdAt:nowIST(),rating:null,comment:null,respondedAt:null});
       wDB(db);
       const surveyUrl=`${BASE_URL}/csat?token=${surveyToken}`;
       await sendBrandEmail(slug,ticket.from,`How did we do? — ${brand.name||'Support'}`,
@@ -2148,7 +2155,7 @@ app.post('/api/call',async(req,res)=>{
         const raw=await callGemini(apiKey,prompt,20000);
         const report=parseGeminiJSON(raw);
         db.postIncidentReports=db.postIncidentReports||[];
-        db.postIncidentReports.push({...report,issueId,generatedAt:new Date().toISOString(),generatedBy:su.email});
+        db.postIncidentReports.push({...report,issueId,generatedAt:nowIST(),generatedBy:su.email});
         wDB(db);
         return{success:true,report};
       }catch(e){return{success:false,error:e.message};}
@@ -2241,7 +2248,7 @@ app.post('/api/call',async(req,res)=>{
       try{
         const raw=await callGemini(apiKey,prompt,12000);
         const parsed=parseGeminiJSON(raw);
-        return{success:true,churnAnalysis:{...parsed,customerEmail,generatedAt:new Date().toISOString()}};
+        return{success:true,churnAnalysis:{...parsed,customerEmail,generatedAt:nowIST()}};
       }catch(e){return{success:false,error:e.message};}
     },
 
@@ -2257,7 +2264,7 @@ app.post('/api/call',async(req,res)=>{
       try{
         const raw=await callGemini(apiKey,prompt,15000);
         const parsed=parseGeminiJSON(raw);
-        return{success:true,draft:{...parsed,sourceTicketId:ticketId,generatedAt:new Date().toISOString(),status:'draft'}};
+        return{success:true,draft:{...parsed,sourceTicketId:ticketId,generatedAt:nowIST(),status:'draft'}};
       }catch(e){return{success:false,error:e.message};}
     },
 
@@ -2273,7 +2280,7 @@ app.post('/api/call',async(req,res)=>{
       try{
         const raw=await callGemini(apiKey,prompt,15000);
         const parsed=parseGeminiJSON(raw);
-        return{success:true,changelog:{...parsed,fromDate,toDate,issueCount:resolved.length,generatedAt:new Date().toISOString()}};
+        return{success:true,changelog:{...parsed,fromDate,toDate,issueCount:resolved.length,generatedAt:nowIST()}};
       }catch(e){return{success:false,error:e.message};}
     },
 
@@ -2313,7 +2320,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();db.autoResolveRules=db.autoResolveRules||[];
       const idx=db.autoResolveRules.findIndex(r=>r.id===rule.id);
       if(idx>=0)db.autoResolveRules[idx]=rule;
-      else db.autoResolveRules.push({...rule,id:generateId('ARR'),createdAt:new Date().toISOString()});
+      else db.autoResolveRules.push({...rule,id:generateId('ARR'),createdAt:nowIST()});
       wDB(db);return{success:true};
     },
     deleteAutoResolveRule:(id)=>{
@@ -2332,12 +2339,12 @@ app.post('/api/call',async(req,res)=>{
           const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
           if(idx>=0){
             db.tickets[idx].status='resolved';
-            db.tickets[idx].lastActivity=new Date().toISOString();
+            db.tickets[idx].lastActivity=nowIST();
             db.tickets[idx].autoResolved=true;
             db.tickets[idx].autoResolvedByRule=rule.id;
             if(rule.replyMessage){
               db.tickets[idx].thread=db.tickets[idx].thread||[];
-              db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:'system',fromName:'Auto-Resolve',body:rule.replyMessage,timestamp:new Date().toISOString(),sentAsEmail:true});
+              db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:'system',fromName:'Auto-Resolve',body:rule.replyMessage,timestamp:nowIST(),sentAsEmail:true});
             }
           }
           wDB(db);
@@ -2519,7 +2526,7 @@ app.post('/api/call',async(req,res)=>{
         id:issueId,title:issueData.title||ticket.subject,description:issueData.description||((ticket.thread||[])[0]?.body||''),
         module:issueData.module||ticket.module||'',priority:issueData.priority||ticket.priority,status:'Open',
         environment:issueData.environment||'',raisedBy:su.email,assignedTo:issueData.assignedTo||'',
-        createdDate:new Date().toISOString(),startedDate:'',resolvedDate:'',closedDate:'',
+        createdDate:nowIST(),startedDate:'',resolvedDate:'',closedDate:'',
         impact:issueData.impact||'',slaHours,attachmentUrl:'',sprintId:'',
         source:'ticket',linkedTicketId:ticketId,
         customerEmail:ticket.from,customerName:ticket.fromName
@@ -2529,10 +2536,10 @@ app.post('/api/call',async(req,res)=>{
       // Link ticket to issue
       db.tickets[tIdx].linkedIssueId=issueId;
       db.tickets[tIdx].status='open';
-      db.tickets[tIdx].lastActivity=new Date().toISOString();
+      db.tickets[tIdx].lastActivity=nowIST();
       // Add note to ticket thread
       db.tickets[tIdx].thread=db.tickets[tIdx].thread||[];
-      db.tickets[tIdx].thread.push({id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:`Issue ${issueId} raised to tech team by ${su.name||su.email}`,timestamp:new Date().toISOString()});
+      db.tickets[tIdx].thread.push({id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:`Issue ${issueId} raised to tech team by ${su.name||su.email}`,timestamp:nowIST()});
       wDB(db);return{success:true,issueId};
     },
     getEmailTicketingConfig:()=>{
@@ -2544,7 +2551,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();
       if(!db.emailTicketing)return{success:false,error:'Email ticketing not configured'};
-      const newDate=new Date().toISOString();
+      const newDate=nowIST();
       db.emailTicketing.enabledAt=newDate;
       // Clear processed IDs so emails from new date can be fetched fresh
       db.processedEmailIds=[];
@@ -2567,7 +2574,7 @@ app.post('/api/call',async(req,res)=>{
         // - If already had a date → keep it (so re-enabling continues from same point)
         // - If disabling → keep the date so re-enabling doesn't reset
         const enabledAt = config.enabled
-          ? (existing.enabledAt || new Date().toISOString())  // always ensure a date when enabled
+          ? (existing.enabledAt || nowIST())  // always ensure a date when enabled
           : (existing.enabledAt || null);                      // keep date even when disabled
 
         db.emailTicketing={...config,pass:newPass,tls:true,enabledAt};
@@ -2605,7 +2612,7 @@ app.post('/api/call',async(req,res)=>{
       const id=tmpl.id||generateId('ITPL');
       const idx=db.issueTemplates.findIndex(t=>t.id===id);
       if(idx>=0)db.issueTemplates[idx]={...tmpl,id};
-      else db.issueTemplates.push({...tmpl,id,createdBy:su.email,createdAt:new Date().toISOString()});
+      else db.issueTemplates.push({...tmpl,id,createdBy:su.email,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     deleteIssueTemplate:(id)=>{
@@ -2696,7 +2703,7 @@ app.post('/api/call',async(req,res)=>{
       db.issueFormConfig=db.issueFormConfig||{};
       db.issueFormConfig.fields=config.fields||[];
       db.issueFormConfig.customSections=config.customSections||[];
-      db.issueFormConfig.updatedAt=new Date().toISOString();
+      db.issueFormConfig.updatedAt=nowIST();
       db.issueFormConfig.updatedBy=su.email;
       wDB(db);return{success:true};
     },
@@ -2722,7 +2729,7 @@ app.post('/api/call',async(req,res)=>{
     saveView:(name,filters,shared,icon)=>{
       const db=rDB();db.savedFilters=db.savedFilters||[];
       const id=generateId('VW');
-      db.savedFilters.push({id,name,filters:filters||{},shared:!!shared,icon:icon||'🔖',createdBy:su.email,createdAt:new Date().toISOString()});
+      db.savedFilters.push({id,name,filters:filters||{},shared:!!shared,icon:icon||'🔖',createdBy:su.email,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     deleteView:(id)=>{
@@ -2769,7 +2776,7 @@ app.post('/api/call',async(req,res)=>{
       const id=rule.id||generateId('ESC');
       const idx=db.escalationRules.findIndex(r=>r.id===id);
       if(idx>=0)db.escalationRules[idx]={...rule,id};
-      else db.escalationRules.push({...rule,id,enabled:true,createdAt:new Date().toISOString()});
+      else db.escalationRules.push({...rule,id,enabled:true,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     getEscalationRules:()=>{const db=rDB();return{success:true,rules:db.escalationRules||[]};},
@@ -2818,7 +2825,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].cc=db.tickets[idx].cc||[];
       if(!db.tickets[idx].cc.includes(email))db.tickets[idx].cc.push(email);
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'cc_added',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:email});
+      db.tickets[idx].timeline.push({event:'cc_added',by:su.email,byName:su.name||su.email,at:nowIST(),detail:email});
       wDB(db);return{success:true};
     },
     removeTicketCC:(ticketId,email)=>{
@@ -2838,7 +2845,7 @@ app.post('/api/call',async(req,res)=>{
       const id=resp.id||generateId('CAN');
       const idx=db.cannedResponses.findIndex(r=>r.id===id);
       if(idx>=0)db.cannedResponses[idx]={...resp,id};
-      else db.cannedResponses.push({...resp,id,createdBy:su.email,createdAt:new Date().toISOString()});
+      else db.cannedResponses.push({...resp,id,createdBy:su.email,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     deleteCannedResponse:(id)=>{
@@ -2856,7 +2863,7 @@ app.post('/api/call',async(req,res)=>{
       const id=route.id||generateId('RTE');
       const idx=db.inboundRoutes.findIndex(r=>r.id===id);
       if(idx>=0)db.inboundRoutes[idx]={...route,id};
-      else db.inboundRoutes.push({...route,id,enabled:true,createdAt:new Date().toISOString()});
+      else db.inboundRoutes.push({...route,id,enabled:true,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     deleteInboundRoute:(id)=>{
@@ -2935,17 +2942,17 @@ app.post('/api/call',async(req,res)=>{
         };
         const customFieldDefs=db.customFields||[];
         const escape=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
-        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
+        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${nowIST().split('T')[0]}.json`,count:rows.length};
         const headers=['ID','Subject','From Email','From Name','Status','Priority','Assigned To','Team','Closed By','Source','Created Date','First Response Date','Resolved Date','Last Activity','First Response (min)','Resolution Time (hrs)','SLA Hours','SLA Breached','Total Messages','Agent Replies','Incoming Messages','Reopen Count','Type','Disposition','CSAT Rating','CSAT Score','CSAT Date','Tags','CC','VIP','SLA Paused','Linked Issue ID','Parent ID','Template ID','Internal Note',...customFieldDefs.map(f=>f.name)];
         const csvRows=[headers.join(','),...rows.map(t=>{const r=mapTicket(t);return[r.id,r.subject,r.from,r.fromName,r.status,r.priority,r.assignedTo,r.team,r.closedBy,r.source,r.createdDate,r.firstResponseDate,r.resolvedDate,r.lastActivity,r.firstResponseMinutes,r.resolutionTimeHours,r.slaHours,r.slaBreached,r.totalMessages,r.agentReplies,r.incomingMessages,r.reopenCount,r.type,r.disposition,r.csatRating,r.csatScore,r.csatAt,r.tags,r.cc,r.isVIP,r.slaPaused,r.linkedIssueId,r.parentId,r.templateId,r.internalNote,...customFieldDefs.map(f=>r.customFields[f.id]||'')].map(escape).join(',')})];
-        return{success:true,data:csvRows.join('\n'),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.csv`,count:rows.length};
+        return{success:true,data:csvRows.join('\n'),filename:`tickets-export-${nowIST().split('T')[0]}.csv`,count:rows.length};
       }
       if(dataset==='csat'){
         const tickets=db.tickets||[];
         const responded=tickets.filter(t=>t.csatRating!=null&&t.csatRating!==''&&(!dateFrom||new Date(t.resolvedDate||t.lastActivity||t.createdDate)>=dateFrom)&&(!dateTo||new Date(t.resolvedDate||t.lastActivity||t.createdDate)<=dateTo));
-        if(fmt==='json')return{success:true,data:JSON.stringify(responded.map(t=>({ticketId:t.id,subject:t.subject,from:t.from,fromName:t.fromName||'',rating:t.csatRating,csatAt:t.csatAt||'',resolvedDate:t.resolvedDate||'',assignedTo:t.assignedTo||''}))),filename:`csat-export-${new Date().toISOString().split('T')[0]}.json`,count:responded.length};
+        if(fmt==='json')return{success:true,data:JSON.stringify(responded.map(t=>({ticketId:t.id,subject:t.subject,from:t.from,fromName:t.fromName||'',rating:t.csatRating,csatAt:t.csatAt||'',resolvedDate:t.resolvedDate||'',assignedTo:t.assignedTo||''}))),filename:`csat-export-${nowIST().split('T')[0]}.json`,count:responded.length};
         const csvRows=[['Ticket ID','Subject','Customer Email','Customer Name','Rating','Survey Date','Resolved Date','Agent'].join(','),...responded.map(t=>[t.id,t.subject,t.from,t.fromName||'',t.csatRating,t.csatAt||'',t.resolvedDate||'',t.assignedTo||''].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','))];
-        return{success:true,data:csvRows.join('\n'),filename:`csat-export-${new Date().toISOString().split('T')[0]}.csv`,count:responded.length};
+        return{success:true,data:csvRows.join('\n'),filename:`csat-export-${nowIST().split('T')[0]}.csv`,count:responded.length};
       }
       return{success:false,error:'Unknown dataset'};
     },
@@ -2957,9 +2964,9 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
       db.tickets[idx][field]=value;
-      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].lastActivity=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'field_updated',field,value,by:su.email,byName:su.name||su.email,at:new Date().toISOString()});
+      db.tickets[idx].timeline.push({event:'field_updated',field,value,by:su.email,byName:su.name||su.email,at:nowIST()});
       wDB(db);return{success:true};
     },
     getCSATConfig:()=>{const db=rDB();return{success:true,config:db.csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'}};},
@@ -2980,7 +2987,7 @@ app.post('/api/call',async(req,res)=>{
       // Any active user can create a manual ticket on behalf of a customer
       const db=rDB();
       const id=generateTicketId(slug);
-      const now=new Date().toISOString();
+      const now=nowIST();
       // Apply VIP flag
       const vip=db.vipConfig||{};
       const fromEmail=(data.customerEmail||'').toLowerCase();
@@ -3049,7 +3056,7 @@ app.post('/api/call',async(req,res)=>{
             const idx=(db.tickets||[]).findIndex(x=>x.id===t.id);
             if(idx>=0){
               db.tickets[idx].assignedTo=agent;
-              db.tickets[idx].lastActivity=new Date().toISOString();
+              db.tickets[idx].lastActivity=nowIST();
               if(db.tickets[idx].status==='new')db.tickets[idx].status='open';
               autoDistributed++;
             }
@@ -3070,7 +3077,7 @@ app.post('/api/call',async(req,res)=>{
       let spamClosed=0;
       (db.tickets||[]).forEach((t,i)=>{
         if(!['resolved','closed'].includes(t.status)&&SPAM_PAT.test(t.from||'')){
-          db.tickets[i].status='closed';db.tickets[i].lastActivity=new Date().toISOString();
+          db.tickets[i].status='closed';db.tickets[i].lastActivity=nowIST();
           db.tickets[i].autoResolved=true;spamClosed++;
         }
       });
@@ -3087,10 +3094,10 @@ app.post('/api/call',async(req,res)=>{
           const idx=(db.tickets||[]).findIndex(x=>x.id===t.id);
           if(idx>=0){
             db.tickets[idx].assignedTo=agent;
-            db.tickets[idx].lastActivity=new Date().toISOString();
+            db.tickets[idx].lastActivity=nowIST();
             if(db.tickets[idx].status==='new')db.tickets[idx].status='open';
             db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-            db.tickets[idx].timeline.push({event:'distributed_from_queue',by:su.email,byName:'Queue System',at:new Date().toISOString(),detail:`Bulk distributed to ${agent}`});
+            db.tickets[idx].timeline.push({event:'distributed_from_queue',by:su.email,byName:'Queue System',at:nowIST(),detail:`Bulk distributed to ${agent}`});
             assigned++;
           }
         } else { skipped++; }
@@ -3106,7 +3113,7 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Agent not found'};
       const prev=db.users[idx].availabilityStatus||'available';
       db.users[idx].availabilityStatus=status;
-      db.users[idx].statusUpdatedAt=new Date().toISOString();
+      db.users[idx].statusUpdatedAt=nowIST();
       db.users[idx].statusSetByAdmin=true;
       // Auto-redistribute if setting to Away
       let redistributed=0;
@@ -3119,14 +3126,14 @@ app.post('/api/call',async(req,res)=>{
             if(newAgent){
               db.tickets[tIdx].assignedTo=newAgent;
               db.tickets[tIdx].timeline=db.tickets[tIdx].timeline||[];
-              db.tickets[tIdx].timeline.push({event:'admin_redistributed',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`${agentEmail} set Away by admin → reassigned to ${newAgent}`});
+              db.tickets[tIdx].timeline.push({event:'admin_redistributed',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`${agentEmail} set Away by admin → reassigned to ${newAgent}`});
               redistributed++;
             } else {
               // No agent available — move back to unassigned
               db.tickets[tIdx].assignedTo='';
               db.tickets[tIdx].status='new';
               db.tickets[tIdx].timeline=db.tickets[tIdx].timeline||[];
-              db.tickets[tIdx].timeline.push({event:'returned_to_queue',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`${agentEmail} set Away — returned to unassigned queue`});
+              db.tickets[tIdx].timeline.push({event:'returned_to_queue',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`${agentEmail} set Away — returned to unassigned queue`});
               redistributed++;
             }
           }
@@ -3142,9 +3149,9 @@ app.post('/api/call',async(req,res)=>{
         if(t.assignedTo===agentEmail&&!['resolved','closed'].includes(t.status)){
           db.tickets[i].assignedTo='';
           db.tickets[i].status='new';
-          db.tickets[i].lastActivity=new Date().toISOString();
+          db.tickets[i].lastActivity=nowIST();
           db.tickets[i].timeline=db.tickets[i].timeline||[];
-          db.tickets[i].timeline.push({event:'returned_to_queue',by:su.email,byName:'Admin',at:new Date().toISOString(),detail:`Returned to unassigned queue by ${su.email}`});
+          db.tickets[i].timeline.push({event:'returned_to_queue',by:su.email,byName:'Admin',at:nowIST(),detail:`Returned to unassigned queue by ${su.email}`});
           drained++;
         }
       });
@@ -3157,9 +3164,9 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Not found'};
       db.tickets[idx].assignedTo='';
       db.tickets[idx].status='new';
-      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].lastActivity=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'returned_to_queue',by:su.email,byName:'Admin',at:new Date().toISOString(),detail:'Manually returned to unassigned queue'});
+      db.tickets[idx].timeline.push({event:'returned_to_queue',by:su.email,byName:'Admin',at:nowIST(),detail:'Manually returned to unassigned queue'});
       wDB(db);return{success:true};
     },
     // Feature 14: Freeze/unfreeze queue
@@ -3174,9 +3181,9 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
       db.tickets[idx].assignedTo=su.email;
-      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].lastActivity=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'taken',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:'Self-assigned via queue'});
+      db.tickets[idx].timeline.push({event:'taken',by:su.email,byName:su.name||su.email,at:nowIST(),detail:'Self-assigned via queue'});
       wDB(db);return{success:true};
     },
     // Feature 13: Transfer ticket to another agent
@@ -3185,10 +3192,10 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Not found'};
       const prevAgent=db.tickets[idx].assignedTo||'unassigned';
       db.tickets[idx].assignedTo=toAgent;
-      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].lastActivity=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'transferred',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`From ${prevAgent} → ${toAgent}${note?': '+note:''}`});
-      if(note){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:`Transferred to ${toAgent}: ${note}`,timestamp:new Date().toISOString()});}
+      db.tickets[idx].timeline.push({event:'transferred',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`From ${prevAgent} → ${toAgent}${note?': '+note:''}`});
+      if(note){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:`Transferred to ${toAgent}: ${note}`,timestamp:nowIST()});}
       wDB(db);return{success:true};
     },
     // Feature 15: Priority bump — move to status 'new' and flag
@@ -3198,9 +3205,9 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Not found'};
       db.tickets[idx].priorityBumped=true;
       db.tickets[idx].priority='Critical';
-      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].lastActivity=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'priority_bumped',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:'Manually bumped to Critical'});
+      db.tickets[idx].timeline.push({event:'priority_bumped',by:su.email,byName:su.name||su.email,at:nowIST(),detail:'Manually bumped to Critical'});
       wDB(db);return{success:true};
     },
     // Feature 9: Auto-reassign tickets when agent goes Away
@@ -3213,7 +3220,7 @@ app.post('/api/call',async(req,res)=>{
         const newAgent=autoAssignAgent(db,t);
         if(newAgent){
           const idx=(db.tickets||[]).findIndex(x=>x.id===t.id);
-          if(idx>=0){db.tickets[idx].assignedTo=newAgent;db.tickets[idx].lastActivity=new Date().toISOString();reassigned++;}
+          if(idx>=0){db.tickets[idx].assignedTo=newAgent;db.tickets[idx].lastActivity=nowIST();reassigned++;}
         }
       });
       wDB(db);return{success:true,reassigned};
@@ -3271,7 +3278,7 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Not found'};
       const prevStatus=db.users[idx].availabilityStatus||'available';
       db.users[idx].availabilityStatus=status;
-      db.users[idx].statusUpdatedAt=new Date().toISOString();
+      db.users[idx].statusUpdatedAt=nowIST();
       // Feature 9: Auto-reassign when going Away
       let reassigned=0;
       if(status==='away'&&prevStatus!=='away'&&(db.queueConfig||{}).enabled){
@@ -3282,9 +3289,9 @@ app.post('/api/call',async(req,res)=>{
             const tIdx=(db.tickets||[]).findIndex(x=>x.id===t.id);
             if(tIdx>=0){
               db.tickets[tIdx].assignedTo=newAgent;
-              db.tickets[tIdx].lastActivity=new Date().toISOString();
+              db.tickets[tIdx].lastActivity=nowIST();
               db.tickets[tIdx].timeline=db.tickets[tIdx].timeline||[];
-              db.tickets[tIdx].timeline.push({event:'auto_reassigned',by:'system',byName:'Queue System',at:new Date().toISOString(),detail:`${su.email} went Away → reassigned to ${newAgent}`});
+              db.tickets[tIdx].timeline.push({event:'auto_reassigned',by:'system',byName:'Queue System',at:nowIST(),detail:`${su.email} went Away → reassigned to ${newAgent}`});
               reassigned++;
             }
           }
@@ -3334,7 +3341,7 @@ app.post('/api/call',async(req,res)=>{
       db.customerNotes=db.customerNotes||{};
       const key=email.toLowerCase();
       db.customerNotes[key]=db.customerNotes[key]||[];
-      db.customerNotes[key].push({id:generateId('CN'),note,by:su.email,byName:su.name||su.email,at:new Date().toISOString()});
+      db.customerNotes[key].push({id:generateId('CN'),note,by:su.email,byName:su.name||su.email,at:nowIST()});
       wDB(db);return{success:true};
     },
     deleteCustomerNote:(email,noteId)=>{
@@ -3364,7 +3371,7 @@ app.post('/api/call',async(req,res)=>{
       const id=tmpl.id||generateId('TTPL');
       const idx=db.ticketTemplates.findIndex(t=>t.id===id);
       if(idx>=0)db.ticketTemplates[idx]={...tmpl,id};
-      else db.ticketTemplates.push({...tmpl,id,createdBy:su.email,createdAt:new Date().toISOString()});
+      else db.ticketTemplates.push({...tmpl,id,createdBy:su.email,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     deleteTicketTemplate:(id)=>{
@@ -3384,7 +3391,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[pIdx].children=db.tickets[pIdx].children||[];
       if(!db.tickets[pIdx].children.includes(ticketId))db.tickets[pIdx].children.push(ticketId);
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'linked_to_parent',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:parentId});
+      db.tickets[idx].timeline.push({event:'linked_to_parent',by:su.email,byName:su.name||su.email,at:nowIST(),detail:parentId});
       wDB(db);return{success:true};
     },
     unlinkTicketParent:(ticketId)=>{
@@ -3411,7 +3418,7 @@ app.post('/api/call',async(req,res)=>{
       const id=tmpl.id||generateId('RCT');
       const idx=db.recurringTicketTemplates.findIndex(t=>t.id===id);
       if(idx>=0)db.recurringTicketTemplates[idx]={...tmpl,id};
-      else db.recurringTicketTemplates.push({...tmpl,id,createdBy:su.email,createdAt:new Date().toISOString(),lastRunAt:null});
+      else db.recurringTicketTemplates.push({...tmpl,id,createdBy:su.email,createdAt:nowIST(),lastRunAt:null});
       wDB(db);return{success:true,id};
     },
     deleteRecurringTicketTemplate:(id)=>{
@@ -3470,9 +3477,9 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
       if(db.tickets[idx].slaPaused)return{success:true,message:'Already paused'};
-      db.tickets[idx].slaPaused=true;db.tickets[idx].slaPausedAt=new Date().toISOString();
+      db.tickets[idx].slaPaused=true;db.tickets[idx].slaPausedAt=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'sla_paused',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:'Waiting for customer response'});
+      db.tickets[idx].timeline.push({event:'sla_paused',by:su.email,byName:su.name||su.email,at:nowIST(),detail:'Waiting for customer response'});
       wDB(db);return{success:true};
     },
     resumeTicketSLA:(ticketId)=>{
@@ -3485,7 +3492,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].slaExtraMs=(pausedMs+extraMs);
       db.tickets[idx].slaPaused=false;db.tickets[idx].slaPausedAt=null;
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'sla_resumed',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`SLA extended by ${Math.round(extraMs/60000)}m`});
+      db.tickets[idx].timeline.push({event:'sla_resumed',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`SLA extended by ${Math.round(extraMs/60000)}m`});
       wDB(db);return{success:true};
     },
 
@@ -3574,9 +3581,9 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
       db.tickets[idx].csatScore=rating==='yes'?100:0;
-      db.tickets[idx].csatRating=rating;db.tickets[idx].csatAt=new Date().toISOString();
+      db.tickets[idx].csatRating=rating;db.tickets[idx].csatAt=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'csat_received',by:'customer',byName:db.tickets[idx].fromName||'Customer',at:new Date().toISOString(),detail:`Rating: ${rating}`});
+      db.tickets[idx].timeline.push({event:'csat_received',by:'customer',byName:db.tickets[idx].fromName||'Customer',at:nowIST(),detail:`Rating: ${rating}`});
       wDB(db);return{success:true};
     },
 
@@ -3599,7 +3606,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();
       // DB CHANGE: adds db.bookingConfig — never overwrites existing appointments
-      db.bookingConfig={...config,bookingLink:`${BASE_URL}/book/${slug}`,updatedAt:new Date().toISOString()};
+      db.bookingConfig={...config,bookingLink:`${BASE_URL}/book/${slug}`,updatedAt:nowIST()};
       wDB(db);return{success:true,bookingLink:`${BASE_URL}/book/${slug}`};
     },
 
@@ -3620,7 +3627,7 @@ app.post('/api/call',async(req,res)=>{
     createAppointment:(data)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();
-      const id=generateId('APT');const now=new Date().toISOString();
+      const id=generateId('APT');const now=nowIST();
       db.appointments=db.appointments||[];
       db.appointments.push({id,brandSlug:slug,customerName:data.customerName||'',customerEmail:data.customerEmail||'',customerPhone:data.phone||'',topic:data.topic||'',date:data.date,time:data.time,assignedTo:data.assignedTo||'',status:'confirmed',notes:data.notes||'',createdAt:now,createdBy:su.email,reminderSent:false,ticketId:data.ticketId||null});
       wDB(db);return{success:true,id};
@@ -3628,13 +3635,13 @@ app.post('/api/call',async(req,res)=>{
     updateAppointment:(id,updates)=>{
       const db=rDB();const idx=(db.appointments||[]).findIndex(a=>a.id===id);
       if(idx===-1)return{success:false,error:'Not found'};
-      Object.assign(db.appointments[idx],updates,{updatedAt:new Date().toISOString()});
+      Object.assign(db.appointments[idx],updates,{updatedAt:nowIST()});
       wDB(db);return{success:true};
     },
     cancelAppointment:(id,reason)=>{
       const db=rDB();const idx=(db.appointments||[]).findIndex(a=>a.id===id);
       if(idx===-1)return{success:false,error:'Not found'};
-      db.appointments[idx].status='cancelled';db.appointments[idx].cancelReason=reason||'';db.appointments[idx].cancelledAt=new Date().toISOString();db.appointments[idx].cancelledBy=su.email;
+      db.appointments[idx].status='cancelled';db.appointments[idx].cancelReason=reason||'';db.appointments[idx].cancelledAt=nowIST();db.appointments[idx].cancelledBy=su.email;
       wDB(db);
       // Notify customer
       const apt=db.appointments[idx];
@@ -3647,7 +3654,7 @@ app.post('/api/call',async(req,res)=>{
     getAgentCalendar:(agentEmail,month)=>{
       const db=rDB();
       const email=agentEmail||su.email;
-      const m=month||new Date().toISOString().substring(0,7);
+      const m=month||nowIST().substring(0,7);
       const apts=(db.appointments||[]).filter(a=>(!a.assignedTo||a.assignedTo===email)&&a.date.startsWith(m)&&a.status!=='cancelled');
       const tickets=(db.tickets||[]).filter(t=>t.assignedTo===email&&!['resolved','closed'].includes(t.status));
       return{success:true,appointments:apts,openTickets:tickets.length,month:m};
@@ -3676,10 +3683,10 @@ app.post('/api/call',async(req,res)=>{
     addChecklistItem:(ticketId,text)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
-      const item={id:generateId('CI'),text,done:false,createdBy:su.email,createdAt:new Date().toISOString()};
+      const item={id:generateId('CI'),text,done:false,createdBy:su.email,createdAt:nowIST()};
       db.tickets[idx].checklist=db.tickets[idx].checklist||[];
       db.tickets[idx].checklist.push(item);
-      db.tickets[idx].lastActivity=new Date().toISOString();
+      db.tickets[idx].lastActivity=nowIST();
       wDB(db);return{success:true,item};
     },
     toggleChecklistItem:(ticketId,itemId)=>{
@@ -3688,7 +3695,7 @@ app.post('/api/call',async(req,res)=>{
       const ci=(db.tickets[idx].checklist||[]).findIndex(c=>c.id===itemId);
       if(ci===-1)return{success:false,error:'Item not found'};
       db.tickets[idx].checklist[ci].done=!db.tickets[idx].checklist[ci].done;
-      db.tickets[idx].checklist[ci].doneAt=db.tickets[idx].checklist[ci].done?new Date().toISOString():null;
+      db.tickets[idx].checklist[ci].doneAt=db.tickets[idx].checklist[ci].done?nowIST():null;
       db.tickets[idx].checklist[ci].doneBy=db.tickets[idx].checklist[ci].done?su.email:null;
       wDB(db);return{success:true,done:db.tickets[idx].checklist[ci].done};
     },
@@ -3711,11 +3718,11 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].followUpBy=su.email;
       db.tickets[idx].followUpDone=false;
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'follow_up_scheduled',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`Follow-up set for ${followUpDate}${note?': '+note:''}`});
+      db.tickets[idx].timeline.push({event:'follow_up_scheduled',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Follow-up set for ${followUpDate}${note?': '+note:''}`});
       wDB(db);return{success:true};
     },
     getFollowUps:()=>{
-      const db=rDB();const now=new Date().toISOString().split('T')[0];
+      const db=rDB();const now=nowIST().split('T')[0];
       const due=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=now&&!['resolved','closed'].includes(t.status));
       const upcoming=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt>now&&!['resolved','closed'].includes(t.status));
       const myDue=su.role==='Admin'?due:due.filter(t=>t.followUpBy===su.email||t.assignedTo===su.email);
@@ -3724,7 +3731,7 @@ app.post('/api/call',async(req,res)=>{
     markFollowUpDone:(ticketId)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
-      db.tickets[idx].followUpDone=true;db.tickets[idx].followUpDoneAt=new Date().toISOString();
+      db.tickets[idx].followUpDone=true;db.tickets[idx].followUpDoneAt=nowIST();
       wDB(db);return{success:true};
     },
 
@@ -3736,9 +3743,9 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
       const promiseDT=promiseDate+(promiseTime?'T'+promiseTime+':00':'T23:59:00');
-      db.tickets[idx].slaPromiseDate=promiseDT;db.tickets[idx].slaPromiseSetBy=su.email;db.tickets[idx].slaPromiseSetAt=new Date().toISOString();
+      db.tickets[idx].slaPromiseDate=promiseDT;db.tickets[idx].slaPromiseSetBy=su.email;db.tickets[idx].slaPromiseSetAt=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'sla_promise_set',by:su.email,byName:su.name||su.email,at:new Date().toISOString(),detail:`Promised resolution by ${promiseDate} ${promiseTime||'EOD'}`});
+      db.tickets[idx].timeline.push({event:'sla_promise_set',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Promised resolution by ${promiseDate} ${promiseTime||'EOD'}`});
       wDB(db);
       // Notify customer
       const ticket=db.tickets[idx];
@@ -3759,7 +3766,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();
       db.ticketDependencies=db.ticketDependencies||[];
       const exists=db.ticketDependencies.find(d=>d.ticket===ticketId&&d.blockedBy===blockedByTicketId);
-      if(!exists)db.ticketDependencies.push({ticket:ticketId,blockedBy:blockedByTicketId,addedBy:su.email,addedAt:new Date().toISOString()});
+      if(!exists)db.ticketDependencies.push({ticket:ticketId,blockedBy:blockedByTicketId,addedBy:su.email,addedAt:nowIST()});
       wDB(db);return{success:true};
     },
     removeTicketDependency:(ticketId,blockedByTicketId)=>{
@@ -3778,7 +3785,7 @@ app.post('/api/call',async(req,res)=>{
     // FEATURE 12: AGENT DAILY DIGEST
     // ══════════════════════════════════════════════════════════════════════
     getAgentDailyDigest:()=>{
-      const db=rDB();const today=new Date().toISOString().split('T')[0];const email=su.email;
+      const db=rDB();const today=nowIST().split('T')[0];const email=su.email;
       const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===email&&!['resolved','closed'].includes(t.status));
       const myApts=(db.appointments||[]).filter(a=>(a.assignedTo===email||!a.assignedTo)&&a.date===today&&a.status!=='cancelled');
       const myFollowUps=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===email);
@@ -3788,7 +3795,7 @@ app.post('/api/call',async(req,res)=>{
     },
     sendDailyDigest:async()=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
-      const db=rDB();const today=new Date().toISOString().split('T')[0];
+      const db=rDB();const today=nowIST().split('T')[0];
       const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
       const agents=(db.users||[]).filter(u=>u.active);
       let sent=0;
@@ -3817,7 +3824,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const src=(db.issues||[]).find(i=>i.id===issueId);
       if(!src)return{success:false,error:'Not found'};
       const newId=generateIssueId(slug);
-      const now=new Date().toISOString();
+      const now=nowIST();
       const clone={...src,id:newId,title:'[Copy] '+src.title,status:'Open',createdDate:now,startedDate:'',resolvedDate:'',closedDate:'',raisedBy:su.email};
       db.issues=db.issues||[];db.issues.push(clone);
       logActivity(db,newId,`Cloned from ${issueId}`,su.email);
@@ -3892,21 +3899,21 @@ app.post('/api/call',async(req,res)=>{
         const raw=await callGemini(apiKey,prompt,12000);
         const triage=parseGeminiJSON(raw);
         const idx=(db.issues||[]).findIndex(i=>i.id===issueId);
-        if(idx>=0){db.issues[idx].aiTriage={...triage,triagedAt:new Date().toISOString()};wDB(db);}
+        if(idx>=0){db.issues[idx].aiTriage={...triage,triagedAt:nowIST()};wDB(db);}
         return{success:true,triage};
       }catch(e){return{success:false,error:e.message};}
     },
     getDevLeaderboard:()=>{const db=rDB();const issues=db.issues||[];const devs={};(issues||[]).forEach(i=>{if(!i.assignedTo)return;if(!devs[i.assignedTo])devs[i.assignedTo]={email:i.assignedTo,resolved:0,open:0,avgHours:0,total:0};if(['Resolved','Release Required'].includes(i.status)){devs[i.assignedTo].resolved++;const h=i.resolvedDate&&i.createdDate?(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000:0;devs[i.assignedTo].avgHours+=h;}else devs[i.assignedTo].open++;devs[i.assignedTo].total++;});return{success:true,leaderboard:Object.values(devs).sort((a,b)=>b.resolved-a.resolved)};},
-    getCFDData:()=>{const db=rDB();const issues=db.issues||[];const statuses=['Open','Acknowledged','WIP','Testing','Resolved'];const today=new Date().toISOString().split('T')[0];const data=statuses.map(s=>({status:s,count:issues.filter(i=>i.status===s).length}));return{success:true,data,date:today};},
+    getCFDData:()=>{const db=rDB();const issues=db.issues||[];const statuses=['Open','Acknowledged','WIP','Testing','Resolved'];const today=nowIST().split('T')[0];const data=statuses.map(s=>({status:s,count:issues.filter(i=>i.status===s).length}));return{success:true,data,date:today};},
     forecastResolution:(issueId)=>{const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const similar=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.priority===issue.priority&&i.resolvedDate&&i.createdDate);const avg=similar.length?similar.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/similar.length:24;return{success:true,forecastHours:Math.round(avg*10)/10,basedOn:similar.length,confidence:similar.length>5?'high':similar.length>2?'medium':'low'};},
     getRepeatOffenders:()=>{const db=rDB();const titles={};(db.issues||[]).forEach(i=>{const k=i.module||'Unknown';titles[k]=(titles[k]||0)+1;});return{success:true,modules:Object.entries(titles).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([m,c])=>({module:m,count:c}))};},
     markAsDuplicate:(issueId,ofIssueId)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].isDuplicate=true;db.issues[idx].duplicateOf=ofIssueId;logActivity(db,issueId,`Marked as duplicate of ${ofIssueId}`,su.email);wDB(db);return{success:true};},
     removeWatcher:(issueId,email)=>{const db=rDB();db.watchers=db.watchers||[];db.watchers=db.watchers.filter(w=>!(w.issueId===issueId&&w.email===email));wDB(db);return{success:true};},
-    addWatcher:(issueId,email)=>{const db=rDB();db.watchers=db.watchers||[];if(!db.watchers.find(w=>w.issueId===issueId&&w.email===email))db.watchers.push({issueId,email,addedAt:new Date().toISOString()});wDB(db);return{success:true};},
+    addWatcher:(issueId,email)=>{const db=rDB();db.watchers=db.watchers||[];if(!db.watchers.find(w=>w.issueId===issueId&&w.email===email))db.watchers.push({issueId,email,addedAt:nowIST()});wDB(db);return{success:true};},
     getIssueHeatmap:()=>{const db=rDB();const modules={};(db.issues||[]).forEach(i=>{if(i.module){modules[i.module]=(modules[i.module]||0)+1;}});return{success:true,heatmap:Object.entries(modules).map(([m,c])=>({module:m,count:c})).sort((a,b)=>b.count-a.count)};},
     draftEscalationEmail:(issueId)=>{const db=rDB();const i=(db.issues||[]).find(x=>x.id===issueId);if(!i)return{success:false,error:'Not found'};return{success:true,draft:{to:i.assignedTo,subject:`[Escalation] ${i.id}: ${i.title}`,body:`This issue has exceeded its SLA deadline and requires immediate attention.\n\nIssue: ${i.id}\nTitle: ${i.title}\nPriority: ${i.priority}\nStatus: ${i.status}\n\nPlease update the status immediately.`}};},
     generateSprintRetrospective:(sprintId)=>{const db=rDB();const sprint=(db.sprints||[]).find(s=>s.id===sprintId);if(!sprint)return{success:false,error:'Sprint not found'};return{success:true,retrospective:{summary:'Sprint completed',velocity:sprint.completedPoints||0,feedback:'Add retrospective notes here'}};},
-    submitQASignoff:(issueId,passed,notes)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].qaSignoff={passed:!!passed,notes:notes||'',signedBy:su.email,signedAt:new Date().toISOString()};if(passed)db.issues[idx].status='Resolved';logActivity(db,issueId,`QA ${passed?'approved':'rejected'}: ${notes||''}`,su.email);wDB(db);return{success:true};},
+    submitQASignoff:(issueId,passed,notes)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].qaSignoff={passed:!!passed,notes:notes||'',signedBy:su.email,signedAt:nowIST()};if(passed)db.issues[idx].status='Resolved';logActivity(db,issueId,`QA ${passed?'approved':'rejected'}: ${notes||''}`,su.email);wDB(db);return{success:true};},
     markAsRegression:(issueId)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].isRegression=true;logActivity(db,issueId,'Marked as regression',su.email);wDB(db);return{success:true};},
     deleteAnnouncement:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=(db.announcements||[]).filter(a=>a.id!==id);wDB(db);return{success:true};},
 
@@ -3949,7 +3956,7 @@ app.post('/api/call',async(req,res)=>{
     pushNotification:(userId,type,title,body,meta)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.notifications=db.notifications||[];
-      db.notifications.unshift({id:generateId('NOT'),userId,type,title,body,meta:meta||{},at:new Date().toISOString(),read:false,icon:'🔔'});
+      db.notifications.unshift({id:generateId('NOT'),userId,type,title,body,meta:meta||{},at:nowIST(),read:false,icon:'🔔'});
       // Keep last 200 per brand
       db.notifications=db.notifications.slice(0,200);
       wDB(db);return{success:true};
@@ -3969,7 +3976,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.apiKeys=db.apiKeys||[];
       const key='rslv_'+slug+'_'+require('crypto').randomBytes(24).toString('hex');
-      const apiKey={id:generateId('KEY'),name:name||'API Key',key,permissions:permissions||['read'],createdBy:su.email,createdAt:new Date().toISOString(),lastUsed:null,active:true};
+      const apiKey={id:generateId('KEY'),name:name||'API Key',key,permissions:permissions||['read'],createdBy:su.email,createdAt:nowIST(),lastUsed:null,active:true};
       db.apiKeys.push(apiKey);wDB(db);
       return{success:true,key,id:apiKey.id,warning:'Save this key — it will only be shown once!'};
     },
@@ -3997,7 +4004,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.knowledgeBase=db.knowledgeBase||[];
       const id=article.id||generateId('KB');const idx=db.knowledgeBase.findIndex(a=>a.id===id);
-      const now=new Date().toISOString();
+      const now=nowIST();
       const saved={...article,id,updatedAt:now,updatedBy:su.email,views:article.views||0};
       if(!saved.createdAt)saved.createdAt=now;
       if(idx>=0)db.knowledgeBase[idx]=saved;else db.knowledgeBase.push(saved);
@@ -4011,7 +4018,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.kbCategories=db.kbCategories||[];
       const id=cat.id||generateId('KBC');const idx=db.kbCategories.findIndex(c=>c.id===id);
-      if(idx>=0)db.kbCategories[idx]={...cat,id};else db.kbCategories.push({...cat,id,createdAt:new Date().toISOString()});
+      if(idx>=0)db.kbCategories[idx]={...cat,id};else db.kbCategories.push({...cat,id,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     incrementKBViews:(id)=>{
@@ -4035,7 +4042,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.roadmapItems=db.roadmapItems||[];
       const id=item.id||generateId('RM');const idx=db.roadmapItems.findIndex(r=>r.id===id);
-      const now=new Date().toISOString();
+      const now=nowIST();
       const saved={...item,id,updatedAt:now,updatedBy:su.email,votes:item.votes||0};
       if(!saved.createdAt)saved.createdAt=now;
       if(idx>=0)db.roadmapItems[idx]=saved;else db.roadmapItems.push(saved);
@@ -4064,7 +4071,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.approvalRules=db.approvalRules||[];
       const id=rule.id||generateId('APR');const idx=db.approvalRules.findIndex(r=>r.id===id);
-      if(idx>=0)db.approvalRules[idx]={...rule,id};else db.approvalRules.push({...rule,id,createdAt:new Date().toISOString()});
+      if(idx>=0)db.approvalRules[idx]={...rule,id};else db.approvalRules.push({...rule,id,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     requestApproval:(issueId,approverEmail,note)=>{
@@ -4072,7 +4079,7 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Not found'};
       db.issues[idx].approvalStatus='pending';
       db.issues[idx].approvalRequestedBy=su.email;
-      db.issues[idx].approvalRequestedAt=new Date().toISOString();
+      db.issues[idx].approvalRequestedAt=nowIST();
       db.issues[idx].approvalRequestedTo=approverEmail;
       db.issues[idx].approvalNote=note||'';
       logActivity(db,issueId,`Approval requested from ${approverEmail}`,su.email);
@@ -4087,7 +4094,7 @@ app.post('/api/call',async(req,res)=>{
       // Check if approver
       if(db.issues[idx].approvalRequestedTo!==su.email&&su.role!=='Admin')return{success:false,error:'Not authorized to approve'};
       db.issues[idx].approvalStatus=approved?'approved':'rejected';
-      db.issues[idx].approvalBy=su.email;db.issues[idx].approvalAt=new Date().toISOString();
+      db.issues[idx].approvalBy=su.email;db.issues[idx].approvalAt=nowIST();
       db.issues[idx].approvalComment=comment||'';
       if(approved)db.issues[idx].status='Resolved';
       logActivity(db,issueId,`${approved?'Approved':'Rejected'} by ${su.email}${comment?': '+comment:''}`,su.email);
@@ -4276,7 +4283,7 @@ app.post('/api/call',async(req,res)=>{
       const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===customerEmail.toLowerCase());
       const notes=(db.customerNotes||{})[customerEmail.toLowerCase()]||[];
       const appointments=(db.appointments||[]).filter(a=>a.customerEmail&&a.customerEmail.toLowerCase()===customerEmail.toLowerCase());
-      return{success:true,email:customerEmail,exportedAt:new Date().toISOString(),data:{tickets:tickets.map(t=>({id:t.id,subject:t.subject,status:t.status,date:t.createdDate})),notes,appointments}};
+      return{success:true,email:customerEmail,exportedAt:nowIST(),data:{tickets:tickets.map(t=>({id:t.id,subject:t.subject,status:t.status,date:t.createdDate})),notes,appointments}};
     },
 
     // ══════════════════════════════════════════════════════════════════════
@@ -4288,7 +4295,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.slaPolicies=db.slaPolicies||[];
       const id=policy.id||generateId('SLP');const idx=db.slaPolicies.findIndex(p=>p.id===id);
-      if(idx>=0)db.slaPolicies[idx]={...policy,id};else db.slaPolicies.push({...policy,id,createdAt:new Date().toISOString()});
+      if(idx>=0)db.slaPolicies[idx]={...policy,id};else db.slaPolicies.push({...policy,id,createdAt:nowIST()});
       wDB(db);return{success:true,id};
     },
     deleteSlaPolicy:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.slaPolicies=(db.slaPolicies||[]).filter(p=>p.id!==id);wDB(db);return{success:true};},
@@ -4304,7 +4311,7 @@ app.post('/api/call',async(req,res)=>{
 
 app.get('/api/backup',(req,res)=>{
   if(req.query.token&&!req.headers['x-session-token'])req.headers['x-session-token']=req.query.token;
-  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.status(403).send('Admin only');const db=readBrandDB(su.brandSlug);res.setHeader('Content-Disposition',`attachment; filename=${su.brandSlug}-backup-${new Date().toISOString().split('T')[0]}.json`);res.setHeader('Content-Type','application/json');res.send(JSON.stringify(db,null,2));});
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.status(403).send('Admin only');const db=readBrandDB(su.brandSlug);res.setHeader('Content-Disposition',`attachment; filename=${su.brandSlug}-backup-${nowIST().split('T')[0]}.json`);res.setHeader('Content-Type','application/json');res.send(JSON.stringify(db,null,2));});
 
 // ── FEATURE B: CSV export routes ──────────────────────────────────────────────
 // Supports token via query param (?token=...) for browser direct downloads
@@ -4433,7 +4440,7 @@ app.get('/csat',(req,res)=>{
         found=true;
         if(rating&&!surveys[idx].rating){
           surveys[idx].rating=parseInt(rating);
-          surveys[idx].respondedAt=new Date().toISOString();
+          surveys[idx].respondedAt=nowIST();
           db.csatSurveys=surveys;
           writeBrandDB(slug,db);
         }
@@ -4460,9 +4467,9 @@ app.get('/csat-ticket',(req,res)=>{
     if(rating&&!db.tickets[idx].csatRating){
       db.tickets[idx].csatScore=rating==='yes'?100:0;
       db.tickets[idx].csatRating=rating;
-      db.tickets[idx].csatAt=new Date().toISOString();
+      db.tickets[idx].csatAt=nowIST();
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
-      db.tickets[idx].timeline.push({event:'csat_received',by:'customer',byName:db.tickets[idx].fromName||'Customer',at:new Date().toISOString(),detail:`Rating: ${rating}`});
+      db.tickets[idx].timeline.push({event:'csat_received',by:'customer',byName:db.tickets[idx].fromName||'Customer',at:nowIST(),detail:`Rating: ${rating}`});
       writeBrandDB(slug,db);
     }
     const isYes=db.tickets[idx].csatRating==='yes';
@@ -4489,13 +4496,13 @@ app.post('/api/signup',async(req,res)=>{
   const pass=password||email.split('@')[0]+'@'+Math.floor(1000+Math.random()*9000);
   fs.mkdirSync(path.join(BRANDS_DIR,finalSlug),{recursive:true});
   writeBrandDB(finalSlug,defaultBrandDB(company,email,name,pass));
-  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',majorAdminEmail:email,createdDate:new Date().toISOString(),lastActive:null,limits:{maxUsers:10,maxIssues:100}};
+  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
   ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null},owner.email);
   // Track referral if ref code provided
   if(ref&&owner.referrals&&owner.referrals[ref]){
     owner.referrals[ref].uses=(owner.referrals[ref].uses||0)+1;
-    owner.referrals[ref].lastUsed=new Date().toISOString();
+    owner.referrals[ref].lastUsed=nowIST();
     // Free month for referrer — add note (manual credit for now)
     const refIdx=(owner.brands||[]).findIndex(b=>b.slug===owner.referrals[ref].slug);
     if(refIdx>=0){owner.brands[refIdx].referralCredits=(owner.brands[refIdx].referralCredits||0)+1;}
@@ -4518,7 +4525,7 @@ app.post('/api/demo-request',async(req,res)=>{
   owner.prospects=owner.prospects||[];
   const ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim();
   const existing=owner.prospects.find(p=>(p.email||'').toLowerCase()===email.toLowerCase());
-  if(existing){existing.updatedAt=new Date().toISOString();}else{owner.prospects.push({id:require('uuid').v4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),lastContact:null});}
+  if(existing){existing.updatedAt=nowIST();}else{owner.prospects.push({id:require('uuid').v4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:nowIST(),updatedAt:nowIST(),lastContact:null});}
   writeOwner(owner);
   await sendEmail(owner.email,`Demo Request: ${name} from ${company||'unknown'}`,`<p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Company:</strong> ${company||'—'}<br><strong>Message:</strong> ${message||'—'}</p><p><a href="mailto:${email}">Reply to ${name}</a></p>`,`Demo request from ${name} (${email}) — ${company||''}`).catch(()=>{});
   // Auto-reply to prospect
@@ -4707,7 +4714,7 @@ app.post('/api/widget/:slug/submit',(req,res)=>{
   const{message,email,url,userAgent}=req.body;const slug=req.params.slug;
   if(!message||!email)return res.json({success:false,error:'Missing fields'});
   const db=readBrandDB(slug);
-  const ticketId=generateTicketId(slug);const now=new Date().toISOString();
+  const ticketId=generateTicketId(slug);const now=nowIST();
   db.tickets=db.tickets||[];
   db.tickets.unshift({id:ticketId,subject:'Website Feedback: '+message.substring(0,60),from:email,fromName:email,status:'new',priority:'Medium',createdDate:now,lastActivity:now,source:'widget',tags:['widget'],thread:[{id:generateId('MSG'),type:'incoming',from:email,fromName:email,body:`${message}\n\n---\nPage: ${url||'unknown'}\nBrowser: ${(userAgent||'').substring(0,80)}`,timestamp:now}]});
   writeBrandDB(slug,db);
@@ -4755,7 +4762,7 @@ input:focus,select:focus,textarea:focus{border-color:${accent};}
     <div class="fg"><label>Email *</label><input id="bk_email" type="email" placeholder="your@email.com"></div>
     <div class="fg"><label>Phone</label><input id="bk_phone" placeholder="+91 ..."></div>
     <div class="fg"><label>Topic / Reason *</label><textarea id="bk_topic" rows="2" placeholder="What would you like to discuss?"></textarea></div>
-    <div class="fg"><label>Select Date</label><input id="bk_date" type="date" oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" min="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="fg"><label>Select Date</label><input id="bk_date" type="date" oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" min="${nowIST().split('T')[0]}"></div>
     <div class="fg"><label>Select Time Slot</label><div class="slots" id="slotsGrid"><p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Pick a date first</p></div></div>
     <div id="bk_err" style="color:#ef4444;font-size:12px;margin-bottom:8px;display:none;"></div>
     <button class="btn" id="bk_btn" onclick="submitBooking()">📅 Confirm Appointment</button>
@@ -4846,13 +4853,13 @@ app.post('/book/:slug',async(req,res)=>{
     id:aId,brandSlug:slug,
     customerName:name,customerEmail:email,customerPhone:phone||'',
     topic,date,time,status:'confirmed',
-    createdAt:new Date().toISOString(),
+    createdAt:nowIST(),
     reminderSent:false,ticketId:null
   };
   db.appointments=db.appointments||[];db.appointments.push(appointment);
   // Auto-create a ticket for this appointment
   const ticketId=generateTicketId(slug);
-  const now=new Date().toISOString();
+  const now=nowIST();
   const ticket={
     id:ticketId,subject:`📅 Appointment: ${topic} — ${date} ${time}`,
     from:email,fromName:name,status:'new',priority:'Medium',
@@ -5121,11 +5128,11 @@ async function createTicketFromEmail(slug, emailData) {
       id: generateId('MSG'), type: 'incoming',
       from: emailData.from, fromName: emailData.fromName || emailData.from,
       body: emailData.text || emailData.html || '',
-      timestamp: emailData.date || new Date().toISOString(),
+      timestamp: emailData.date || nowIST(),
       messageId: emailData.messageId
     });
     existingTicket.status = existingTicket.status === 'resolved' ? 'open' : existingTicket.status;
-    existingTicket.lastActivity = new Date().toISOString();
+    existingTicket.lastActivity = nowIST();
     existingTicket.messageIds = [...(existingTicket.messageIds || []), emailData.messageId];
     db.processedEmailIds = db.processedEmailIds || [];
     db.processedEmailIds.push(emailData.messageId);
@@ -5136,7 +5143,7 @@ async function createTicketFromEmail(slug, emailData) {
 
   // Create new ticket
   const ticketId = generateTicketId(slug);
-  const now = emailData.date || new Date().toISOString();
+  const now = emailData.date || nowIST();
 
   // VIP detection
   const vipCfg = db.vipConfig || {};
@@ -5221,12 +5228,12 @@ async function createTicketFromEmail(slug, emailData) {
         const idx = (db.tickets || []).findIndex(t => t.id === ticketId);
         if (idx >= 0) {
           db.tickets[idx].status = 'resolved';
-          db.tickets[idx].lastActivity = new Date().toISOString();
+          db.tickets[idx].lastActivity = nowIST();
           db.tickets[idx].autoResolved = true;
           db.tickets[idx].autoResolvedByRule = rule.id;
           if (rule.replyMessage) {
             db.tickets[idx].thread = db.tickets[idx].thread || [];
-            db.tickets[idx].thread.push({ id: generateId('MSG'), type: 'reply', from: 'system', fromName: 'Auto-Resolve', body: rule.replyMessage, timestamp: new Date().toISOString(), sentAsEmail: true });
+            db.tickets[idx].thread.push({ id: generateId('MSG'), type: 'reply', from: 'system', fromName: 'Auto-Resolve', body: rule.replyMessage, timestamp: nowIST(), sentAsEmail: true });
             // Send the auto-reply
             const brand = (readOwner().brands || []).find(b => b.slug === slug) || {};
             sendBrandEmail(slug,ticket.from, `Re: [${brand.name||'Support'}] ${ticket.subject}`, `<p>${rule.replyMessage}</p>`, rule.replyMessage).catch(() => {});
@@ -5337,7 +5344,7 @@ async function pollBrandInbox(slug) {
                   fromName: parsed.from?.value?.[0]?.name || '',
                   text: parsed.text || '',
                   html: parsed.textAsHtml || '',
-                  date: parsed.date?.toISOString() || new Date().toISOString()
+                  date: parsed.date?.toISOString() || nowIST()
                 };
                 await createTicketFromEmail(slug, emailData);
                 if (msgId) processedSet.add(msgId);
@@ -5555,11 +5562,11 @@ app.post('/api/email-ticketing/reply', async (req, res) => {
   const ticketIdx = (db.tickets || []).findIndex(t => t.id === issueId);
   if (ticketIdx >= 0) {
     db.tickets[ticketIdx].thread = db.tickets[ticketIdx].thread || [];
-    db.tickets[ticketIdx].thread.push({ id: commentId, type: 'reply', from: su.email, fromName: su.name || su.email, body: replyText, timestamp: new Date().toISOString(), sentAsEmail: true });
-    db.tickets[ticketIdx].lastActivity = new Date().toISOString();
+    db.tickets[ticketIdx].thread.push({ id: commentId, type: 'reply', from: su.email, fromName: su.name || su.email, body: replyText, timestamp: nowIST(), sentAsEmail: true });
+    db.tickets[ticketIdx].lastActivity = nowIST();
   } else {
     db.comments = db.comments || [];
-    db.comments.push({ id: commentId, issueId, userEmail: su.email, comment: replyText, timestamp: new Date().toISOString(), sentAsEmail: true });
+    db.comments.push({ id: commentId, issueId, userEmail: su.email, comment: replyText, timestamp: nowIST(), sentAsEmail: true });
   }
   logActivity(db, issueId, `Email reply sent to ${emailFrom}`, su.email);
   writeBrandDB(su.brandSlug, db);
@@ -5750,7 +5757,7 @@ async function sendNurtureEmails(){
         const html=nurtureShell(n.body(adminName,BASE_URL,unsub,stats).replace(/^<!DOCTYPE.*?<\/div>\s*<\/body>\s*<\/html>$/s,''),unsub);
         const finalHtml=nurtureShell(n.body(adminName,BASE_URL,unsub,stats),unsub);
         await sendEmail(email,n.subject,finalHtml,n.subject).catch(()=>{});
-        owner.nurtureSent[sentKey]=new Date().toISOString();
+        owner.nurtureSent[sentKey]=nowIST();
         console.log(`[Nurture] Day ${n.day} → ${email} (${brand.slug})`);
         monitorEvent&&monitorEvent('info','nurture',`Day ${n.day} email sent`,{brand:brand.slug,email,subject:n.subject});
       }
@@ -5776,7 +5783,7 @@ async function sendNurtureEmails(){
         if(owner.nurtureSent[sentKey])continue;
         const html=t.body(adminName,BASE_URL,nurtureUnsubUrl(brand.slug,email));
         await sendEmail(email,t.subject,html,t.subject).catch(()=>{});
-        owner.nurtureSent[sentKey]=new Date().toISOString();
+        owner.nurtureSent[sentKey]=nowIST();
         console.log(`[Nurture] Trigger ${tc.id} → ${email} (${brand.slug})`);
         monitorEvent&&monitorEvent('info','nurture',`Trigger email: ${tc.id}`,{brand:brand.slug,email});
       }
@@ -5816,7 +5823,7 @@ async function sendProspectDrip(){
         const sentKey=`lead_${p.id}_day${d.day}`;
         if(owner.prospectDripSent[sentKey])continue;
         await sendEmail(p.email,d.subject,d.body(name,unsub),d.subject).catch(()=>{});
-        owner.prospectDripSent[sentKey]=new Date().toISOString();
+        owner.prospectDripSent[sentKey]=nowIST();
         console.log(`[LeadDrip] Day ${d.day} → ${p.email}`);
       }
     }catch(e){console.error('[LeadDrip] Error for',p.email,e.message);}
@@ -5857,7 +5864,7 @@ function runBackgroundJobs(){
       try{
         const db=readBrandDB(brand.slug);
         if(!(db.digestConfig?.enabled))continue;
-        const today=new Date().toISOString().split('T')[0];
+        const today=nowIST().split('T')[0];
         const agents=(db.users||[]).filter(u=>u.active);
         for(const agent of agents){
           const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status));
@@ -5880,7 +5887,7 @@ function runBackgroundJobs(){
         const now=new Date();const in1h=new Date(now.getTime()+3600000);
         const toRemind=(db.appointments||[]).filter(a=>{
           if(a.status==='cancelled'||a.reminderSent)return false;
-          const aptDt=new Date(a.date+'T'+a.time+':00');
+          const aptDt=new Date(a.date+'T'+a.time+':00+05:30');
           return aptDt>now&&aptDt<=in1h;
         });
         for(const apt of toRemind){
@@ -5908,7 +5915,7 @@ function runBackgroundJobs(){
     const owner=readOwner();
     for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
       try{
-        const db=readBrandDB(brand.slug);const today=new Date().toISOString().split('T')[0];
+        const db=readBrandDB(brand.slug);const today=nowIST().split('T')[0];
         const due=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt===today&&t.assignedTo);
         for(const t of due){
           await sendBrandEmail(brand.slug,t.assignedTo,`⏰ Follow-up Due Today: ${t.subject.substring(0,60)} — ${brand.name}`,
@@ -5954,7 +5961,7 @@ app.post('/deploy-webhook',express.json(),(req,res)=>{
 // ══════════════════════════════════════════════════════════════════════════════
 const MONITOR_LOG=[];const MAX_LOG=2000;
 function monitorEvent(level,category,message,detail){
-  const entry={id:generateId('EVT'),ts:new Date().toISOString(),level,category,message,detail:detail||null};
+  const entry={id:generateId('EVT'),ts:nowIST(),level,category,message,detail:detail||null};
   MONITOR_LOG.unshift(entry);if(MONITOR_LOG.length>MAX_LOG)MONITOR_LOG.length=MAX_LOG;
   if(level==='error')console.error(`[Monitor][${category}] ${message}`);
 }
@@ -6480,7 +6487,7 @@ function exportCSV(){
   if(!lastResult?.columns)return;
   const csv=[lastResult.columns,...lastResult.rows].map(r=>r.map(v=>'"'+(v==null?'':String(v)).replace(/"/g,'""')+'"').join(',')).join('\\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='resolvo-'+(new Date().toISOString().substring(0,10))+'.csv';a.click();
+  a.download='resolvo-'+(nowIST().substring(0,10))+'.csv';a.click();
 }
 
 async function loadMonitor(){
@@ -6655,7 +6662,7 @@ app.post('/api/user/token/generate',(req,res)=>{
   const token='rslv_'+crypto.randomBytes(24).toString('hex');
   db.users[idx].apiTokenHash=hashToken(token);
   db.users[idx].apiTokenMask=token.substring(0,8)+'...'+token.slice(-4);
-  db.users[idx].apiTokenCreated=new Date().toISOString();
+  db.users[idx].apiTokenCreated=nowIST();
   writeBrandDB(su.brandSlug,db);
   res.json({success:true,token,mask:db.users[idx].apiTokenMask,warning:'Copy this token now — it will never be shown again.'});
 });
@@ -6682,7 +6689,8 @@ app.get('/api/admin/tokens',(req,res)=>{
 // ══════════════════════════════════════════════════════════════════════════
 // Public ticket creation via API token (Zapier, web form, external apps)
 app.post('/api/tickets/public/create',(req,res)=>{
-  const{subject,body,name,email,priority,source,slug:bodySlug}=req.body;
+  const{subject:_subj,body:_body,name:_name,email,priority,source,slug:bodySlug}=req.body;
+  const subject=sanitize(_subj),body=sanitize(_body),name=sanitize(_name);
   if(!subject||!email)return res.json({success:false,error:'subject and email are required'});
   // Widget source — identify brand from slug in body or query
   const widgetSlug=req.query.slug||bodySlug;
@@ -6699,7 +6707,7 @@ app.post('/api/tickets/public/create',(req,res)=>{
   }
   const db=readBrandDB(brandSlug);
   const ticketId=generateId('TKT');
-  const now=new Date().toISOString();
+  const now=nowIST();
   const ticket={id:ticketId,subject:subject.substring(0,200),from:email,fromName:name||email.split('@')[0],
     status:'new',priority:(['Critical','High','Medium','Low'].includes(priority)?priority:'Medium'),
     source:source||'api',createdDate:now,lastActivity:now,
@@ -6785,7 +6793,7 @@ function logTicketEvent(slug,ticketId,type,actor,detail){
     const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
     if(idx<0)return;
     db.tickets[idx].events=db.tickets[idx].events||[];
-    db.tickets[idx].events.push({type,actor,detail,ts:new Date().toISOString()});
+    db.tickets[idx].events.push({type,actor,detail,ts:nowIST()});
     writeBrandDB(slug,db);
   }catch(e){}
 }
@@ -6871,8 +6879,8 @@ app.post('/api/tickets/:id/promise-callback',(req,res)=>{
   if(!callbackAt)return res.json({success:false,error:'callbackAt required'});
   const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
   if(idx<0)return res.json({success:false,error:'Ticket not found'});
-  db.tickets[idx].promisedCallback={agentEmail:su.email,agentName:su.name||su.email,callbackAt,note:note||'',createdAt:new Date().toISOString(),status:'pending'};
-  db.tickets[idx].lastActivity=new Date().toISOString();
+  db.tickets[idx].promisedCallback={agentEmail:su.email,agentName:su.name||su.email,callbackAt,note:note||'',createdAt:nowIST(),status:'pending'};
+  db.tickets[idx].lastActivity=nowIST();
   writeBrandDB(su.brandSlug,db);
   // Notify customer
   const ticket=db.tickets[idx];
@@ -6930,7 +6938,7 @@ app.post('/api/tickets/:id/mood-stamp',(req,res)=>{
       if(!featEnabled(db,'moodStamp'))continue;
       const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
       if(idx<0)continue;
-      db.tickets[idx].moodStamp={emoji,stampedAt:new Date().toISOString()};
+      db.tickets[idx].moodStamp={emoji,stampedAt:nowIST()};
       writeBrandDB(brand.slug,db);
       return res.json({success:true});
     }catch(e){}
@@ -6965,7 +6973,7 @@ setInterval(async()=>{
         if(lastCustomerTime<cutoff&&!ticket.silenceFollowUpSent){
           const owner2=readOwner();const b=(owner2.brands||[]).find(x=>x.slug===brand.slug)||{};
           await sendBrandEmail(brand.slug,ticket.from,`Following up on your request — ${b.name||brand.slug}`,`<div style="font-family:Arial;max-width:520px;padding:24px;"><p>Hi there,</p><p>We wanted to check in on your support request <strong>${ticket.id}</strong> — ${ticket.subject}.</p><p>Did our last reply help? Let us know and we can close this out, or continue if you still need assistance.</p><p style="color:#6b7280;font-size:13px;">— ${b.name||'Support Team'}</p></div>`,`Following up on ${ticket.id}`).catch(()=>{});
-          ticket.silenceFollowUpSent=new Date().toISOString();
+          ticket.silenceFollowUpSent=nowIST();
           changed=true;
           console.log(`[Silence] Follow-up sent for ${ticket.id} (${brand.slug})`);
         }
@@ -6999,9 +7007,9 @@ app.post('/api/tickets/:id/auto-close-confirm',(req,res)=>{
     sendBrandEmail(su.brandSlug,ticket.from,`Re: [${su.brandName}] ${ticket.subject}`,`<div style="font-family:Arial;max-width:520px;padding:24px;white-space:pre-wrap;">${message.replace(/\n/g,'<br>')}</div>`,message).catch(()=>{});
   }
   db.tickets[idx].status='resolved';
-  db.tickets[idx].resolvedAt=new Date().toISOString();
+  db.tickets[idx].resolvedAt=nowIST();
   db.tickets[idx].resolvedBy=su.email;
-  db.tickets[idx].lastActivity=new Date().toISOString();
+  db.tickets[idx].lastActivity=nowIST();
   writeBrandDB(su.brandSlug,db);
   res.json({success:true});
 });
@@ -7098,7 +7106,7 @@ app.post('/api/root-cause-report',(req,res)=>{
   if(matched.length<1)return res.json({success:false,error:'No tickets found matching that keyword'});
   const statuses={};matched.forEach(t=>{statuses[t.status||'unknown']=(statuses[t.status||'unknown']||0)+1;});
   const firstSeen=matched.reduce((min,t)=>{const d=new Date(t.createdAt||t.createdDate);return d<min?d:min;},new Date());
-  const report={keyword,ticketCount:matched.length,firstSeen:firstSeen.toISOString(),dateRange:`Last ${days||30} days`,statusBreakdown:statuses,affectedCustomers:[...new Set(matched.map(t=>t.from||t.fromName).filter(Boolean))].length,tickets:matched.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,from:t.from,createdAt:t.createdAt})),generatedAt:new Date().toISOString(),generatedBy:su.email};
+  const report={keyword,ticketCount:matched.length,firstSeen:firstSeen.toISOString(),dateRange:`Last ${days||30} days`,statusBreakdown:statuses,affectedCustomers:[...new Set(matched.map(t=>t.from||t.fromName).filter(Boolean))].length,tickets:matched.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,from:t.from,createdAt:t.createdAt})),generatedAt:nowIST(),generatedBy:su.email};
   // Store it
   db.rootCauseReports=db.rootCauseReports||[];
   db.rootCauseReports.unshift({...report,id:generateId('RCR')});
@@ -7180,7 +7188,7 @@ Respond with exactly this JSON structure (no markdown, no explanation):
 {"priority":"Critical|High|Medium|Low","category":"billing|technical|general|complaint|refund|feature_request","sentiment":"positive|neutral|negative","suggestedReply":"A short one-sentence canned reply suggestion","tags":["tag1","tag2"]}`;
     const raw=await callGemini(apiKey,prompt,15000);
     const parsed=parseGeminiJSON(raw);
-    db.tickets[idx].aiTriage={...parsed,triagedAt:new Date().toISOString()};
+    db.tickets[idx].aiTriage={...parsed,triagedAt:nowIST()};
     if(!db.tickets[idx].priority||db.tickets[idx].priority==='Medium')db.tickets[idx].priority=parsed.priority;
     if(parsed.tags)db.tickets[idx].tags=[...new Set([...(db.tickets[idx].tags||[]),...parsed.tags])];
     writeBrandDB(slug,db);
@@ -7233,7 +7241,7 @@ app.post('/api/owner/changelogs',ownerOnly,async(req,res)=>{
   if(!title||!body)return res.json({success:false,error:'title and body required'});
   const owner=readOwner();
   owner.changelogs=owner.changelogs||[];
-  const entry={id:generateId('CHL'),title,body,type:type||'update',publishedAt:new Date().toISOString()};
+  const entry={id:generateId('CHL'),title,body,type:type||'update',publishedAt:nowIST()};
   owner.changelogs.unshift(entry);
   writeOwner(owner);
   // Email all active brand admins
@@ -7267,11 +7275,11 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
       if(existingIdx>=0){
         db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
-        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'customer',from:From,fromName:ProfileName||From,body:Body,timestamp:new Date().toISOString(),channel:'whatsapp'});
-        db.tickets[existingIdx].lastActivity=new Date().toISOString();
+        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'customer',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'});
+        db.tickets[existingIdx].lastActivity=nowIST();
       }else{
         db.tickets=db.tickets||[];
-        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:'open',priority:'Medium',createdAt:new Date().toISOString(),lastActivity:new Date().toISOString(),thread:[]});
+        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[]});
       }
       writeBrandDB(brand.slug,db);
       handled=true;
@@ -7296,7 +7304,7 @@ app.post('/api/tickets/:id/whatsapp-reply',(req,res)=>{
   twilio.messages.create({from:`whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,to:ticket.from,body:message})
     .then(()=>{
       const idx=(db.tickets||[]).findIndex(t=>t.id===ticket.id);
-      if(idx>=0){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:su.email,fromName:su.name||su.email,body:message,timestamp:new Date().toISOString(),channel:'whatsapp'});writeBrandDB(su.brandSlug,db);}
+      if(idx>=0){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:su.email,fromName:su.name||su.email,body:message,timestamp:nowIST(),channel:'whatsapp'});writeBrandDB(su.brandSlug,db);}
       res.json({success:true});
     })
     .catch(e=>res.json({success:false,error:e.message}));
@@ -7311,7 +7319,7 @@ app.post('/api/voice-ticket',async(req,res)=>{
   if(!featEnabled(db,'voiceNoteTickets'))return res.json({success:false,error:'Feature not enabled'});
   const ticketId=generateId('TKT');
   db.tickets=db.tickets||[];
-  db.tickets.unshift({id:ticketId,subject:`Voice note: ${transcript.substring(0,60)}`,body:transcript,from:customerEmail||'voice-unknown',fromName:customerName||'Voice Customer',channel:'voice',status:'open',priority:'Medium',createdAt:new Date().toISOString(),lastActivity:new Date().toISOString(),thread:[]});
+  db.tickets.unshift({id:ticketId,subject:`Voice note: ${transcript.substring(0,60)}`,body:transcript,from:customerEmail||'voice-unknown',fromName:customerName||'Voice Customer',channel:'voice',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[]});
   writeBrandDB(brandSlug,db);
   // Auto-triage if enabled
   if(featEnabled(db,'aiTriage'))aiTriageTicket(brandSlug,ticketId).catch(()=>{});
@@ -7516,7 +7524,7 @@ app.get('/api/crm/dashboard',(req,res)=>{
   const deals=crmAll(db,'crm_deals');
   const contacts=crmAll(db,'crm_contacts');
   const activities=crmAll(db,'crm_activities');
-  const now=new Date().toISOString().slice(0,10);
+  const now=nowIST().slice(0,10);
   const openDeals=deals.filter(d=>d.stage!=='won'&&d.stage!=='lost');
   const wonThisMonth=deals.filter(d=>d.stage==='won'&&d.wonDate&&d.wonDate.slice(0,7)===now.slice(0,7));
   const pipelineValue=openDeals.reduce((s,d)=>s+(d.value||0),0);
@@ -7542,7 +7550,7 @@ app.get('/api/crm/contacts',(req,res)=>{
 app.post('/api/crm/contacts',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
   const db=crmDb(su.brandSlug);
-  const c={id:uuidv4(),...req.body,createdDate:new Date().toISOString(),ownerId:su.userId};
+  const c={id:uuidv4(),...req.body,createdDate:nowIST(),ownerId:su.userId};
   crmSave(db,'crm_contacts',c);res.json({success:true,contact:c});
 });
 app.put('/api/crm/contacts/:id',(req,res)=>{
@@ -7550,7 +7558,7 @@ app.put('/api/crm/contacts/:id',(req,res)=>{
   const db=crmDb(su.brandSlug);
   const existing=crmGet(db,'crm_contacts',req.params.id);
   if(!existing)return res.status(404).json({error:'Not found'});
-  const updated={...existing,...req.body,id:req.params.id,updatedDate:new Date().toISOString()};
+  const updated={...existing,...req.body,id:req.params.id,updatedDate:nowIST()};
   crmSave(db,'crm_contacts',updated);res.json({success:true,contact:updated});
 });
 app.delete('/api/crm/contacts/:id',(req,res)=>{
@@ -7568,7 +7576,7 @@ app.get('/api/crm/companies',(req,res)=>{
 });
 app.post('/api/crm/companies',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const c={id:uuidv4(),...req.body,createdDate:new Date().toISOString()};
+  const c={id:uuidv4(),...req.body,createdDate:nowIST()};
   crmSave(crmDb(su.brandSlug),'crm_companies',c);res.json({success:true,company:c});
 });
 app.put('/api/crm/companies/:id',(req,res)=>{
@@ -7595,7 +7603,7 @@ app.get('/api/crm/deals',(req,res)=>{
 });
 app.post('/api/crm/deals',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const d={id:uuidv4(),...req.body,stage:req.body.stage||'prospect',createdDate:new Date().toISOString(),ownerId:su.userId};
+  const d={id:uuidv4(),...req.body,stage:req.body.stage||'prospect',createdDate:nowIST(),ownerId:su.userId};
   crmSave(crmDb(su.brandSlug),'crm_deals',d);res.json({success:true,deal:d});
 });
 app.put('/api/crm/deals/:id',(req,res)=>{
@@ -7604,8 +7612,8 @@ app.put('/api/crm/deals/:id',(req,res)=>{
   const existing=crmGet(db,'crm_deals',req.params.id);
   if(!existing)return res.status(404).json({error:'Not found'});
   const body=req.body;
-  if(body.stage==='won'&&existing.stage!=='won')body.wonDate=new Date().toISOString();
-  const updated={...existing,...body,id:req.params.id,updatedDate:new Date().toISOString()};
+  if(body.stage==='won'&&existing.stage!=='won')body.wonDate=nowIST();
+  const updated={...existing,...body,id:req.params.id,updatedDate:nowIST()};
   crmSave(db,'crm_deals',updated);res.json({success:true,deal:updated});
 });
 app.delete('/api/crm/deals/:id',(req,res)=>{
@@ -7630,7 +7638,7 @@ app.get('/api/crm/activities',(req,res)=>{
 });
 app.post('/api/crm/activities',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const a={id:uuidv4(),...req.body,createdDate:new Date().toISOString(),ownerId:su.userId};
+  const a={id:uuidv4(),...req.body,createdDate:nowIST(),ownerId:su.userId};
   crmSave(crmDb(su.brandSlug),'crm_activities',a);res.json({success:true,activity:a});
 });
 app.put('/api/crm/activities/:id',(req,res)=>{
@@ -7639,7 +7647,7 @@ app.put('/api/crm/activities/:id',(req,res)=>{
   const existing=crmGet(db,'crm_activities',req.params.id);
   if(!existing)return res.status(404).json({error:'Not found'});
   const updated={...existing,...req.body,id:req.params.id};
-  if(req.body.complete)updated.completedDate=new Date().toISOString();
+  if(req.body.complete)updated.completedDate=nowIST();
   crmSave(db,'crm_activities',updated);res.json({success:true,activity:updated});
 });
 app.delete('/api/crm/activities/:id',(req,res)=>{
@@ -7660,14 +7668,14 @@ app.get('/api/crm/outreach',(req,res)=>{
 });
 app.post('/api/crm/outreach',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
-  const o={...req.body,id:req.body.id||uuidv4(),createdAt:req.body.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+  const o={...sanitizeObj(req.body),id:req.body.id||uuidv4(),createdAt:req.body.createdAt||nowIST(),updatedAt:nowIST()};
   crmSave(crmDb(su.brandSlug),'crm_outreach',o); res.json({success:true,outreach:o});
 });
 app.post('/api/crm/outreach/bulk',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
   const db=crmDb(su.brandSlug);
   const items=req.body.items||[];
-  items.forEach(o=>{ const rec={...o,id:o.id||uuidv4(),updatedAt:new Date().toISOString()}; crmSave(db,'crm_outreach',rec); });
+  items.forEach(o=>{ const rec={...sanitizeObj(o),id:o.id||uuidv4(),updatedAt:nowIST()}; crmSave(db,'crm_outreach',rec); });
   res.json({success:true,count:items.length});
 });
 app.put('/api/crm/outreach/:id',(req,res)=>{
@@ -7675,7 +7683,7 @@ app.put('/api/crm/outreach/:id',(req,res)=>{
   const db=crmDb(su.brandSlug);
   const existing=crmGet(db,'crm_outreach',req.params.id);
   if(!existing)return res.status(404).json({error:'Not found'});
-  const updated={...existing,...req.body,id:req.params.id,updatedAt:new Date().toISOString()};
+  const updated={...existing,...sanitizeObj(req.body),id:req.params.id,updatedAt:nowIST()};
   crmSave(db,'crm_outreach',updated); res.json({success:true,outreach:updated});
 });
 app.delete('/api/crm/outreach/:id',(req,res)=>{
@@ -7691,7 +7699,7 @@ app.get('/api/crm/templates',(req,res)=>{
 });
 app.post('/api/crm/templates',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
-  const t={...req.body,id:req.body.id||uuidv4(),createdAt:new Date().toISOString()};
+  const t={...sanitizeObj(req.body),id:req.body.id||uuidv4(),createdAt:nowIST()};
   crmSave(crmDb(su.brandSlug),'crm_templates',t); res.json({success:true,template:t});
 });
 app.put('/api/crm/templates/:id',(req,res)=>{
@@ -7699,7 +7707,7 @@ app.put('/api/crm/templates/:id',(req,res)=>{
   const db=crmDb(su.brandSlug);
   const existing=crmGet(db,'crm_templates',req.params.id);
   if(!existing)return res.status(404).json({error:'Not found'});
-  const updated={...existing,...req.body,id:req.params.id};
+  const updated={...existing,...sanitizeObj(req.body),id:req.params.id};
   crmSave(db,'crm_templates',updated); res.json({success:true,template:updated});
 });
 app.delete('/api/crm/templates/:id',(req,res)=>{
