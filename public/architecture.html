@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo — Complete Product Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#06070A;--s1:#0A0D14;--s2:#0F131C;--card:#131924;--b1:rgba(255,255,255,.05);--b2:rgba(255,255,255,.09);--b3:rgba(255,255,255,.14);
+  --cyan:#22D3EE;--violet:#818CF8;--green:#34D399;--amber:#FBBF24;--red:#F87171;--pink:#F472B6;
+  --t1:#F1F5F9;--t2:#94A3B8;--t3:#475569;--t4:#1E293B;
+}
+body{background:var(--bg);color:var(--t1);font-family:'Inter',sans-serif;line-height:1.6;}
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(6,7,10,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--b1);padding:12px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+.logo-mark{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,var(--cyan),var(--violet));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#000;}
+.logo-text{font-size:14px;font-weight:800;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.tabs{display:flex;gap:2px;overflow-x:auto;flex:1;}
+.tab{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--t3);white-space:nowrap;transition:all .15s;}
+.tab:hover{background:var(--b1);color:var(--t2);}
+.tab.active{background:rgba(34,211,238,.1);color:var(--cyan);}
+.back{font-size:12px;color:var(--t3);text-decoration:none;margin-left:auto;}
+/* LAYOUT */
+.page{display:none;padding:36px 28px 80px;max-width:1280px;margin:0 auto;}
+.page.active{display:block;}
+.page-title{font-size:26px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--t3);margin-bottom:36px;}
+/* SECTION */
+.section{margin-bottom:52px;}
+.section-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.section-title::before{content:'';width:16px;height:2px;background:var(--cyan);border-radius:2px;}
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--b1);border-radius:12px;padding:20px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+.card-title{font-size:13px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+.card-body{font-size:12px;color:var(--t2);line-height:1.7;}
+.item{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--t2);padding:4px 0;border-bottom:1px solid var(--b1);}
+.item:last-child{border-bottom:none;}
+.item-icon{flex-shrink:0;margin-top:1px;}
+/* FLOW */
+.flow-wrap{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:24px;overflow-x:auto;}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:0;min-width:max-content;}
+.flow-v{display:flex;flex-direction:column;align-items:center;}
+.box{background:var(--card);border:1px solid var(--b2);border-radius:9px;padding:10px 16px;font-size:12px;font-weight:600;text-align:center;min-width:130px;position:relative;white-space:nowrap;}
+.box small{display:block;font-size:10px;font-weight:400;color:var(--t3);margin-top:2px;}
+.box.start{border-color:rgba(34,211,238,.4);color:var(--cyan);background:rgba(34,211,238,.06);}
+.box.end{border-color:rgba(52,211,153,.4);color:var(--green);background:rgba(52,211,153,.06);}
+.box.decide{border-color:rgba(251,191,36,.4);color:var(--amber);background:rgba(251,191,36,.06);}
+.box.system{border-color:rgba(129,140,248,.35);background:rgba(129,140,248,.06);}
+.box.owner{border-color:rgba(251,191,36,.35);color:var(--amber);background:rgba(251,191,36,.06);}
+.box.brand{border-color:rgba(52,211,153,.35);color:var(--green);background:rgba(52,211,153,.06);}
+.box.danger{border-color:rgba(248,113,113,.35);color:var(--red);background:rgba(248,113,113,.06);}
+.arr{color:var(--t4);padding:0 6px;font-size:16px;flex-shrink:0;}
+.arr-d{color:var(--t4);font-size:14px;padding:4px 0;text-align:center;}
+.fork{display:flex;gap:12px;align-items:flex-start;margin-top:6px;}
+.fork-item{display:flex;flex-direction:column;align-items:center;gap:0;}
+.fork-label{font-size:10px;font-weight:700;color:var(--amber);margin-bottom:4px;}
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);background:rgba(255,255,255,.03);border-bottom:1px solid var(--b1);}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--b1);color:var(--t2);vertical-align:top;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);background:rgba(34,211,238,.08);padding:1px 6px;border-radius:4px;}
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.b-green{background:rgba(52,211,153,.1);color:var(--green);}
+.b-red{background:rgba(248,113,113,.1);color:var(--red);}
+.b-amber{background:rgba(251,191,36,.1);color:var(--amber);}
+.b-cyan{background:rgba(34,211,238,.1);color:var(--cyan);}
+.b-violet{background:rgba(129,140,248,.1);color:var(--violet);}
+/* HIGHLIGHT BOX */
+.highlight{background:linear-gradient(135deg,rgba(34,211,238,.06),rgba(129,140,248,.04));border:1px solid rgba(34,211,238,.15);border-radius:10px;padding:16px 18px;font-size:13px;color:var(--t2);margin-bottom:16px;}
+.highlight strong{color:var(--cyan);}
+/* CONTROL CHAIN */
+.control-chain{display:flex;flex-direction:column;gap:0;}
+.cc-level{display:flex;align-items:stretch;gap:0;}
+.cc-box{flex:1;padding:16px 20px;border:1px solid var(--b2);margin:4px;}
+.cc-box:first-child{border-left:4px solid var(--b2);}
+</style>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://app.resolvogroup.com/architecture">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Resolvo">
+<meta property="og:title" content="Resolvo — Complete Product Architecture">
+<meta property="og:description" content="All-in-one support & issue tracking for startups. Replaces Freshdesk, Jira & Intercom.">
+<meta property="og:url" content="https://app.resolvogroup.com/architecture">
+<meta property="og:image" content="https://app.resolvogroup.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Resolvo — Complete Product Architecture">
+<meta name="twitter:description" content="All-in-one support & issue tracking for startups. Replaces Freshdesk, Jira & Intercom.">
+<meta name="twitter:image" content="https://app.resolvogroup.com/og-image.png">
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" class="logo"><div class="logo-mark">R</div><span class="logo-text">resolvo</span></a>
+  <div class="tabs">
+    <button class="tab active" onclick="go('control')">👑 Control Hierarchy</button>
+    <button class="tab" onclick="go('customer')">👤 Customer Journey</button>
+    <button class="tab" onclick="go('technical')">⚙️ Technical Stack</button>
+    <button class="tab" onclick="go('api')">🔌 API Architecture</button>
+    <button class="tab" onclick="go('data')">🗄 Data Models</button>
+    <button class="tab" onclick="go('security')">🔐 Security</button>
+    <button class="tab" onclick="go('flows')">🔄 Core Flows</button>
+    <button class="tab" onclick="go('email')">📧 Email System</button>
+    <button class="tab" onclick="go('queue')">🎯 Queue Engine</button>
+    <button class="tab" onclick="go('jobs')">⏰ Background Jobs</button>
+    <button class="tab" onclick="go('changes')">🆕 Recent Changes</button>
+  </div>
+  <a href="/" class="back">← App</a>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 1: CONTROL HIERARCHY                                                   -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page active" id="tab-control">
+  <div class="page-title">👑 Resolvo Control Hierarchy</div>
+  <div class="page-sub">Who controls what — every layer of the platform</div>
+
+  <div class="highlight">
+    <strong>Resolvo (Platform Owner)</strong> has absolute control over every brand, every feature, every user, and every email on the platform. Brands and their users operate within boundaries the owner defines.
+  </div>
+
+  <div class="section">
+    <div class="section-title">Complete Control Chain</div>
+    <div class="flow-wrap">
+      <div class="flow-v" style="width:100%;gap:0;">
+
+        <!-- Level 1: Owner -->
+        <div style="background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(245,158,11,.04));border:2px solid rgba(251,191,36,.3);border-radius:14px;padding:20px 24px;width:100%;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="font-size:16px;font-weight:900;color:var(--amber);">👑 PLATFORM OWNER</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:3px;">Full unrestricted access to everything on the platform</div>
+            </div>
+            <div class="badge b-amber">LEVEL 0 — ROOT</div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:var(--t2);">Controls every brand, feature flag, user, billing, analytics, email, and configuration across the entire platform. Brands operate strictly within the boundaries set by the owner.</div>
+        </div>
+
+        <div class="arr-d" style="font-size:20px;">↓ controls ↓</div>
+
+        <!-- Level 2: Brand Admin -->
+        <div style="background:rgba(52,211,153,.04);border:1.5px solid rgba(52,211,153,.2);border-radius:12px;padding:18px 22px;width:100%;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="font-size:15px;font-weight:800;color:var(--green);">🏢 BRAND ADMIN (Major Admin)</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:2px;">One per brand — Admin role — Cannot change feature flags (owner-controlled)</div>
+            </div>
+            <div class="badge b-green">LEVEL 1 — BRAND SCOPE</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-top:12px;">
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Manage users within their brand</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Configure email ticketing (SMTP)</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Set SLA rules, modules, settings</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Configure queue routing rules</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Set VIP customers, booking hours</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>View all reports for their brand</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Create knowledge base + roadmap</div>
+            <div class="item"><span class="item-icon" style="color:var(--green);">✓</span>Bump tickets, drain agent queue</div>
+            <div class="item"><span class="item-icon" style="color:var(--red);">✗</span>Cannot see other brands' data</div>
+            <div class="item"><span class="item-icon" style="color:var(--red);">✗</span>Cannot change feature flags</div>
+            <div class="item"><span class="item-icon" style="color:var(--red);">✗</span>Cannot change billing/tier</div>
+            <div class="item"><span class="item-icon" style="color:var(--red);">✗</span>Cannot access Owner Portal</div>
+          </div>
+        </div>
+
+        <div class="arr-d" style="font-size:20px;">↓ manages ↓</div>
+
+        <!-- Level 3: Brand Users -->
+        <div style="background:rgba(129,140,248,.04);border:1.5px solid rgba(129,140,248,.15);border-radius:12px;padding:16px 20px;width:100%;">
+          <div style="font-size:14px;font-weight:800;color:var(--violet);">👥 BRAND USERS</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px;">
+            <div class="card"><div class="card-title" style="color:var(--cyan);">Developer</div><div class="card-body">Work on issues<br>Update status<br>Log time<br>Comment</div></div>
+            <div class="card"><div class="card-title" style="color:var(--green);">CS / Support</div><div class="card-body">Handle tickets<br>Reply to customers<br>View My Queue<br>Take tickets</div></div>
+            <div class="card"><div class="card-title" style="color:var(--amber);">QA</div><div class="card-body">Test issues<br>Sign off resolutions<br>Mark regressions</div></div>
+            <div class="card"><div class="card-title" style="color:var(--pink);">Product</div><div class="card-body">Raise issues<br>View reports<br>Vote roadmap</div></div>
+            <div class="card"><div class="card-title" style="color:var(--t2);">Viewer</div><div class="card-body">Read-only<br>No create<br>No edit</div></div>
+          </div>
+        </div>
+
+        <div class="arr-d" style="font-size:20px;">↓ serves ↓</div>
+
+        <!-- Level 4: Customers -->
+        <div style="background:rgba(248,113,113,.04);border:1px dashed rgba(248,113,113,.2);border-radius:12px;padding:14px 20px;width:100%;">
+          <div style="font-size:13px;font-weight:800;color:var(--red);">🌐 END CUSTOMERS (External)</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:6px;">Cannot log in to the main app. Access via: Email inbox (ticket) · /portal/:brand · /book/:brand · Embedded widget</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Feature Flag Control — Owner Always Wins</div>
+    <div class="flow-wrap">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:16px;">Resolution order: later layers override earlier ones</div>
+      <table class="tbl">
+        <tr><th>Layer</th><th>Source</th><th>Who Sets It</th><th>Example</th></tr>
+        <tr><td>1. Tier Defaults</td><td><code>TIER_FEATURES[brand.tier]</code></td><td>Hardcoded by Resolvo</td><td>Enterprise = all features ON</td></tr>
+        <tr><td>2. Admin Flags</td><td><code>db.featureFlags</code></td><td>BLOCKED — returns error</td><td>Brand admin cannot change</td></tr>
+        <tr><td>3. Owner Overrides</td><td><code>brand.featureOverrides</code></td><td>Owner Portal only</td><td>Override specific feature ON/OFF</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:700;">= Resolved Flags</td><td><code>resolveFeatureFlags()</code></td><td>Read at login</td><td>Baked into session token</td></tr>
+      </table>
+      <div style="margin-top:12px;padding:10px 14px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:8px;font-size:12px;color:var(--t2);">
+        <strong style="color:var(--amber);">Owner override always wins.</strong> If owner sets a flag OFF for a brand, the brand admin sees it as disabled regardless of their tier. Settings tabs are hidden. API handlers return error. Zero access.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">35 Owner-Controlled Feature Flags</div>
+    <div class="grid-4">
+      <div class="card"><div class="card-title" style="color:var(--cyan);">🎯 Workflow</div><div class="card-body"><div class="item"><span>✓</span>KANBAN_ENABLED</div><div class="item"><span>✓</span>SPRINTS_ENABLED</div><div class="item"><span>✓</span>BULK_ACTIONS_ENABLED</div><div class="item"><span>✓</span>DEPENDENCY_GRAPH_ENABLED</div><div class="item"><span>✓</span>ISSUE_TEMPLATES_ENABLED</div><div class="item"><span>✓</span>APPROVAL_WORKFLOWS_ENABLED</div></div></div>
+      <div class="card"><div class="card-title" style="color:var(--violet);">🧠 Intelligence</div><div class="card-body"><div class="item"><span>✓</span>AI_ENABLED</div><div class="item"><span>✓</span>EMAIL_TRIAGE_ENABLED</div><div class="item"><span>✓</span>FULL_TEXT_SEARCH_ENABLED</div><div class="item"><span>✓</span>IMPACT_SCORE_ENABLED</div></div></div>
+      <div class="card"><div class="card-title" style="color:var(--green);">📬 Support</div><div class="card-body"><div class="item"><span>✓</span>EMAIL_TICKETING_ENABLED</div><div class="item"><span>✓</span>QUEUE_ENABLED</div><div class="item"><span>✓</span>KNOWLEDGE_BASE_ENABLED</div><div class="item"><span>✓</span>APPOINTMENT_BOOKING_ENABLED</div><div class="item"><span>✓</span>CUSTOMER_PORTAL_ENABLED</div><div class="item"><span>✓</span>WIDGET_ENABLED</div></div></div>
+      <div class="card"><div class="card-title" style="color:var(--amber);">📊 Reports</div><div class="card-body"><div class="item"><span>✓</span>ANALYTICS_ENABLED</div><div class="item"><span>✓</span>WORKLOAD_ENABLED</div><div class="item"><span>✓</span>SLA_REPORT_ENABLED</div><div class="item"><span>✓</span>RELEASE_NOTES_ENABLED</div><div class="item"><span>✓</span>POSTMORTEM_ENABLED</div><div class="item"><span>✓</span>COST_REPORT_ENABLED</div><div class="item"><span>✓</span>AGENT_COACHING_ENABLED</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 2: CUSTOMER JOURNEY                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-customer">
+  <div class="page-title">👤 Customer Journey — Detailed</div>
+  <div class="page-sub">Every touchpoint a brand's customer has — and how Resolvo controls each one</div>
+
+  <div class="highlight">
+    <strong>Resolvo controls every customer touchpoint:</strong> The booking page, portal, widget, email template, CSAT form, and confirmation email all come from Resolvo's infrastructure. Brands customize the branding (logo, color, name) but Resolvo powers the machinery.
+  </div>
+
+  <!-- Journey A: Self signup via pitch -->
+  <div class="section">
+    <div class="section-title">A. New Brand Self-Signup via Pitch Page</div>
+    <div class="flow-wrap">
+      <div class="flow">
+        <div class="box start">Visitor<br><small>app.resolvogroup.com/pitch</small></div><div class="arr">→</div>
+        <div class="box">Fills signup form<br><small>Name + Company + Email</small></div><div class="arr">→</div>
+        <div class="box system">POST /api/signup<br><small>Resolvo creates brand</small></div><div class="arr">→</div>
+        <div class="box owner">Owner auto-notified<br><small>contact@resolvogroup.com</small></div><div class="arr">→</div>
+        <div class="box">Welcome email<br><small>Login URL + temp password</small></div><div class="arr">→</div>
+        <div class="box end">Brand live<br><small>Free tier · 10 users</small></div>
+      </div>
+      <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+        <div class="card"><div class="card-title">🤖 Resolvo Auto-Does:</div><div class="card-body"><div class="item"><span>→</span>Creates brand slug from company name</div><div class="item"><span>→</span>Initializes empty db.sqlite with defaults</div><div class="item"><span>→</span>Sets tier = Free</div><div class="item"><span>→</span>Sends welcome email (sendBrandEmail)</div><div class="item"><span>→</span>Notifies owner of new signup</div><div class="item"><span>→</span>Starts Day 1 nurture sequence timer</div></div></div>
+        <div class="card"><div class="card-title">📅 Nurture Sequence:</div><div class="card-body"><div class="item"><span>Day 1</span>Create your first issue</div><div class="item"><span>Day 3</span>Connect email inbox</div><div class="item"><span>Day 7</span>Queue + portal + reports</div><div class="item"><span>Day 14</span>Upgrade to Pro prompt</div></div></div>
+        <div class="card"><div class="card-title">✅ Onboarding Checklist:</div><div class="card-body"><div class="item"><span>1</span>Create first issue</div><div class="item"><span>2</span>Invite a teammate</div><div class="item"><span>3</span>Connect email inbox</div><div class="item"><span>4</span>Configure SLA rules</div><div class="item"><span>5</span>Enable assignment queue</div><div class="item"><span>6</span>Check first report</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Journey B: Support Ticket Complete -->
+  <div class="section">
+    <div class="section-title">B. Customer Email → Resolved Ticket (Complete Flow)</div>
+    <div class="flow-wrap">
+      <div class="flow-v" style="gap:0;width:100%;">
+        <div class="box start" style="width:320px;">Customer sends email<br><small>support@brand.com or any configured inbox</small></div>
+        <div class="arr-d">↓</div>
+        <div class="box system" style="width:320px;">IMAP Poller (every 2 min)<br><small>node-cron · UNSEEN SINCE enabledAt</small></div>
+        <div class="arr-d">↓</div>
+        <div class="box system" style="width:320px;">Spam Filter (15+ patterns)<br><small>mailer-daemon, noreply, bounce, newsletters blocked</small></div>
+        <div class="arr-d">↓</div>
+        <div class="box decide" style="width:320px;">⟡ Duplicate? (messageId check)</div>
+        <div style="width:320px;display:flex;gap:8px;margin-top:4px;margin-bottom:4px;">
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--red);margin-bottom:3px;">YES</div><div class="box danger" style="font-size:11px;">Skip — already processed</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--green);margin-bottom:3px;">NO → continue</div><div style="height:30px;"></div></div>
+        </div>
+        <div class="arr-d">↓</div>
+        <div class="box decide" style="width:320px;">⟡ VIP customer? (domain/email match)</div>
+        <div style="width:320px;display:flex;gap:8px;margin-top:4px;margin-bottom:4px;">
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--amber);margin-bottom:3px;">YES</div><div class="box owner" style="font-size:11px;">⭐ VIP tag · Priority boost · Admin alerted</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--t3);margin-bottom:3px;">NO</div><div style="height:30px;"></div></div>
+        </div>
+        <div class="arr-d">↓</div>
+        <div class="box system" style="width:320px;">Sentiment Analysis<br><small>Score 0-100 · angry → auto-escalate to Critical</small></div>
+        <div class="arr-d">↓</div>
+        <div class="box system" style="width:320px;">Auto-resolve rules check<br><small>Subject/sender pattern → auto-close + reply</small></div>
+        <div class="arr-d">↓</div>
+        <div class="box system" style="width:320px;">Queue Engine: auto-assign agent<br><small>routing rules → round robin → least busy</small></div>
+        <div class="arr-d">↓</div>
+        <div class="box brand" style="width:320px;">Agent sees ticket in My Queue<br><small>Inbox → My Tickets section</small></div>
+        <div class="arr-d">↓</div>
+        <div class="flow-v" style="width:320px;">
+          <div class="box" style="width:100%;">Agent works ticket<br><small>Reply · Internal note · SLA pause · Transfer · Bump</small></div>
+          <div class="arr-d">↓</div>
+          <div class="box decide" style="width:100%;">⟡ Resolved?</div>
+          <div style="display:flex;gap:8px;margin-top:4px;width:100%;">
+            <div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--t3);margin-bottom:3px;">NO</div><div class="box" style="font-size:11px;">SLA ticking · Escalation rules fire</div></div>
+            <div style="flex:1;"><div style="font-size:10px;color:var(--green);margin-bottom:3px;text-align:center;">YES ↓</div>
+              <div class="flow-v" style="gap:0;">
+                <div class="box end" style="font-size:11px;">Status → Resolved</div>
+                <div class="arr-d">↓</div>
+                <div class="box system" style="font-size:11px;">CSAT email auto-sent<br><small>👍 Yes / 👎 No</small></div>
+                <div class="arr-d">↓</div>
+                <div class="box system" style="font-size:11px;">Queue pulls next ticket<br><small>Fills agent bucket to max</small></div>
+                <div class="arr-d">↓</div>
+                <div class="box brand" style="font-size:11px;">Agent auto-navigates<br><small>to next assigned ticket</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Other journeys -->
+  <div class="section">
+    <div class="section-title">C. All Customer Touchpoints (Owner-Controlled)</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📅 Appointment Booking Flow</div>
+        <div class="card-body">
+          <div class="item"><span>1</span>Customer visits <code>/book/:brand</code></div>
+          <div class="item"><span>2</span>Resolvo shows available slots (from brand's working hours config)</div>
+          <div class="item"><span>3</span>Customer picks slot + fills name/email/topic</div>
+          <div class="item"><span>4</span>POST /book/:slug → Resolvo creates ticket + appointment</div>
+          <div class="item"><span>5</span>Confirmation email sent (sendBrandEmail)</div>
+          <div class="item"><span>6</span>1h reminder auto-sent by cron job</div>
+          <div class="item"><span>7</span>Ticket appears in brand's inbox tagged "appointment"</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🌐 Customer Portal Flow</div>
+        <div class="card-body">
+          <div class="item"><span>1</span>Customer visits <code>/portal/:brand</code></div>
+          <div class="item"><span>2</span>Enters email → Resolvo sends 6-digit OTP</div>
+          <div class="item"><span>3</span>OTP valid 10 minutes · stored in memory</div>
+          <div class="item"><span>4</span>On verify → portal session token issued</div>
+          <div class="item"><span>5</span>GET /portal/:slug/tickets → shows ONLY their tickets</div>
+          <div class="item"><span>6</span>Can raise new request → POST /api/widget/:slug/submit</div>
+          <div class="item"><span>7</span>New ticket auto-created in brand's inbox</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💬 Embed Widget Flow</div>
+        <div class="card-body">
+          <div class="item"><span>1</span>Brand adds <code>&lt;script src="/widget/:brand/embed.js"&gt;</code></div>
+          <div class="item"><span>2</span>Floating chat bubble appears on their website</div>
+          <div class="item"><span>3</span>Customer fills name + email + message</div>
+          <div class="item"><span>4</span>POST /api/widget/:slug/submit</div>
+          <div class="item"><span>5</span>Ticket created with page URL + browser info</div>
+          <div class="item"><span>6</span>Queue auto-assigns to available agent</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🗺 Public Roadmap</div>
+        <div class="card-body">
+          <div class="item"><span>1</span>Customer visits <code>/roadmap/:brand</code></div>
+          <div class="item"><span>2</span>Sees: Planned / In Progress / Shipped items</div>
+          <div class="item"><span>3</span>Votes on planned items (tracked by IP)</div>
+          <div class="item"><span>4</span>POST /api/roadmap-vote → updates vote count</div>
+          <div class="item"><span>5</span>Brand admin sees votes in Settings → Roadmap</div>
+          <div class="item"><span>6</span>Owner can set public:false to hide items</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 3: TECHNICAL STACK                                                     -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-technical">
+  <div class="page-title">⚙️ Technical Stack — Complete</div>
+  <div class="page-sub">Every component, library, pattern, and infrastructure choice explained</div>
+
+  <div class="section">
+    <div class="section-title">Stack Overview</div>
+    <div class="grid-3">
+      <div class="card"><div class="card-title" style="color:var(--cyan);">Frontend</div><div class="card-body">
+        <div class="item"><span>→</span><strong>Single HTML file</strong> — index.html (~1.4MB)</div>
+        <div class="item"><span>→</span>Vanilla JavaScript — App object with 200+ methods</div>
+        <div class="item"><span>→</span>CSS custom properties design system</div>
+        <div class="item"><span>→</span>Chart.js 4.4 for dashboards</div>
+        <div class="item"><span>→</span>IntersectionObserver for lazy loading</div>
+        <div class="item"><span>→</span>fetch() API for all requests</div>
+        <div class="item"><span>→</span>localStorage for session token + preferences</div>
+        <div class="item"><span>→</span>PWA manifest (installable)</div>
+        <div class="item"><span>→</span>GA4 G-27BVPWPG8N tracking</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--violet);">Backend</div><div class="card-body">
+        <div class="item"><span>→</span><strong>Node.js v24 + Express</strong> (~5000 lines)</div>
+        <div class="item"><span>→</span>Single process, all brands on one server</div>
+        <div class="item"><span>→</span>uuid v4 for all ID generation</div>
+        <div class="item"><span>→</span>bcrypt (cost 10) for passwords</div>
+        <div class="item"><span>→</span>nodemailer for email sending</div>
+        <div class="item"><span>→</span>node-imap + mailparser for inbox polling</div>
+        <div class="item"><span>→</span>node-cron for background jobs</div>
+        <div class="item"><span>→</span>cors, express.json, express.static</div>
+        <div class="item"><span>→</span>dotenv for config</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--green);">Data & Infrastructure</div><div class="card-body">
+        <div class="item"><span>→</span><strong>SQLite per brand</strong> — <code>better-sqlite3</code>, WAL mode</div>
+        <div class="item"><span>→</span>data/owner.json — platform owner data</div>
+        <div class="item"><span>→</span>data/brands/:slug/db.sqlite — per brand database</div>
+        <div class="item"><span>→</span>Synchronous reads · WAL journal · NORMAL sync</div>
+        <div class="item"><span>→</span>In-memory <code>_brandCache</code> — instant repeat reads</div>
+        <div class="item"><span>→</span>Auto-migrates db.json → db.sqlite on first access</div>
+        <div class="item"><span>→</span>Hostinger VPS — Ubuntu Linux</div>
+        <div class="item"><span>→</span>PM2 process manager (auto-restart)</div>
+        <div class="item"><span>→</span>GitHub for code · deploy.sh for deploys</div>
+        <div class="item"><span>→</span>PORT=3000 · BASE_URL=app.resolvogroup.com</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">New Features (2025-2026)</div>
+    <div class="grid-3">
+      <div class="card"><div class="card-title" style="color:var(--cyan);">🔑 API Tokens</div><div class="card-body">
+        <div class="item"><span>→</span>Brands generate named API tokens in Settings</div>
+        <div class="item"><span>→</span>Token scopes: read / write / admin</div>
+        <div class="item"><span>→</span>Sent as <code>Authorization: Bearer &lt;token&gt;</code></div>
+        <div class="item"><span>→</span>Validated server-side per request</div>
+        <div class="item"><span>→</span>Revocable at any time — instant effect</div>
+        <div class="item"><span>→</span>Used to create tickets via external systems</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--violet);">💬 Slack Alerts</div><div class="card-body">
+        <div class="item"><span>→</span>Configure Slack Webhook URL in Settings</div>
+        <div class="item"><span>→</span>Choose alert triggers: new ticket, SLA breach, etc.</div>
+        <div class="item"><span>→</span>Resolvo POSTs JSON to the webhook on events</div>
+        <div class="item"><span>→</span>Message includes ticket ID, subject, priority</div>
+        <div class="item"><span>→</span>No Slack app install required — webhook only</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--green);">🌐 Ticket Sources & Widget</div><div class="card-body">
+        <div class="item"><span>→</span>Tickets can arrive from: Email · API · Widget · Manual</div>
+        <div class="item"><span>→</span>Source tracked on every ticket (<code>source</code> field)</div>
+        <div class="item"><span>→</span>Embeddable JS widget — 1 script tag on any site</div>
+        <div class="item"><span>→</span>Widget: customer fills form → POST /api/widget-ticket</div>
+        <div class="item"><span>→</span>Widget is brand-scoped via <code>data-brand</code> attribute</div>
+        <div class="item"><span>→</span>No auth needed — public endpoint, rate limited</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Middleware Chain (Request Order)</div>
+    <div class="flow-wrap">
+      <div class="flow">
+        <div class="box start">HTTP Request</div><div class="arr">→</div>
+        <div class="box">cors()<br><small>Allow all origins</small></div><div class="arr">→</div>
+        <div class="box">express.json()<br><small>20MB limit</small></div><div class="arr">→</div>
+        <div class="box">express.static()<br><small>public/ files</small></div><div class="arr">→</div>
+        <div class="box">Rate limiter<br><small>/api/login only<br>5/15min/IP</small></div><div class="arr">→</div>
+        <div class="box system">Route handlers<br><small>owner/brand/public</small></div><div class="arr">→</div>
+        <div class="box end">JSON Response</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Session Architecture</div>
+    <div class="flow-wrap">
+      <div class="grid-2" style="grid-template-columns:1fr 1fr;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:10px;">Owner Session</div>
+          <table class="tbl">
+            <tr><td>isOwner</td><td>true</td></tr>
+            <tr><td>email</td><td>contact@resolvogroup.com</td></tr>
+            <tr><td>name</td><td>Resolvo</td></tr>
+            <tr><td>expiresAt</td><td>+30 days</td></tr>
+            <tr><td>resolvedFlags</td><td>ALL features = true</td></tr>
+          </table>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:10px;">Brand User Session</div>
+          <table class="tbl">
+            <tr><td>isOwner</td><td>false</td></tr>
+            <tr><td>brandSlug</td><td>konnect</td></tr>
+            <tr><td>brandTier</td><td>Enterprise</td></tr>
+            <tr><td>resolvedFeatureFlags</td><td>{35 flags}</td></tr>
+            <tr><td>isMajorAdmin</td><td>true/false</td></tr>
+            <tr><td>role</td><td>Admin/Developer/CS...</td></tr>
+            <tr><td>expiresAt</td><td>+8h (or +30d)</td></tr>
+          </table>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--t3);">Sessions stored in <code>const sessions = {}</code> — in memory. Server restart clears all sessions (users must re-login). Password reset tokens now persistent in owner.json.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">API Handler Architecture</div>
+    <div class="flow-wrap">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">All brand API calls go through <code>POST /api/call</code> → dispatched to handler by function name</div>
+      <div class="grid-2">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;">aH — Async Handlers (await-able)</div>
+          <table class="tbl">
+            <tr><th>Handler</th><th>Description</th></tr>
+            <tr><td><code>addUser</code></td><td>Create user + send welcome email</td></tr>
+            <tr><td><code>createIssue</code></td><td>Create issue + notify assignee</td></tr>
+            <tr><td><code>replyToTicket</code></td><td>Send email reply via brand SMTP</td></tr>
+            <tr><td><code>pollEmailInbox</code></td><td>Trigger IMAP poll manually</td></tr>
+            <tr><td><code>testBrandEmail</code></td><td>Send test email via brand SMTP</td></tr>
+            <tr><td><code>updateTicketStatus</code></td><td>Status change + CSAT + queue pull</td></tr>
+            <tr><td><code>sendDailyDigest</code></td><td>Send digest to all agents</td></tr>
+          </table>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--violet);margin-bottom:8px;">sH — Sync Handlers (instant)</div>
+          <table class="tbl">
+            <tr><th>Handler</th><th>Description</th></tr>
+            <tr><td><code>getTickets</code></td><td>List tickets with filters</td></tr>
+            <tr><td><code>getIssues</code></td><td>List issues with SLA calc</td></tr>
+            <tr><td><code>getDashboardStats</code></td><td>KPI numbers</td></tr>
+            <tr><td><code>getAllFeatureFlags</code></td><td>Read resolved flags</td></tr>
+            <tr><td><code>getQueueConfig</code></td><td>Queue settings (gated)</td></tr>
+            <tr><td><code>getKBArticles</code></td><td>Knowledge base (gated)</td></tr>
+            <tr><td>200+ more...</td><td>All brand operations</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 4: API ARCHITECTURE                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-api">
+  <div class="page-title">🔌 API Architecture — All Endpoints</div>
+  <div class="page-sub">Every HTTP route in Resolvo, organized by scope</div>
+
+  <div class="section">
+    <div class="section-title">Public Routes (No Auth)</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Method</th><th>Route</th><th>Description</th></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/</code></td><td>Main app (index.html)</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/pitch</code></td><td>Marketing page</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/signup</code></td><td>Self-signup page</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/demo</code></td><td>Demo request page</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/blog</code></td><td>Blog index</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/blog/:slug</code></td><td>Individual blog article</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/vs/:competitor</code></td><td>Comparison pages (jira/freshdesk/zendesk/linear)</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/learn</code></td><td>Learning center</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/architecture</code></td><td>This page</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/portal/:slug</code></td><td>Customer self-service portal</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/book/:slug</code></td><td>Appointment booking page</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/roadmap/:slug</code></td><td>Public roadmap</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/widget/:slug/embed.js</code></td><td>Embeddable widget script</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/sitemap.xml</code></td><td>SEO sitemap</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/robots.txt</code></td><td>SEO robots</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/status?brand=slug</code></td><td>Public status page</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/csat?token=</code></td><td>Issue CSAT survey</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/csat-ticket?token=</code></td><td>Ticket CSAT survey</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/login</code></td><td>Brand login (rate limited 5/15min)</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/signup</code></td><td>Self-signup (creates Free brand)</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/demo-request</code></td><td>Demo request → notifies owner</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/forgot-password</code></td><td>Send password reset link</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/reset-password</code></td><td>Set new password</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/widget/:slug/submit</code></td><td>Widget ticket submission</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/api/roadmap-vote</code></td><td>Vote on roadmap item (IP-tracked)</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/portal/:slug/auth</code></td><td>Brand info for portal page</td></tr>
+      <tr><td><span class="badge b-cyan">POST</span></td><td><code>/portal/:slug/login</code></td><td>Portal OTP login</td></tr>
+      <tr><td><span class="badge b-green">GET</span></td><td><code>/portal/:slug/tickets</code></td><td>Customer's tickets (portal token)</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Brand API (Session Token Required)</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Route</th><th>Description</th><th>Auth</th></tr>
+      <tr><td><code>POST /api/call</code></td><td>Main dispatcher — 200+ functions via {fn, args}</td><td>Session token</td></tr>
+      <tr><td><code>POST /api/logout</code></td><td>Destroy session</td><td>Session token</td></tr>
+      <tr><td><code>GET /api/backup</code></td><td>Download full brand data as JSON</td><td>Admin only</td></tr>
+      <tr><td><code>POST /api/restore</code></td><td>Upload + restore brand data</td><td>Admin only</td></tr>
+      <tr><td><code>GET /api/export/:type</code></td><td>CSV export (issues/tickets/users/audit)</td><td>Session + token in URL</td></tr>
+      <tr><td><code>GET /api/onboarding-status</code></td><td>Checklist completion %</td><td>Session token</td></tr>
+      <tr><td><code>GET /api/ga4-config</code></td><td>GA4 measurement ID</td><td>Public</td></tr>
+      <tr><td><code>POST /api/invite/create</code></td><td>Generate invite link</td><td>Admin</td></tr>
+      <tr><td><code>GET /api/invite/:token</code></td><td>Validate invite</td><td>Public</td></tr>
+      <tr><td><code>POST /api/invite/:token/accept</code></td><td>Accept invite + create user</td><td>Public</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Owner API (Owner Session Only)</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Route</th><th>Description</th></tr>
+      <tr><td><code>GET/POST /api/owner/brands</code></td><td>List all brands / Create new brand</td></tr>
+      <tr><td><code>PUT/DELETE /api/owner/brands/:slug</code></td><td>Update / Suspend brand</td></tr>
+      <tr><td><code>GET/PUT /api/owner/brands/:slug/features</code></td><td>Get/set feature flags per brand</td></tr>
+      <tr><td><code>POST /api/owner/impersonate/:slug</code></td><td>Ghost admin — log in as brand</td></tr>
+      <tr><td><code>GET /api/owner/cross-brand-analytics</code></td><td>Aggregate metrics all brands</td></tr>
+      <tr><td><code>GET /api/owner/mrr</code></td><td>Monthly recurring revenue</td></tr>
+      <tr><td><code>GET /api/owner/brand-health</code></td><td>A-F health score per brand</td></tr>
+      <tr><td><code>GET /api/owner/churn-risk</code></td><td>Churn probability per brand</td></tr>
+      <tr><td><code>GET /api/owner/db-monitor</code></td><td>Database sizes + warnings</td></tr>
+      <tr><td><code>GET/POST /api/owner/maintenance</code></td><td>Maintenance mode on/off</td></tr>
+      <tr><td><code>GET/DELETE /api/owner/sessions</code></td><td>View + force-kill sessions</td></tr>
+      <tr><td><code>GET/POST /api/owner/prospects</code></td><td>Prospect CRM</td></tr>
+      <tr><td><code>POST /api/owner/referral/generate/:slug</code></td><td>Generate referral link</td></tr>
+      <tr><td><code>GET /api/owner/export-csv</code></td><td>Export all brands as CSV</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 5: DATA MODELS                                                         -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-data">
+  <div class="page-title">🗄 Data Models — Complete</div>
+  <div class="page-sub">Every field in every object stored in Resolvo's SQLite databases</div>
+
+  <div class="section">
+    <div class="section-title">Issue Object</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td>string</td><td>ISS-0001 (brand-scoped sequential)</td></tr>
+      <tr><td><code>title</code></td><td>string</td><td>Issue title</td></tr>
+      <tr><td><code>description</code></td><td>string</td><td>Full description</td></tr>
+      <tr><td><code>priority</code></td><td>Critical/High/Medium/Low</td><td>Sets SLA hours</td></tr>
+      <tr><td><code>status</code></td><td>Open/Acknowledged/WIP/Testing/Resolved/Closed/Blocked</td><td>Lifecycle stage</td></tr>
+      <tr><td><code>module</code></td><td>string</td><td>API/Dashboard/Auth etc</td></tr>
+      <tr><td><code>assignedTo</code></td><td>email</td><td>Developer email</td></tr>
+      <tr><td><code>raisedBy</code></td><td>email</td><td>Who created</td></tr>
+      <tr><td><code>slaHours</code></td><td>number</td><td>Hours until breach</td></tr>
+      <tr><td><code>slaExtraMs</code></td><td>number</td><td>Extra time from SLA pause</td></tr>
+      <tr><td><code>createdDate</code></td><td>ISO8601</td><td>Creation timestamp</td></tr>
+      <tr><td><code>resolvedDate</code></td><td>ISO8601 or null</td><td>Resolution timestamp</td></tr>
+      <tr><td><code>revenueImpact</code></td><td>number</td><td>₹ at risk</td></tr>
+      <tr><td><code>impactScore</code></td><td>0-100</td><td>Combined impact score</td></tr>
+      <tr><td><code>approvalStatus</code></td><td>pending/approved/rejected</td><td>Approval workflow</td></tr>
+      <tr><td><code>possibleRegression</code></td><td>boolean</td><td>AI detected regression</td></tr>
+      <tr><td><code>qaSignoff</code></td><td>object</td><td>{passed, notes, signedBy}</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ticket Object</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td>string</td><td>TKT-XXXXXXXX</td></tr>
+      <tr><td><code>subject</code></td><td>string</td><td>Email subject</td></tr>
+      <tr><td><code>from</code></td><td>email</td><td>Customer email</td></tr>
+      <tr><td><code>fromName</code></td><td>string</td><td>Customer display name</td></tr>
+      <tr><td><code>status</code></td><td>new/open/pending/resolved/closed</td><td>Ticket lifecycle</td></tr>
+      <tr><td><code>priority</code></td><td>Critical/High/Medium/Low</td><td>Auto-detected from keywords</td></tr>
+      <tr><td><code>assignedTo</code></td><td>email</td><td>Agent email (queue-assigned)</td></tr>
+      <tr><td><code>thread</code></td><td>array</td><td>[{type:incoming/reply/note, from, body, timestamp}]</td></tr>
+      <tr><td><code>timeline</code></td><td>array</td><td>Full DNA audit [{event, by, at, detail}]</td></tr>
+      <tr><td><code>checklist</code></td><td>array</td><td>[{id, text, done, doneBy, doneAt}]</td></tr>
+      <tr><td><code>watchers</code></td><td>string[]</td><td>Agent emails watching this ticket</td></tr>
+      <tr><td><code>cc</code></td><td>string[]</td><td>CC email addresses</td></tr>
+      <tr><td><code>firstResponseAt</code></td><td>ISO8601</td><td>First agent reply timestamp</td></tr>
+      <tr><td><code>firstResponseMinutes</code></td><td>number</td><td>Minutes to first response</td></tr>
+      <tr><td><code>slaPaused</code></td><td>boolean</td><td>SLA timer paused</td></tr>
+      <tr><td><code>slaExtraMs</code></td><td>number</td><td>Accumulated pause time</td></tr>
+      <tr><td><code>csatSent</code></td><td>boolean</td><td>CSAT email sent</td></tr>
+      <tr><td><code>csatRating</code></td><td>yes/no</td><td>Customer response</td></tr>
+      <tr><td><code>csatScore</code></td><td>0 or 100</td><td>Numeric for aggregation</td></tr>
+      <tr><td><code>sentimentScore</code></td><td>0-100</td><td>0=angry, 100=happy</td></tr>
+      <tr><td><code>isVIP</code></td><td>boolean</td><td>Customer is VIP</td></tr>
+      <tr><td><code>followUpAt</code></td><td>date string</td><td>Scheduled follow-up date</td></tr>
+      <tr><td><code>slaPromiseDate</code></td><td>ISO8601</td><td>Promised resolution date</td></tr>
+      <tr><td><code>parentId</code></td><td>ticket id</td><td>Parent ticket (hierarchy)</td></tr>
+      <tr><td><code>children</code></td><td>string[]</td><td>Child ticket IDs</td></tr>
+      <tr><td><code>source</code></td><td>email/manual/widget/booking/recurring</td><td>How ticket was created</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">User Object</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td>USR-XXXXXXXX</td></tr>
+      <tr><td><code>email</code></td><td>Login email (unique per brand)</td></tr>
+      <tr><td><code>name</code></td><td>Display name</td></tr>
+      <tr><td><code>role</code></td><td>Admin/Developer/CS/Sales/QA/Product/Viewer</td></tr>
+      <tr><td><code>team</code></td><td>Team name for grouping</td></tr>
+      <tr><td><code>passwordHash</code></td><td>bcrypt hash (cost 10)</td></tr>
+      <tr><td><code>maxTickets</code></td><td>Queue bucket size (default 10)</td></tr>
+      <tr><td><code>availabilityStatus</code></td><td>available/busy/away</td></tr>
+      <tr><td><code>notifyPrefs</code></td><td>{onAssigned, onStatusChange, onCriticalOnly, onSLABreach...}</td></tr>
+      <tr><td><code>twoFAEnabled</code></td><td>boolean — TOTP active</td></tr>
+      <tr><td><code>twoFASecret</code></td><td>base32 TOTP secret</td></tr>
+      <tr><td><code>firstLogin</code></td><td>true = must change password</td></tr>
+      <tr><td><code>active</code></td><td>false = deactivated (soft delete)</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 6: SECURITY                                                            -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-security">
+  <div class="page-title">🔐 Security Architecture</div>
+  <div class="page-sub">Every security layer protecting Resolvo and its brands</div>
+
+  <div class="section">
+    <div class="section-title">Authentication Layers</div>
+    <div class="grid-2">
+      <div class="card"><div class="card-title" style="color:var(--cyan);">Password Security</div><div class="card-body">
+        <div class="item"><span>→</span><strong>bcrypt cost factor 10</strong> — ~100ms hash time</div>
+        <div class="item"><span>→</span>Legacy plain-text auto-migrated on first login</div>
+        <div class="item"><span>→</span>Min 6 chars enforced at API level</div>
+        <div class="item"><span>→</span>Reset tokens stored in owner.json (persistent)</div>
+        <div class="item"><span>→</span>Reset tokens expire in 1 hour</div>
+        <div class="item"><span>→</span>Token deleted after single use</div>
+        <div class="item"><span>→</span>mustChangePassword flag for first-time users</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--violet);">Session Security</div><div class="card-body">
+        <div class="item"><span>→</span>UUID v4 session tokens (128-bit entropy)</div>
+        <div class="item"><span>→</span>8 hour TTL (30 days with remember-me)</div>
+        <div class="item"><span>→</span>Stored in memory Map — server restart = logout</div>
+        <div class="item"><span>→</span>Owner can force-kill any session</div>
+        <div class="item"><span>→</span>Brand slug baked into session (cannot change)</div>
+        <div class="item"><span>→</span>Feature flags resolved at login time</div>
+        <div class="item"><span>→</span>isOwner flag — separate owner vs brand sessions</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--amber);">Rate Limiting</div><div class="card-body">
+        <div class="item"><span>→</span>5 failed login attempts per IP per 15 minutes</div>
+        <div class="item"><span>→</span>Stored in memory <code>loginAttempts{}</code></div>
+        <div class="item"><span>→</span>IP from req.ip (trust proxy enabled for ngrok)</div>
+        <div class="item"><span>→</span>Returns 429 with retry-after message</div>
+        <div class="item"><span>→</span>Auto-clears after 15 minute window</div>
+      </div></div>
+      <div class="card"><div class="card-title" style="color:var(--green);">Two-Factor Auth (2FA)</div><div class="card-body">
+        <div class="item"><span>→</span>TOTP (Time-based One-Time Password)</div>
+        <div class="item"><span>→</span>Compatible with Google Authenticator, Authy</div>
+        <div class="item"><span>→</span>QR code generated via QR server API</div>
+        <div class="item"><span>→</span>30-second window (±1 token accepted)</div>
+        <div class="item"><span>→</span>Secret stored as base32 in user object</div>
+        <div class="item"><span>→</span>Disable requires current password verification</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Data Isolation</div>
+    <div class="flow-wrap">
+      <div class="highlight" style="margin:0 0 16px;">
+        <strong>Complete brand isolation:</strong> Every API call uses <code>su.brandSlug</code> from the session token to scope all database reads/writes. A brand user physically cannot read another brand's data — the slug is baked into their session at login and cannot be changed by the client.
+      </div>
+      <table class="tbl">
+        <tr><th>Layer</th><th>Isolation Mechanism</th></tr>
+        <tr><td>Database</td><td>Separate SQLite file per brand: <code>data/brands/:slug/db.sqlite</code></td></tr>
+        <tr><td>Session</td><td><code>brandSlug</code> in session token — set at login, immutable</td></tr>
+        <tr><td>API calls</td><td><code>const slug = su.brandSlug</code> — all reads/writes use this</td></tr>
+        <tr><td>Email</td><td><code>sendBrandEmail(slug,...)</code> uses brand's own SMTP</td></tr>
+        <tr><td>Feature flags</td><td>Resolved per brand at login — different for each brand</td></tr>
+        <tr><td>IMAP pollers</td><td>One cron job per brand slug — complete separation</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">API Keys Security</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Aspect</th><th>Implementation</th></tr>
+      <tr><td>Key format</td><td><code>rslv_{slug}_{48_hex_chars}</code> — 160-bit entropy</td></tr>
+      <tr><td>Storage</td><td>Full key stored in <code>db.apiKeys[]</code>, shown once at creation</td></tr>
+      <tr><td>Display</td><td>First 8 + ••••••••• + last 4 chars shown in UI</td></tr>
+      <tr><td>Transport</td><td><code>Authorization: Bearer YOUR_KEY</code> header</td></tr>
+      <tr><td>Revocation</td><td>Set <code>active: false</code> — immediately stops working</td></tr>
+      <tr><td>Permissions</td><td>read/write array — future granular control</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 7: CORE FLOWS                                                          -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-flows">
+  <div class="page-title">🔄 Core System Flows</div>
+  <div class="page-sub">Step-by-step breakdown of the most important operations</div>
+
+  <div class="section">
+    <div class="section-title">Feature Flag Resolution (Every Login)</div>
+    <div class="flow-wrap">
+      <div class="flow">
+        <div class="box start">User logs in</div><div class="arr">→</div>
+        <div class="box">Find brand by slug</div><div class="arr">→</div>
+        <div class="box system">TIER_FEATURES[brand.tier]<br><small>Free/Pro/Enterprise defaults</small></div><div class="arr">+</div>
+        <div class="box">db.featureFlags<br><small>Always {} (blocked)</small></div><div class="arr">+</div>
+        <div class="box owner">brand.featureOverrides<br><small>Owner-set overrides</small></div><div class="arr">=</div>
+        <div class="box end">resolvedFeatureFlags<br><small>Baked into session</small></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--t3);">These flags travel with every request. UI hides tabs. API returns errors. Zero bypass possible.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Issue SLA Calculation</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Step</th><th>Formula</th></tr>
+      <tr><td>SLA deadline</td><td><code>new Date(createdDate) + slaHours * 3600000 + slaExtraMs</code></td></tr>
+      <tr><td>Hours remaining</td><td><code>(slaDeadline - now) / 3600000</code></td></tr>
+      <tr><td>SLA breached</td><td><code>now > slaDeadline AND status not in [Resolved, Release Required, Closed]</code></td></tr>
+      <tr><td>SLA at risk</td><td><code>hoursRemaining > 0 AND hoursRemaining &lt; slaHours * 0.2</code></td></tr>
+      <tr><td>Compliance %</td><td><code>(openIssues - breached) / openIssues * 100</code></td></tr>
+      <tr><td>SLA pause</td><td><code>slaExtraMs += (now - pausedAt)</code> when resumed</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ticket Sentiment Analysis</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Input</th><th>Weight</th><th>Example</th></tr>
+      <tr><td>Base score</td><td>+60</td><td>Neutral starting point</td></tr>
+      <tr><td>Angry words</td><td>-8 each</td><td>"lawsuit", "cancel", "terrible", "refund"</td></tr>
+      <tr><td>Worried words</td><td>-3 each</td><td>"frustrated", "urgent", "deadline"</td></tr>
+      <tr><td>CAPS words (3+ chars)</td><td>-2 each</td><td>URGENT, BROKEN, HELP</td></tr>
+      <tr><td>Exclamation marks</td><td>-1.5 each</td><td>!!!</td></tr>
+      <tr><td>Score &lt; 30</td><td>→ Critical + flag</td><td>Auto-escalate to Critical priority</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Issue Impact Score</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
+      <tr><td>Priority</td><td>40pts</td><td>Critical=40, High=25, Medium=10, Low=5</td></tr>
+      <tr><td>Age</td><td>30pts</td><td>min(30, ageInDays * 5)</td></tr>
+      <tr><td>Revenue</td><td>20pts</td><td>min(20, revenueImpact / 1000)</td></tr>
+      <tr><td>SLA breach</td><td>10pts</td><td>+10 if breached, 0 otherwise</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>100</strong></td><td>0=irrelevant, 80+=critical impact</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 8: EMAIL SYSTEM                                                        -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-email">
+  <div class="page-title">📧 Email System — Complete</div>
+  <div class="page-sub">Every email sent by Resolvo, its routing, template, and trigger</div>
+
+  <div class="section">
+    <div class="section-title">Email Architecture</div>
+    <div class="flow-wrap">
+      <div class="grid-2">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--cyan);margin-bottom:10px;">sendBrandEmail(slug, to, subject, html)</div>
+          <div class="card-body">
+            <div class="item"><span>1</span>Read brand's db.settings.BRAND_NOTIFY_EMAIL</div>
+            <div class="item"><span>2</span>If configured → create/reuse brand SMTP connection</div>
+            <div class="item"><span>3</span>FROM: "BrandName" &lt;brand@email.com&gt;</div>
+            <div class="item"><span>4</span>If not configured → fall back to sendEmail()</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:10px;">sendEmail(to, subject, html)</div>
+          <div class="card-body">
+            <div class="item"><span>1</span>Uses EMAIL_USER from .env</div>
+            <div class="item"><span>2</span>FROM: "Resolvo" &lt;contact@resolvogroup.com&gt;</div>
+            <div class="item"><span>3</span>Reply-To: contact@resolvogroup.com</div>
+            <div class="item"><span>4</span>For owner-level communications only</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Complete Email Catalog</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Email</th><th>Trigger</th><th>To</th><th>From</th></tr>
+      <tr><td>Welcome (brand admin)</td><td>addUser()</td><td>New team member</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Password reset</td><td>forgot-password API</td><td>User</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Issue assigned</td><td>createIssue()</td><td>Developer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Issue status update</td><td>updateIssueStatus()</td><td>Assignee + raiser</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>@Mention in comment</td><td>addComment()</td><td>Mentioned user</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Ticket reply to customer</td><td>replyToTicket()</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>CC recipients on ticket reply</td><td>replyToTicket()</td><td>CC emails</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Ticket watcher notification</td><td>replyToTicket()</td><td>Watchers</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>CSAT survey on resolve</td><td>updateTicketStatus(resolved)</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Auto-resolve reply</td><td>Auto-resolve rule match</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Appointment confirmation</td><td>POST /book/:slug</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Appointment cancellation</td><td>cancelAppointment()</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Appointment 1h reminder</td><td>Cron job (every 15min)</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Follow-up nudge</td><td>Cron job (8am daily)</td><td>Agent</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Nurture Day 1/3/7/14</td><td>Cron job (10am daily)</td><td>Brand admin</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Approval requested</td><td>requestApproval()</td><td>Approver</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Approval result</td><td>approveIssue()</td><td>Requester</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>Daily agent digest</td><td>Cron job (9am) or manual</td><td>All agents</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td>SLA Promise to customer</td><td>setTicketSLAPromise()</td><td>Customer</td><td><span class="badge b-green">Brand</span></td></tr>
+      <tr><td colspan="4" style="background:rgba(251,191,36,.04);color:var(--amber);font-weight:700;padding:8px 12px;">Owner-Level Emails (from contact@resolvogroup.com)</td></tr>
+      <tr><td>Self-signup welcome</td><td>POST /api/signup</td><td>New brand admin</td><td><span class="badge b-amber">Owner</span></td></tr>
+      <tr><td>New signup alert</td><td>POST /api/signup</td><td>Owner</td><td><span class="badge b-amber">Owner</span></td></tr>
+      <tr><td>Demo request</td><td>POST /api/demo-request</td><td>Owner + prospect</td><td><span class="badge b-amber">Owner</span></td></tr>
+      <tr><td>Trial expiry warning</td><td>Cron job</td><td>Brand admin</td><td><span class="badge b-amber">Owner</span></td></tr>
+      <tr><td>Bulk announcement</td><td>Owner Portal</td><td>All brand admins</td><td><span class="badge b-amber">Owner</span></td></tr>
+      <tr><td>Brand support reply</td><td>Owner replies to support ticket</td><td>Brand admin</td><td><span class="badge b-amber">Owner</span></td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">IMAP Polling — Spam Filter Rules</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Type</th><th>Pattern</th><th>Example</th></tr>
+      <tr><td>Sender username</td><td><code>mailer-daemon, postmaster, noreply, bounce, daemon</code></td><td>mailer-daemon@gmail.com</td></tr>
+      <tr><td>Subject patterns</td><td><code>Delivery Status, Undeliverable, Auto-reply, Out of office</code></td><td>"Delivery Status Notification"</td></tr>
+      <tr><td>Custom blocklist</td><td>db.emailTicketing.senderBlocklist</td><td>Specific emails/domains admin blocks</td></tr>
+      <tr><td>Already processed</td><td>db.processedEmailIds (last 5000)</td><td>messageId dedup</td></tr>
+      <tr><td>Auto-resolve rules</td><td>Subject/sender regex patterns</td><td>Close "Out of office" replies</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 9: QUEUE ENGINE                                                        -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-queue">
+  <div class="page-title">🎯 Smart Queue Engine — Complete</div>
+  <div class="page-sub">How tickets get auto-assigned to agents</div>
+
+  <div class="section">
+    <div class="section-title">Queue Decision Tree (autoAssignAgent function)</div>
+    <div class="flow-wrap">
+      <div class="flow-v" style="max-width:560px;gap:0;">
+        <div class="box start" style="width:100%;">New ticket arrives (email or manual)</div><div class="arr-d">↓</div>
+        <div class="box decide" style="width:100%;">⟡ Queue enabled AND not frozen?</div>
+        <div class="fork" style="width:100%;margin-top:6px;">
+          <div class="fork-item" style="flex:1;"><div class="fork-label">NO</div><div class="box danger" style="font-size:11px;">Return null<br>(unassigned)</div></div>
+          <div class="fork-item" style="flex:2;">
+            <div class="fork-label">YES</div>
+            <div class="flow-v" style="width:100%;">
+              <div class="box decide" style="width:100%;">⟡ Any routing rules match?<br><small>keyword/domain/email/priority/time</small></div>
+              <div class="fork" style="margin-top:6px;width:100%;">
+                <div class="fork-item" style="flex:1;"><div class="fork-label">YES</div><div class="box brand" style="font-size:11px;">Assign to rule's agent<br><small>if available</small></div></div>
+                <div class="fork-item" style="flex:1;">
+                  <div class="fork-label">NO</div>
+                  <div class="flow-v">
+                    <div class="box decide" style="font-size:11px;">⟡ Mode?</div>
+                    <div class="fork" style="margin-top:4px;">
+                      <div class="fork-item"><div class="fork-label">Round Robin</div><div class="box" style="font-size:10px;">Next agent<br>by lastIndex</div></div>
+                      <div class="fork-item"><div class="fork-label">Least Busy</div><div class="box" style="font-size:10px;">Most capacity<br>left</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="arr-d" style="margin-top:6px;">↓</div>
+              <div class="box decide" style="width:100%;">⟡ Agent: active + available + under maxTickets?</div>
+              <div class="fork" style="margin-top:6px;width:100%;">
+                <div class="fork-item" style="flex:1;"><div class="fork-label">NO</div><div class="box danger" style="font-size:11px;">Skip → try next<br>→ return null</div></div>
+                <div class="fork-item" style="flex:1;"><div class="fork-label">YES</div><div class="box end" style="font-size:11px;">Assign + status→open<br>lastIndex++</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">5 Routing Rule Types</div>
+    <div class="grid-2"><table class="tbl">
+      <tr><th>Type</th><th>Match Condition</th><th>Example</th></tr>
+      <tr><td>keyword</td><td>ticket.subject contains keyword</td><td>"billing" → finance agent</td></tr>
+      <tr><td>domain</td><td>ticket.from ends with @domain</td><td>"enterprise.com" → senior agent</td></tr>
+      <tr><td>email</td><td>ticket.from exactly matches</td><td>"ceo@bigco.com" → manager</td></tr>
+      <tr><td>priority</td><td>ticket.priority matches</td><td>Critical → most available agent</td></tr>
+      <tr><td>time</td><td>current hour between startHour-endHour</td><td>9am-6pm → day shift agent</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Queue Pull on Resolve (Bucket Fill)</div>
+    <div class="flow-wrap">
+      <div class="flow">
+        <div class="box start">Agent resolves ticket</div><div class="arr">→</div>
+        <div class="box decide">⟡ Queue enabled?</div><div class="arr">→</div>
+        <div class="box system">Find oldest unassigned 'new' ticket<br><small>Skip spam senders</small></div><div class="arr">→</div>
+        <div class="box decide">⟡ Agent has capacity?</div><div class="arr">→</div>
+        <div class="box brand">Assign to same agent<br><small>(prefer who just resolved)</small></div><div class="arr">→</div>
+        <div class="box end">Agent auto-navigates<br><small>to next ticket in 1.5s</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 10: BACKGROUND JOBS                                                   -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-jobs">
+  <div class="page-title">⏰ Background Jobs — All Cron Tasks</div>
+  <div class="page-sub">Every automated task running in the background</div>
+
+  <div class="section">
+    <div class="section-title">Complete Cron Schedule</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Schedule</th><th>Job</th><th>What It Does</th></tr>
+      <tr><td><code>*/2 * * * *</code><br><small>Every 2 min</small></td><td>IMAP Email Pollers</td><td>For each active brand with emailTicketing.enabled: connect IMAP, fetch UNSEEN emails since enabledAt, run spam filter, create tickets, auto-assign via queue. One poller per brand slug.</td></tr>
+      <tr><td><code>*/15 * * * *</code><br><small>Every 15 min</small></td><td>Appointment Reminders</td><td>Find appointments in next 1 hour with reminderSent=false. Send reminder email (sendBrandEmail). Mark reminderSent=true.</td></tr>
+      <tr><td><code>0 8 * * *</code><br><small>8am daily</small></td><td>Follow-up Nudges</td><td>Find tickets with followUpAt = today AND followUpDone=false AND assignedTo set. Send nudge email to agent (sendBrandEmail).</td></tr>
+      <tr><td><code>0 9 * * *</code><br><small>9am daily</small></td><td>Daily Agent Digest</td><td>For each brand with digestConfig.enabled: for each active user: compile open tickets + today's appointments + overdue follow-ups → send personalized digest email.</td></tr>
+      <tr><td><code>0 10 * * *</code><br><small>10am daily</small></td><td>Nurture Email Sequence</td><td>For each active brand: check daysSinceCreated. Match against Day 1/3/7/14 templates. If match and not already sent → send email, record in owner.nurtureSent{}.</td></tr>
+      <tr><td><code>0 9 * * 1</code><br><small>Monday 9am</small></td><td>Trial Expiry Check</td><td>Check brands on Trial tier approaching 14-day expiry. Send warning emails to brand admins at 3 days and 1 day remaining.</td></tr>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Real-Time Triggers (Not Cron)</div>
+    <div class="flow-wrap"><table class="tbl">
+      <tr><th>Trigger</th><th>What Happens</th></tr>
+      <tr><td>Ticket status → Terminal status</td><td>1. <code>resolvedDate</code> stamped · 2. SLA timer stops · 3. CSAT email auto-sent · 4. Queue pulls next ticket · 5. Agent auto-navigated</td></tr>
+      <tr><td>Ticket status → Requires Classification</td><td>Agent prompted to pick Type + Disposition before status change is saved</td></tr>
+      <tr><td>Agent goes Away</td><td>All their open tickets redistributed to available agents</td></tr>
+      <tr><td>New self-signup</td><td>Brand created · Welcome email · Owner notified · Nurture timer starts</td></tr>
+      <tr><td>Issue created (Critical)</td><td>Assignee notified · Global webhook fired · Owner webhook fired</td></tr>
+      <tr><td>Ticket created (sentiment &lt; 30)</td><td>Priority auto-escalated to Critical · autoEscalated flag set</td></tr>
+      <tr><td>Ticket created (VIP customer)</td><td>VIP tag added · Admin instant notification</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 11: RECENT CHANGES                                                     -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="tab-changes">
+  <div class="page-title">🆕 Recent Architecture Changes</div>
+  <div class="page-sub">New systems, data models, and flows added in the latest build cycle</div>
+
+  <div class="section">
+    <div class="section-title">Custom Ticket Status System</div>
+    <div class="highlight">Replaces the hardcoded 5-status pipeline with a fully configurable status engine per brand.</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📦 Data Model — <code>db.statusConfig[]</code></div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">🔑</span><div><strong>id</strong> — slug (e.g. <code>waiting-customer</code>)</div></div>
+          <div class="item"><span class="item-icon">🏷</span><div><strong>label</strong> — display name (e.g. "Waiting on Customer")</div></div>
+          <div class="item"><span class="item-icon">🎨</span><div><strong>color</strong> — hex color shown in badge + sidebar</div></div>
+          <div class="item"><span class="item-icon">🔢</span><div><strong>order</strong> — pipeline sort position</div></div>
+          <div class="item"><span class="item-icon">🔴</span><div><strong>isTerminal</strong> — if true: stamps <code>resolvedDate</code>, stops SLA, triggers CSAT</div></div>
+          <div class="item"><span class="item-icon">📋</span><div><strong>requireClassification</strong> — if true: agent must pick Type + Disposition first</div></div>
+          <div class="item"><span class="item-icon">💬</span><div><strong>triggersCsat</strong> — set automatically when isTerminal = true</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Server Logic Changes</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><code>updateTicketStatus</code> — reads <code>isTerminal</code>/<code>triggersCsat</code> from <code>db.statusConfig</code> instead of hardcoded <code>status==='resolved'</code></div></div>
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><code>getTickets</code> — dynamic per-status counts from custom statusConfig</div></div>
+          <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><code>getStatusConfig</code> / <code>saveStatusConfig</code> — read/write <code>db.statusConfig</code> with 7 safe defaults</div></div>
+          <div class="item"><span class="item-icon" style="color:var(--amber);">→</span><div>All status comparisons now dynamic — adding a new terminal status just works</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Download Data / Export System</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🖥️ Frontend — Two-Column Layout</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">◀</span><div><strong>Left:</strong> History table (PAGE · FILTERS · FORMAT · DATE RANGE · RECORDS · DOWNLOAD)</div></div>
+          <div class="item"><span class="item-icon">▶</span><div><strong>Right:</strong> New Download form (date range, template, agent, status, priority, format)</div></div>
+          <div class="item"><span class="item-icon">💾</span><div>History persisted in <code>localStorage</code> key <code>resolvo_export_history</code> (max 50 entries)</div></div>
+          <div class="item"><span class="item-icon">🔁</span><div>DOWNLOAD button on history rows re-runs same export with original params</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Server — <code>exportData</code> Handler</div>
+        <div class="card-body">
+          <div class="item"><span class="item-icon">🎫</span><div><strong>tickets</strong> dataset — 15 columns CSV / JSON. Filters: status, priority, agent, source, date range.</div></div>
+          <div class="item"><span class="item-icon">⭐</span><div><strong>csat</strong> dataset — any non-null <code>csatRating</code>. Columns: Ticket ID, Subject, Customer Email, Customer Name, Rating, Survey Date, Resolved Date, Agent.</div></div>
+          <div class="item"><span class="item-icon">🔐</span><div>Admin-only. Date filter uses <code>resolvedDate || lastActivity || createdDate</code> fallback chain.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Settings Navigation Redesign</div>
+    <div class="card">
+      <div class="card-title">🗺️ Two Navigation Modes</div>
+      <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;text-transform:uppercase;">Card Grid Mode (from Settings nav)</div>
+          <div class="item"><span class="item-icon">1</span><div>Click Settings → card grid home renders</div></div>
+          <div class="item"><span class="item-icon">2</span><div>Card click sets <code>App._fromSettingsGrid = true</code></div></div>
+          <div class="item"><span class="item-icon">3</span><div>Panel renders content-only: breadcrumb + content, NO sidebar tabs</div></div>
+          <div class="item"><span class="item-icon">4</span><div>← All Settings resets flag, returns to grid</div></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--violet);margin-bottom:8px;text-transform:uppercase;">Sidebar Mode (from main nav shortcuts)</div>
+          <div class="item"><span class="item-icon">1</span><div><code>_fromSettingsGrid</code> is false (not set by shortcut)</div></div>
+          <div class="item"><span class="item-icon">2</span><div>Full two-column: 195px sidebar tabs + content panel</div></div>
+          <div class="item"><span class="item-icon">3</span><div>← All Settings link in sidebar returns to grid</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Timestamp Display Fix — IST Timezone</div>
+    <div class="card">
+      <div class="card-title">🕐 <code>App._fmtDT()</code> Helper</div>
+      <div class="card-body">
+        <div class="item"><span class="item-icon" style="color:var(--red);">✗</span><div><strong>Before:</strong> Raw string slicing <code>t.createdDate.replace('T',' ').substring(0,16)</code> — showed UTC, caused "55 min ago" for 6-day-old tickets</div></div>
+        <div class="item"><span class="item-icon" style="color:var(--green);">✓</span><div><strong>After:</strong> <code>dt.toLocaleString('en-IN', {hour12:true})</code> — browser converts UTC → IST automatically</div></div>
+        <div class="item"><span class="item-icon">📍</span><div>Applied across: ticket inbox, ticket detail, reports, export history, timeline events</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function go(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>

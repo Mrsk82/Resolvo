@@ -155,6 +155,21 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
   #content{padding:24px;}
 }
 </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-27BVPWPG8N");</script>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://app.resolvogroup.com/learn">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Resolvo">
+<meta property="og:title" content="Resolvo — Learning Center">
+<meta property="og:description" content="All-in-one support & issue tracking for startups. Replaces Freshdesk, Jira & Intercom.">
+<meta property="og:url" content="https://app.resolvogroup.com/learn">
+<meta property="og:image" content="https://app.resolvogroup.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Resolvo — Learning Center">
+<meta name="twitter:description" content="All-in-one support & issue tracking for startups. Replaces Freshdesk, Jira & Intercom.">
+<meta name="twitter:image" content="https://app.resolvogroup.com/og-image.png">
 </head>
 <body>
 
@@ -246,6 +261,37 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
   </div>
 
   <div class="sb-section">
+    <div class="sb-section-title">Queue & Appointments</div>
+    <a class="sb-item" onclick="showModule('queue')" href="#">
+      <div class="sb-check" id="chk-queue"></div><span>🔄 Smart Queue</span>
+    </a>
+    <a class="sb-item" onclick="showModule('appointments')" href="#">
+      <div class="sb-check" id="chk-appointments"></div><span>📅 Appointments</span>
+    </a>
+    <a class="sb-item" onclick="showModule('tasks')" href="#">
+      <div class="sb-check" id="chk-tasks"></div><span>✅ Tasks & Follow-ups</span>
+    </a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Integrations & API</div>
+    <a class="sb-item" onclick="showModule('api-tokens')" href="#">
+      <div class="sb-check" id="chk-api-tokens"></div><span>🔑 API Tokens</span>
+    </a>
+    <a class="sb-item" onclick="showModule('slack-alerts')" href="#">
+      <div class="sb-check" id="chk-slack-alerts"></div><span>💬 Slack Alerts</span>
+    </a>
+    <a class="sb-item" onclick="showModule('ticket-sources')" href="#">
+      <div class="sb-check" id="chk-ticket-sources"></div><span>🌐 Ticket Sources & Widget</span>
+    </a>
+  </div>
+  <div class="sb-section">
+    <div class="sb-section-title">New Features</div>
+    <a class="sb-item" onclick="showModule('new-features')" href="#">
+      <div class="sb-check" id="chk-new-features"></div><span>🆕 New Features Guide</span>
+    </a>
+  </div>
+  <div class="sb-section">
     <div class="sb-section-title">Reference</div>
     <a class="sb-item" onclick="showModule('cheatsheet')" href="#">
       <div class="sb-check" id="chk-cheatsheet"></div><span>📋 Full Feature Cheatsheet</span>
@@ -271,10 +317,10 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     <div class="module active" id="mod-quickstart">
       <div class="learn-hero">
         <h1>Welcome to Resolvo 👋</h1>
-        <p>This Learning Center walks you through every feature of the platform — from creating your first issue to setting up AI-powered email ticketing and reading forecasts. Complete each module to master Resolvo in under an hour.</p>
+        <p>This Learning Center walks you through every feature — from your first issue to queue management, customer portal, knowledge base, custom statuses, data export, and AI-powered analytics.</p>
         <div class="hero-meta">
-          <span>📚 12 Modules</span>
-          <span>⏱ ~45 min total</span>
+          <span>📚 19 Modules</span>
+          <span>⏱ ~90 min total</span>
           <span>✅ Track your progress</span>
           <span>🖥 Works on all screens</span>
         </div>
@@ -1017,13 +1063,455 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
     </div>
 
     <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: QUEUE                              -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-queue">
+      <div class="learn-hero">
+        <h1>🔄 Smart Queue Engine</h1>
+        <p>Auto-assign tickets to agents using round robin, skill-based, priority, domain, and time-based routing — with admin controls to manage any agent's workload.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>🔄 18 features</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Setting Up the Queue</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Go to Settings → 🔄 Assignment Queue</h4><p>Enable auto-assignment and choose distribution mode: <strong>Round Robin</strong> (rotate evenly) or <strong>Least Busy</strong> (assign to agent with most capacity).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Add Agents</h4><p>Check the agents you want in the queue rotation. You'll see their live capacity bar (current open tickets vs max). Uncheck to exclude someone temporarily.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Click "⚡ Distribute Now"</h4><p>If you have existing unassigned tickets, click the green Distribute button to spread them to all agents instantly. Future tickets auto-assign on arrival.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Bucket Fill:</strong> When an agent resolves a ticket, the system automatically pulls the next unassigned ticket to fill their bucket to capacity. Agents always have the right amount of work.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Routing Rules</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>🎯 Keyword Routing</h4><p>Subject contains "billing" → route to finance agent. Set in Settings → Queue → Routing Rules.</p></div>
+          <div class="feat-card"><h4>🌐 Domain Routing</h4><p>Emails from enterprise.com → dedicated account manager automatically.</p></div>
+          <div class="feat-card"><h4>🚨 Priority Routing</h4><p>Critical tickets always go to the agent with most available capacity.</p></div>
+          <div class="feat-card"><h4>⏰ Time Routing</h4><p>9am-6pm → Day shift agent. 6pm-10pm → Evening agent. Set by hour.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Admin Queue Controls</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>🟢🟡🔴 Set Agent Status</h4><p>Admin can change any agent's status: Available / Busy / Away. Away agents are skipped in rotation and their tickets redistributed.</p></div>
+          <div class="feat-card"><h4>↩ Drain Agent Queue</h4><p>Move ALL of an agent's open tickets back to unassigned pool in one click. Great when an agent goes on leave.</p></div>
+          <div class="feat-card"><h4>↩ Return Single Ticket</h4><p>In any ticket detail, admin can click ↩ Unassign to return that ticket to the pool.</p></div>
+          <div class="feat-card"><h4>❄ Freeze Queue</h4><p>Pause all auto-assignment instantly (e.g. during a system outage). Unfreeze to resume.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">My Queue — Agent View</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Ticket Inbox → My Tickets</h4><p>Shows only tickets assigned to you that are not resolved. This is your personal work queue.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Ticket Inbox → Unassigned</h4><p>Shows tickets nobody has taken. Click ✋ Take inside any ticket to self-assign it from the pool.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Auto-navigate on resolve</h4><p>When you mark a ticket resolved, the system waits 1.5s for the queue to assign the next ticket, then automatically opens it for you.</p></div></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('queue','appointments')">✓ Mark Complete — Next: Appointments →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: APPOINTMENTS                       -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-appointments">
+      <div class="learn-hero">
+        <h1>📅 Appointment Booking</h1>
+        <p>Let customers book appointments directly from a shareable link. Slots auto-create tickets, send confirmations, and reminders go out 1h before.</p>
+        <div class="hero-meta"><span>⏱ 6 min read</span><span>📅 Shareable booking page</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Setting Up Booking</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Settings → 📅 Appointment Booking</h4><p>Enable booking, set page title, slot duration (e.g. 30 min), and buffer between slots (e.g. 15 min).</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Set Working Hours</h4><p>For each day of the week, set start time, end time, and whether the day is available. Saturday/Sunday default to off.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Share the Booking Link</h4><p>Your booking page URL: <code>app.resolvogroup.com/book/your-brand</code>. Copy and share with customers via email, website, or WhatsApp.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">What Customers See</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Customer opens booking link</h4><p>Sees a clean form: Name, Email, Phone, Topic, Date picker, Time slot grid.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Picks a time slot</h4><p>Only available slots shown. Taken slots shown as strikethrough.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Confirmation email sent</h4><p>Customer receives a beautiful confirmation email with date, time, topic, and reference number.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Ticket auto-created</h4><p>A ticket is automatically created in your inbox tagged "appointment" with full booking details.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 1h Reminder:</strong> System automatically sends a reminder email to the customer 1 hour before their appointment. No manual action needed.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">Booking Link in Ticket Replies</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Click 📅 Book Call in reply box</h4><p>When replying to a ticket, click the "📅 Book Call" button. It inserts your booking link into the reply so the customer can schedule a call directly.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">View All Appointments</div>
+        <p style="color:var(--muted);font-size:14px;">Go to <strong>Reports → 📅 Appointments</strong> to see:</p>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Today's Schedule</h4><p>All appointments happening today, sorted by time. Never miss one.</p></div>
+          <div class="feat-card"><h4>Full Table</h4><p>All appointments with customer name, email, topic, status, and linked ticket.</p></div>
+          <div class="feat-card"><h4>🗓 My Calendar</h4><p>Click "🗓 Calendar" in any ticket → see your month's appointments in a clean calendar view.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('appointments','tasks')">✓ Mark Complete — Next: Tasks & Follow-ups →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TASKS & FOLLOW-UPS                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-tasks">
+      <div class="learn-hero">
+        <h1>✅ Tasks & Follow-ups</h1>
+        <p>Checklists inside tickets, scheduled follow-ups, SLA promises to customers, and a daily digest to keep your team on track.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">✅ Ticket Checklists</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Open any ticket → ✅ Checklist panel in sidebar</h4><p>Add tasks like: "Call customer", "Check server logs", "Send follow-up email". Each item has a checkbox.</p></div></div>
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Track progress</h4><p>A progress bar shows X/total items done. Ticket card shows the ratio so team leads can see at a glance how complete it is.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Best practice:</strong> When creating a ticket template, add standard checklist items so every agent follows the same process for that issue type.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⏰ Follow-up Scheduler</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>In ticket detail → click ⏰ Follow-up</h4><p>Set a date and optional note. E.g. "Follow up on Wednesday — check if customer received the fix."</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Get reminded</h4><p>On that date, the ticket appears in <strong>Reports → ⏰ Follow-ups Due</strong> highlighted in red. Background job also sends you an email at 8am.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Mark as done</h4><p>Once followed up, click "Done ✓" to clear it from your follow-up list.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📅 SLA Promise to Customer</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>In ticket detail → click 📅 Promise</h4><p>Set a date (and optional time). Customer receives an email: "We'll resolve your issue by Friday 5pm." This creates accountability and reduces follow-up calls.</p></div></div>
+        </div>
+        <div class="info"><strong>ℹ The promise date</strong> is shown in the ticket sidebar as a banner so agents always know what they committed to.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📋 Daily Agent Digest</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:12px;">Every morning at 9am, agents receive an email summary:</p>
+        <table class="shortcuts">
+          <tr><th>Section</th><th>What's included</th></tr>
+          <tr><td>📬 Open Tickets</td><td>Count + list of tickets assigned to you</td></tr>
+          <tr><td>📅 Appointments Today</td><td>All scheduled calls for today</td></tr>
+          <tr><td>⏰ Follow-ups Due</td><td>Any follow-ups you set that are due today</td></tr>
+        </table>
+        <div class="tip"><strong>💡 Enable it:</strong> Admin goes to Settings → Email & Ticketing → Digest Emails → Enable daily digest. Each active user gets their personalized summary.</div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('tasks','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
+    </div>
+
     <!-- MODULE: CHEATSHEET                         -->
     <!-- ═══════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: NEW FEATURES GUIDE                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-new-features">
+      <div class="learn-hero">
+        <h1>🆕 New Features Guide</h1>
+        <p>Everything added recently — Customer Portal, Knowledge Base, API Keys, 2FA, Approval Workflows, Roadmap, GDPR Tools, Cost Reports, Agent Coaching, and more.</p>
+        <div class="hero-meta"><span>⏱ 10 min read</span><span>🆕 15+ new features</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🌐 Customer Self-Service Portal</div>
+        <div class="section-sub">Your customers get their own login at <code>/portal/your-brand</code>. No more "what's the status of my ticket?" emails.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Share the portal URL</h4><p>URL: <code>app.resolvogroup.com/portal/konnect</code> — share with customers via email or your website.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Customer logs in with email OTP</h4><p>No password needed. Customer enters email → gets 6-digit code → sees all their tickets.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Submit new requests from portal</h4><p>Customer fills a form → ticket auto-created in your inbox → routed through your queue.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">💬 Embeddable Widget</div>
+        <div class="section-sub">Add a floating "Support" button to any website with one line of code.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Add one script tag to your website</h4><p><code>&lt;script src="app.resolvogroup.com/widget/konnect/embed.js"&gt;&lt;/script&gt;</code><br>A chat bubble appears. Customer fills name + message → ticket created instantly with page URL and browser info.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📖 Knowledge Base</div>
+        <div class="section-sub">Settings → 📖 Knowledge Base. Write FAQ articles. Publish them at <code>/kb/your-brand</code>. Reduces ticket volume by 30-40%.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Create Articles</h4><p>+ New Article → title, content (markdown), category, publish/draft toggle.</p></div>
+          <div class="feat-card"><h4>Track Views</h4><p>Each article shows view count. See which FAQs are most popular.</p></div>
+          <div class="feat-card"><h4>Draft Mode</h4><p>Write articles internally before publishing. Only published articles are public.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🗺 Public Roadmap</div>
+        <div class="section-sub">Settings → 🗺 Roadmap. Share what you're building. Customers vote on features.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Add roadmap items</h4><p>Status: Planned / In Progress / Shipped. Public or private. Customers see your roadmap at <code>/roadmap/your-brand</code> and can vote.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔑 API Keys</div>
+        <div class="section-sub">Settings → 🔑 API Keys. Integrate any external tool with Resolvo via REST API.</div>
+        <table class="shortcuts">
+          <tr><th>Endpoint</th><th>What it does</th></tr>
+          <tr><td>POST /api/v1/issues</td><td>Create issue from external system</td></tr>
+          <tr><td>GET /api/v1/tickets</td><td>Pull tickets into BI tools</td></tr>
+          <tr><td>POST /api/v1/tickets</td><td>Create ticket from website form</td></tr>
+        </table>
+        <div class="tip"><strong>💡 Authentication:</strong> Pass key as <code>Authorization: Bearer YOUR_KEY</code> header.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔒 Two-Factor Authentication (2FA)</div>
+        <div class="section-sub">Settings → 🔒 Two-Factor Auth. Adds extra security to your login.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Click "Enable 2FA"</h4><p>A QR code appears. Scan with Google Authenticator or Authy app.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Enter the 6-digit code</h4><p>Type the code from your authenticator app to verify and enable.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Every login requires the code</h4><p>After password, you'll be asked for the rotating 6-digit code.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">✅ Approval Workflows</div>
+        <div class="section-sub">Settings → ✅ Approval Workflows. Require sign-off before issues can be resolved.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Request Approval</h4><p>Inside any issue → click "Request Approval" → select approver → add note. Approver gets email.</p></div>
+          <div class="feat-card"><h4>Approve / Reject</h4><p>Approver opens Reports → ✅ Pending Approvals → one click to approve or reject with reason.</p></div>
+          <div class="feat-card"><h4>Auto-Resolve</h4><p>When approved, issue automatically moves to Resolved status.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🛡 GDPR & Privacy Tools</div>
+        <div class="section-sub">Settings → 🛡 GDPR & Privacy. Compliance tools for data rights.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Right to Erasure</h4><p>Enter customer email → click Erase. All ticket data for that email is permanently anonymized.</p></div>
+          <div class="feat-card"><h4>Data Export</h4><p>Export all data held for a specific customer as a JSON file. Send to them on request.</p></div>
+        </div>
+        <div class="warn"><strong>⚠ Erasure is irreversible.</strong> All ticket content from that email becomes "[deleted]". Cannot be undone.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">💰 Cost Report & Agent Coaching</div>
+        <div class="section-sub">Reports → 💰 Cost Report and 🎯 Agent Coaching</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Cost Report</h4><p>Enter hourly rate → see total support cost by agent and module. "API issues cost ₹1.2L/month to support."</p></div>
+          <div class="feat-card"><h4>Agent Coaching</h4><p>Performance insights per agent: CSAT trend, first response time, what to improve, what to celebrate.</p></div>
+          <div class="feat-card"><h4>Issue Impact Score</h4><p>Reports → 💥 Issue Impact. Every open issue ranked 0-100 by combined priority + age + revenue + SLA.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔔 In-App Notifications</div>
+        <div class="section-sub">Bell icon in top-right. Real-time alerts without email.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">→</div><div class="step-body"><h4>Click the 🔔 bell</h4><p>See SLA breach alerts, follow-ups due today, system events. Badge shows unread count. Click "Mark all read" to clear.</p></div></div>
+        </div>
+        <div class="info"><strong>ℹ Auto-populated:</strong> SLA breach warnings, follow-up due alerts, and owner-pushed notifications appear automatically.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚡ Owner-Controlled Feature Flags</div>
+        <div class="section-sub">Brand Admins can NO longer toggle features. Only the platform owner controls what each brand can access.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>What Brand Admin sees</h4><p>Settings → ⚡ Features & Plan shows a READ-ONLY list: ✅ Enabled / ⛔ Disabled with "Contact platform admin" message.</p></div>
+          <div class="feat-card"><h4>What Owner controls</h4><p>Owner Portal → brand → Features → change tier OR toggle individual features ON/OFF per brand.</p></div>
+          <div class="feat-card"><h4>Tier system</h4><p>Free → basic. Pro → kanban, AI, ticketing, queue. Enterprise → API keys, portal, widget, GDPR, cost reports.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔖 Custom Ticket Statuses</div>
+        <div class="section-sub">Settings → 🔖 Ticket Statuses. Replace the default statuses with your own workflow stages, colors, and automation flags.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Create Custom Statuses</h4><p>Add any status (e.g. "Waiting on Customer", "In Testing") with a custom name and color. Drag to reorder the pipeline.</p></div>
+          <div class="feat-card"><h4>Terminal Flag</h4><p>Mark a status as Terminal — resolving a ticket sets SLA completion, stops timers, and triggers the CSAT survey automatically.</p></div>
+          <div class="feat-card"><h4>Require Classification</h4><p>Flag a status to require the agent to pick a Type + Disposition before moving the ticket there. Enforces data quality.</p></div>
+          <div class="feat-card"><h4>Live in Inbox</h4><p>Custom statuses appear in the left sidebar filter, the status dropdown, and in Reports — everything updates instantly.</p></div>
+        </div>
+        <div class="tip"><strong>💡 Default statuses:</strong> New → Open → Pending → On Hold → Escalated → Resolved → Closed. You can rename, recolor, or remove any of these.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📥 Download Data Page</div>
+        <div class="section-sub">Reports → 📥 Export. A dedicated two-column download hub — history on the left, new download form on the right.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>Download History Table</h4><p>Every export you run is saved. See PAGE, FILTERS, FORMAT, DATE RANGE, RECORDS. Click DOWNLOAD to re-run any past export instantly.</p></div>
+          <div class="feat-card"><h4>Template</h4><p>Choose dataset: Tickets (827 columns of data) or CSAT Responses. Each downloads as a clean CSV or JSON file.</p></div>
+          <div class="feat-card"><h4>Filters</h4><p>Filter by Agent, Status, Priority before downloading. Combine with a date range (Today / 7 days / 30 days / This month / All time).</p></div>
+          <div class="feat-card"><h4>Format</h4><p>CSV opens directly in Excel / Google Sheets. JSON is for APIs, BI tools, and data pipelines.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚙ Settings Card Grid</div>
+        <div class="section-sub">Settings now opens as a clean card grid home — click any card to open just that panel, no sidebar clutter.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Click Settings in the sidebar</h4><p>Opens the card grid — all settings grouped: Core, Email & Support, Workflow, Content, Integrations, Security, Compliance.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Click any card</h4><p>Opens ONLY that settings panel — no sidebar of all tabs visible. Clean, focused view. Breadcrumb at top: ← All Settings › 🏢 General.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>← All Settings</h4><p>Click the breadcrumb to go back to the card grid. Or navigate via the main sidebar to get the full two-column layout with sidebar tabs.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⭐ CSAT Report Tab</div>
+        <div class="section-sub">Reports → ⭐ CSAT. See your customer satisfaction score at a glance with trends, response rate, and recent feedback.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>CSAT Score</h4><p>% of positive responses (👍) out of all received. Updated in real time as customers click the survey link in resolved ticket emails.</p></div>
+          <div class="feat-card"><h4>Response Rate</h4><p>Of all CSAT surveys sent, what % did customers actually respond to. Low rate = check your survey email subject line (Settings → CSAT Settings).</p></div>
+          <div class="feat-card"><h4>Recent Feedback</h4><p>Table of the latest CSAT responses — customer email, ticket subject, 👍/👎, and the date they responded.</p></div>
+          <div class="feat-card"><h4>Export CSAT</h4><p>Download all CSAT responses as CSV: Ticket ID, Subject, Customer, Rating, Survey Date, Resolved Date, Agent.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('new-features','cheatsheet')">✓ Mark Complete — Next: Full Cheatsheet →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: API TOKENS                         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-api-tokens">
+      <div class="learn-hero">
+        <h1>🔑 API Tokens</h1>
+        <p>Generate personal API tokens to integrate Resolvo with external tools, scripts, and automation — without sharing your password.</p>
+        <div class="hero-meta"><span>⏱ 4 min read</span><span>🔑 Per-user tokens</span></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">What are API Tokens?</div>
+        <div class="section-sub">Each user can generate one personal API token. Tokens authenticate API requests just like a session — but are designed for programmatic access, not browser login.</div>
+        <table class="shortcuts">
+          <tr><th>Feature</th><th>Detail</th></tr>
+          <tr><td>Storage</td><td>SHA-256 hashed in the database — never stored in plain text</td></tr>
+          <tr><td>Per user</td><td>One active token per user at a time</td></tr>
+          <tr><td>Revoke</td><td>Instantly revoke from Settings → API Tokens</td></tr>
+          <tr><td>Header</td><td><code>x-api-token: YOUR_TOKEN</code></td></tr>
+        </table>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Generate Your Token</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Settings → API Tokens</h4><p>Click <strong>Generate New Token</strong>. Your token is shown once — copy it immediately.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Use in API Requests</h4><p>Pass the token in the <code>x-api-token</code> header on every request.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Revoke Anytime</h4><p>Click <strong>Revoke Token</strong> in Settings → API Tokens to immediately invalidate it.</p></div></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Example — Create a Ticket via API</div>
+        <pre style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px;overflow-x:auto;"><code>curl -X POST https://app.resolvogroup.com/api/tickets/public/create \
+  -H "Content-Type: application/json" \
+  -H "x-api-token: YOUR_TOKEN_HERE" \
+  -d '{
+    "subject": "Login button broken on Safari",
+    "body": "Users on Safari 17 cannot log in — button does nothing.",
+    "priority": "High",
+    "source": "api"
+  }'</code></pre>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Admin Token View</div>
+        <div class="section-sub">Admins can see all active tokens for their brand (emails only, not the token values) under Settings → API Tokens → scroll to <strong>Active Tokens</strong>.</div>
+      </div>
+      <button class="complete-btn" onclick="markDone('api-tokens','slack-alerts')">✓ Mark Complete — Next: Slack Alerts →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: SLACK ALERTS                       -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-slack-alerts">
+      <div class="learn-hero">
+        <h1>💬 Slack Alerts</h1>
+        <p>Get real-time Slack notifications for critical tickets, SLA breaches, assignments, and resolutions — using Slack's Block Kit format.</p>
+        <div class="hero-meta"><span>⏱ 5 min read</span><span>💬 Block Kit messages</span></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Alert Types</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>🔴 Critical Ticket</h4><p>Fires when a ticket with Critical priority is created. Immediate notification so your team can act fast.</p></div>
+          <div class="feat-card"><h4>⏰ SLA Breach</h4><p>Fires when a ticket breaches its SLA deadline without being resolved. Keeps SLA compliance visible.</p></div>
+          <div class="feat-card"><h4>👤 Assignment</h4><p>Fires when a ticket is assigned to an agent. Notifies the whole channel who owns it.</p></div>
+          <div class="feat-card"><h4>✅ Resolution</h4><p>Fires when a ticket is marked Resolved or Closed. Good for closing the loop on important tickets.</p></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Setup Steps</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Create Slack Incoming Webhook</h4><p>Go to <strong>api.slack.com/apps</strong> → Create App → Incoming Webhooks → Activate → Add to channel. Copy the webhook URL.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Paste URL in Settings</h4><p>Settings → Slack Alerts → paste your webhook URL → click <strong>Save</strong>.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Enable Alert Types</h4><p>Toggle on the alert types you want. Each can be enabled/disabled independently.</p></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Test It</h4><p>Click <strong>Send Test Message</strong> — you'll see a Block Kit message appear in your Slack channel within seconds.</p></div></div>
+        </div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Message Format</div>
+        <div class="section-sub">All alerts use Slack Block Kit — structured cards with ticket ID, subject, priority, status, and a direct link back to the ticket in Resolvo.</div>
+        <div class="tip"><strong>💡</strong> Slack webhook URLs are stored per-brand. Different brands can post to different Slack channels.</div>
+      </div>
+      <button class="complete-btn" onclick="markDone('slack-alerts','ticket-sources')">✓ Mark Complete — Next: Ticket Sources & Widget →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: TICKET SOURCES & WIDGET            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-ticket-sources">
+      <div class="learn-hero">
+        <h1>🌐 Ticket Sources & Embeddable Widget</h1>
+        <p>Tickets can arrive from multiple sources — email, web widget, API, or manual creation. Each source is tracked and shown as a badge in the inbox.</p>
+        <div class="hero-meta"><span>⏱ 6 min read</span><span>🌐 4 sources</span></div>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Ticket Sources</div>
+        <table class="shortcuts">
+          <tr><th>Source</th><th>How it arrives</th><th>Auth required?</th></tr>
+          <tr><td>📧 Email</td><td>Customer sends email to your support address</td><td>No — public email</td></tr>
+          <tr><td>🌐 Widget</td><td>Customer submits via the embedded support widget on your website</td><td>No — public widget</td></tr>
+          <tr><td>🔌 API</td><td>External system POSTs to <code>/api/tickets/public/create</code> with API token</td><td>Yes — API token</td></tr>
+          <tr><td>✏️ Manual</td><td>Agent creates ticket directly from the inbox</td><td>Yes — agent session</td></tr>
+        </table>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Embeddable Widget</div>
+        <div class="section-sub">Add a floating support button to any website. Customers click it, fill in subject + message, and a ticket is created instantly — no login needed.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Get Your Widget Code</h4><p>Settings → Slack Alerts → scroll to <strong>Embed Widget</strong>. Copy the one-line script tag.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Paste Before &lt;/body&gt;</h4><p>Add the script tag to any page on your website. The widget loads asynchronously — no performance impact.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Customers Submit Tickets</h4><p>A floating button appears bottom-right. Clicking it opens a clean form. On submit, the ticket lands in your inbox with source badge <strong>widget</strong>.</p></div></div>
+        </div>
+        <pre style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px;overflow-x:auto;margin-top:16px;"><code>&lt;!-- Add before &lt;/body&gt; on your website --&gt;
+&lt;script src="https://app.resolvogroup.com/widget/YOUR-BRAND-SLUG/widget.js" async&gt;&lt;/script&gt;</code></pre>
+      </div>
+      <div class="section-block">
+        <div class="section-title">Source Badges in Inbox</div>
+        <div class="section-sub">Every ticket in the inbox shows a coloured source badge so agents instantly know where it came from.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><h4>📧 email</h4><p>Default — arrived via email polling</p></div>
+          <div class="feat-card"><h4>🌐 widget</h4><p>Submitted via embedded website widget</p></div>
+          <div class="feat-card"><h4>🔌 api</h4><p>Created programmatically via API token</p></div>
+          <div class="feat-card"><h4>✏️ manual</h4><p>Created directly by an agent in the inbox</p></div>
+        </div>
+      </div>
+      <button class="complete-btn" onclick="markDone('ticket-sources','new-features')">✓ Mark Complete — Next: New Features Guide →</button>
+    </div>
+
     <div class="module" id="mod-cheatsheet">
       <div class="learn-hero">
         <h1>📋 Full Feature Cheatsheet</h1>
         <p>Every single feature in Resolvo, one place. Bookmark this page for quick reference.</p>
-        <div class="hero-meta"><span>50+ features</span><span>All modules</span></div>
+        <div class="hero-meta"><span>120+ features</span><span>All modules</span><span>🆕 Custom statuses, Download Data, Settings grid</span></div>
       </div>
 
       <div class="section-block">
@@ -1100,10 +1588,48 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Ticket templates</div>
             <div class="cheat-item"><span>✓</span> Auto-resolve rules</div>
             <div class="cheat-item"><span>✓</span> Email source routing</div>
-            <div class="cheat-item"><span>✓</span> Digest emails</div>
-            <div class="cheat-item"><span>✓</span> Slack notifications</div>
-            <div class="cheat-item"><span>✓</span> Webhook alerts</div>
-            <div class="cheat-item"><span>✓</span> CSAT auto-send</div>
+            <div class="cheat-item"><span>✓</span> Daily digest at 9am</div>
+            <div class="cheat-item"><span>✓</span> Appointment reminders (1h)</div>
+            <div class="cheat-item"><span>✓</span> Follow-up nudge at 8am</div>
+            <div class="cheat-item"><span>✓</span> CSAT auto-send on resolve</div>
+            <div class="cheat-item"><span>✓</span> Queue bucket fill on resolve</div>
+            <div class="cheat-item"><span>✓</span> Auto-reassign on Away</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🔄 Queue & Assignment</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Round robin distribution</div>
+            <div class="cheat-item"><span>✓</span> Least busy routing</div>
+            <div class="cheat-item"><span>✓</span> Keyword routing rules</div>
+            <div class="cheat-item"><span>✓</span> Domain routing rules</div>
+            <div class="cheat-item"><span>✓</span> Priority routing (Critical first)</div>
+            <div class="cheat-item"><span>✓</span> Time-based routing</div>
+            <div class="cheat-item"><span>✓</span> VIP customer flag</div>
+            <div class="cheat-item"><span>✓</span> Admin: set agent status</div>
+            <div class="cheat-item"><span>✓</span> Admin: drain agent queue</div>
+            <div class="cheat-item"><span>✓</span> ❄ Freeze/unfreeze queue</div>
+            <div class="cheat-item"><span>✓</span> ⚡ Distribute all unassigned</div>
+            <div class="cheat-item"><span>✓</span> Queue performance report</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>📅 Appointments & Tasks</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Customer booking page (/book)</div>
+            <div class="cheat-item"><span>✓</span> Working hours config</div>
+            <div class="cheat-item"><span>✓</span> Slot duration + buffer</div>
+            <div class="cheat-item"><span>✓</span> Auto-ticket on booking</div>
+            <div class="cheat-item"><span>✓</span> Email confirmation</div>
+            <div class="cheat-item"><span>✓</span> 1h reminder email</div>
+            <div class="cheat-item"><span>✓</span> Agent calendar view</div>
+            <div class="cheat-item"><span>✓</span> ✅ Ticket checklists</div>
+            <div class="cheat-item"><span>✓</span> ⏰ Follow-up scheduler</div>
+            <div class="cheat-item"><span>✓</span> 📅 SLA promise to customer</div>
+            <div class="cheat-item"><span>✓</span> Follow-ups report tab</div>
+            <div class="cheat-item"><span>✓</span> 📅 Book Call in reply box</div>
           </div>
         </div>
 
@@ -1116,11 +1642,20 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Email Ticketing Report</div>
             <div class="cheat-item"><span>✓</span> Agent Leaderboard</div>
             <div class="cheat-item"><span>✓</span> First Response Stats</div>
-            <div class="cheat-item"><span>✓</span> Ticket Heatmap</div>
+            <div class="cheat-item"><span>✓</span> Ticket Heatmap (90 days)</div>
             <div class="cheat-item"><span>✓</span> Volume Forecast</div>
-            <div class="cheat-item"><span>✓</span> CSV export</div>
+            <div class="cheat-item"><span>✓</span> Queue Performance</div>
+            <div class="cheat-item"><span>✓</span> Follow-ups Due</div>
+            <div class="cheat-item"><span>✓</span> Appointments Calendar</div>
+            <div class="cheat-item"><span>✓</span> ⭐ CSAT Report tab</div>
+            <div class="cheat-item"><span>✓</span> CSAT score + response rate</div>
+            <div class="cheat-item"><span>✓</span> 📥 Download Data page</div>
+            <div class="cheat-item"><span>✓</span> Download history table</div>
+            <div class="cheat-item"><span>✓</span> CSV / JSON export</div>
+            <div class="cheat-item"><span>✓</span> Export filters (agent/status/priority)</div>
+            <div class="cheat-item"><span>✓</span> Re-download past exports</div>
+            <div class="cheat-item"><span>✓</span> Custom date range filters</div>
             <div class="cheat-item"><span>✓</span> Clickable drill-downs</div>
-            <div class="cheat-item"><span>✓</span> Date range filters</div>
             <div class="cheat-item"><span>✓</span> Revenue dashboard</div>
           </div>
         </div>
@@ -1142,6 +1677,9 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <div class="cheat-section">
           <h3>⚙️ Settings & Configuration</h3>
           <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Settings card grid home</div>
+            <div class="cheat-item"><span>✓</span> Click card → focused single panel</div>
+            <div class="cheat-item"><span>✓</span> ← All Settings breadcrumb</div>
             <div class="cheat-item"><span>✓</span> Brand themes & colors</div>
             <div class="cheat-item"><span>✓</span> Custom SLA config</div>
             <div class="cheat-item"><span>✓</span> Feature flag toggles</div>
@@ -1151,6 +1689,10 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
             <div class="cheat-item"><span>✓</span> Backup & restore</div>
             <div class="cheat-item"><span>✓</span> Audit trail</div>
             <div class="cheat-item"><span>✓</span> User invite & roles</div>
+            <div class="cheat-item"><span>✓</span> 🔖 Custom ticket statuses</div>
+            <div class="cheat-item"><span>✓</span> Status colors & order</div>
+            <div class="cheat-item"><span>✓</span> Terminal flag (triggers CSAT)</div>
+            <div class="cheat-item"><span>✓</span> Require classification flag</div>
             <div class="cheat-item"><span>✓</span> Rate limiting</div>
             <div class="cheat-item"><span>✓</span> bcrypt passwords</div>
             <div class="cheat-item"><span>✓</span> Session management</div>
@@ -1172,12 +1714,81 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
           </table>
         </div>
 
+        <!-- New features cheatsheet sections -->
+        <div class="cheat-section">
+          <h3>🆕 Customer-Facing Features</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Customer Portal (/portal/:brand)</div>
+            <div class="cheat-item"><span>✓</span> OTP login (no password)</div>
+            <div class="cheat-item"><span>✓</span> Embeddable widget (/widget/:brand/embed.js)</div>
+            <div class="cheat-item"><span>✓</span> Widget auto-captures page URL + browser</div>
+            <div class="cheat-item"><span>✓</span> Knowledge Base articles</div>
+            <div class="cheat-item"><span>✓</span> KB draft/publish workflow</div>
+            <div class="cheat-item"><span>✓</span> Public Roadmap (/roadmap/:brand)</div>
+            <div class="cheat-item"><span>✓</span> Customer voting on roadmap</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🔐 Security & Compliance</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Two-Factor Auth (TOTP)</div>
+            <div class="cheat-item"><span>✓</span> QR code setup via authenticator app</div>
+            <div class="cheat-item"><span>✓</span> GDPR right to erasure</div>
+            <div class="cheat-item"><span>✓</span> Customer data export</div>
+            <div class="cheat-item"><span>✓</span> API Keys (Bearer token)</div>
+            <div class="cheat-item"><span>✓</span> bcrypt passwords</div>
+            <div class="cheat-item"><span>✓</span> Rate limiting (5/15min)</div>
+            <div class="cheat-item"><span>✓</span> Session expiry + remember me</div>
+            <div class="cheat-item"><span>✓</span> Owner-controlled feature flags</div>
+            <div class="cheat-item"><span>✓</span> Per-brand data isolation</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>💡 Intelligence & Analytics (New)</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Issue Impact Score (0-100)</div>
+            <div class="cheat-item"><span>✓</span> Agent Coaching Dashboard</div>
+            <div class="cheat-item"><span>✓</span> Cost Report (time × hourly rate)</div>
+            <div class="cheat-item"><span>✓</span> Customer Sentiment Trend</div>
+            <div class="cheat-item"><span>✓</span> In-App Notification bell</div>
+            <div class="cheat-item"><span>✓</span> Pending Approvals report</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>✅ Approval Workflows</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> Request approval on any issue</div>
+            <div class="cheat-item"><span>✓</span> Approver gets email notification</div>
+            <div class="cheat-item"><span>✓</span> Approve with comment</div>
+            <div class="cheat-item"><span>✓</span> Reject with reason</div>
+            <div class="cheat-item"><span>✓</span> Auto-resolve on approval</div>
+            <div class="cheat-item"><span>✓</span> Reports → Pending Approvals tab</div>
+          </div>
+        </div>
+
+        <div class="cheat-section">
+          <h3>🏗 Platform & Integrations (New)</h3>
+          <div class="cheat-grid">
+            <div class="cheat-item"><span>✓</span> REST API with Bearer token</div>
+            <div class="cheat-item"><span>✓</span> PWA — installable on phone/desktop</div>
+            <div class="cheat-item"><span>✓</span> SLA Policies per customer domain</div>
+            <div class="cheat-item"><span>✓</span> Custom SLA per domain/tier</div>
+            <div class="cheat-item"><span>✓</span> Per-brand email profile (SMTP)</div>
+            <div class="cheat-item"><span>✓</span> 35 owner-controlled feature flags</div>
+            <div class="cheat-item"><span>✓</span> Tier-based access (Free/Pro/Enterprise)</div>
+            <div class="cheat-item"><span>✓</span> Settings tabs hidden if feature disabled</div>
+          </div>
+        </div>
+
         <div style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(16,185,129,.1));border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:28px;text-align:center;margin-top:32px;">
           <div style="font-size:32px;margin-bottom:12px;">🎉</div>
-          <h2 style="font-size:22px;font-weight:900;margin-bottom:8px;">You've completed the Learning Center!</h2>
-          <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">You now know every feature in Resolvo. Time to put it to work.</p>
+          <h2 style="font-size:22px;font-weight:900;margin-bottom:8px;">You've mastered Resolvo!</h2>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">100+ features. Multi-tenant. AI-powered. Owner-controlled. Time to put it all to work.</p>
           <a href="/" style="display:inline-block;background:#10B981;color:#0B0F19;padding:13px 36px;border-radius:10px;font-size:15px;font-weight:800;text-decoration:none;margin-right:10px;">→ Open the App</a>
-          <a href="/pitch" target="_blank" style="display:inline-block;background:var(--card);color:var(--white);padding:13px 36px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--border);">📄 Product Overview</a>
+          <a href="/pitch" target="_blank" style="display:inline-block;background:var(--card);color:var(--white);padding:13px 36px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--border);">📄 Pitch Deck</a>
         </div>
       </div>
 
@@ -1188,13 +1799,16 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 </div><!-- /main -->
 
 <script>
-var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','cheatsheet'];
+var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','api-tokens','slack-alerts','ticket-sources','new-features','cheatsheet'];
 var TITLES = {
   quickstart:'🚀 Quick Start',dashboard:'📊 Dashboard',issues:'🎫 Issues & SLA',
   kanban:'🗂 Kanban & Sprints',tickets:'📬 Email Ticketing',
   'ticket-power':'⚡ Power Features','ticket-automation':'🤖 Automation',
   reports:'📈 Reports & Analytics',leaderboard:'🏆 Leaderboard & Forecast',
-  settings:'⚙️ Settings Guide',team:'🤝 Team & Users',cheatsheet:'📋 Full Cheatsheet'
+  settings:'⚙️ Settings Guide',team:'🤝 Team & Users',
+  queue:'🔄 Smart Queue',appointments:'📅 Appointments',tasks:'✅ Tasks & Follow-ups',
+  'new-features':'🆕 New Features Guide',
+  cheatsheet:'📋 Full Cheatsheet'
 };
 
 var done = JSON.parse(localStorage.getItem('resolvo_learn_done') || '["quickstart"]');
