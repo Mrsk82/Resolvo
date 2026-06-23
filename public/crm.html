@@ -1391,19 +1391,23 @@ const OT_STATUSES = [
   { key:'dead',          label:'Dead',           color:'var(--red)' },
 ];
 
-let otLeads = JSON.parse(localStorage.getItem('ot_leads') || '[]');
-function otSave() { localStorage.setItem('ot_leads', JSON.stringify(otLeads)); }
+let _otCache = [];
 
-function loadOutreach() {
+async function loadOutreach() {
   const q = (document.getElementById('ot-search')?.value || '').toLowerCase();
   const sf = document.getElementById('ot-filter-status')?.value || '';
+
+  const res = await api(`/api/crm/outreach?q=${encodeURIComponent(q)}&status=${encodeURIComponent(sf)}`);
+  const all = await api('/api/crm/outreach');
+  _otCache = all.outreach || [];
+  const list = res.outreach || [];
 
   // Pipeline strip counts
   const strip = document.getElementById('ot-pipeline-strip');
   if (strip) {
     const counts = {};
     OT_STATUSES.forEach(s => counts[s.key] = 0);
-    otLeads.forEach(l => { if (counts[l.status] !== undefined) counts[l.status]++; });
+    _otCache.forEach(l => { if (counts[l.status] !== undefined) counts[l.status]++; });
     strip.innerHTML = OT_STATUSES.map(s => `
       <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 14px;cursor:pointer;transition:border-color .12s;"
            onclick="document.getElementById('ot-filter-status').value='${s.key}';loadOutreach()">
@@ -1414,16 +1418,9 @@ function loadOutreach() {
 
   // Follow-up badge
   const today = new Date().toISOString().split('T')[0];
-  const overdue = otLeads.filter(l => l.followUp && l.followUp <= today && l.status !== 'converted' && l.status !== 'dead').length;
+  const overdue = _otCache.filter(l => l.followUp && l.followUp <= today && l.status !== 'converted' && l.status !== 'dead').length;
   const fb = document.getElementById('followup-badge');
   if (fb) { fb.textContent = overdue; fb.style.display = overdue ? '' : 'none'; }
-
-  // Filter
-  let list = otLeads.filter(l => {
-    const matchQ = !q || (l.name||'').toLowerCase().includes(q) || (l.company||'').toLowerCase().includes(q);
-    const matchS = !sf || l.status === sf;
-    return matchQ && matchS;
-  }).sort((a,b) => (a.followUp||'9') < (b.followUp||'9') ? -1 : 1);
 
   const tbody = document.getElementById('ot-tbody');
   if (!tbody) return;
@@ -1451,7 +1448,7 @@ function loadOutreach() {
 let _otEditId = null;
 function openOtModal(id) {
   _otEditId = id || null;
-  const l = id ? otLeads.find(x => x.id === id) : {};
+  const l = id ? _otCache.find(x => x.id === id) : {};
   document.getElementById('ot-modal').style.display = 'flex';
   document.getElementById('ot-m-name').value    = l?.name    || '';
   document.getElementById('ot-m-company').value = l?.company || '';
@@ -1462,9 +1459,8 @@ function openOtModal(id) {
   document.getElementById('ot-m-note').value    = l?.note    || '';
 }
 function closeOtModal() { document.getElementById('ot-modal').style.display = 'none'; }
-function saveOtLead() {
+async function saveOtLead() {
   const obj = {
-    id:       _otEditId || 'ot_' + Date.now(),
     name:     document.getElementById('ot-m-name').value.trim(),
     company:  document.getElementById('ot-m-company').value.trim(),
     phone:    document.getElementById('ot-m-phone').value.trim(),
@@ -1472,20 +1468,17 @@ function saveOtLead() {
     status:   document.getElementById('ot-m-status').value,
     followUp: document.getElementById('ot-m-followup').value,
     note:     document.getElementById('ot-m-note').value.trim(),
-    updatedAt: new Date().toISOString(),
   };
   if (!obj.name) { showToast('Name is required'); return; }
-  if (_otEditId) { const i = otLeads.findIndex(x => x.id === _otEditId); if (i > -1) otLeads[i] = obj; }
-  else otLeads.unshift(obj);
-  otSave();
+  if (_otEditId) await api(`/api/crm/outreach/${_otEditId}`, {method:'PUT', body:JSON.stringify(obj)});
+  else await api('/api/crm/outreach', {method:'POST', body:JSON.stringify(obj)});
   closeOtModal();
   loadOutreach();
   showToast(_otEditId ? 'Prospect updated' : 'Prospect added');
 }
-function delOtLead(id) {
+async function delOtLead(id) {
   if (!confirm('Delete this prospect?')) return;
-  otLeads = otLeads.filter(x => x.id !== id);
-  otSave();
+  await api(`/api/crm/outreach/${id}`, {method:'DELETE'});
   loadOutreach();
   showToast('Deleted');
 }
@@ -1573,15 +1566,24 @@ Resolvo | resolvogroup.com`
   },
 ];
 
-let tplList = JSON.parse(localStorage.getItem('ot_templates') || 'null') || [...DEFAULT_TEMPLATES];
-function tplSave() { localStorage.setItem('ot_templates', JSON.stringify(tplList)); }
+let _tplCache = [];
 
 const TPL_TAG_COLORS = { Acquisition:'var(--green)', 'Follow-up':'var(--amber)', Partnership:'var(--violet)', Sales:'var(--blue)', Other:'var(--t3)' };
 
-function loadTemplates() {
+async function loadTemplates() {
+  const res = await api('/api/crm/templates');
+  _tplCache = res.templates || [];
+  // Seed defaults if empty
+  if (!_tplCache.length) {
+    for (const t of DEFAULT_TEMPLATES) {
+      await api('/api/crm/templates', {method:'POST', body:JSON.stringify(t)});
+    }
+    const res2 = await api('/api/crm/templates');
+    _tplCache = res2.templates || [];
+  }
   const grid = document.getElementById('tpl-grid');
   if (!grid) return;
-  grid.innerHTML = tplList.map(t => `
+  grid.innerHTML = _tplCache.map(t => `
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--b2)'" onmouseout="this.style.borderColor='var(--b1)'">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:11px;font-weight:700;color:${TPL_TAG_COLORS[t.tag]||'var(--t3)'};background:${TPL_TAG_COLORS[t.tag]||'var(--t3)'}18;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.06em;">${t.tag}</span>
@@ -1592,27 +1594,27 @@ function loadTemplates() {
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-green btn-sm" style="flex:1;" onclick="copyTpl('${t.id}')">📋 Copy</button>
         <button class="btn btn-ghost btn-sm" onclick="openTplModal('${t.id}')">Edit</button>
-        ${!DEFAULT_TEMPLATES.find(d=>d.id===t.id) ? `<button class="btn btn-danger btn-sm" onclick="delTpl('${t.id}')">✕</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="delTpl('${t.id}')">✕</button>
       </div>
     </div>`).join('');
 }
 
 function copyTpl(id) {
-  const t = tplList.find(x => x.id === id);
+  const t = _tplCache.find(x => x.id === id);
   if (!t) return;
   const text = `Subject: ${t.subject}\n\n${t.body}`;
   navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!')).catch(() => showToast('Copy failed — select manually'));
 }
-function delTpl(id) {
+async function delTpl(id) {
   if (!confirm('Delete this template?')) return;
-  tplList = tplList.filter(x => x.id !== id);
-  tplSave(); loadTemplates();
+  await api(`/api/crm/templates/${id}`, {method:'DELETE'});
+  loadTemplates();
 }
 
 let _tplEditId = null;
 function openTplModal(id) {
   _tplEditId = id || null;
-  const t = id ? tplList.find(x => x.id === id) : {};
+  const t = id ? _tplCache.find(x => x.id === id) : {};
   document.getElementById('tpl-modal').style.display = 'flex';
   document.getElementById('tpl-m-name').value    = t?.name    || '';
   document.getElementById('tpl-m-tag').value     = t?.tag     || 'Other';
@@ -1620,18 +1622,17 @@ function openTplModal(id) {
   document.getElementById('tpl-m-body').value    = t?.body    || '';
 }
 function closeTplModal() { document.getElementById('tpl-modal').style.display = 'none'; }
-function saveTpl() {
+async function saveTpl() {
   const obj = {
-    id:      _tplEditId || 'tpl_' + Date.now(),
     name:    document.getElementById('tpl-m-name').value.trim(),
     tag:     document.getElementById('tpl-m-tag').value,
     subject: document.getElementById('tpl-m-subject').value.trim(),
     body:    document.getElementById('tpl-m-body').value.trim(),
   };
   if (!obj.name || !obj.subject) { showToast('Name and subject required'); return; }
-  if (_tplEditId) { const i = tplList.findIndex(x => x.id === _tplEditId); if (i > -1) tplList[i] = obj; }
-  else tplList.unshift(obj);
-  tplSave(); closeTplModal(); loadTemplates();
+  if (_tplEditId) await api(`/api/crm/templates/${_tplEditId}`, {method:'PUT', body:JSON.stringify(obj)});
+  else await api('/api/crm/templates', {method:'POST', body:JSON.stringify(obj)});
+  closeTplModal(); loadTemplates();
   showToast(_tplEditId ? 'Template updated' : 'Template saved');
 }
 

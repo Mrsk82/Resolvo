@@ -196,10 +196,14 @@ function _openDB(slug){
     CREATE TABLE IF NOT EXISTS crm_companies(id TEXT PRIMARY KEY,data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS crm_deals(id TEXT PRIMARY KEY,data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS crm_activities(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_outreach(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_templates(id TEXT PRIMARY KEY,data TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_crm_ct_email  ON crm_contacts(json_extract(data,'$.email'));
     CREATE INDEX IF NOT EXISTS idx_crm_dl_stage  ON crm_deals(json_extract(data,'$.stage'));
     CREATE INDEX IF NOT EXISTS idx_crm_dl_owner  ON crm_deals(json_extract(data,'$.ownerId'));
     CREATE INDEX IF NOT EXISTS idx_crm_ac_due    ON crm_activities(json_extract(data,'$.dueDate'));
+    CREATE INDEX IF NOT EXISTS idx_crm_ot_status ON crm_outreach(json_extract(data,'$.status'));
+    CREATE INDEX IF NOT EXISTS idx_crm_ot_follow ON crm_outreach(json_extract(data,'$.followUp'));
   `);
   _dbConns[slug]=db;
   return db;
@@ -7641,6 +7645,66 @@ app.put('/api/crm/activities/:id',(req,res)=>{
 app.delete('/api/crm/activities/:id',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
   crmDel(crmDb(su.brandSlug),'crm_activities',req.params.id);res.json({success:true});
+});
+
+// ── CRM OUTREACH ─────────────────────────────────────────────────────────────
+app.get('/api/crm/outreach',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  let list=crmAll(db,'crm_outreach');
+  const {status,q}=req.query;
+  if(status) list=list.filter(o=>o.status===status);
+  if(q){ const lq=q.toLowerCase(); list=list.filter(o=>(o.name||'').toLowerCase().includes(lq)||(o.company||'').toLowerCase().includes(lq)); }
+  list.sort((a,b)=>(a.followUp||'9')<(b.followUp||'9')?-1:1);
+  res.json({success:true,outreach:list});
+});
+app.post('/api/crm/outreach',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const o={...req.body,id:req.body.id||uuidv4(),createdAt:req.body.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+  crmSave(crmDb(su.brandSlug),'crm_outreach',o); res.json({success:true,outreach:o});
+});
+app.post('/api/crm/outreach/bulk',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const items=req.body.items||[];
+  items.forEach(o=>{ const rec={...o,id:o.id||uuidv4(),updatedAt:new Date().toISOString()}; crmSave(db,'crm_outreach',rec); });
+  res.json({success:true,count:items.length});
+});
+app.put('/api/crm/outreach/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_outreach',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id,updatedAt:new Date().toISOString()};
+  crmSave(db,'crm_outreach',updated); res.json({success:true,outreach:updated});
+});
+app.delete('/api/crm/outreach/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_outreach',req.params.id); res.json({success:true});
+});
+
+// ── CRM TEMPLATES ─────────────────────────────────────────────────────────────
+app.get('/api/crm/templates',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const list=crmAll(crmDb(su.brandSlug),'crm_templates');
+  res.json({success:true,templates:list});
+});
+app.post('/api/crm/templates',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const t={...req.body,id:req.body.id||uuidv4(),createdAt:new Date().toISOString()};
+  crmSave(crmDb(su.brandSlug),'crm_templates',t); res.json({success:true,template:t});
+});
+app.put('/api/crm/templates/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_templates',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id};
+  crmSave(db,'crm_templates',updated); res.json({success:true,template:updated});
+});
+app.delete('/api/crm/templates/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_templates',req.params.id); res.json({success:true});
 });
 
 app.listen(PORT,()=>{
