@@ -192,6 +192,18 @@ function _openDB(slug){
     CREATE INDEX IF NOT EXISTS idx_us_email    ON users(json_extract(data,'$.email'));
     CREATE INDEX IF NOT EXISTS idx_cm_issue    ON comments(json_extract(data,'$.issueId'));
     CREATE INDEX IF NOT EXISTS idx_al_ts       ON activity_log(ts);
+    CREATE TABLE IF NOT EXISTS crm_contacts(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_companies(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_deals(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_activities(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_outreach(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS crm_templates(id TEXT PRIMARY KEY,data TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_crm_ct_email  ON crm_contacts(json_extract(data,'$.email'));
+    CREATE INDEX IF NOT EXISTS idx_crm_dl_stage  ON crm_deals(json_extract(data,'$.stage'));
+    CREATE INDEX IF NOT EXISTS idx_crm_dl_owner  ON crm_deals(json_extract(data,'$.ownerId'));
+    CREATE INDEX IF NOT EXISTS idx_crm_ac_due    ON crm_activities(json_extract(data,'$.dueDate'));
+    CREATE INDEX IF NOT EXISTS idx_crm_ot_status ON crm_outreach(json_extract(data,'$.status'));
+    CREATE INDEX IF NOT EXISTS idx_crm_ot_follow ON crm_outreach(json_extract(data,'$.followUp'));
   `);
   _dbConns[slug]=db;
   return db;
@@ -1603,6 +1615,7 @@ app.post('/api/call',async(req,res)=>{
     getCustomFields:()=>{const db=rDB();return{success:true,fields:db.customFields||[]};},
     saveCustomField:f=>{const db=rDB();db.customFields=db.customFields||[];const idx=db.customFields.findIndex(x=>x.id===f.id);if(idx>=0)db.customFields[idx]=f;else db.customFields.push({...f,id:generateId('CF')});wDB(db);return{success:true};},
     deleteCustomField:id=>{const db=rDB();db.customFields=(db.customFields||[]).filter(f=>f.id!==id);wDB(db);return{success:true};},
+    saveTicketCustomField:(ticketId,fieldId,value)=>{const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);if(idx===-1)return{success:false,error:'Not found'};db.tickets[idx].customFields=db.tickets[idx].customFields||{};db.tickets[idx].customFields[fieldId]=value;db.tickets[idx].lastActivity=new Date().toISOString();wDB(db);return{success:true};},
     getCustomFieldValues:ii=>{const db=rDB();return{success:true,values:(db.customFieldValues||[]).filter(v=>v.issueId===ii)};},
     saveCustomFieldValues:(ii,vals)=>{const db=rDB();db.customFieldValues=(db.customFieldValues||[]).filter(v=>v.issueId!==ii);(vals||[]).forEach(v=>db.customFieldValues.push({...v,issueId:ii}));wDB(db);return{success:true};},
     getOnCallSchedule:()=>{const db=rDB();return{success:true,schedule:db.onCallSchedule||[]};},
@@ -1708,6 +1721,7 @@ app.post('/api/call',async(req,res)=>{
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
+        if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
         if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}
@@ -2915,13 +2929,15 @@ app.post('/api/call',async(req,res)=>{
             tags,cc:ccList,isVIP:t.isVIP?'Yes':'No',
             slaPaused:t.slaPaused?'Yes':'No',
             linkedIssueId:t.linkedIssueId||'',parentId:t.parentId||'',
-            templateId:t.templateId||'',internalNote:t.internalNote||''
+            templateId:t.templateId||'',internalNote:t.internalNote||'',
+            customFields:t.customFields||{}
           };
         };
-        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
-        const headers=['ID','Subject','From Email','From Name','Status','Priority','Assigned To','Team','Closed By','Source','Created Date','First Response Date','Resolved Date','Last Activity','First Response (min)','Resolution Time (hrs)','SLA Hours','SLA Breached','Total Messages','Agent Replies','Incoming Messages','Reopen Count','Type','Disposition','CSAT Rating','CSAT Score','CSAT Date','Tags','CC','VIP','SLA Paused','Linked Issue ID','Parent ID','Template ID','Internal Note'];
+        const customFieldDefs=db.customFields||[];
         const escape=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
-        const csvRows=[headers.join(','),...rows.map(t=>{const r=mapTicket(t);return[r.id,r.subject,r.from,r.fromName,r.status,r.priority,r.assignedTo,r.team,r.closedBy,r.source,r.createdDate,r.firstResponseDate,r.resolvedDate,r.lastActivity,r.firstResponseMinutes,r.resolutionTimeHours,r.slaHours,r.slaBreached,r.totalMessages,r.agentReplies,r.incomingMessages,r.reopenCount,r.type,r.disposition,r.csatRating,r.csatScore,r.csatAt,r.tags,r.cc,r.isVIP,r.slaPaused,r.linkedIssueId,r.parentId,r.templateId,r.internalNote].map(escape).join(',')})];
+        if(fmt==='json')return{success:true,data:JSON.stringify(rows.map(mapTicket),null,2),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.json`,count:rows.length};
+        const headers=['ID','Subject','From Email','From Name','Status','Priority','Assigned To','Team','Closed By','Source','Created Date','First Response Date','Resolved Date','Last Activity','First Response (min)','Resolution Time (hrs)','SLA Hours','SLA Breached','Total Messages','Agent Replies','Incoming Messages','Reopen Count','Type','Disposition','CSAT Rating','CSAT Score','CSAT Date','Tags','CC','VIP','SLA Paused','Linked Issue ID','Parent ID','Template ID','Internal Note',...customFieldDefs.map(f=>f.name)];
+        const csvRows=[headers.join(','),...rows.map(t=>{const r=mapTicket(t);return[r.id,r.subject,r.from,r.fromName,r.status,r.priority,r.assignedTo,r.team,r.closedBy,r.source,r.createdDate,r.firstResponseDate,r.resolvedDate,r.lastActivity,r.firstResponseMinutes,r.resolutionTimeHours,r.slaHours,r.slaBreached,r.totalMessages,r.agentReplies,r.incomingMessages,r.reopenCount,r.type,r.disposition,r.csatRating,r.csatScore,r.csatAt,r.tags,r.cc,r.isVIP,r.slaPaused,r.linkedIssueId,r.parentId,r.templateId,r.internalNote,...customFieldDefs.map(f=>r.customFields[f.id]||'')].map(escape).join(',')})];
         return{success:true,data:csvRows.join('\n'),filename:`tickets-export-${new Date().toISOString().split('T')[0]}.csv`,count:rows.length};
       }
       if(dataset==='csat'){
@@ -5476,6 +5492,27 @@ app.get('/api/email-ticketing/config', (req, res) => {
   res.json({ success: true, config: { ...config, pass: config.pass ? '••••••••' : '' } });
 });
 
+// ── WhatsApp config ───────────────────────────────────────────────────────
+app.get('/api/whatsapp/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const cfg=db.whatsappConfig||{};
+  res.json({success:true,config:{enabled:!!cfg.enabled,number:cfg.number||'',webhookUrl:`${BASE_URL}/api/whatsapp/webhook`}});
+});
+
+app.post('/api/whatsapp/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const{enabled,number}=req.body;
+  const db=readBrandDB(su.brandSlug);
+  db.whatsappConfig={enabled:!!enabled,number:(number||'').trim()};
+  // also write to features so webhook handler picks it up
+  db.features=db.features||{};
+  db.features.whatsapp=!!enabled;
+  db.features.whatsappNumber=(number||'').trim();
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+
 // API: test IMAP connection
 app.post('/api/email-ticketing/test', async (req, res) => {
   const su = getSessionUser(req);
@@ -7284,6 +7321,391 @@ app.post('/api/voice-ticket',async(req,res)=>{
 // ═══════════════════════════════════════════════════════════════════════════
 // END ADVANCED FEATURES
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ── Demo booking page ─────────────────────────────────────────────────────
+app.get(['/book','/demo'],(req,res)=>{
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Book a Demo — Resolvo</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0B0F19;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .card{background:#111827;border:1px solid #1f2937;border-radius:20px;padding:48px 40px;width:100%;max-width:520px;text-align:center;}
+  .logo{font-size:24px;font-weight:800;color:#10B981;letter-spacing:-.5px;margin-bottom:32px;display:block;}
+  h1{font-size:28px;font-weight:800;margin-bottom:10px;line-height:1.2;}
+  .sub{font-size:15px;color:#9ca3af;margin-bottom:36px;line-height:1.6;}
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}
+  .slot{background:#1f2937;border:1px solid #374151;border-radius:12px;padding:16px 12px;cursor:pointer;transition:all .2s;text-decoration:none;color:#fff;display:block;}
+  .slot:hover{border-color:#10B981;background:#0d1f17;transform:translateY(-2px);}
+  .slot-time{font-size:15px;font-weight:700;margin-bottom:3px;}
+  .slot-label{font-size:11px;color:#6b7280;}
+  .divider{display:flex;align-items:center;gap:12px;margin-bottom:24px;color:#4b5563;font-size:12px;}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:#1f2937;}
+  .email-btn{display:block;width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#6366F1,#10B981);color:#fff;font-size:15px;font-weight:700;text-decoration:none;transition:opacity .2s;margin-bottom:16px;}
+  .email-btn:hover{opacity:.9;}
+  .meta{font-size:12px;color:#4b5563;line-height:1.8;}
+  .meta a{color:#6b7280;text-decoration:none;}.meta a:hover{color:#10B981;}
+  .badge{display:inline-flex;align-items:center;gap:6px;background:#0d1f17;border:1px solid #10B98133;border-radius:100px;padding:6px 14px;font-size:12px;color:#10B981;font-weight:600;margin-bottom:28px;}
+  </style></head><body>
+  <div class="card">
+    <a href="/pitch" class="logo">resolvo</a>
+    <div class="badge">🟢 Free 3-month trial · No credit card</div>
+    <h1>Book a 15-min demo</h1>
+    <p class="sub">See Resolvo live. Asif will walk you through setup, answer your questions, and get your team started — all in 15 minutes.</p>
+
+    <div class="slots">
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Morning&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Morning%20(10am%20-%2012pm%20IST)%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">☀️ Morning</div>
+        <div class="slot-label">10am – 12pm IST</div>
+      </a>
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Afternoon&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Afternoon%20(2pm%20-%204pm%20IST)%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">🌤 Afternoon</div>
+        <div class="slot-label">2pm – 4pm IST</div>
+      </a>
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Evening&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Evening%20(5pm%20-%207pm%20IST)%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">🌆 Evening</div>
+        <div class="slot-label">5pm – 7pm IST</div>
+      </a>
+      <a class="slot" href="mailto:contact@resolvogroup.com?subject=Demo%20Request%20-%20Flexible&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20book%20a%2015-min%20demo.%0A%0APreferred%20time%3A%20Flexible%20-%20you%20pick%0ACompany%3A%20%0ATeam%20size%3A%20%0A%0AThanks">
+        <div class="slot-time">🔄 Flexible</div>
+        <div class="slot-label">You pick the time</div>
+      </a>
+    </div>
+
+    <div class="divider">or reach out directly</div>
+
+    <a class="email-btn" href="mailto:contact@resolvogroup.com?subject=Demo%20Request&body=Hi%20Asif%2C%0A%0AI'd%20like%20to%20see%20Resolvo%20in%20action.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0ABest%20time%3A%20%0A%0AThanks">Email contact@resolvogroup.com →</a>
+
+    <div class="meta">
+      15 minutes · Google Meet or Zoom · Mon–Sat IST<br>
+      <a href="/pitch">← Back to pitch</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+    </div>
+  </div>
+  </body></html>`);
+});
+
+// ── Legal pages ───────────────────────────────────────────────────────────
+function legalPage(title, body) {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Resolvo</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;color:#111827;line-height:1.7;}
+  .wrap{max-width:780px;margin:0 auto;padding:48px 24px 80px;}
+  .logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none;margin-bottom:40px;}
+  .logo-text{font-size:22px;font-weight:800;color:#6366F1;letter-spacing:-0.5px;}
+  h1{font-size:30px;font-weight:800;color:#1E1B4B;margin-bottom:8px;}
+  .subtitle{font-size:14px;color:#6b7280;margin-bottom:36px;padding-bottom:20px;border-bottom:2px solid #E5E7EB;}
+  h2{font-size:17px;font-weight:700;color:#6366F1;margin:28px 0 10px;}
+  h3{font-size:14px;font-weight:700;color:#1E1B4B;margin:16px 0 6px;}
+  p{margin-bottom:10px;font-size:14px;color:#374151;}
+  ul{margin:6px 0 12px 20px;}li{font-size:14px;color:#374151;margin-bottom:4px;}
+  ol{margin:6px 0 12px 20px;}
+  .footer{margin-top:56px;padding-top:20px;border-top:1px solid #E5E7EB;font-size:12px;color:#9ca3af;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  .footer a{color:#6b7280;text-decoration:none;}.footer a:hover{text-decoration:underline;}
+  </style></head><body><div class="wrap">
+  <a href="/" class="logo"><span class="logo-text">resolvo</span></a>
+  ${body}
+  <div class="footer"><span>© 2026 Resolvo Group · <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></span>
+  <span><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/refund">Refund Policy</a></span></div>
+  </div></body></html>`;
+}
+
+app.get('/privacy',(req,res)=>{
+  res.send(legalPage('Privacy Policy',`
+    <h1>Privacy Policy</h1>
+    <p class="subtitle">Effective Date: June 21, 2026 · Resolvo Group · resolvogroup.com</p>
+    <h2>1. Introduction</h2>
+    <p>Resolvo Group ("Resolvo", "we", "us", or "our") operates the customer support platform at resolvogroup.com. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform. By using Resolvo, you agree to the collection and use of information in accordance with this policy.</p>
+    <h2>2. Information We Collect</h2>
+    <h3>Account Information</h3>
+    <ul><li>Name, email address, and password when you register</li><li>Company name, size, and industry</li><li>Billing information (processed securely via payment processors)</li></ul>
+    <h3>Customer Support Data</h3>
+    <ul><li>Emails and tickets received through your connected inbox</li><li>Customer names, email addresses, and contact information</li><li>Support conversation history and attachments</li><li>Custom fields and tags you create</li></ul>
+    <h3>Usage Data</h3>
+    <ul><li>Log data including IP address, browser type, pages visited</li><li>Feature usage and interaction data</li><li>Performance and error data</li></ul>
+    <h2>3. How We Use Your Information</h2>
+    <ul><li>To provide and maintain the Resolvo platform</li><li>To process and manage your support tickets</li><li>To send transactional emails and product updates</li><li>To improve our platform features and performance</li><li>To provide customer support to you</li><li>To comply with legal obligations</li></ul>
+    <h2>4. Data Storage and Security</h2>
+    <p>Your data is stored on secure servers hosted in India. We implement industry-standard security measures including encrypted data transmission (HTTPS/TLS), encrypted storage, access controls, and regular security assessments. No method of transmission over the internet is 100% secure.</p>
+    <h2>5. Data Sharing</h2>
+    <p>We do not sell, rent, or trade your personal information. We may share data with service providers who assist in operating our platform (under strict confidentiality), law enforcement when required by law, or business successors in case of merger or acquisition.</p>
+    <h2>6. Data Retention</h2>
+    <p>We retain your account data for as long as your account is active. Support ticket data is retained for the duration of your subscription plus 90 days. You may request deletion of your data at any time by contacting us.</p>
+    <h2>7. Your Rights</h2>
+    <p>You have the right to access, correct, delete, or export your personal data. To exercise these rights, contact us at <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a>.</p>
+    <h2>8. Cookies</h2>
+    <p>We use essential cookies to maintain your session and preferences. We do not use advertising or tracking cookies.</p>
+    <h2>9. Children's Privacy</h2>
+    <p>Resolvo is not directed to individuals under 18. We do not knowingly collect personal information from children.</p>
+    <h2>10. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. We will notify you of significant changes by email or in-app notice.</p>
+    <h2>11. Contact</h2>
+    <p>Email: <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a> · Website: resolvogroup.com</p>
+  `));
+});
+
+app.get('/terms',(req,res)=>{
+  res.send(legalPage('Terms of Service',`
+    <h1>Terms of Service</h1>
+    <p class="subtitle">Effective Date: June 21, 2026 · Resolvo Group · resolvogroup.com</p>
+    <h2>1. Acceptance of Terms</h2>
+    <p>By accessing or using the Resolvo platform ("Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
+    <h2>2. Description of Service</h2>
+    <p>Resolvo provides a cloud-based customer support platform including shared email inbox, ticket management, SLA tracking, AI-assisted replies, team collaboration tools, knowledge base, and analytics.</p>
+    <h2>3. Account Registration</h2>
+    <ul><li>You must provide accurate and complete information when creating an account</li><li>You are responsible for maintaining the security of your login credentials</li><li>Notify us immediately of any unauthorized access to your account</li></ul>
+    <h2>4. Acceptable Use</h2>
+    <p>You agree NOT to use the Service for any unlawful purpose, send spam through the platform, attempt unauthorized access to our systems, resell the Service without permission, or reverse engineer any part of the Service.</p>
+    <h2>5. Data Ownership</h2>
+    <p>You retain full ownership of all data you input into the Service. Resolvo claims no ownership over your data and processes it solely to provide the Service.</p>
+    <h2>6. Free Trial and Subscription</h2>
+    <ul><li>Resolvo may offer free trial periods at its discretion</li><li>After the trial period, continued use requires a paid subscription</li><li>Subscription fees are billed in advance on a monthly or annual basis</li></ul>
+    <h2>7. Termination</h2>
+    <p>Either party may terminate the agreement at any time. Upon termination, you may request a data export within 30 days. After 30 days, your data may be permanently deleted.</p>
+    <h2>8. Limitation of Liability</h2>
+    <p>To the maximum extent permitted by law, Resolvo shall not be liable for any indirect, incidental, or consequential damages. Our total liability shall not exceed the amount you paid us in the 3 months preceding the claim.</p>
+    <h2>9. Governing Law</h2>
+    <p>These Terms are governed by the laws of India. Disputes shall be subject to the exclusive jurisdiction of courts in India.</p>
+    <h2>10. Contact</h2>
+    <p>Email: <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p>
+  `));
+});
+
+app.get('/refund',(req,res)=>{
+  res.send(legalPage('Refund Policy',`
+    <h1>Refund Policy</h1>
+    <p class="subtitle">Effective Date: June 21, 2026 · Resolvo Group · resolvogroup.com</p>
+    <h2>Overview</h2>
+    <p>At Resolvo, we want every customer to be satisfied with our platform. This Refund Policy explains when and how refunds are issued.</p>
+    <h2>1. Free Trial</h2>
+    <p>Resolvo offers a free trial period of up to 3 months for qualifying customers. No payment is required during the free trial, allowing you to fully evaluate the platform before committing to a subscription.</p>
+    <h2>2. General Policy</h2>
+    <p>All subscription fees paid to Resolvo are non-refundable, except in the specific circumstances outlined below. This applies to monthly subscriptions, annual subscriptions, and any add-on or upgrade fees.</p>
+    <h2>3. Exceptions — When Refunds Are Issued</h2>
+    <h3>Extended Downtime</h3>
+    <p>If Resolvo experiences unplanned downtime exceeding 24 consecutive hours in a calendar month, affected customers are eligible for a pro-rated credit for that month (applied to next billing cycle).</p>
+    <h3>Billing Errors</h3>
+    <p>If a customer is charged incorrectly due to a billing error on our part, a full refund of the incorrect amount will be issued within 7 business days.</p>
+    <h3>Annual Plan — 7-Day Cancellation Window</h3>
+    <p>Customers who purchase an annual plan may request a full refund within 7 days of payment if they have not actively used the platform (less than 5 tickets processed).</p>
+    <h2>4. How to Request a Refund</h2>
+    <p>Contact us at <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a> with your account email, invoice number, and reason for the request. We will respond within 2 business days.</p>
+    <h2>5. Cancellation</h2>
+    <p>Cancelling a subscription stops future billing but does not trigger a refund for the current period. Your access continues until the end of the paid period. No partial refunds for unused days in a monthly subscription.</p>
+    <h2>6. Contact</h2>
+    <p>Email: <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p>
+  `));
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CRM ROUTES
+// ══════════════════════════════════════════════════════════════════════════════
+function crmAuth(req,res){
+  const su=getSessionUser(req);
+  if(!su)return null;
+  return su;
+}
+function crmDb(slug){return _openDB(slug);}
+function crmAll(db,table){return db.prepare(`SELECT data FROM ${table}`).all().map(r=>JSON.parse(r.data));}
+function crmGet(db,table,id){const r=db.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id);return r?JSON.parse(r.data):null;}
+function crmSave(db,table,obj){db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`).run(obj.id,JSON.stringify(obj));}
+function crmDel(db,table,id){db.prepare(`DELETE FROM ${table} WHERE id=?`).run(id);}
+
+// ── CRM page route ────────────────────────────────────────────────────────────
+app.get('/crm',(req,res)=>res.sendFile(path.join(__dirname,'public','crm.html')));
+
+// ── Dashboard stats ───────────────────────────────────────────────────────────
+app.get('/api/crm/dashboard',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const deals=crmAll(db,'crm_deals');
+  const contacts=crmAll(db,'crm_contacts');
+  const activities=crmAll(db,'crm_activities');
+  const now=new Date().toISOString().slice(0,10);
+  const openDeals=deals.filter(d=>d.stage!=='won'&&d.stage!=='lost');
+  const wonThisMonth=deals.filter(d=>d.stage==='won'&&d.wonDate&&d.wonDate.slice(0,7)===now.slice(0,7));
+  const pipelineValue=openDeals.reduce((s,d)=>s+(d.value||0),0);
+  const wonValue=wonThisMonth.reduce((s,d)=>s+(d.value||0),0);
+  const overdueActs=activities.filter(a=>!a.completedDate&&a.dueDate&&a.dueDate<now);
+  const todayActs=activities.filter(a=>!a.completedDate&&a.dueDate===now);
+  res.json({totalContacts:contacts.length,totalDeals:deals.length,openDeals:openDeals.length,pipelineValue,wonThisMonth:wonThisMonth.length,wonValue,overdueActivities:overdueActs.length,todayActivities:todayActs.length,
+    stageBreakdown:{prospect:deals.filter(d=>d.stage==='prospect').length,qualified:deals.filter(d=>d.stage==='qualified').length,demo:deals.filter(d=>d.stage==='demo').length,proposal:deals.filter(d=>d.stage==='proposal').length,won:deals.filter(d=>d.stage==='won').length,lost:deals.filter(d=>d.stage==='lost').length}
+  });
+});
+
+// ── Contacts ──────────────────────────────────────────────────────────────────
+app.get('/api/crm/contacts',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  let contacts=crmAll(db,'crm_contacts');
+  const{q,source,stage}=req.query;
+  if(q){const ql=q.toLowerCase();contacts=contacts.filter(c=>(c.name||'').toLowerCase().includes(ql)||(c.email||'').toLowerCase().includes(ql)||(c.company||'').toLowerCase().includes(ql));}
+  if(source&&source!=='all')contacts=contacts.filter(c=>c.source===source);
+  contacts.sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  res.json(contacts);
+});
+app.post('/api/crm/contacts',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const c={id:uuidv4(),...req.body,createdDate:new Date().toISOString(),ownerId:su.userId};
+  crmSave(db,'crm_contacts',c);res.json({success:true,contact:c});
+});
+app.put('/api/crm/contacts/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_contacts',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id,updatedDate:new Date().toISOString()};
+  crmSave(db,'crm_contacts',updated);res.json({success:true,contact:updated});
+});
+app.delete('/api/crm/contacts/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_contacts',req.params.id);res.json({success:true});
+});
+
+// ── Companies ─────────────────────────────────────────────────────────────────
+app.get('/api/crm/companies',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  let companies=crmAll(crmDb(su.brandSlug),'crm_companies');
+  if(req.query.q){const ql=req.query.q.toLowerCase();companies=companies.filter(c=>(c.name||'').toLowerCase().includes(ql));}
+  companies.sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  res.json(companies);
+});
+app.post('/api/crm/companies',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const c={id:uuidv4(),...req.body,createdDate:new Date().toISOString()};
+  crmSave(crmDb(su.brandSlug),'crm_companies',c);res.json({success:true,company:c});
+});
+app.put('/api/crm/companies/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_companies',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id};
+  crmSave(db,'crm_companies',updated);res.json({success:true,company:updated});
+});
+app.delete('/api/crm/companies/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_companies',req.params.id);res.json({success:true});
+});
+
+// ── Deals ─────────────────────────────────────────────────────────────────────
+app.get('/api/crm/deals',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  let deals=crmAll(crmDb(su.brandSlug),'crm_deals');
+  if(req.query.stage&&req.query.stage!=='all')deals=deals.filter(d=>d.stage===req.query.stage);
+  if(req.query.q){const ql=req.query.q.toLowerCase();deals=deals.filter(d=>(d.title||'').toLowerCase().includes(ql));}
+  deals.sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  res.json(deals);
+});
+app.post('/api/crm/deals',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const d={id:uuidv4(),...req.body,stage:req.body.stage||'prospect',createdDate:new Date().toISOString(),ownerId:su.userId};
+  crmSave(crmDb(su.brandSlug),'crm_deals',d);res.json({success:true,deal:d});
+});
+app.put('/api/crm/deals/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_deals',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const body=req.body;
+  if(body.stage==='won'&&existing.stage!=='won')body.wonDate=new Date().toISOString();
+  const updated={...existing,...body,id:req.params.id,updatedDate:new Date().toISOString()};
+  crmSave(db,'crm_deals',updated);res.json({success:true,deal:updated});
+});
+app.delete('/api/crm/deals/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_deals',req.params.id);res.json({success:true});
+});
+
+// ── Activities ────────────────────────────────────────────────────────────────
+app.get('/api/crm/activities',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  let acts=crmAll(db,'crm_activities');
+  if(req.query.contactId)acts=acts.filter(a=>a.contactId===req.query.contactId);
+  if(req.query.dealId)acts=acts.filter(a=>a.dealId===req.query.dealId);
+  if(req.query.pending==='1')acts=acts.filter(a=>!a.completedDate);
+  acts.sort((a,b)=>{
+    if(a.completedDate&&!b.completedDate)return 1;
+    if(!a.completedDate&&b.completedDate)return-1;
+    return(a.dueDate||'')>(b.dueDate||'')?1:-1;
+  });
+  res.json(acts);
+});
+app.post('/api/crm/activities',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const a={id:uuidv4(),...req.body,createdDate:new Date().toISOString(),ownerId:su.userId};
+  crmSave(crmDb(su.brandSlug),'crm_activities',a);res.json({success:true,activity:a});
+});
+app.put('/api/crm/activities/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_activities',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id};
+  if(req.body.complete)updated.completedDate=new Date().toISOString();
+  crmSave(db,'crm_activities',updated);res.json({success:true,activity:updated});
+});
+app.delete('/api/crm/activities/:id',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_activities',req.params.id);res.json({success:true});
+});
+
+// ── CRM OUTREACH ─────────────────────────────────────────────────────────────
+app.get('/api/crm/outreach',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  let list=crmAll(db,'crm_outreach');
+  const {status,q}=req.query;
+  if(status) list=list.filter(o=>o.status===status);
+  if(q){ const lq=q.toLowerCase(); list=list.filter(o=>(o.name||'').toLowerCase().includes(lq)||(o.company||'').toLowerCase().includes(lq)); }
+  list.sort((a,b)=>(a.followUp||'9')<(b.followUp||'9')?-1:1);
+  res.json({success:true,outreach:list});
+});
+app.post('/api/crm/outreach',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const o={...req.body,id:req.body.id||uuidv4(),createdAt:req.body.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+  crmSave(crmDb(su.brandSlug),'crm_outreach',o); res.json({success:true,outreach:o});
+});
+app.post('/api/crm/outreach/bulk',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const items=req.body.items||[];
+  items.forEach(o=>{ const rec={...o,id:o.id||uuidv4(),updatedAt:new Date().toISOString()}; crmSave(db,'crm_outreach',rec); });
+  res.json({success:true,count:items.length});
+});
+app.put('/api/crm/outreach/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_outreach',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id,updatedAt:new Date().toISOString()};
+  crmSave(db,'crm_outreach',updated); res.json({success:true,outreach:updated});
+});
+app.delete('/api/crm/outreach/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_outreach',req.params.id); res.json({success:true});
+});
+
+// ── CRM TEMPLATES ─────────────────────────────────────────────────────────────
+app.get('/api/crm/templates',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const list=crmAll(crmDb(su.brandSlug),'crm_templates');
+  res.json({success:true,templates:list});
+});
+app.post('/api/crm/templates',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const t={...req.body,id:req.body.id||uuidv4(),createdAt:new Date().toISOString()};
+  crmSave(crmDb(su.brandSlug),'crm_templates',t); res.json({success:true,template:t});
+});
+app.put('/api/crm/templates/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const existing=crmGet(db,'crm_templates',req.params.id);
+  if(!existing)return res.status(404).json({error:'Not found'});
+  const updated={...existing,...req.body,id:req.params.id};
+  crmSave(db,'crm_templates',updated); res.json({success:true,template:updated});
+});
+app.delete('/api/crm/templates/:id',(req,res)=>{
+  const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
+  crmDel(crmDb(su.brandSlug),'crm_templates',req.params.id); res.json({success:true});
+});
 
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
