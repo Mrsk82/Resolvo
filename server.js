@@ -7877,6 +7877,203 @@ app.delete('/api/crm/templates/:id',(req,res)=>{
   crmDel(crmDb(su.brandSlug),'crm_templates',req.params.id); res.json({success:true});
 });
 
+// ── CUSTOMER DASHBOARD ────────────────────────────────────────────────────────
+
+const DEFAULT_DASHBOARD_WIDGETS=[
+  {id:'w1',type:'ticket_overview',   x:0,y:0,w:4,h:2,config:{}},
+  {id:'w2',type:'open_by_priority',  x:0,y:2,w:2,h:2,config:{}},
+  {id:'w3',type:'sla_status',        x:2,y:2,w:2,h:2,config:{}},
+  {id:'w4',type:'avg_resolution',    x:0,y:4,w:2,h:2,config:{}},
+  {id:'w5',type:'csat_score',        x:2,y:4,w:2,h:2,config:{}},
+  {id:'w6',type:'my_open_tickets',   x:0,y:6,w:2,h:4,config:{}},
+  {id:'w7',type:'team_workload',     x:2,y:6,w:2,h:4,config:{}},
+  {id:'w8',type:'issue_overview',    x:0,y:10,w:2,h:2,config:{}},
+  {id:'w9',type:'active_sprint',     x:2,y:10,w:2,h:2,config:{}},
+  {id:'w10',type:'todays_appointments',x:0,y:12,w:4,h:3,config:{}},
+  {id:'w11',type:'tickets_by_source',  x:0,y:15,w:2,h:3,config:{}},
+  {id:'w12',type:'agent_availability', x:2,y:15,w:2,h:3,config:{}},
+];
+
+// GET dashboard config
+app.get('/api/:slug/dashboard/config',(req,res)=>{
+  const su=getSession(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=readBrandDB(req.params.slug);
+  res.json({success:true,widgets:db.dashboardConfig||DEFAULT_DASHBOARD_WIDGETS,globalRange:db.dashboardRange||'30d'});
+});
+
+// POST save dashboard config
+app.post('/api/:slug/dashboard/config',(req,res)=>{
+  const su=getSession(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  if(su.role!=='Admin')return res.status(403).json({error:'Admin only'});
+  const db=readBrandDB(req.params.slug);
+  db.dashboardConfig=req.body.widgets||DEFAULT_DASHBOARD_WIDGETS;
+  db.dashboardRange=req.body.globalRange||'30d';
+  writeBrandDB(req.params.slug,db);
+  res.json({success:true});
+});
+
+// GET widget data
+app.get('/api/:slug/dashboard/widget',(req,res)=>{
+  const su=getSession(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const{slug}=req.params;
+  const type=req.query.type;
+  const range=parseInt(req.query.range)||30;
+  const db=readBrandDB(slug);
+  const now=new Date();
+  const cutoff=new Date(now.getTime()-range*24*3600000);
+  const tickets=db.tickets||[];
+  const issues=db.issues||[];
+  const users=db.users||[];
+  const apts=db.appointments||[];
+
+  try{
+    let data={};
+    switch(type){
+      case'ticket_overview':{
+        const inRange=tickets.filter(t=>new Date(t.createdDate||t.createdAt)>=cutoff);
+        data={total:inRange.length,
+          new:inRange.filter(t=>t.status==='new').length,
+          open:inRange.filter(t=>t.status==='open').length,
+          pending:inRange.filter(t=>t.status==='pending').length,
+          resolved:inRange.filter(t=>t.status==='resolved').length,
+          closed:inRange.filter(t=>t.status==='closed').length,
+          allOpen:tickets.filter(t=>!['resolved','closed'].includes(t.status)).length};
+        break;}
+      case'open_by_priority':{
+        const open=tickets.filter(t=>!['resolved','closed'].includes(t.status));
+        data={Critical:open.filter(t=>t.priority==='Critical').length,
+          High:open.filter(t=>t.priority==='High').length,
+          Medium:open.filter(t=>t.priority==='Medium').length,
+          Low:open.filter(t=>t.priority==='Low').length};
+        break;}
+      case'sla_status':{
+        const inRange=tickets.filter(t=>new Date(t.createdDate||t.createdAt)>=cutoff);
+        const breached=inRange.filter(t=>t.slaBreached).length;
+        const within=inRange.length-breached;
+        const breachedList=tickets.filter(t=>t.slaBreached&&!['resolved','closed'].includes(t.status))
+          .sort((a,b)=>new Date(a.slaDeadline)-new Date(b.slaDeadline)).slice(0,5);
+        data={total:inRange.length,breached,within,pct:inRange.length?Math.round(within/inRange.length*100):100,breachedList};
+        break;}
+      case'avg_resolution':{
+        const resolved=tickets.filter(t=>t.resolvedDate&&new Date(t.resolvedDate)>=cutoff);
+        const times=resolved.map(t=>(new Date(t.resolvedDate)-new Date(t.createdDate||t.createdAt))/3600000).filter(h=>h>0);
+        const avg=times.length?Math.round(times.reduce((a,b)=>a+b,0)/times.length*10)/10:0;
+        // prev period
+        const cutoff2=new Date(cutoff.getTime()-range*24*3600000);
+        const prev=tickets.filter(t=>t.resolvedDate&&new Date(t.resolvedDate)>=cutoff2&&new Date(t.resolvedDate)<cutoff);
+        const prevTimes=prev.map(t=>(new Date(t.resolvedDate)-new Date(t.createdDate||t.createdAt))/3600000).filter(h=>h>0);
+        const prevAvg=prevTimes.length?Math.round(prevTimes.reduce((a,b)=>a+b,0)/prevTimes.length*10)/10:null;
+        data={avg,count:times.length,prevAvg,trend:prevAvg?avg<prevAvg?'better':avg>prevAvg?'worse':'same':'none'};
+        break;}
+      case'csat_score':{
+        const rated=tickets.filter(t=>t.csatScore&&new Date(t.createdDate||t.createdAt)>=cutoff);
+        const avg=rated.length?Math.round(rated.reduce((a,t)=>a+t.csatScore,0)/rated.length*10)/10:null;
+        const dist={1:0,2:0,3:0,4:0,5:0};rated.forEach(t=>dist[t.csatScore]=(dist[t.csatScore]||0)+1);
+        const recent=rated.sort((a,b)=>new Date(b.createdDate||b.createdAt)-new Date(a.createdDate||a.createdAt))
+          .slice(0,5).map(t=>({id:t.id,score:t.csatScore,comment:t.csatComment,from:t.fromName||t.from}));
+        data={avg,count:rated.length,dist,recent};
+        break;}
+      case'my_open_tickets':{
+        const mine=tickets.filter(t=>t.assignedTo===su.email&&!['resolved','closed'].includes(t.status))
+          .sort((a,b)=>{const po={Critical:0,High:1,Medium:2,Low:3};return(po[a.priority]||2)-(po[b.priority]||2);})
+          .slice(0,20).map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate||t.createdAt,slaBreached:t.slaBreached}));
+        data={tickets:mine,count:mine.length};
+        break;}
+      case'team_workload':{
+        const active=users.filter(u=>u.active);
+        data={agents:active.map(u=>({name:u.name,email:u.email,open:tickets.filter(t=>t.assignedTo===u.email&&!['resolved','closed'].includes(t.status)).length,max:u.maxTickets||50,availability:u.availabilityStatus||'available'}))};
+        break;}
+      case'issue_overview':{
+        const inRange=issues.filter(i=>new Date(i.createdDate)>=cutoff);
+        data={total:inRange.length,
+          open:inRange.filter(i=>i.status==='Open').length,
+          wip:inRange.filter(i=>i.status==='WIP').length,
+          testing:inRange.filter(i=>i.status==='Testing').length,
+          resolved:inRange.filter(i=>['Resolved','Closed'].includes(i.status)).length,
+          allOpen:issues.filter(i=>!['Resolved','Closed','Release Required'].includes(i.status)).length};
+        break;}
+      case'active_sprint':{
+        const sprints=db.sprints||[];
+        const sprint=sprints.find(s=>s.status==='active')||sprints.sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate))[0]||null;
+        if(!sprint){data={sprint:null};break;}
+        const si=issues.filter(i=>i.sprintId===sprint.id);
+        const done=si.filter(i=>['Resolved','Closed'].includes(i.status)).length;
+        const end=sprint.endDate?new Date(sprint.endDate):null;
+        const daysLeft=end?Math.max(0,Math.ceil((end-now)/86400000)):null;
+        data={sprint:{...sprint,total:si.length,done,pct:si.length?Math.round(done/si.length*100):0,daysLeft}};
+        break;}
+      case'todays_appointments':{
+        const today=nowIST().split('T')[0];
+        data={appointments:apts.filter(a=>a.date===today).sort((a,b)=>a.time.localeCompare(b.time))};
+        break;}
+      case'upcoming_appointments':{
+        const today=nowIST().split('T')[0];
+        const in7=new Date(now.getTime()+7*86400000).toISOString().split('T')[0];
+        data={appointments:apts.filter(a=>a.date>=today&&a.date<=in7&&a.status!=='cancelled').sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).slice(0,10)};
+        break;}
+      case'appointment_stats':{
+        const inRange=apts.filter(a=>new Date(a.createdAt)>=cutoff);
+        data={total:inRange.length,confirmed:inRange.filter(a=>a.status==='confirmed').length,cancelled:inRange.filter(a=>a.status==='cancelled').length,reminderSent:inRange.filter(a=>a.reminderSent).length};
+        break;}
+      case'tickets_by_source':{
+        const src={};tickets.filter(t=>new Date(t.createdDate||t.createdAt)>=cutoff).forEach(t=>{const s=t.source||'manual';src[s]=(src[s]||0)+1;});
+        data={sources:Object.entries(src).map(([source,count])=>({source,count})).sort((a,b)=>b.count-a.count)};
+        break;}
+      case'agent_availability':{
+        data={agents:users.filter(u=>u.active).map(u=>({name:u.name,email:u.email,status:u.availabilityStatus||'available',open:tickets.filter(t=>t.assignedTo===u.email&&!['resolved','closed'].includes(t.status)).length}))};
+        break;}
+      case'top_resolvers':{
+        const counts={};
+        tickets.filter(t=>t.resolvedDate&&new Date(t.resolvedDate)>=cutoff&&t.assignedTo).forEach(t=>{counts[t.assignedTo]=(counts[t.assignedTo]||0)+1;});
+        const resolvers=Object.entries(counts).map(([email,count])=>{const u=users.find(u=>u.email===email);return{name:u?u.name:email,email,count};}).sort((a,b)=>b.count-a.count).slice(0,5);
+        data={resolvers};
+        break;}
+      case'critical_issues':{
+        data={issues:issues.filter(i=>i.priority==='Critical'&&!['Resolved','Closed'].includes(i.status)).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate)).slice(0,10).map(i=>({id:i.id,title:i.title,status:i.status,assignedTo:i.assignedTo,createdDate:i.createdDate,module:i.module}))};
+        break;}
+      case'unassigned_tickets':{
+        const list=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).slice(0,10);
+        data={count:tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length,tickets:list.map(t=>({id:t.id,subject:t.subject,priority:t.priority,source:t.source,createdDate:t.createdDate||t.createdAt}))};
+        break;}
+      case'announcements':{
+        const ann=(db.announcements||[]).filter(a=>a.active&&(!a.expiresAt||new Date(a.expiresAt)>now));
+        data={announcements:ann.slice(0,5)};
+        break;}
+      case'pipeline_value':{
+        const CRM=require('better-sqlite3');
+        const crmDb=crmDBO(slug);
+        const deals=crmDb.prepare('SELECT data FROM crm_deals').all().map(r=>JSON.parse(r.data));
+        const stages=['Lead','Proposal','Negotiation','Won','Lost'];
+        data={stages:stages.map(s=>({stage:s,count:deals.filter(d=>d.stage===s).length,value:deals.filter(d=>d.stage===s).reduce((a,d)=>a+(d.value||0),0)}))};
+        break;}
+      case'won_deals_month':{
+        const cDb=crmDBO(slug);
+        const allDeals=cDb.prepare('SELECT data FROM crm_deals').all().map(r=>JSON.parse(r.data));
+        const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+        const won=allDeals.filter(d=>d.stage==='Won'&&d.closeDate&&new Date(d.closeDate)>=monthStart);
+        data={count:won.length,value:won.reduce((a,d)=>a+(d.value||0),0)};
+        break;}
+      case'outreach_stats':{
+        const oDb=crmDBO(slug);
+        const outreach=oDb.prepare('SELECT data FROM crm_outreach').all().map(r=>JSON.parse(r.data)).filter(o=>new Date(o.sentAt)>=cutoff);
+        const replied=outreach.filter(o=>o.status==='replied').length;
+        data={sent:outreach.length,replied,bounced:outreach.filter(o=>o.status==='bounced').length,replyRate:outreach.length?Math.round(replied/outreach.length*100):0};
+        break;}
+      case'tickets_over_time':{
+        const days=[];for(let i=range-1;i>=0;i--){const d=new Date(now.getTime()-i*86400000);days.push(d.toISOString().split('T')[0]);}
+        data={days:days.map(d=>({date:d,created:tickets.filter(t=>(t.createdDate||t.createdAt||'').startsWith(d)).length,resolved:tickets.filter(t=>(t.resolvedDate||'').startsWith(d)).length}))};
+        break;}
+      default:data={error:'Unknown widget type: '+type};
+    }
+    res.json({success:true,type,data});
+  }catch(e){
+    console.error('[Dashboard widget]',type,e.message);
+    res.json({success:false,error:e.message,type});
+  }
+});
+
+// ── END CUSTOMER DASHBOARD ────────────────────────────────────────────────────
+
 app.use(errorMiddleware); // Layer 3 — Express error handler (must be last)
 
 app.listen(PORT,()=>{

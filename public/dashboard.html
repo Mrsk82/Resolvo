@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — Resolvo</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- GridStack -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- GridStack JS -->
+<script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--accent:#F59E0B;--bg:#F9FAFB;--surface:#fff;--border:#E5E7EB;--text:#111827;--muted:#6B7280;--danger:#DC2626;--success:#059669;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* TOP BAR */
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;height:54px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.topbar .logo{font-size:16px;font-weight:800;color:var(--text);text-decoration:none;}
+.topbar .brand-name{font-size:13px;color:var(--muted);font-weight:500;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.range-select{font-size:12px;font-weight:600;padding:5px 10px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--text);font-family:inherit;}
+.btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 12px;border-radius:7px;border:none;cursor:pointer;transition:all .15s;font-family:inherit;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#D97706;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--bg);}
+.save-badge{font-size:11px;color:var(--success);font-weight:600;opacity:0;transition:opacity .3s;}
+.save-badge.show{opacity:1;}
+.back-btn{font-size:12px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);}
+.back-btn:hover{background:var(--bg);}
+
+/* GRID */
+.grid-wrap{padding:20px;}
+.grid-stack{background:transparent;}
+.grid-stack-item-content{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+
+/* WIDGET COMMON */
+.w-header{padding:12px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.w-icon{font-size:16px;}
+.w-title{font-size:13px;font-weight:700;flex:1;}
+.w-menu{position:relative;}
+.w-menu-btn{font-size:16px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:5px;line-height:1;}
+.w-menu-btn:hover{background:var(--bg);}
+.w-dropdown{display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;min-width:140px;}
+.w-dropdown.open{display:block;}
+.w-dropdown button{display:block;width:100%;text-align:left;padding:8px 14px;font-size:12px;font-weight:500;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text);}
+.w-dropdown button:hover{background:var(--bg);}
+.w-dropdown button.danger{color:var(--danger);}
+.w-body{flex:1;padding:14px 16px;overflow:auto;min-height:0;}
+.w-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;}
+.w-error{color:var(--danger);font-size:12px;padding:16px;text-align:center;}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px;height:100%;}
+.stat-card{background:var(--bg);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;}
+.stat-num{font-size:22px;font-weight:800;}
+.stat-label{font-size:11px;color:var(--muted);font-weight:500;}
+.stat-new{color:#7C3AED;}
+.stat-open{color:#2563EB;}
+.stat-pending{color:#D97706;}
+.stat-resolved{color:#059669;}
+.stat-closed{color:var(--muted);}
+
+/* PRIORITY BARS */
+.pbar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pbar-label{font-size:11px;font-weight:600;min-width:55px;color:var(--muted);}
+.pbar-track{flex:1;background:var(--bg);border-radius:4px;height:14px;overflow:hidden;}
+.pbar-fill{height:100%;border-radius:4px;transition:width .5s ease;}
+.pbar-count{font-size:11px;font-weight:700;min-width:24px;text-align:right;}
+.c-critical{background:#DC2626;color:#DC2626;}
+.c-high{background:#D97706;color:#D97706;}
+.c-medium{background:#2563EB;color:#2563EB;}
+.c-low{background:#059669;color:#059669;}
+
+/* TICKET LIST */
+.tlist{list-style:none;}
+.tlist li{padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px;}
+.tlist li:last-child{border:none;}
+.tlist .tid{font-size:10px;font-weight:700;color:var(--muted);font-family:monospace;flex-shrink:0;}
+.tlist .tsubj{font-size:12px;font-weight:500;flex:1;line-height:1.3;}
+.priority-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+
+/* BADGE */
+.badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;}
+.badge-new{background:#EDE9FE;color:#7C3AED;}
+.badge-open{background:#DBEAFE;color:#1D4ED8;}
+.badge-pending{background:#FEF3C7;color:#92400E;}
+.badge-resolved{background:#D1FAE5;color:#065F46;}
+.badge-closed{background:#F3F4F6;color:#6B7280;}
+.badge-confirmed{background:#D1FAE5;color:#065F46;}
+.badge-cancelled{background:#FEE2E2;color:#991B1B;}
+
+/* SLA RING */
+.sla-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;height:100%;justify-content:center;}
+.sla-ring{position:relative;width:100px;height:100px;}
+.sla-ring canvas{width:100px!important;height:100px!important;}
+.sla-pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;font-weight:800;}
+.sla-stats{display:flex;gap:16px;}
+.sla-stat{text-align:center;}
+.sla-stat-num{font-size:16px;font-weight:800;}
+.sla-stat-label{font-size:11px;color:var(--muted);}
+
+/* CSAT */
+.csat-wrap{display:flex;flex-direction:column;gap:10px;height:100%;}
+.csat-big{font-size:36px;font-weight:800;color:var(--accent);}
+.csat-stars{font-size:18px;}
+.csat-dist{display:flex;flex-direction:column;gap:3px;}
+.csat-bar-row{display:flex;align-items:center;gap:6px;font-size:11px;}
+.csat-bar-track{flex:1;background:var(--bg);border-radius:3px;height:8px;}
+.csat-bar-fill{height:100%;background:var(--accent);border-radius:3px;}
+
+/* SPRINT */
+.sprint-wrap{display:flex;flex-direction:column;gap:10px;height:100%;}
+.sprint-progress{background:var(--bg);border-radius:6px;height:10px;overflow:hidden;}
+.sprint-bar{height:100%;background:var(--accent);border-radius:6px;transition:width .5s;}
+.sprint-meta{display:flex;gap:10px;font-size:11px;color:var(--muted);}
+.sprint-meta span{font-weight:600;color:var(--text);}
+
+/* TEAM WORKLOAD */
+.agent-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.agent-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.agent-name{font-size:12px;font-weight:600;flex:1;}
+.agent-bar-wrap{flex:2;}
+.agent-bar-track{background:var(--bg);border-radius:4px;height:8px;overflow:hidden;}
+.agent-bar-fill{height:100%;border-radius:4px;background:#2563EB;}
+.agent-bar-fill.over{background:var(--danger);}
+.agent-count{font-size:11px;font-weight:700;color:var(--muted);min-width:36px;text-align:right;}
+
+/* AVAILABILITY */
+.avail-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.avail-available{background:#059669;}
+.avail-busy{background:#D97706;}
+.avail-away{background:var(--muted);}
+
+/* APPOINTMENTS */
+.apt-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+.apt-row:last-child{border:none;}
+.apt-time{font-size:13px;font-weight:700;color:var(--accent);min-width:48px;}
+.apt-info{flex:1;}
+.apt-name{font-size:12px;font-weight:600;}
+.apt-topic{font-size:11px;color:var(--muted);}
+
+/* SOURCE PIE */
+.source-wrap{display:flex;flex-direction:column;gap:8px;height:100%;}
+.source-legend{display:flex;flex-direction:column;gap:4px;flex:1;}
+.source-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+.source-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.source-label{flex:1;color:var(--muted);}
+.source-count{font-weight:700;}
+
+/* WIDGET LIBRARY PANEL */
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;opacity:0;pointer-events:none;transition:opacity .2s;}
+.panel-overlay.open{opacity:1;pointer-events:all;}
+.panel{position:fixed;right:0;top:0;bottom:0;width:340px;background:#fff;border-left:1px solid var(--border);z-index:301;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;}
+.panel.open{transform:translateX(0);}
+.panel-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.panel-head h2{font-size:15px;font-weight:700;flex:1;}
+.panel-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:5px;}
+.panel-close:hover{background:var(--bg);}
+.panel-search{padding:12px 16px;border-bottom:1px solid var(--border);}
+.panel-search input{width:100%;padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;outline:none;font-family:inherit;}
+.panel-search input:focus{border-color:var(--accent);}
+.panel-cats{display:flex;gap:6px;padding:10px 16px;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.pcat{font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+.pcat.active,.pcat:hover{background:var(--text);color:#fff;border-color:var(--text);}
+.panel-list{flex:1;overflow-y:auto;padding:10px 16px;display:flex;flex-direction:column;gap:8px;}
+.panel-widget{border:1px solid var(--border);border-radius:9px;padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:10px;}
+.panel-widget:hover{border-color:var(--accent);background:#FFFBEB;}
+.panel-widget.added{opacity:.4;pointer-events:none;}
+.pw-icon{font-size:20px;flex-shrink:0;}
+.pw-info{flex:1;}
+.pw-name{font-size:12px;font-weight:700;}
+.pw-desc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;}
+.pw-cat{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;}
+.add-btn{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;flex-shrink:0;align-self:center;}
+.panel-widget.hidden{display:none;}
+
+/* RANGE FILTER MODAL */
+.widget-filter{background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);padding:12px;position:absolute;right:0;top:100%;z-index:200;min-width:180px;display:none;}
+.widget-filter.open{display:block;}
+.widget-filter label{display:flex;align-items:center;gap:7px;font-size:12px;padding:5px 0;cursor:pointer;}
+
+/* EMPTY STATE */
+.empty-dash{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--muted);}
+.empty-dash .e-icon{font-size:48px;margin-bottom:12px;}
+.empty-dash h3{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.empty-dash p{font-size:13px;margin-bottom:16px;}
+
+/* chart canvas */
+canvas{max-height:160px;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a href="/" class="back-btn">← App</a>
+  <a href="/" class="logo">Resolvo</a>
+  <span class="brand-name" id="brandNameEl"></span>
+  <div class="topbar-right">
+    <span class="save-badge" id="saveBadge">✓ Saved</span>
+    <select class="range-select" id="globalRange" onchange="onRangeChange()">
+      <option value="7">Last 7 days</option>
+      <option value="30" selected>Last 30 days</option>
+      <option value="60">Last 60 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+    <button class="btn btn-ghost" onclick="resetLayout()">↺ Reset</button>
+    <button class="btn btn-primary" onclick="openPanel()">＋ Add Widget</button>
+  </div>
+</div>
+
+<!-- GRID -->
+<div class="grid-wrap">
+  <div class="grid-stack" id="grid"></div>
+  <div id="emptyState" class="empty-dash" style="display:none;">
+    <div class="e-icon">📊</div>
+    <h3>No widgets yet</h3>
+    <p>Add widgets to build your custom dashboard</p>
+    <button class="btn btn-primary" onclick="openPanel()">＋ Add Widget</button>
+  </div>
+</div>
+
+<!-- WIDGET LIBRARY PANEL -->
+<div class="panel-overlay" id="overlay" onclick="closePanel()"></div>
+<div class="panel" id="panel">
+  <div class="panel-head">
+    <h2>Widget Library</h2>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-search"><input type="text" placeholder="Search widgets…" oninput="filterPanel(this.value)" id="panelSearch"></div>
+  <div class="panel-cats">
+    <span class="pcat active" onclick="filterCat('all',this)">All</span>
+    <span class="pcat" onclick="filterCat('support',this)">🎫 Support</span>
+    <span class="pcat" onclick="filterCat('engineering',this)">🐛 Engineering</span>
+    <span class="pcat" onclick="filterCat('crm',this)">💰 CRM</span>
+    <span class="pcat" onclick="filterCat('appointments',this)">📅 Appointments</span>
+    <span class="pcat" onclick="filterCat('team',this)">👥 Team</span>
+  </div>
+  <div class="panel-list" id="panelList"></div>
+</div>
+
+<script>
+var SLUG='',SESSION='',USER={},grid,globalRange=30;
+var CHARTS={};// chart instances per widget
+var activeDropdown=null;
+var panelCat='all';
+
+// ── WIDGET DEFINITIONS ─────────────────────────────────────────────────────
+var WIDGETS=[
+  {type:'ticket_overview',   icon:'📊',name:'Ticket Overview',   cat:'support',   desc:'Total tickets by status in selected period',         w:4,h:2},
+  {type:'open_by_priority',  icon:'🔥',name:'Open by Priority',  cat:'support',   desc:'Open ticket count per priority level',               w:2,h:2},
+  {type:'sla_status',        icon:'⏱️',name:'SLA Status',        cat:'support',   desc:'Within SLA vs breached — donut + breach list',       w:2,h:3},
+  {type:'avg_resolution',    icon:'✅',name:'Avg Resolution Time',cat:'support',   desc:'Average hours to resolve a ticket vs previous period',w:2,h:2},
+  {type:'csat_score',        icon:'😊',name:'CSAT Score',        cat:'support',   desc:'Customer satisfaction average + score distribution',  w:2,h:3},
+  {type:'my_open_tickets',   icon:'📋',name:'My Open Tickets',   cat:'support',   desc:'Tickets assigned to you, sorted by priority',        w:2,h:4},
+  {type:'unassigned_tickets',icon:'📬',name:'Unassigned Tickets',cat:'support',   desc:'Tickets with no agent — one-click to assign',        w:2,h:3},
+  {type:'tickets_by_source', icon:'📦',name:'Tickets by Source', cat:'support',   desc:'How tickets arrive: email, widget, booking, etc.',   w:2,h:3},
+  {type:'tickets_over_time', icon:'📈',name:'Tickets Over Time', cat:'support',   desc:'Created vs resolved per day — line chart',           w:4,h:3},
+  {type:'critical_issues',   icon:'🚨',name:'Critical Issues',   cat:'engineering',desc:'All open Critical priority issues',                 w:4,h:3},
+  {type:'issue_overview',    icon:'🐛',name:'Issue Overview',    cat:'engineering',desc:'Issues by status: Open, WIP, Testing, Resolved',    w:2,h:2},
+  {type:'active_sprint',     icon:'🏃',name:'Active Sprint',     cat:'engineering',desc:'Current sprint progress, goal and days left',       w:2,h:2},
+  {type:'top_resolvers',     icon:'🏅',name:'Top Resolvers',     cat:'team',      desc:'Agents who resolved most tickets this period',       w:2,h:3},
+  {type:'team_workload',     icon:'👥',name:'Team Workload',     cat:'team',      desc:'Open ticket load per agent vs capacity',             w:2,h:4},
+  {type:'agent_availability',icon:'🟢',name:'Agent Availability',cat:'team',      desc:'Live availability status of all agents',             w:2,h:3},
+  {type:'announcements',     icon:'📢',name:'Announcements',     cat:'team',      desc:'Active team announcements',                          w:4,h:2},
+  {type:'todays_appointments',icon:'📅',name:"Today's Appointments",cat:'appointments',desc:'All appointments scheduled for today',          w:4,h:3},
+  {type:'upcoming_appointments',icon:'📆',name:'Upcoming Appointments',cat:'appointments',desc:'Next 7 days of appointments',               w:2,h:3},
+  {type:'appointment_stats', icon:'📊',name:'Appointment Stats', cat:'appointments',desc:'Confirmed, cancelled, reminder stats',            w:2,h:2},
+  {type:'pipeline_value',    icon:'💰',name:'Pipeline Value',    cat:'crm',       desc:'Total deal value per stage — funnel view',           w:4,h:3},
+  {type:'won_deals_month',   icon:'🏆',name:'Won Deals This Month',cat:'crm',     desc:'Revenue and count of deals won this month',         w:2,h:2},
+  {type:'outreach_stats',    icon:'📤',name:'Outreach Stats',    cat:'crm',       desc:'Emails sent, replied, bounced — reply rate',        w:2,h:2},
+];
+
+var DEFAULT_WIDGETS=[
+  {id:'w1',type:'ticket_overview',   x:0,y:0, w:4,h:2,config:{}},
+  {id:'w2',type:'open_by_priority',  x:0,y:2, w:2,h:2,config:{}},
+  {id:'w3',type:'sla_status',        x:2,y:2, w:2,h:3,config:{}},
+  {id:'w4',type:'avg_resolution',    x:0,y:4, w:2,h:2,config:{}},
+  {id:'w5',type:'csat_score',        x:0,y:6, w:2,h:3,config:{}},
+  {id:'w6',type:'my_open_tickets',   x:2,y:6, w:2,h:4,config:{}},
+  {id:'w7',type:'team_workload',     x:0,y:10,w:2,h:4,config:{}},
+  {id:'w8',type:'issue_overview',    x:2,y:10,w:2,h:2,config:{}},
+  {id:'w9',type:'active_sprint',     x:2,y:12,w:2,h:2,config:{}},
+  {id:'w10',type:'todays_appointments',x:0,y:14,w:4,h:3,config:{}},
+  {id:'w11',type:'tickets_by_source', x:0,y:17,w:2,h:3,config:{}},
+  {id:'w12',type:'agent_availability',x:2,y:17,w:2,h:3,config:{}},
+];
+
+var SOURCE_COLORS=['#F59E0B','#2563EB','#059669','#7C3AED','#DC2626','#0891B2'];
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+window.onload=function(){
+  SLUG=localStorage.getItem('currentSlug')||location.pathname.split('/')[2]||'';
+  SESSION=localStorage.getItem('session_'+SLUG)||'';
+  if(!SLUG||!SESSION){location.href='/';return;}
+
+  // Get brand name
+  fetch('/api/'+SLUG+'/brand-info',{headers:{'x-session-token':SESSION}})
+    .then(r=>r.json()).then(d=>{if(d.brand)document.getElementById('brandNameEl').textContent=d.brand.name;}).catch(()=>{});
+
+  // Get user info
+  try{USER=JSON.parse(atob(SESSION.split('.')[1]||'e30='));}catch(e){}
+
+  grid=GridStack.init({
+    column:4,
+    cellHeight:80,
+    animate:true,
+    draggable:{handle:'.w-header'},
+    resizable:{handles:'se,sw,s'},
+    margin:10,
+  });
+
+  grid.on('change',function(){autoSave();});
+
+  buildPanelList();
+  loadDashboard();
+  document.addEventListener('click',function(e){
+    if(activeDropdown&&!activeDropdown.contains(e.target)){
+      activeDropdown.querySelector('.w-dropdown').classList.remove('open');
+      activeDropdown=null;
+    }
+  });
+};
+
+// ── LOAD / SAVE ────────────────────────────────────────────────────────────
+function loadDashboard(){
+  fetch('/api/'+SLUG+'/dashboard/config',{headers:{'x-session-token':SESSION}})
+    .then(r=>r.json()).then(d=>{
+      if(d.success){
+        globalRange=parseInt(d.globalRange)||30;
+        document.getElementById('globalRange').value=String(globalRange);
+        renderWidgets(d.widgets||DEFAULT_WIDGETS);
+      }else renderWidgets(DEFAULT_WIDGETS);
+    }).catch(()=>renderWidgets(DEFAULT_WIDGETS));
+}
+
+function getLayout(){
+  var items=grid.save(false);
+  return items.map(function(item){
+    return{id:item.id,type:item.el?item.el.dataset.wtype:'',x:item.x,y:item.y,w:item.w,h:item.h,config:{}};
+  }).filter(function(i){return i.type;});
+}
+
+var saveTimer=null;
+function autoSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(function(){saveLayout(true);},1200);
+}
+
+function saveLayout(silent){
+  var layout=getLayout();
+  fetch('/api/'+SLUG+'/dashboard/config',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':SESSION},body:JSON.stringify({widgets:layout,globalRange:String(globalRange)})})
+    .then(r=>r.json()).then(function(){
+      if(silent){var b=document.getElementById('saveBadge');b.classList.add('show');setTimeout(function(){b.classList.remove('show');},2000);}
+    });
+}
+
+function onRangeChange(){
+  globalRange=parseInt(document.getElementById('globalRange').value);
+  // Reload all widget data
+  document.querySelectorAll('.grid-stack-item').forEach(function(el){
+    var type=el.dataset.wtype;
+    if(type)loadWidgetData(type,el);
+  });
+  autoSave();
+}
+
+function resetLayout(){
+  if(!confirm('Reset dashboard to default layout?'))return;
+  grid.removeAll();
+  renderWidgets(DEFAULT_WIDGETS);
+  saveLayout(true);
+}
+
+// ── RENDER WIDGETS ─────────────────────────────────────────────────────────
+function renderWidgets(widgets){
+  grid.removeAll();
+  if(!widgets||!widgets.length){document.getElementById('emptyState').style.display='flex';return;}
+  document.getElementById('emptyState').style.display='none';
+  widgets.forEach(function(w){addWidget(w,false);});
+  updatePanelAdded();
+}
+
+function addWidget(cfg,save){
+  var def=WIDGETS.find(function(w){return w.type===cfg.type;});
+  if(!def)return;
+  var id=cfg.id||('w'+Date.now());
+  var el=document.createElement('div');
+  el.className='grid-stack-item';
+  el.dataset.wtype=cfg.type;
+  el.id=id;
+  el.innerHTML='<div class="grid-stack-item-content">'
+    +'<div class="w-header">'
+      +'<span class="w-icon">'+def.icon+'</span>'
+      +'<span class="w-title">'+def.name+'</span>'
+      +'<div class="w-menu" id="menu_'+id+'">'
+        +'<button class="w-menu-btn" onclick="toggleMenu(\''+id+'\')">⋯</button>'
+        +'<div class="w-dropdown">'
+          +'<button onclick="refreshWidget(\''+id+'\',\''+cfg.type+'\')">↺ Refresh</button>'
+          +'<button class="danger" onclick="removeWidget(\''+id+'\')">✕ Remove</button>'
+        +'</div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="w-body" id="body_'+id+'"><div class="w-loading">Loading…</div></div>'
+  +'</div>';
+
+  grid.addWidget(el,{id:id,x:cfg.x||0,y:cfg.y||0,w:cfg.w||def.w||2,h:cfg.h||def.h||2,minW:2,minH:2});
+  loadWidgetData(cfg.type,el);
+  if(save){updatePanelAdded();autoSave();}
+}
+
+// ── WIDGET DATA & RENDER ──────────────────────────────────────────────────
+function loadWidgetData(type,el){
+  var body=el.querySelector('.w-body');
+  body.innerHTML='<div class="w-loading">Loading…</div>';
+  fetch('/api/'+SLUG+'/dashboard/widget?type='+type+'&range='+globalRange,{headers:{'x-session-token':SESSION}})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.success){body.innerHTML='<div class="w-error">'+( d.error||'Error loading')+'</div>';return;}
+      renderWidgetBody(type,body,d.data);
+    }).catch(function(e){body.innerHTML='<div class="w-error">Failed to load</div>';});
+}
+
+function renderWidgetBody(type,el,data){
+  var id=el.id||el.closest('.grid-stack-item').id;
+  // Destroy old chart
+  if(CHARTS[type+id]){CHARTS[type+id].destroy();delete CHARTS[type+id];}
+
+  switch(type){
+
+    case'ticket_overview':
+      el.innerHTML='<div class="stat-grid">'
+        +'<div class="stat-card"><div class="stat-num">'+data.allOpen+'</div><div class="stat-label">All Open</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-new">'+data.new+'</div><div class="stat-label">New</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-open">'+data.open+'</div><div class="stat-label">Open</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-pending">'+data.pending+'</div><div class="stat-label">Pending</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-resolved">'+data.resolved+'</div><div class="stat-label">Resolved</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-closed">'+data.closed+'</div><div class="stat-label">Closed</div></div>'
+      +'</div>';
+      break;
+
+    case'open_by_priority':{
+      var max=Math.max(data.Critical,data.High,data.Medium,data.Low,1);
+      el.innerHTML='<div style="padding-top:4px">'
+        +pbar('Critical',data.Critical,max,'c-critical')
+        +pbar('High',data.High,max,'c-high')
+        +pbar('Medium',data.Medium,max,'c-medium')
+        +pbar('Low',data.Low,max,'c-low')
+      +'</div>';
+      break;}
+
+    case'sla_status':{
+      var canvas='<canvas id="slaChart_'+id+'"></canvas>';
+      el.innerHTML='<div class="sla-wrap">'
+        +'<div class="sla-ring">'+canvas+'<div class="sla-pct" style="color:'+(data.pct>=80?'var(--success)':'var(--danger)')+'">'+data.pct+'%</div></div>'
+        +'<div class="sla-stats">'
+          +'<div class="sla-stat"><div class="sla-stat-num" style="color:var(--success)">'+data.within+'</div><div class="sla-stat-label">Within SLA</div></div>'
+          +'<div class="sla-stat"><div class="sla-stat-num" style="color:var(--danger)">'+data.breached+'</div><div class="sla-stat-label">Breached</div></div>'
+        +'</div>'
+        +(data.breachedList&&data.breachedList.length?'<div style="width:100%;border-top:1px solid var(--border);padding-top:8px;font-size:11px;font-weight:700;color:var(--muted);margin-top:4px;">BREACHED</div>'
+          +'<ul class="tlist" style="width:100%">'+data.breachedList.map(function(t){return'<li><span class="priority-dot" style="background:var(--danger)"></span><span class="tsubj">'+esc(t.subject||t.id)+'</span></li>';}).join('')+'</ul>':'')
+      +'</div>';
+      var ctx=document.getElementById('slaChart_'+id);
+      if(ctx){CHARTS[type+id]=new Chart(ctx,{type:'doughnut',data:{labels:['Within','Breached'],datasets:[{data:[data.within,data.breached],backgroundColor:['#059669','#DC2626'],borderWidth:0}]},options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:600}}});}
+      break;}
+
+    case'avg_resolution':
+      var trend=data.trend==='better'?'↓ Better':'than last period';
+      el.innerHTML='<div style="text-align:center;padding-top:8px;">'
+        +'<div style="font-size:36px;font-weight:800;color:var(--accent)">'+data.avg+'<span style="font-size:14px;color:var(--muted)">h</span></div>'
+        +'<div style="font-size:12px;color:var(--muted);margin-top:4px;">Avg Resolution Time</div>'
+        +'<div style="font-size:11px;margin-top:8px;color:'+(data.trend==='better'?'var(--success)':data.trend==='worse'?'var(--danger)':'var(--muted)')+';">'
+          +(data.prevAvg?'vs '+data.prevAvg+'h last period':'Based on '+data.count+' tickets')
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+data.count+' tickets resolved</div>'
+      +'</div>';
+      break;
+
+    case'csat_score':{
+      var maxDist=Math.max.apply(null,Object.values(data.dist||{1:0,2:0,3:0,4:0,5:0}).concat([1]));
+      el.innerHTML='<div class="csat-wrap">'
+        +'<div style="display:flex;align-items:baseline;gap:8px;">'
+          +'<div class="csat-big">'+(data.avg||'—')+'</div>'
+          +'<div>'
+            +'<div class="csat-stars">'+stars(data.avg)+'</div>'
+            +'<div style="font-size:11px;color:var(--muted)">'+data.count+' ratings</div>'
+          +'</div>'
+        +'</div>'
+        +'<div class="csat-dist">'
+          +[5,4,3,2,1].map(function(s){
+            var c=(data.dist&&data.dist[s])||0;
+            return'<div class="csat-bar-row"><span style="font-size:11px;width:10px;text-align:center;">'+s+'</span>'
+              +'<div class="csat-bar-track"><div class="csat-bar-fill" style="width:'+Math.round(c/maxDist*100)+'%"></div></div>'
+              +'<span style="font-size:11px;color:var(--muted);min-width:20px;text-align:right">'+c+'</span></div>';
+          }).join('')
+        +'</div>'
+      +'</div>';
+      break;}
+
+    case'my_open_tickets':
+    case'unassigned_tickets':{
+      var list=data.tickets||[];
+      el.innerHTML=list.length?'<ul class="tlist">'+list.map(function(t){
+        return'<li>'
+          +'<span class="priority-dot" style="background:'+pc(t.priority)+'"></span>'
+          +'<div style="flex:1;min-width:0;">'
+            +'<div class="tsubj" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(t.subject||t.id)+'</div>'
+            +'<div style="font-size:10px;color:var(--muted);margin-top:1px;">'+t.id+' · <span class="badge badge-'+t.status+'">'+t.status+'</span></div>'
+          +'</div>'
+        +'</li>';
+      }).join('')+'</ul>':'<div class="w-loading" style="color:var(--success)">✓ None</div>';
+      break;}
+
+    case'issue_overview':
+      el.innerHTML='<div class="stat-grid">'
+        +'<div class="stat-card"><div class="stat-num">'+data.allOpen+'</div><div class="stat-label">All Open</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-open">'+data.open+'</div><div class="stat-label">Open</div></div>'
+        +'<div class="stat-card"><div class="stat-num" style="color:#D97706">'+data.wip+'</div><div class="stat-label">WIP</div></div>'
+        +'<div class="stat-card"><div class="stat-num" style="color:#7C3AED">'+data.testing+'</div><div class="stat-label">Testing</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-resolved">'+data.resolved+'</div><div class="stat-label">Resolved</div></div>'
+      +'</div>';
+      break;
+
+    case'active_sprint':{
+      var sp=data.sprint;
+      if(!sp){el.innerHTML='<div class="w-loading">No active sprint</div>';break;}
+      el.innerHTML='<div class="sprint-wrap">'
+        +'<div style="font-size:13px;font-weight:700;">'+esc(sp.name||'Sprint')+'</div>'
+        +(sp.goal?'<div style="font-size:11px;color:var(--muted);">'+esc(sp.goal)+'</div>':'')
+        +'<div class="sprint-progress"><div class="sprint-bar" style="width:'+sp.pct+'%"></div></div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;">'
+          +'<span style="color:var(--muted)">'+sp.done+' / '+sp.total+' done</span>'
+          +'<span style="font-weight:700;color:var(--accent)">'+sp.pct+'%</span>'
+        +'</div>'
+        +'<div class="sprint-meta">'
+          +(sp.endDate?'<span>Ends <span>'+sp.endDate+'</span></span>':'')
+          +(sp.daysLeft!=null?'<span><span>'+sp.daysLeft+'</span> days left</span>':'')
+        +'</div>'
+      +'</div>';
+      break;}
+
+    case'team_workload':{
+      var agents=data.agents||[];
+      if(!agents.length){el.innerHTML='<div class="w-loading">No agents</div>';break;}
+      el.innerHTML=agents.map(function(a){
+        var pct=Math.min(100,Math.round(a.open/a.max*100));
+        var over=a.open>a.max;
+        return'<div class="agent-row">'
+          +'<div class="agent-avatar">'+esc(a.name||a.email).charAt(0).toUpperCase()+'</div>'
+          +'<div style="flex:1;min-width:0;">'
+            +'<div class="agent-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(a.name||a.email)+'</div>'
+            +'<div class="agent-bar-track"><div class="agent-bar-fill'+(over?' over':'')+'" style="width:'+pct+'%"></div></div>'
+          +'</div>'
+          +'<div class="agent-count'+(over?' danger':'')" style="'+(over?'color:var(--danger)':'')+'">'+(a.open)+'/'+a.max+'</div>'
+        +'</div>';
+      }).join('');
+      break;}
+
+    case'agent_availability':{
+      var ag=data.agents||[];
+      el.innerHTML=ag.map(function(a){
+        return'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'
+          +'<span class="avail-dot avail-'+a.status+'"></span>'
+          +'<span style="font-size:12px;font-weight:500;flex:1">'+esc(a.name||a.email)+'</span>'
+          +'<span style="font-size:11px;color:var(--muted)">'+a.open+' open</span>'
+          +'<span style="font-size:10px;font-weight:600;color:var(--muted)">'+a.status+'</span>'
+        +'</div>';
+      }).join('');
+      break;}
+
+    case'announcements':{
+      var ann=data.announcements||[];
+      var colors={info:'#DBEAFE',warning:'#FEF3C7',success:'#D1FAE5'};
+      var tc={info:'#1D4ED8',warning:'#92400E',success:'#065F46'};
+      el.innerHTML=ann.length?ann.map(function(a){
+        return'<div style="padding:10px 12px;border-radius:8px;background:'+(colors[a.type]||colors.info)+';margin-bottom:8px;">'
+          +'<div style="font-size:12px;font-weight:600;color:'+(tc[a.type]||tc.info)+'">'+esc(a.message)+'</div>'
+          +'<div style="font-size:10px;color:var(--muted);margin-top:3px;">'+a.createdAt.split('T')[0]+'</div>'
+        +'</div>';
+      }).join(''):'<div class="w-loading">No announcements</div>';
+      break;}
+
+    case'todays_appointments':
+    case'upcoming_appointments':{
+      var apts=data.appointments||[];
+      el.innerHTML=apts.length?apts.map(function(a){
+        return'<div class="apt-row">'
+          +'<div class="apt-time">'+a.time+'</div>'
+          +'<div class="apt-info">'
+            +'<div class="apt-name">'+esc(a.customerName)+'</div>'
+            +'<div class="apt-topic">'+esc(a.topic)+(type==='upcoming_appointments'?' · '+a.date:'')+'</div>'
+          +'</div>'
+          +'<span class="badge badge-'+a.status+'">'+a.status+'</span>'
+        +'</div>';
+      }).join(''):'<div class="w-loading">No appointments</div>';
+      break;}
+
+    case'appointment_stats':
+      el.innerHTML='<div class="stat-grid">'
+        +'<div class="stat-card"><div class="stat-num">'+data.total+'</div><div class="stat-label">Total</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-resolved">'+data.confirmed+'</div><div class="stat-label">Confirmed</div></div>'
+        +'<div class="stat-card"><div class="stat-num" style="color:var(--danger)">'+data.cancelled+'</div><div class="stat-label">Cancelled</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-open">'+data.reminderSent+'</div><div class="stat-label">Reminded</div></div>'
+      +'</div>';
+      break;
+
+    case'tickets_by_source':{
+      var sources=data.sources||[];
+      var total2=sources.reduce(function(a,s){return a+s.count;},0)||1;
+      var srcIcons={email:'📧',widget:'💬',booking:'📅',whatsapp:'📱',manual:'✏️',recurring:'🔁'};
+      el.innerHTML='<div class="source-wrap">'
+        +'<canvas id="srcChart_'+id+'" style="max-height:110px;margin-bottom:8px;"></canvas>'
+        +'<div class="source-legend">'
+        +sources.map(function(s,i){return'<div class="source-row"><span class="source-dot" style="background:'+SOURCE_COLORS[i%SOURCE_COLORS.length]+'"></span>'
+          +'<span class="source-label">'+(srcIcons[s.source]||'•')+' '+s.source+'</span>'
+          +'<span class="source-count">'+s.count+'</span></div>';}).join('')
+        +'</div></div>';
+      var ctx2=document.getElementById('srcChart_'+id);
+      if(ctx2&&sources.length){CHARTS[type+id]=new Chart(ctx2,{type:'doughnut',data:{labels:sources.map(function(s){return s.source;}),datasets:[{data:sources.map(function(s){return s.count;}),backgroundColor:SOURCE_COLORS.slice(0,sources.length),borderWidth:0}]},options:{cutout:'60%',plugins:{legend:{display:false}},animation:{duration:600}}});}
+      break;}
+
+    case'tickets_over_time':{
+      var days=data.days||[];
+      el.innerHTML='<canvas id="totChart_'+id+'"></canvas>';
+      var ctx3=document.getElementById('totChart_'+id);
+      if(ctx3){CHARTS[type+id]=new Chart(ctx3,{type:'line',data:{labels:days.map(function(d){return d.date.slice(5);}),datasets:[
+        {label:'Created',data:days.map(function(d){return d.created;}),borderColor:'#2563EB',backgroundColor:'rgba(37,99,235,.08)',tension:.3,pointRadius:2,fill:true},
+        {label:'Resolved',data:days.map(function(d){return d.resolved;}),borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',tension:.3,pointRadius:2,fill:true}
+      ]},options:{plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:11}}}},scales:{x:{ticks:{maxTicksLimit:10,font:{size:10}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}}}},animation:{duration:600}}});}
+      break;}
+
+    case'critical_issues':{
+      var iss=data.issues||[];
+      el.innerHTML=iss.length?'<ul class="tlist">'+iss.map(function(i){
+        return'<li><span class="priority-dot" style="background:var(--danger)"></span>'
+          +'<div style="flex:1;min-width:0;">'
+            +'<div class="tsubj" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(i.title)+'</div>'
+            +'<div style="font-size:10px;color:var(--muted);">'+i.id+' · '+(i.module||'')+'</div>'
+          +'</div>'
+          +'<span class="badge badge-'+i.status.toLowerCase().replace(/\s/g,'-')+'">'+i.status+'</span>'
+        +'</li>';
+      }).join('')+'</ul>':'<div class="w-loading" style="color:var(--success)">✓ No critical issues</div>';
+      break;}
+
+    case'top_resolvers':{
+      var res=data.resolvers||[];
+      el.innerHTML=res.length?res.map(function(r,i){
+        return'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'
+          +'<span style="font-size:14px;">'+(i===0?'🥇':i===1?'🥈':i===2?'🥉':'  ')+'</span>'
+          +'<span style="font-size:12px;font-weight:600;flex:1">'+esc(r.name)+'</span>'
+          +'<span style="font-size:13px;font-weight:800;color:var(--accent)">'+r.count+'</span>'
+          +'<span style="font-size:10px;color:var(--muted)">resolved</span>'
+        +'</div>';
+      }).join(''):'<div class="w-loading">No data yet</div>';
+      break;}
+
+    case'pipeline_value':{
+      var stages=data.stages||[];
+      el.innerHTML='<canvas id="pipChart_'+id+'"></canvas>';
+      var ctx4=document.getElementById('pipChart_'+id);
+      if(ctx4){CHARTS[type+id]=new Chart(ctx4,{type:'bar',data:{labels:stages.map(function(s){return s.stage;}),datasets:[
+        {label:'Deals',data:stages.map(function(s){return s.count;}),backgroundColor:['#94A3B8','#F59E0B','#2563EB','#059669','#DC2626'],borderRadius:4},
+      ]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}}}},animation:{duration:600}}});}
+      break;}
+
+    case'won_deals_month':
+      el.innerHTML='<div style="text-align:center;padding-top:8px;">'
+        +'<div style="font-size:32px;font-weight:800;color:var(--success)">₹'+num(data.value)+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);margin-top:4px;">Revenue this month</div>'
+        +'<div style="font-size:13px;font-weight:700;margin-top:8px;">'+data.count+' deals won</div>'
+      +'</div>';
+      break;
+
+    case'outreach_stats':
+      el.innerHTML='<div class="stat-grid">'
+        +'<div class="stat-card"><div class="stat-num">'+data.sent+'</div><div class="stat-label">Sent</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-resolved">'+data.replied+'</div><div class="stat-label">Replied</div></div>'
+        +'<div class="stat-card"><div class="stat-num" style="color:var(--danger)">'+data.bounced+'</div><div class="stat-label">Bounced</div></div>'
+        +'<div class="stat-card"><div class="stat-num stat-open">'+data.replyRate+'%</div><div class="stat-label">Reply Rate</div></div>'
+      +'</div>';
+      break;
+
+    default:
+      el.innerHTML='<div class="w-error">Unknown widget: '+type+'</div>';
+  }
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function pbar(label,val,max,cls){
+  return'<div class="pbar-row"><span class="pbar-label">'+label+'</span>'
+    +'<div class="pbar-track"><div class="pbar-fill '+cls+'" style="width:'+Math.round(val/max*100)+'%"></div></div>'
+    +'<span class="pbar-count '+cls+'">'+val+'</span></div>';
+}
+function pc(p){return{Critical:'#DC2626',High:'#D97706',Medium:'#2563EB',Low:'#059669'}[p]||'#9CA3AF';}
+function stars(avg){var r=Math.round(avg||0);return'★'.repeat(r)+'☆'.repeat(5-r);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function num(n){if(!n)return'0';if(n>=100000)return(n/100000).toFixed(1)+'L';if(n>=1000)return(n/1000).toFixed(1)+'K';return n;}
+
+// ── MENU / REMOVE ──────────────────────────────────────────────────────────
+function toggleMenu(id){
+  var menu=document.getElementById('menu_'+id);
+  var dd=menu.querySelector('.w-dropdown');
+  if(activeDropdown&&activeDropdown!==menu){activeDropdown.querySelector('.w-dropdown').classList.remove('open');activeDropdown=null;}
+  dd.classList.toggle('open');
+  activeDropdown=dd.classList.contains('open')?menu:null;
+}
+function removeWidget(id){
+  var el=document.getElementById(id);
+  if(el){
+    var type=el.dataset.wtype;
+    if(CHARTS[type+id]){CHARTS[type+id].destroy();delete CHARTS[type+id];}
+    grid.removeWidget(el);
+    updatePanelAdded();
+    autoSave();
+  }
+}
+function refreshWidget(id,type){
+  var el=document.getElementById(id);
+  if(el)loadWidgetData(type,el);
+  if(activeDropdown){activeDropdown.querySelector('.w-dropdown').classList.remove('open');activeDropdown=null;}
+}
+
+// ── PANEL ──────────────────────────────────────────────────────────────────
+function buildPanelList(){
+  var list=document.getElementById('panelList');
+  list.innerHTML=WIDGETS.map(function(w){
+    var catColors={support:'#DBEAFE',engineering:'#D1FAE5',crm:'#FCE7F3',appointments:'#FEF3C7',team:'#F3E8FF'};
+    var catText={support:'#1D4ED8',engineering:'#065F46',crm:'#9D174D',appointments:'#92400E',team:'#6B21A8'};
+    return'<div class="panel-widget" data-type="'+w.type+'" data-cat="'+w.cat+'" id="pw_'+w.type+'">'
+      +'<div class="pw-icon">'+w.icon+'</div>'
+      +'<div class="pw-info">'
+        +'<div class="pw-name">'+w.name+'</div>'
+        +'<div class="pw-desc">'+w.desc+'</div>'
+        +'<span class="pw-cat" style="background:'+catColors[w.cat]+';color:'+catText[w.cat]+'">'+w.cat+'</span>'
+      +'</div>'
+      +'<button class="add-btn" onclick="addFromPanel(\''+w.type+'\')">Add</button>'
+    +'</div>';
+  }).join('');
+}
+
+function updatePanelAdded(){
+  var current={};
+  document.querySelectorAll('.grid-stack-item').forEach(function(el){current[el.dataset.wtype]=true;});
+  document.querySelectorAll('.panel-widget').forEach(function(pw){
+    pw.classList.toggle('added',!!current[pw.dataset.type]);
+  });
+}
+
+function addFromPanel(type){
+  var def=WIDGETS.find(function(w){return w.type===type;});
+  if(!def)return;
+  var id='w'+Date.now();
+  addWidget({id,type,x:0,y:9999,w:def.w,h:def.h,config:{}},true);
+  document.getElementById('emptyState').style.display='none';
+}
+
+function openPanel(){document.getElementById('panel').classList.add('open');document.getElementById('overlay').classList.add('open');}
+function closePanel(){document.getElementById('panel').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+
+function filterPanel(q){
+  var lq=q.toLowerCase();
+  document.querySelectorAll('.panel-widget').forEach(function(pw){
+    var name=pw.querySelector('.pw-name').textContent.toLowerCase();
+    var desc=pw.querySelector('.pw-desc').textContent.toLowerCase();
+    var matchQ=!lq||name.includes(lq)||desc.includes(lq);
+    var matchCat=panelCat==='all'||pw.dataset.cat===panelCat;
+    pw.classList.toggle('hidden',!(matchQ&&matchCat));
+  });
+}
+
+function filterCat(cat,el){
+  panelCat=cat;
+  document.querySelectorAll('.pcat').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  filterPanel(document.getElementById('panelSearch').value);
+}
+</script>
+</body>
+</html>
