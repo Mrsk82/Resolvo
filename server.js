@@ -5889,10 +5889,12 @@ function runBackgroundJobs(){
         const now=new Date();
         const in15m=new Date(now.getTime()+900000);
         const in2h=new Date(now.getTime()+7200000);
+        const cutoff=new Date(now.getTime()-7200000); // ignore if >2hrs past
         const toRemind=(db.appointments||[]).filter(a=>{
           if(a.status==='cancelled'||a.reminderSent)return false;
           const aptDt=new Date(a.date+'T'+a.time+':00+05:30');
-          return aptDt>=in15m&&aptDt<=in2h;
+          // Send if: within next 2hrs OR already passed but within last 2hrs
+          return aptDt>=cutoff&&aptDt<=in2h;
         });
         if(toRemind.length>0)console.log(`[Reminders] ${nowIST()} — ${brand.slug}: ${toRemind.length} appointment(s) to remind`);
         for(const apt of toRemind){
