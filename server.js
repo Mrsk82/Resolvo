@@ -5292,7 +5292,9 @@ async function createTicketFromEmail(slug, emailData) {
       timestamp: emailData.date || nowIST(),
       messageId: emailData.messageId
     });
-    existingTicket.status = existingTicket.status === 'resolved' ? 'open' : existingTicket.status;
+    const wasClosedOrResolved = ['resolved','closed'].includes(existingTicket.status);
+    existingTicket.status = wasClosedOrResolved ? 'open' : existingTicket.status;
+    if (wasClosedOrResolved) console.log(`[EmailTicket] Ticket ${existingTicket.id} re-opened by customer reply`);
     existingTicket.lastActivity = nowIST();
     existingTicket.messageIds = [...(existingTicket.messageIds || []), emailData.messageId];
     db.processedEmailIds = db.processedEmailIds || [];
