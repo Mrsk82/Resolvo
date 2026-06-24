@@ -5530,13 +5530,10 @@ async function _doPollBrandInbox(slug) {
           }
           console.log(`[EmailTicket] Fetching ${results.length} new email(s) for ${slug}`);
           const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
-          // Collect buffers + UIDs together
           const fetch = imap.fetch(results, { bodies: '', markSeen: false });
           const buffers = [];
-          let maxUID = lastUID;
           fetch.on('message', (msg) => {
             let buffer = '';
-            msg.once('attributes', (attrs) => { if (attrs.uid > maxUID) maxUID = attrs.uid; });
             msg.on('body', (stream) => { stream.on('data', d => buffer += d.toString()); });
             msg.once('end', () => buffers.push(buffer));
           });
@@ -5560,9 +5557,12 @@ async function _doPollBrandInbox(slug) {
                 if (msgId) processedSet.add(msgId);
               } catch(e) { console.error('[EmailTicket] Parse error:', e.message); }
             }
-            // Save UID cursor so next poll only fetches truly new emails
+            // Advance cursor to uidnext-1 — bulletproof regardless of attrs.uid availability.
+            // Any email arriving AFTER this poll will have UID >= uidnext and will be caught.
+            const newLastUID = Math.max(lastUID, (box.uidnext || lastUID + results.length + 1) - 1);
+            console.log(`[EmailTicket] Cursor advanced for ${slug}: ${lastUID} → ${newLastUID}`);
             const d2 = readBrandDB(slug);
-            d2.emailTicketing.lastUID = maxUID;
+            d2.emailTicketing.lastUID = newLastUID;
             d2.emailTicketing.uidValidity = box.uidvalidity;
             writeBrandDB(slug, d2);
             imap.end();
