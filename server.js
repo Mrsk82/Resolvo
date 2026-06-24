@@ -5470,29 +5470,50 @@ async function _doPollBrandInbox(slug) {
     imap.once('ready', () => {
       imap.openBox(config.mailbox || 'INBOX', false, (err, box) => {
         if (err) { imap.end(); return done(); }
-        // Search last 7 days — never mark as seen, use processed_email_ids table to
-        // deduplicate. This way a timeout mid-fetch won't silently lose emails.
-        const sinceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        sinceDate.setHours(0, 0, 0, 0);
-        const searchCriteria = [['SINCE', sinceDate]];
-        console.log(`[EmailTicket] Searching ${slug} ALL SINCE ${sinceDate.toDateString()} (dedup via processed_email_ids)`);
+
+        // UID-based incremental fetch: only grab emails newer than lastUID.
+        // If UIDVALIDITY changed (mailbox rebuilt), reset lastUID to 0.
+        const freshDB = readBrandDB(slug);
+        const storedValidity = freshDB.emailTicketing.uidValidity || 0;
+        let lastUID = freshDB.emailTicketing.lastUID || 0;
+        if (box.uidvalidity !== storedValidity) {
+          console.log(`[EmailTicket] UIDVALIDITY changed for ${slug} — resetting UID cursor`);
+          lastUID = 0;
+        }
+
+        // Build search: by UID range if we have a cursor, else last 3 days as seed
+        let searchCriteria;
+        if (lastUID > 0) {
+          searchCriteria = [['UID', `${lastUID + 1}:*`]];
+          console.log(`[EmailTicket] Searching ${slug} UID > ${lastUID}`);
+        } else {
+          const sinceDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+          sinceDate.setHours(0, 0, 0, 0);
+          searchCriteria = [['SINCE', sinceDate]];
+          console.log(`[EmailTicket] Seeding ${slug} SINCE ${sinceDate.toDateString()} (first run)`);
+        }
 
         imap.search(searchCriteria, (err, results) => {
           if (err) { console.error(`[EmailTicket] Search error ${slug}:`, err.message); recordPollerFailure(slug, err.message); imap.end(); return done(); }
-          if (!results || results.length === 0) { console.log(`[EmailTicket] No new emails for ${slug}`); recordPollerSuccess(slug); imap.end(); return done(); }
-          console.log(`[EmailTicket] Found ${results.length} emails to check for ${slug}`);
-          // Load already-processed IDs from DB to skip duplicates without marking as SEEN
+          if (!results || results.length === 0) {
+            console.log(`[EmailTicket] No new emails for ${slug}`);
+            // Still save UIDVALIDITY so we don't re-seed next time
+            const d2 = readBrandDB(slug); d2.emailTicketing.uidValidity = box.uidvalidity; writeBrandDB(slug, d2);
+            recordPollerSuccess(slug); imap.end(); return done();
+          }
+          console.log(`[EmailTicket] Fetching ${results.length} new email(s) for ${slug}`);
           const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
-          // Collect raw buffers first, then process sequentially to avoid DB race conditions
+          // Collect buffers + UIDs together
           const fetch = imap.fetch(results, { bodies: '', markSeen: false });
           const buffers = [];
+          let maxUID = lastUID;
           fetch.on('message', (msg) => {
             let buffer = '';
+            msg.once('attributes', (attrs) => { if (attrs.uid > maxUID) maxUID = attrs.uid; });
             msg.on('body', (stream) => { stream.on('data', d => buffer += d.toString()); });
             msg.once('end', () => buffers.push(buffer));
           });
           fetch.once('end', async () => {
-            // Process one at a time — prevents generateTicketId race condition
             for (const buffer of buffers) {
               try {
                 const parsed = await simpleParser(buffer);
@@ -5512,6 +5533,11 @@ async function _doPollBrandInbox(slug) {
                 if (msgId) processedSet.add(msgId);
               } catch(e) { console.error('[EmailTicket] Parse error:', e.message); }
             }
+            // Save UID cursor so next poll only fetches truly new emails
+            const d2 = readBrandDB(slug);
+            d2.emailTicketing.lastUID = maxUID;
+            d2.emailTicketing.uidValidity = box.uidvalidity;
+            writeBrandDB(slug, d2);
             imap.end();
             recordPollerSuccess(slug);
             done();
