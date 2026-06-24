@@ -5258,10 +5258,29 @@ async function createTicketFromEmail(slug, emailData) {
   else if (/low|minor|p3|suggestion/i.test(subjectLower)) priority = 'Low';
 
   // Check if this is a reply to an existing ticket thread
-  const threadId = emailData.inReplyTo || emailData.messageId || '';
-  const existingTicket = threadId ? (db.tickets || []).find(t =>
+  // Method 1: inReplyTo header matches a stored incoming message ID
+  let existingTicket = emailData.inReplyTo ? (db.tickets || []).find(t =>
     t.messageIds && t.messageIds.includes(emailData.inReplyTo)
   ) : null;
+
+  // Method 2: Body contains "Ref: TKT-XXXXXXXX" (agent reply quoted back by customer)
+  if (!existingTicket) {
+    const bodyText = (emailData.text || emailData.html || '');
+    const tktRef = bodyText.match(/Ref:\s*(TKT-[A-F0-9]{8})/i);
+    if (tktRef) existingTicket = (db.tickets || []).find(t => t.id === tktRef[1]);
+  }
+
+  // Method 3: Subject match (strip Re:/Fwd:) + same sender + ticket not closed
+  if (!existingTicket) {
+    const cleanSubj = subjectRaw.replace(/^(Re|Fwd|RE|FW|AW|SV):\s*/gi, '').trim();
+    if (cleanSubj && emailData.from) {
+      existingTicket = (db.tickets || []).find(t =>
+        t.from === emailData.from &&
+        !['resolved','closed'].includes(t.status) &&
+        t.subject && t.subject.replace(/^(Re|Fwd|RE|FW|AW|SV):\s*/gi, '').trim() === cleanSubj
+      );
+    }
+  }
 
   if (existingTicket) {
     // Add as a new message to existing ticket thread
