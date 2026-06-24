@@ -5517,7 +5517,9 @@ async function _doPollBrandInbox(slug) {
         }
 
         // Normal poll: only fetch emails with UID > lastUID (typically 0–5 emails)
-        const searchCriteria = [['UID', `${lastUID + 1}:*`]];
+        // Use max IMAP UID (4294967295) instead of * — avoids IMAP range normalisation
+        // that folds UID n:* into the last existing message when n doesn't exist yet.
+        const searchCriteria = [['UID', `${lastUID + 1}:4294967295`]];
         console.log(`[EmailTicket] Searching ${slug} UID > ${lastUID}`);
 
         imap.search(searchCriteria, (err, results) => {
