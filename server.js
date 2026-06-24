@@ -5879,28 +5879,37 @@ function runBackgroundJobs(){
     }
   });
   // Appointment reminders — check every 15 min
+  // Window: send reminder when appointment is 15min–2hrs away (not in the past)
+  // Wide window means a missed cron run won't lose the reminder
   cron.schedule('*/15 * * * *',async()=>{
     const owner=readOwner();
     for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
       try{
         const db=readBrandDB(brand.slug);
-        const now=new Date();const in1h=new Date(now.getTime()+3600000);
+        const now=new Date();
+        const in15m=new Date(now.getTime()+900000);
+        const in2h=new Date(now.getTime()+7200000);
         const toRemind=(db.appointments||[]).filter(a=>{
           if(a.status==='cancelled'||a.reminderSent)return false;
           const aptDt=new Date(a.date+'T'+a.time+':00+05:30');
-          return aptDt>now&&aptDt<=in1h;
+          return aptDt>=in15m&&aptDt<=in2h;
         });
+        if(toRemind.length>0)console.log(`[Reminders] ${nowIST()} — ${brand.slug}: ${toRemind.length} appointment(s) to remind`);
         for(const apt of toRemind){
           const idx=(db.appointments||[]).findIndex(x=>x.id===apt.id);
           if(idx>=0&&apt.customerEmail){
-            await sendBrandEmail(brand.slug,apt.customerEmail,`⏰ Reminder: Appointment in 1 hour — ${brand.name}`,
-              `<p>Hi ${apt.customerName},</p><p>Reminder: You have an appointment in <strong>1 hour</strong> at ${apt.time}.</p><p>Topic: ${apt.topic}</p>`,
-              `Reminder: Your appointment is in 1 hour at ${apt.time}`).catch(()=>{});
+            const aptDt=new Date(apt.date+'T'+apt.time+':00+05:30');
+            const minsAway=Math.round((aptDt-now)/60000);
+            const label=minsAway>=60?'in about '+Math.round(minsAway/60)+' hour(s)':'in about '+minsAway+' minutes';
+            await sendBrandEmail(brand.slug,apt.customerEmail,`⏰ Reminder: Appointment ${label} — ${brand.name}`,
+              `<p>Hi ${apt.customerName},</p><p>Reminder: You have an appointment <strong>${label}</strong> at ${apt.time}.</p><p>Topic: ${apt.topic}</p><p style="font-size:12px;color:#9ca3af;">Date: ${apt.date}</p>`,
+              `Reminder: Your appointment is ${label} at ${apt.time}`).catch(e=>console.error('[Reminders] Email error:',e.message));
             db.appointments[idx].reminderSent=true;
+            console.log(`[Reminders] Sent to ${apt.customerEmail} for ${apt.date} ${apt.time} (${brand.slug})`);
           }
         }
         if(toRemind.length>0)writeBrandDB(brand.slug,db);
-      }catch(e){}
+      }catch(e){console.error('[Reminders] Error:',e.message);}
     }
   });
   // Nurture email sequence — runs daily at 10am, sends day 1/3/7/14 emails to new signups
