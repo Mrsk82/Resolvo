@@ -5426,7 +5426,15 @@ async function createTicketFromEmail(slug, emailData) {
 }
 
 // Poll a brand's IMAP inbox for new emails
+const _pollInProgress = new Set();
 async function pollBrandInbox(slug) {
+  // Skip if a poll is already running for this brand (prevents connection pile-up)
+  if (_pollInProgress.has(slug)) { console.log(`[EmailTicket] Poll skipped for ${slug} — previous poll still running`); return; }
+  _pollInProgress.add(slug);
+  try { return await _doPollBrandInbox(slug); } finally { _pollInProgress.delete(slug); }
+}
+
+async function _doPollBrandInbox(slug) {
   const db = readBrandDB(slug);
   const config = db.emailTicketing;
   if (!config || !config.enabled || !config.host || !config.user || !config.pass) return;
@@ -5435,7 +5443,19 @@ async function pollBrandInbox(slug) {
   const { simpleParser } = require('mailparser');
   const decodeMimeWords=(str)=>{if(!str||str.indexOf('=?')===-1)return str;str=str.replace(/(\?=)\s+(=\?)/g,'$1$2');return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g,(m,charset,enc,text)=>{try{let bytes;if(enc.toUpperCase()==='B'){bytes=Buffer.from(text,'base64');}else{text=text.replace(/_/g,' ').replace(/=([0-9A-Fa-f]{2})/g,(x,h)=>String.fromCharCode(parseInt(h,16)));bytes=Buffer.from(text,'binary');}let cs=charset.toLowerCase();if(cs==='ansi_x3.4-1968'||cs==='us-ascii')cs='ascii';try{return new TextDecoder(cs).decode(bytes);}catch(e){return bytes.toString('latin1');}}catch(e){return m;}});};
 
+  console.log(`[EmailTicket] Poll starting for ${slug}…`);
   return new Promise((resolve) => {
+    let _done = false;
+    const done = () => { if (_done) return; _done = true; clearTimeout(_pollTimer); resolve(); };
+
+    // Safety net: if ANY IMAP operation hangs, abort after 40s
+    const _pollTimer = setTimeout(() => {
+      console.warn(`[EmailTicket] Poll timeout (40s) for ${slug} — forcing disconnect`);
+      recordPollerFailure(slug, 'Poll timeout after 40s');
+      try { imap.end(); } catch(e) {}
+      done();
+    }, 40000);
+
     const imap = new Imap({
       user: config.user,
       password: config.pass.replace(/\s/g, ''),
@@ -5449,7 +5469,7 @@ async function pollBrandInbox(slug) {
 
     imap.once('ready', () => {
       imap.openBox(config.mailbox || 'INBOX', false, (err, box) => {
-        if (err) { imap.end(); return resolve(); }
+        if (err) { imap.end(); return done(); }
         // Search last 7 days — never mark as seen, use processed_email_ids table to
         // deduplicate. This way a timeout mid-fetch won't silently lose emails.
         const sinceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -5458,8 +5478,9 @@ async function pollBrandInbox(slug) {
         console.log(`[EmailTicket] Searching ${slug} ALL SINCE ${sinceDate.toDateString()} (dedup via processed_email_ids)`);
 
         imap.search(searchCriteria, (err, results) => {
-          if (err) { console.error(`[EmailTicket] Search error ${slug}:`, err.message); recordPollerFailure(slug, err.message); imap.end(); return resolve(); }
-          if (!results || results.length === 0) { recordPollerSuccess(slug); imap.end(); return resolve(); }
+          if (err) { console.error(`[EmailTicket] Search error ${slug}:`, err.message); recordPollerFailure(slug, err.message); imap.end(); return done(); }
+          if (!results || results.length === 0) { console.log(`[EmailTicket] No new emails for ${slug}`); recordPollerSuccess(slug); imap.end(); return done(); }
+          console.log(`[EmailTicket] Found ${results.length} emails to check for ${slug}`);
           // Load already-processed IDs from DB to skip duplicates without marking as SEEN
           const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
           // Collect raw buffers first, then process sequentially to avoid DB race conditions
@@ -5493,7 +5514,7 @@ async function pollBrandInbox(slug) {
             }
             imap.end();
             recordPollerSuccess(slug);
-            resolve();
+            done();
           });
         });
       });
@@ -5502,9 +5523,9 @@ async function pollBrandInbox(slug) {
     imap.once('error', (e) => {
       console.error(`[EmailTicket] IMAP error ${slug}:`, e.message);
       recordPollerFailure(slug, e.message);
-      resolve();
+      done();
     });
-    imap.once('end', () => resolve());
+    imap.once('end', () => done());
     imap.connect();
   });
 }
