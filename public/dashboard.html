@@ -294,15 +294,15 @@ var SOURCE_COLORS=['#F59E0B','#2563EB','#059669','#7C3AED','#DC2626','#0891B2'];
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 window.onload=function(){
-  SLUG=localStorage.getItem('currentSlug')||location.pathname.split('/')[2]||'';
-  SESSION=localStorage.getItem('session_'+SLUG)||'';
+  SLUG=localStorage.getItem('tt_brand_slug')||'';
+  SESSION=localStorage.getItem('tt_session_token')||'';
   if(!SLUG||!SESSION){location.href='/';return;}
 
-  // Get brand name
-  fetch('/api/'+SLUG+'/brand-info',{headers:{'x-session-token':SESSION}})
-    .then(r=>r.json()).then(d=>{if(d.brand)document.getElementById('brandNameEl').textContent=d.brand.name;}).catch(()=>{});
+  // Brand name from localStorage (set at login)
+  var brandName=localStorage.getItem('tt_brand_name')||SLUG;
+  document.getElementById('brandNameEl').textContent=brandName;
 
-  // Get user info
+  // Get user info from session token
   try{USER=JSON.parse(atob(SESSION.split('.')[1]||'e30='));}catch(e){}
 
   grid=GridStack.init({
