@@ -5657,39 +5657,109 @@ function recordPollerSuccess(slug) {
   }
 }
 
-// Start polling for a brand
+// ── IMAP IDLE persistent watcher ──────────────────────────────────────────
+// Keeps one persistent IMAP connection per brand. Gmail pushes a 'mail' event
+// the moment a new email arrives — no polling lag. Auto-reconnects on drop
+// with exponential backoff. A 5-min safety cron catches anything missed
+// during a reconnect window.
 function startEmailPoller(slug) {
-  try {
-    // Stop any existing poller first
-    if (activePollers[slug]) {
-      try { activePollers[slug].stop(); } catch(e) {}
-      delete activePollers[slug];
-    }
-    const db = readBrandDB(slug);
-    const config = db.emailTicketing;
-    if (!config || !config.enabled || !config.host || !config.user || !config.pass) {
-      console.log(`[EmailTicket] Poller not started for ${slug} — missing config`);
-      return;
-    }
-    const interval = Math.max(1, parseInt(config.intervalMinutes) || 5);
-    // Run immediate first poll, then schedule
-    pollBrandInbox(slug).catch(e => { console.error('[EmailTicket] Poll error:', e.message); recordPollerFailure(slug, e.message); });
-    // Use setInterval as fallback if node-cron unavailable
-    try {
-      const cron = require('node-cron');
-      const cronExpr = interval === 1 ? '* * * * *' : `*/${interval} * * * *`;
-      activePollers[slug] = cron.schedule(cronExpr, () => pollBrandInbox(slug).catch(console.error));
-      console.log(`[EmailTicket] Cron poller started for ${slug} every ${interval}min`);
-    } catch(cronErr) {
-      // Fallback to setInterval
-      console.warn('[EmailTicket] node-cron unavailable, using setInterval:', cronErr.message);
-      const timer = setInterval(() => pollBrandInbox(slug).catch(console.error), interval * 60000);
-      activePollers[slug] = { stop: () => clearInterval(timer) };
-      console.log(`[EmailTicket] setInterval poller started for ${slug} every ${interval}min`);
-    }
-  } catch(e) {
-    console.error(`[EmailTicket] startEmailPoller error for ${slug}:`, e.message);
+  // Stop existing watcher
+  if (activePollers[slug]) { try { activePollers[slug].stop(); } catch(e) {} delete activePollers[slug]; }
+
+  const db = readBrandDB(slug);
+  const config = db.emailTicketing;
+  if (!config || !config.enabled || !config.host || !config.user || !config.pass) {
+    console.log(`[EmailIDLE] Not started for ${slug} — missing config`);
+    return;
   }
+
+  const Imap = require('imap');
+  let stopped = false;
+  let imapConn = null;
+  let reconnTimer = null;
+  let backoff = 10000; // starts at 10s, doubles up to 5min
+
+  function connect() {
+    if (stopped) return;
+    console.log(`[EmailIDLE] Connecting for ${slug}…`);
+    const imap = new Imap({
+      user: config.user,
+      password: config.pass.replace(/\s/g, ''),
+      host: config.host || 'imap.gmail.com',
+      port: config.port || 993,
+      tls: config.tls !== false,
+      tlsOptions: { rejectUnauthorized: false },
+      authTimeout: 15000,
+      connTimeout: 20000,
+      keepalive: {
+        interval: 10000,       // send NOOP every 10s to keep connection alive
+        idleInterval: 300000,  // re-enter IDLE every 5min (server timeout is 30min)
+        forceNoop: true        // fallback to NOOP if server doesn't support IDLE
+      }
+    });
+    imapConn = imap;
+
+    imap.once('ready', () => {
+      console.log(`[EmailIDLE] Connected for ${slug}`);
+      backoff = 10000; // reset backoff on success
+      imap.openBox(config.mailbox || 'INBOX', false, (err) => {
+        if (err) { console.error(`[EmailIDLE] openBox failed for ${slug}:`, err.message); imap.end(); return; }
+        console.log(`[EmailIDLE] Watching INBOX for ${slug} — instant delivery active`);
+
+        // Initial catch-up fetch (picks up anything since last UID)
+        pollBrandInbox(slug).catch(e => console.error(`[EmailIDLE] Catch-up error for ${slug}:`, e.message));
+
+        // Gmail fires 'mail' the moment a new email arrives via IDLE
+        imap.on('mail', (numNew) => {
+          console.log(`[EmailIDLE] New mail! ${numNew} message(s) for ${slug}`);
+          // Small delay so the message is fully available on the server
+          setTimeout(() => pollBrandInbox(slug).catch(e => console.error(`[EmailIDLE] Fetch error:`, e.message)), 800);
+        });
+      });
+    });
+
+    imap.once('error', (err) => {
+      console.error(`[EmailIDLE] Error for ${slug}:`, err.message);
+      recordPollerFailure(slug, err.message);
+      scheduleReconnect();
+    });
+
+    imap.once('end', () => {
+      if (!stopped) { console.log(`[EmailIDLE] Connection ended for ${slug} — will reconnect`); scheduleReconnect(); }
+    });
+
+    imap.connect();
+  }
+
+  function scheduleReconnect() {
+    if (stopped || reconnTimer) return;
+    console.log(`[EmailIDLE] Reconnecting ${slug} in ${Math.round(backoff / 1000)}s`);
+    reconnTimer = setTimeout(() => {
+      reconnTimer = null;
+      try { imapConn && imapConn.destroy(); } catch(e) {}
+      connect();
+    }, backoff);
+    backoff = Math.min(backoff * 2, 5 * 60 * 1000); // max 5min between retries
+  }
+
+  // 5-min safety cron: catches emails missed during the reconnect window
+  const cron = require('node-cron');
+  const safetyCron = cron.schedule('*/5 * * * *', () => {
+    pollBrandInbox(slug).catch(() => {});
+  });
+
+  connect();
+
+  activePollers[slug] = {
+    stop: () => {
+      stopped = true;
+      safetyCron.stop();
+      if (reconnTimer) clearTimeout(reconnTimer);
+      try { imapConn && imapConn.end(); } catch(e) {}
+    }
+  };
+
+  console.log(`[EmailIDLE] IDLE watcher started for ${slug} — instant + 5min safety net`);
 }
 
 // API: save email ticketing config
