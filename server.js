@@ -5481,17 +5481,21 @@ async function _doPollBrandInbox(slug) {
           lastUID = 0;
         }
 
-        // Build search: by UID range if we have a cursor, else last 3 days as seed
-        let searchCriteria;
-        if (lastUID > 0) {
-          searchCriteria = [['UID', `${lastUID + 1}:*`]];
-          console.log(`[EmailTicket] Searching ${slug} UID > ${lastUID}`);
-        } else {
-          const sinceDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-          sinceDate.setHours(0, 0, 0, 0);
-          searchCriteria = [['SINCE', sinceDate]];
-          console.log(`[EmailTicket] Seeding ${slug} SINCE ${sinceDate.toDateString()} (first run)`);
+        // First run: don't bulk-import, just anchor the cursor at current UIDNEXT.
+        // Existing tickets were already imported via "Check Now". We only need new emails.
+        if (lastUID === 0) {
+          const anchorUID = Math.max(0, (box.uidnext || 1) - 1);
+          console.log(`[EmailTicket] First run for ${slug} — anchoring UID cursor at ${anchorUID}, watching from now`);
+          const d2 = readBrandDB(slug);
+          d2.emailTicketing.lastUID = anchorUID;
+          d2.emailTicketing.uidValidity = box.uidvalidity;
+          writeBrandDB(slug, d2);
+          imap.end(); recordPollerSuccess(slug); return done();
         }
+
+        // Normal poll: only fetch emails with UID > lastUID (typically 0–5 emails)
+        const searchCriteria = [['UID', `${lastUID + 1}:*`]];
+        console.log(`[EmailTicket] Searching ${slug} UID > ${lastUID}`);
 
         imap.search(searchCriteria, (err, results) => {
           if (err) { console.error(`[EmailTicket] Search error ${slug}:`, err.message); recordPollerFailure(slug, err.message); imap.end(); return done(); }
