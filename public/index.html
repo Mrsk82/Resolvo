@@ -14745,7 +14745,7 @@ const App = {
         </button>
       </div>` : `
       <div style="background:var(--low-dim);border:1px solid rgba(22,163,74,.25);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:12px;color:var(--low);">● <strong>Connected:</strong> Monitoring <strong>${self._esc(emailCfg.user||'')}</strong> every ${emailCfg.intervalMinutes||5} min</div>
+        <div style="font-size:12px;color:var(--low);">⚡ <strong>Connected:</strong> Monitoring <strong>${self._esc(emailCfg.user||'')}</strong> — instant delivery (IDLE)</div>
         <button onclick="App._pollAndRefresh()" style="background:none;border:1px solid var(--low)44;border-radius:5px;padding:4px 12px;font-size:11px;color:var(--low);cursor:pointer;">⟳ Check Now</button>
       </div>`}
 
