@@ -142,7 +142,7 @@ function monitored(name,fn){
     }
   };
 }
-console.log('[Monitor] Platform monitoring active — alerts → '+ALERT_TO);
+console.log('[Monitor] Platform monitoring active — alerts → owner email');
 const express=require('express'),cors=require('cors'),path=require('path'),fs=require('fs'),{v4:uuidv4}=require('uuid');
 const bcrypt=require('bcryptjs');
 const helmet=require('helmet');
