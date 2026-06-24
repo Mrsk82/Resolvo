@@ -16327,7 +16327,25 @@ const App = {
         var er = await self.callAsync('getEmailTicketingConfig');
         var ec = (er&&er.success)?er.config:{};
         var etON = ec.enabled===true;
+        // Check Gmail Push status
+        var gmailStatus = {connected:false,email:null};
+        try{ var gr=await fetch('/api/gmail-oauth/status',{headers:{'x-session-token':localStorage.getItem('tt_session_token')||''}}); gmailStatus=await gr.json(); }catch(e){}
+        var gmailConnected = gmailStatus.connected===true;
         content =
+          App._sSection('📬 Gmail Push — Instant Delivery (Recommended)',[
+            gmailConnected
+              ? '<div style="background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">'+
+                '<div><div style="font-size:13px;font-weight:700;color:#059669;">⚡ Connected — '+App._esc(gmailStatus.email||'')+'</div>'+
+                '<div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Emails arrive as tickets in under 2 seconds · No polling needed</div></div>'+
+                '<button onclick="App._gmailDisconnect()" class="btn-secondary btn-sm" style="white-space:nowrap;">Disconnect</button></div>'
+              : '<div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;padding:16px 18px;">'+
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'+
+                '<div><div style="font-size:13px;font-weight:700;">One-click Gmail setup</div>'+
+                '<div style="font-size:12px;color:var(--text-dim);margin-top:3px;line-height:1.6;">No app passwords · Instant push delivery · Zero missed emails<br>Works even when no one is logged in</div></div>'+
+                '<a href="/api/gmail-oauth/start" style="display:inline-flex;align-items:center;gap:8px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.1);white-space:nowrap;">'+
+                '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'+
+                'Connect Gmail Account</a></div></div>',
+          ])+
           App._sSection('Email Ticketing — Inbox Monitor',[
             '<div style="background:'+(etON?'var(--low-dim)':'var(--critical-dim)')+';border:1px solid '+(etON?'rgba(22,163,74,.3)':'rgba(220,38,38,.25)')+';border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">'+
               '<div style="font-size:13px;font-weight:700;color:'+(etON?'var(--low)':'var(--critical)')+';">'+(etON?'● Connected — monitoring '+App._esc(ec.user||''):'○ Disabled'+(ec.user?' — '+App._esc(ec.user):''))+'</div>'+
@@ -19218,6 +19236,15 @@ const App = {
     } catch(e) {
       if (resultEl) resultEl.innerHTML = '<div style="padding:10px 14px;background:var(--critical-dim);border-radius:6px;font-size:13px;color:var(--critical);">✗ '+e.message+'</div>';
     }
+  },
+
+  _gmailDisconnect: async function() {
+    if (!confirm('Disconnect Gmail Push? Email ticketing will fall back to IMAP polling if configured.')) return;
+    var token = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/gmail-oauth/disconnect', { method:'POST', headers:{'x-session-token':token} });
+    var d = await r.json();
+    if (d.success) { this.showToast('Gmail disconnected', 'success'); this.navigate('email'); }
+    else this.showToast('Failed: ' + (d.error||'Unknown error'), 'error');
   },
 
   _pollEmailNow: async function() {

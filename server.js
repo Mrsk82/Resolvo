@@ -5714,6 +5714,195 @@ app.get('/api/email-ticketing/config', (req, res) => {
   res.json({ success: true, config: { ...config, pass: config.pass ? '••••••••' : '' } });
 });
 
+// ── Gmail Push via Google Pub/Sub ─────────────────────────────────────────
+// Existing IMAP brands are UNTOUCHED. This is additive — brands that connect
+// via OAuth get instant push delivery; others stay on the 2-min IMAP poll.
+
+function _gmailOAuthClient(){
+  const{google}=require('googleapis');
+  return new (require('googleapis').google.auth.OAuth2)(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${BASE_URL}/api/gmail-oauth/callback`
+  );
+}
+
+// Step 1 — redirect brand admin to Google consent screen
+app.get('/api/gmail-oauth/start',(req,res)=>{
+  const su=getSessionUser(req);
+  if(!su||su.role!=='Admin')return res.status(403).send('Admin only');
+  if(!process.env.GOOGLE_CLIENT_ID)return res.status(500).send('GOOGLE_CLIENT_ID not set in .env');
+  const client=_gmailOAuthClient();
+  const url=client.generateAuthUrl({
+    access_type:'offline',
+    scope:['https://www.googleapis.com/auth/gmail.readonly','https://www.googleapis.com/auth/gmail.modify'],
+    state:su.brandSlug,
+    prompt:'consent'
+  });
+  res.redirect(url);
+});
+
+// Step 2 — Google redirects back with code
+app.get('/api/gmail-oauth/callback',async(req,res)=>{
+  const{code,state:slug,error}=req.query;
+  if(error)return res.send(`<script>alert('Google OAuth denied: ${error}');location.href='/';</script>`);
+  if(!code||!slug)return res.send('Missing code or state');
+  try{
+    const{google}=require('googleapis');
+    const client=_gmailOAuthClient();
+    const{tokens}=await client.getToken(code);
+    client.setCredentials(tokens);
+    const gmail=google.gmail({version:'v1',auth:client});
+    const profile=await gmail.users.getProfile({userId:'me'});
+    const email=profile.data.emailAddress;
+    // Subscribe inbox to Pub/Sub topic
+    const topic=`projects/${process.env.GOOGLE_CLOUD_PROJECT||'resolvo'}/topics/${process.env.PUBSUB_TOPIC||'resolvo-email-push'}`;
+    const watchRes=await gmail.users.watch({userId:'me',requestBody:{labelIds:['INBOX'],topicName:topic}});
+    // Save OAuth tokens + watch state — IMAP config remains unchanged as fallback
+    const db=readBrandDB(slug);
+    db.emailTicketing=db.emailTicketing||{};
+    db.emailTicketing.gmailOAuth={
+      accessToken:tokens.access_token,
+      refreshToken:tokens.refresh_token,
+      email,
+      historyId:String(watchRes.data.historyId),
+      watchExpiry:Number(watchRes.data.expiration),
+      connectedAt:nowIST()
+    };
+    db.emailTicketing.enabled=true;
+    db.emailTicketing.user=email;
+    writeBrandDB(slug,db);
+    // Stop IMAP poller — push replaces it
+    if(activePollers[slug]){activePollers[slug].stop();delete activePollers[slug];}
+    console.log(`[GmailPush] OAuth connected for ${slug} — ${email}, historyId=${watchRes.data.historyId}`);
+    res.send(`<script>alert('Gmail connected! Instant push delivery is now active for ${email}');location.href='/';</script>`);
+  }catch(e){
+    console.error('[GmailPush] OAuth callback error:',e.message);
+    res.send(`<script>alert('OAuth failed: ${e.message}');location.href='/';</script>`);
+  }
+});
+
+// Disconnect Gmail OAuth — falls back to IMAP if config exists
+app.post('/api/gmail-oauth/disconnect',async(req,res)=>{
+  const su=getSessionUser(req);
+  if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  // Try to stop Gmail watch (best effort)
+  if(db.emailTicketing?.gmailOAuth?.refreshToken){
+    try{
+      const{google}=require('googleapis');
+      const client=_gmailOAuthClient();
+      client.setCredentials({access_token:db.emailTicketing.gmailOAuth.accessToken,refresh_token:db.emailTicketing.gmailOAuth.refreshToken});
+      await google.gmail({version:'v1',auth:client}).users.stop({userId:'me'});
+    }catch(e){}
+  }
+  delete db.emailTicketing.gmailOAuth;
+  writeBrandDB(su.brandSlug,db);
+  // Restart IMAP poller if IMAP credentials still exist
+  if(db.emailTicketing?.enabled&&db.emailTicketing?.host&&db.emailTicketing?.pass){
+    startEmailPoller(su.brandSlug);
+  }
+  res.json({success:true,message:'Gmail disconnected. IMAP poll restarted if credentials exist.'});
+});
+
+// Pub/Sub push webhook — Google calls this the moment an email arrives
+// Must return 200 immediately or Google will retry
+app.post('/api/webhook/gmail-push',express.raw({type:'*/*'}),async(req,res)=>{
+  res.sendStatus(200);
+  try{
+    const body=JSON.parse(req.body.toString());
+    if(!body.message?.data)return;
+    const data=JSON.parse(Buffer.from(body.message.data,'base64').toString());
+    const{emailAddress,historyId}=data;
+    if(!emailAddress||!historyId)return;
+    // Find brand that owns this Gmail address
+    const owner=readOwner();
+    const brand=(owner.brands||[]).find(b=>{
+      try{return readBrandDB(b.slug).emailTicketing?.gmailOAuth?.email===emailAddress;}catch(e){return false;}
+    });
+    if(!brand){console.warn(`[GmailPush] No brand found for ${emailAddress}`);return;}
+    await _processGmailHistory(brand.slug,String(historyId));
+  }catch(e){console.error('[GmailPush] Webhook error:',e.message);}
+});
+
+async function _processGmailHistory(slug,newHistoryId){
+  const db=readBrandDB(slug);
+  const oauth=db.emailTicketing?.gmailOAuth;
+  if(!oauth?.refreshToken)return;
+  try{
+    const{google}=require('googleapis');
+    const{simpleParser}=require('mailparser');
+    const client=_gmailOAuthClient();
+    client.setCredentials({access_token:oauth.accessToken,refresh_token:oauth.refreshToken});
+    // Auto-save refreshed token
+    client.on('tokens',(tokens)=>{
+      if(tokens.access_token){
+        const d2=readBrandDB(slug);
+        if(d2.emailTicketing?.gmailOAuth)d2.emailTicketing.gmailOAuth.accessToken=tokens.access_token;
+        if(tokens.refresh_token&&d2.emailTicketing?.gmailOAuth)d2.emailTicketing.gmailOAuth.refreshToken=tokens.refresh_token;
+        writeBrandDB(slug,d2);
+      }
+    });
+    const gmail=google.gmail({version:'v1',auth:client});
+    // Get messages added since last historyId
+    const histRes=await gmail.users.history.list({
+      userId:'me',startHistoryId:oauth.historyId,
+      historyTypes:['messageAdded'],labelId:'INBOX'
+    });
+    const seen=new Set();
+    const msgIds=[];
+    for(const h of histRes.data.history||[]){
+      for(const m of h.messagesAdded||[]){
+        if(!seen.has(m.message.id)){seen.add(m.message.id);msgIds.push(m.message.id);}
+      }
+    }
+    console.log(`[GmailPush] ${slug}: ${msgIds.length} new message(s) via history`);
+    const processedSet=new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
+    for(const msgId of msgIds){
+      try{
+        const msgData=await gmail.users.messages.get({userId:'me',id:msgId,format:'raw'});
+        const raw=Buffer.from(msgData.data.raw,'base64url').toString('utf-8');
+        const parsed=await simpleParser(raw);
+        if(parsed.messageId&&processedSet.has(parsed.messageId))continue;
+        await createTicketFromEmail(slug,{
+          messageId:parsed.messageId,inReplyTo:parsed.inReplyTo,
+          subject:parsed.subject||'(No Subject)',
+          from:parsed.from?.value?.[0]?.address||'',
+          fromName:parsed.from?.value?.[0]?.name||'',
+          text:parsed.text||'',html:parsed.textAsHtml||'',
+          date:parsed.date?.toISOString()||nowIST()
+        });
+        if(parsed.messageId)processedSet.add(parsed.messageId);
+      }catch(e){console.error('[GmailPush] Message fetch error:',e.message);}
+    }
+    // Advance historyId cursor
+    const d2=readBrandDB(slug);
+    if(d2.emailTicketing?.gmailOAuth)d2.emailTicketing.gmailOAuth.historyId=newHistoryId;
+    writeBrandDB(slug,d2);
+  }catch(e){
+    // historyId too old — full reseed via IMAP as fallback
+    if(e.code===404||String(e.message).includes('historyId')){
+      console.warn(`[GmailPush] History expired for ${slug} — resetting IMAP cursor for catch-up`);
+      const d2=readBrandDB(slug);
+      if(d2.emailTicketing?.gmailOAuth)d2.emailTicketing.gmailOAuth.historyId=newHistoryId;
+      if(d2.emailTicketing)d2.emailTicketing.lastUID=0; // triggers IMAP seed on next poll
+      writeBrandDB(slug,d2);
+      startEmailPoller(slug); // one-time IMAP catch-up
+    }else{
+      console.error(`[GmailPush] History error for ${slug}:`,e.message);
+    }
+  }
+}
+
+// Get Gmail OAuth status for Settings UI
+app.get('/api/gmail-oauth/status',(req,res)=>{
+  const su=getSessionUser(req);
+  if(!su||su.role!=='Admin')return res.json({success:false});
+  const db=readBrandDB(su.brandSlug);
+  const o=db.emailTicketing?.gmailOAuth;
+  res.json({success:true,connected:!!o?.refreshToken,email:o?.email||null,connectedAt:o?.connectedAt||null,watchExpiry:o?.watchExpiry||null});
+});
+
 // ── WhatsApp config ───────────────────────────────────────────────────────
 app.get('/api/whatsapp/config',(req,res)=>{
   const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
@@ -6081,6 +6270,32 @@ function runBackgroundJobs(){
         `PM2 or Node process restarted unexpectedly.\nUptime: ${Math.round(uptimeSec)} seconds\nTime: ${nowIST()}`,
         {'Uptime':Math.round(uptimeSec)+'s','Memory':Math.round(process.memoryUsage().heapUsed/1024/1024)+'MB'});
     }
+  });
+  // Renew Gmail watch every 6 days (Google expires it after 7)
+  cron.schedule('0 2 */6 * *',async()=>{
+    try{
+      const{google}=require('googleapis');
+      const owner=readOwner();
+      for(const brand of (owner.brands||[])){
+        try{
+          const db=readBrandDB(brand.slug);
+          const oauth=db.emailTicketing?.gmailOAuth;
+          if(!oauth?.refreshToken)continue;
+          const client=_gmailOAuthClient();
+          client.setCredentials({access_token:oauth.accessToken,refresh_token:oauth.refreshToken});
+          const gmail=google.gmail({version:'v1',auth:client});
+          const topic=`projects/${process.env.GOOGLE_CLOUD_PROJECT||'resolvo'}/topics/${process.env.PUBSUB_TOPIC||'resolvo-email-push'}`;
+          const watchRes=await gmail.users.watch({userId:'me',requestBody:{labelIds:['INBOX'],topicName:topic}});
+          const d2=readBrandDB(brand.slug);
+          if(d2.emailTicketing?.gmailOAuth){
+            d2.emailTicketing.gmailOAuth.historyId=String(watchRes.data.historyId);
+            d2.emailTicketing.gmailOAuth.watchExpiry=Number(watchRes.data.expiration);
+          }
+          writeBrandDB(brand.slug,d2);
+          console.log(`[GmailPush] Watch renewed for ${brand.slug}`);
+        }catch(e){console.error(`[GmailPush] Watch renewal failed for ${brand.slug}:`,e.message);}
+      }
+    }catch(e){console.error('[GmailPush] Watch renewal cron error:',e.message);}
   });
   // Daily digest at 9am
   cron.schedule('0 9 * * *',async()=>{
