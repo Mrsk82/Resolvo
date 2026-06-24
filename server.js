@@ -96,7 +96,8 @@ function monitorReq(req,res,next){
   const start=Date.now();
   res.on('finish',()=>{
     const ms=Date.now()-start;
-    if(ms>4000){
+    const slowThreshold = req.path === '/api/call' ? 15000 : 4000;
+    if(ms>slowThreshold){
       sendAlert('SLOW',`Slow request: ${req.method} ${req.path} took ${ms}ms`,
         `Route: ${req.method} ${req.originalUrl}\nDuration: ${ms}ms\nStatus: ${res.statusCode}`,
         {'Route':req.method+' '+req.path,'Duration':ms+'ms','Status':res.statusCode,'User-Agent':(req.headers['user-agent']||'').substring(0,100),'IP':req.ip||'unknown'});
