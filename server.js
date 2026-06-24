@@ -7,7 +7,9 @@ function nowIST(){const d=new Date();const off=d.getTimezoneOffset();const ist=n
 // ── PLATFORM MONITOR ─────────────────────────────────────────────────────────
 // Sends email alerts for: crashes, unhandled errors, slow requests,
 // repeated 500s, memory spikes, IMAP failures, cron failures, DB errors
-const ALERT_TO='asifshaikh19978@gmail.com';
+// Alert goes to owner email (read lazily so owner.json is loaded after init)
+function getAlertTo(){try{return readOwner().email||'contact@resolvogroup.com';}catch(e){return'contact@resolvogroup.com';}}
+
 const _alertCooldown=new Map(); // errorKey -> last sent ms
 const _errorCount=new Map();    // errorKey -> count
 const _recentErrors=[];         // rolling last 20 errors for context
@@ -66,7 +68,9 @@ async function sendAlert(type,title,details,extras={}){
     const user=process.env.EMAIL_USER||'',pass=(process.env.EMAIL_PASS||'').replace(/\s/g,'');
     if(!user||!pass)return;
     const t=nm.createTransport({service:'gmail',auth:{user,pass}});
-    await t.sendMail({from:`"Resolvo Monitor" <${user}>`,to:ALERT_TO,subject:`[${type}] ${title} — Resolvo`,text:`${type}: ${title}\n\n${details}`,html});
+    const alertTo=getAlertTo();
+    await t.sendMail({from:`"Resolvo Monitor" <${user}>`,to:alertTo,subject:`[${type}] ${title} — Resolvo`,text:`${type}: ${title}\n\n${details}`,html});
+    console.log(`[Monitor] Alert sent to ${alertTo}`);
     console.log(`[Monitor] Alert sent: ${type} — ${title}`);
   }catch(e){console.error('[Monitor] Failed to send alert:',e.message);}
 }
