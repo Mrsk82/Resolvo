@@ -5481,16 +5481,39 @@ async function _doPollBrandInbox(slug) {
           lastUID = 0;
         }
 
-        // First run: don't bulk-import, just anchor the cursor at current UIDNEXT.
-        // Existing tickets were already imported via "Check Now". We only need new emails.
+        // First run: fetch the last 100 messages (catches ~6hrs of email without bulk timeout).
+        // processed_email_ids dedup skips anything already imported via "Check Now".
         if (lastUID === 0) {
-          const anchorUID = Math.max(0, (box.uidnext || 1) - 1);
-          console.log(`[EmailTicket] First run for ${slug} — anchoring UID cursor at ${anchorUID}, watching from now`);
-          const d2 = readBrandDB(slug);
-          d2.emailTicketing.lastUID = anchorUID;
-          d2.emailTicketing.uidValidity = box.uidvalidity;
-          writeBrandDB(slug, d2);
-          imap.end(); recordPollerSuccess(slug); return done();
+          const total = box.messages.total || 0;
+          const startSeq = Math.max(1, total - 99);
+          console.log(`[EmailTicket] First run for ${slug} — fetching last 100 msgs (seq ${startSeq}:*) to catch recent emails`);
+          const processedSet = new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
+          const seedFetch = imap.fetch(`${startSeq}:*`, { bodies: '', markSeen: false });
+          const seedBufs = [];
+          let seedMaxUID = 0;
+          seedFetch.on('message', (msg) => {
+            let buf = '';
+            msg.once('attributes', (attrs) => { if ((attrs.uid||0) > seedMaxUID) seedMaxUID = attrs.uid; });
+            msg.on('body', (stream) => { stream.on('data', d => buf += d.toString()); });
+            msg.once('end', () => seedBufs.push(buf));
+          });
+          seedFetch.once('end', async () => {
+            for (const buf of seedBufs) {
+              try {
+                const parsed = await simpleParser(buf);
+                const msgId = parsed.messageId;
+                if (msgId && processedSet.has(msgId)) continue;
+                await createTicketFromEmail(slug, { messageId: msgId, inReplyTo: parsed.inReplyTo, subject: decodeMimeWords(parsed.subject)||'(No Subject)', from: parsed.from?.value?.[0]?.address||'', fromName: parsed.from?.value?.[0]?.name||'', text: parsed.text||'', html: parsed.textAsHtml||'', date: parsed.date?.toISOString()||nowIST() });
+              } catch(e) { console.error('[EmailTicket] Seed parse error:', e.message); }
+            }
+            const d2 = readBrandDB(slug);
+            d2.emailTicketing.lastUID = seedMaxUID || Math.max(0, (box.uidnext||1) - 1);
+            d2.emailTicketing.uidValidity = box.uidvalidity;
+            writeBrandDB(slug, d2);
+            console.log(`[EmailTicket] Seed done for ${slug} — UID cursor set to ${d2.emailTicketing.lastUID}`);
+            imap.end(); recordPollerSuccess(slug); return done();
+          });
+          return; // wait for seedFetch to complete
         }
 
         // Normal poll: only fetch emails with UID > lastUID (typically 0–5 emails)
