@@ -3,6 +3,142 @@ process.env.TZ='Asia/Kolkata'; // all new Date() and cron schedules run on IST
 require('dotenv').config();
 // IST timestamp — use instead of nowIST() everywhere
 function nowIST(){const d=new Date();const off=d.getTimezoneOffset();const ist=new Date(d.getTime()-off*60000);return ist.toISOString().replace('Z','+05:30');}
+
+// ── PLATFORM MONITOR ─────────────────────────────────────────────────────────
+// Sends email alerts for: crashes, unhandled errors, slow requests,
+// repeated 500s, memory spikes, IMAP failures, cron failures, DB errors
+const ALERT_TO='asifshaikh19978@gmail.com';
+const _alertCooldown=new Map(); // errorKey -> last sent ms
+const _errorCount=new Map();    // errorKey -> count
+const _recentErrors=[];         // rolling last 20 errors for context
+const COOLDOWN_MS=5*60*1000;    // max 1 alert per error type per 5 min
+
+function _canAlert(key){
+  const last=_alertCooldown.get(key)||0;
+  return Date.now()-last>COOLDOWN_MS;
+}
+
+function _trackError(key,msg){
+  _errorCount.set(key,(_errorCount.get(key)||0)+1);
+  _recentErrors.push({key,msg,at:nowIST()});
+  if(_recentErrors.length>20)_recentErrors.shift();
+}
+
+async function sendAlert(type,title,details,extras={}){
+  const key=type+':'+title.substring(0,60);
+  _trackError(key,title);
+  if(!_canAlert(key))return; // rate-limited
+  _alertCooldown.set(key,Date.now());
+  const count=_errorCount.get(key)||1;
+  const mem=process.memoryUsage();
+  const memMB=Math.round(mem.heapUsed/1024/1024);
+  const uptime=Math.round(process.uptime()/60);
+  const recentHtml=_recentErrors.slice(-5).map(e=>`<tr><td style="padding:4px 8px;font-size:11px;color:#6b7280;">${e.at}</td><td style="padding:4px 8px;font-size:11px;">${e.key}</td></tr>`).join('');
+  const extrasHtml=Object.entries(extras).map(([k,v])=>`<tr><td style="padding:6px 10px;font-size:12px;color:#6b7280;font-weight:600;white-space:nowrap;">${k}</td><td style="padding:6px 10px;font-size:12px;font-family:monospace;word-break:break-all;">${String(v).substring(0,500)}</td></tr>`).join('');
+  const badge={'CRASH':'#DC2626','ERROR':'#D97706','SLOW':'#7C3AED','MEMORY':'#DC2626','IMAP':'#2563EB','CRON':'#059669','DB':'#DC2626','HEALTH':'#DC2626'}[type]||'#374151';
+  const html=`<!DOCTYPE html><html><body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;padding:24px 16px;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+<div style="background:${badge};padding:20px 28px;display:flex;align-items:center;gap:12px;">
+  <div style="font-size:28px;">${{'CRASH':'💥','ERROR':'⚠️','SLOW':'🐢','MEMORY':'🔴','IMAP':'📬','CRON':'⏰','DB':'🗄️','HEALTH':'❤️'}[type]||'🔔'}</div>
+  <div><div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em;">${type} ALERT — Resolvo Platform</div>
+  <div style="font-size:18px;font-weight:800;color:#fff;margin-top:2px;">${title}</div></div>
+</div>
+<div style="padding:24px 28px;">
+  <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;margin-bottom:20px;">
+    <tr><td style="padding:6px 10px;font-size:12px;color:#6b7280;font-weight:600;">Time (IST)</td><td style="padding:6px 10px;font-size:12px;">${nowIST()}</td></tr>
+    <tr><td style="padding:6px 10px;font-size:12px;color:#6b7280;font-weight:600;">Occurrences</td><td style="padding:6px 10px;font-size:12px;font-weight:700;color:${count>5?'#DC2626':'#374151'};">${count}× (this session)</td></tr>
+    <tr><td style="padding:6px 10px;font-size:12px;color:#6b7280;font-weight:600;">Memory</td><td style="padding:6px 10px;font-size:12px;">${memMB} MB heap used</td></tr>
+    <tr><td style="padding:6px 10px;font-size:12px;color:#6b7280;font-weight:600;">Uptime</td><td style="padding:6px 10px;font-size:12px;">${uptime} minutes</td></tr>
+    ${extrasHtml}
+  </table>
+  <div style="background:#1e293b;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+    <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Details / Stack Trace</div>
+    <pre style="margin:0;font-size:12px;color:#e2e8f0;white-space:pre-wrap;word-break:break-all;line-height:1.6;">${String(details).substring(0,2000)}</pre>
+  </div>
+  ${recentHtml?`<div style="margin-top:16px;"><div style="font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Recent Errors (last 5)</div><table style="width:100%;border-collapse:collapse;font-size:11px;">${recentHtml}</table></div>`:''}
+</div>
+<div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;">
+  Resolvo Platform Monitor · <a href="https://app.resolvogroup.com" style="color:#F59E0B;text-decoration:none;">Open Dashboard</a>
+</div>
+</div></body></html>`;
+  try{
+    const nm=require('nodemailer');
+    const user=process.env.EMAIL_USER||'',pass=(process.env.EMAIL_PASS||'').replace(/\s/g,'');
+    if(!user||!pass)return;
+    const t=nm.createTransport({service:'gmail',auth:{user,pass}});
+    await t.sendMail({from:`"Resolvo Monitor" <${user}>`,to:ALERT_TO,subject:`[${type}] ${title} — Resolvo`,text:`${type}: ${title}\n\n${details}`,html});
+    console.log(`[Monitor] Alert sent: ${type} — ${title}`);
+  }catch(e){console.error('[Monitor] Failed to send alert:',e.message);}
+}
+
+// Layer 1 — Node.js process crashes
+process.on('uncaughtException',async(err)=>{
+  console.error('[CRASH] uncaughtException:',err);
+  await sendAlert('CRASH','Uncaught Exception — Server may crash',err.stack||err.message,{
+    'Error Name':err.name,'Error Code':err.code||'N/A'
+  });
+  // Don't exit — let PM2 handle if truly fatal
+});
+process.on('unhandledRejection',async(reason,promise)=>{
+  const msg=reason instanceof Error?reason.stack:String(reason);
+  console.error('[CRASH] unhandledRejection:',msg);
+  await sendAlert('CRASH','Unhandled Promise Rejection',msg,{
+    'Promise':String(promise).substring(0,200)
+  });
+});
+
+// Layer 2 — Slow request tracker (>4 seconds)
+function monitorReq(req,res,next){
+  const start=Date.now();
+  res.on('finish',()=>{
+    const ms=Date.now()-start;
+    if(ms>4000){
+      sendAlert('SLOW',`Slow request: ${req.method} ${req.path} took ${ms}ms`,
+        `Route: ${req.method} ${req.originalUrl}\nDuration: ${ms}ms\nStatus: ${res.statusCode}`,
+        {'Route':req.method+' '+req.path,'Duration':ms+'ms','Status':res.statusCode,'User-Agent':(req.headers['user-agent']||'').substring(0,100),'IP':req.ip||'unknown'});
+    }
+  });
+  next();
+}
+
+// Layer 3 — 500 error tracker with request context
+function errorMiddleware(err,req,res,next){
+  const stack=err.stack||err.message||String(err);
+  console.error('[ERROR] Express error:',stack);
+  sendAlert('ERROR',`API Error: ${req.method} ${req.path}`,stack,{
+    'Route':req.method+' '+req.originalUrl,
+    'Status':err.status||500,
+    'Body':JSON.stringify(req.body||{}).substring(0,300),
+    'User-Agent':(req.headers['user-agent']||'').substring(0,100),
+    'IP':req.ip||'unknown'
+  });
+  res.status(err.status||500).json({error:'Internal server error',message:err.message});
+}
+
+// Layer 4 — Memory spike monitor (runs every 5 min via cron)
+function checkMemory(){
+  const mem=process.memoryUsage();
+  const heapMB=Math.round(mem.heapUsed/1024/1024);
+  const rssMB=Math.round(mem.rss/1024/1024);
+  if(heapMB>400){
+    sendAlert('MEMORY',`High memory usage: ${heapMB}MB heap`,
+      `Heap Used: ${heapMB}MB\nRSS: ${rssMB}MB\nHeap Total: ${Math.round(mem.heapTotal/1024/1024)}MB`,
+      {'Heap Used':heapMB+'MB','RSS':rssMB+'MB','Uptime':Math.round(process.uptime()/60)+' min'});
+  }
+}
+
+// Wrap cron jobs / async functions with error capture
+function monitored(name,fn){
+  return async(...args)=>{
+    try{return await fn(...args);}
+    catch(e){
+      console.error(`[Monitor] ${name} failed:`,e.message);
+      sendAlert('CRON',`Background job failed: ${name}`,e.stack||e.message,{'Job':name});
+      throw e;
+    }
+  };
+}
+console.log('[Monitor] Platform monitoring active — alerts → '+ALERT_TO);
 const express=require('express'),cors=require('cors'),path=require('path'),fs=require('fs'),{v4:uuidv4}=require('uuid');
 const bcrypt=require('bcryptjs');
 const helmet=require('helmet');
@@ -19,6 +155,7 @@ if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true}
 app.use(helmet({contentSecurityPolicy:false})); // security headers (CSP off — inline scripts in SPA)
 app.use(cors());app.use(express.json({limit:'20mb'}));
 app.use(express.static(path.join(__dirname,'public')));
+app.use(monitorReq); // Layer 2 — slow request tracker
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
 
 // ── Password helpers ──────────────────────────────────────────────────────────
@@ -5856,6 +5993,17 @@ app.get('/api/nurture/unsubscribe',(req,res)=>{
 
 function runBackgroundJobs(){
   const cron=require('node-cron');
+  // Layer 4 — Memory spike monitor every 5 min
+  cron.schedule('*/5 * * * *',checkMemory);
+  // Layer 5 — Health check every 5 min: alert if server has been up <2min (recent restart)
+  cron.schedule('*/5 * * * *',()=>{
+    const uptimeSec=process.uptime();
+    if(uptimeSec<120){
+      sendAlert('HEALTH',`Server restarted — uptime only ${Math.round(uptimeSec)}s`,
+        `PM2 or Node process restarted unexpectedly.\nUptime: ${Math.round(uptimeSec)} seconds\nTime: ${nowIST()}`,
+        {'Uptime':Math.round(uptimeSec)+'s','Memory':Math.round(process.memoryUsage().heapUsed/1024/1024)+'MB'});
+    }
+  });
   // Daily digest at 9am
   cron.schedule('0 9 * * *',async()=>{
     console.log('[Jobs] Running daily digest...');
@@ -7724,6 +7872,8 @@ app.delete('/api/crm/templates/:id',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
   crmDel(crmDb(su.brandSlug),'crm_templates',req.params.id); res.json({success:true});
 });
+
+app.use(errorMiddleware); // Layer 3 — Express error handler (must be last)
 
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
