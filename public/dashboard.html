@@ -389,10 +389,18 @@ function addWidget(cfg,save){
   var def=WIDGETS.find(function(w){return w.type===cfg.type;});
   if(!def)return;
   var id=cfg.id||('w'+Date.now());
+  var gw=cfg.w||def.w||2, gh=cfg.h||def.h||2;
+  var autoPos=cfg.y===undefined||cfg.y>=9999;
   var el=document.createElement('div');
   el.className='grid-stack-item';
   el.dataset.wtype=cfg.type;
   el.id=id;
+  el.setAttribute('gs-id',id);
+  el.setAttribute('gs-w',gw);
+  el.setAttribute('gs-h',gh);
+  el.setAttribute('gs-min-w',2);
+  el.setAttribute('gs-min-h',2);
+  if(!autoPos){el.setAttribute('gs-x',cfg.x||0);el.setAttribute('gs-y',cfg.y||0);}
   el.innerHTML='<div class="grid-stack-item-content">'
     +'<div class="w-header">'
       +'<span class="w-icon">'+def.icon+'</span>'
@@ -408,8 +416,7 @@ function addWidget(cfg,save){
     +'<div class="w-body" id="body_'+id+'"><div class="w-loading">Loading…</div></div>'
   +'</div>';
 
-  var autoPos=cfg.y===undefined||cfg.y>=9999;
-  grid.addWidget(el,{id:id,x:cfg.x||0,y:autoPos?undefined:cfg.y,w:cfg.w||def.w||2,h:cfg.h||def.h||2,minW:2,minH:2,autoPosition:autoPos});
+  grid.addWidget(el);
   loadWidgetData(cfg.type,el);
   if(save){updatePanelAdded();autoSave();}
 }
