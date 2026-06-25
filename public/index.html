@@ -9437,64 +9437,115 @@ const App = {
     if (existing) { existing.style.display = 'flex'; return; }
     const div = document.createElement('div');
     div.id = 'login-screen';
-    div.style.cssText = 'position:fixed;inset:0;background:#f0f2f5;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+    div.style.cssText = 'position:fixed;inset:0;background:#0B0F19;display:flex;align-items:stretch;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
     div.innerHTML = `
-      <div style="background:#fff;border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(0,0,0,0.12);">
-        <div style="text-align:center;margin-bottom:28px;">
-          <div style="margin:0 auto 18px;display:flex;justify-content:center;">
-            <a href="/pitch" target="_blank" style="display:inline-block;text-decoration:none;" title="Learn about Resolvo">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" width="200" style="display:block;height:auto;">
-                <rect width="100%" height="100%" rx="10" fill="#0B0F19"/>
-                <g transform="translate(10, 0)">
-                  <path d="M 35,35 C 55,35 60,45 75,52" fill="none" stroke="#FF4B4B" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-                  <circle cx="35" cy="35" r="3.5" fill="#FF4B4B"/>
-                  <path d="M 30,60 L 75,60" fill="none" stroke="#FF4B4B" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.55"/>
-                  <circle cx="30" cy="60" r="3" fill="#FF4B4B" opacity="0.55"/>
-                  <path d="M 35,85 C 55,85 60,75 75,68" fill="none" stroke="#FF4B4B" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-                  <circle cx="35" cy="85" r="3.5" fill="#FF4B4B"/>
-                  <defs><linearGradient id="lg-ai-login" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6366F1"/><stop offset="100%" stop-color="#10B981"/></linearGradient></defs>
-                  <polygon points="70,60 82,50 94,60 82,70" fill="url(#lg-ai-login)"/>
-                  <circle cx="82" cy="60" r="2" fill="#FFFFFF"/>
-                  <path d="M 94,60 L 104,70 L 124,42" fill="none" stroke="#10B981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-                </g>
-                <text x="160" y="68" font-family="JetBrains Mono,Courier New,monospace" font-size="42" font-weight="700" fill="#FFFFFF" letter-spacing="-1">resolv</text>
-                <text x="312" y="68" font-family="JetBrains Mono,Courier New,monospace" font-size="42" font-weight="700" fill="#10B981" letter-spacing="-1">o</text>
-                <text x="163" y="90" font-family="Inter,sans-serif" font-size="11" font-weight="500" fill="#64748B" letter-spacing="3">FROM CHAOS TO CLARITY</text>
-              </svg>
-            </a>
-          </div>
-          <h2 style="margin:0;font-size:22px;font-weight:800;color:#111827;">Sign In</h2>
-          <p style="margin:5px 0 0;font-size:13px;color:#6b7280;">Enter your credentials to continue</p>
-          ${msg ? `<div style="margin-top:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#dc2626;">${msg}</div>` : ''}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Email Address</label>
-            <input id="loginEmail" type="email" autocomplete="email" class="form-input" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-              <label style="font-size:12px;font-weight:600;color:#374151;">Password</label>
-              <button onclick="App._showForgotPassword()" style="background:none;border:none;font-size:11px;color:#6b7280;cursor:pointer;text-decoration:underline;">Forgot password?</button>
+      <style>
+        #login-screen input:focus{border-color:#10B981!important;box-shadow:0 0 0 3px rgba(16,185,129,0.12)!important;outline:none!important;}
+        #login-screen input::placeholder{color:#9ca3af;}
+        #loginBtn:hover{opacity:0.92;transform:translateY(-1px);}
+        #loginBtn:active{transform:translateY(0);}
+        .login-feature{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+        .login-feature:last-child{border-bottom:none;}
+        .login-feature-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;}
+        @media(max-width:768px){#login-left{display:none!important;}#login-right{border-radius:0!important;}}
+      </style>
+      <!-- LEFT BRAND PANEL -->
+      <div id="login-left" style="flex:1;background:linear-gradient(135deg,#0B0F19 0%,#0f1929 60%,#0a1a12 100%);display:flex;flex-direction:column;justify-content:center;padding:60px 56px;position:relative;overflow:hidden;min-width:0;">
+        <!-- Background decoration -->
+        <div style="position:absolute;top:-80px;right:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(16,185,129,0.08) 0%,transparent 70%);pointer-events:none;"></div>
+        <div style="position:absolute;bottom:-60px;left:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,0.07) 0%,transparent 70%);pointer-events:none;"></div>
+        <!-- Logo -->
+        <div style="margin-bottom:48px;">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+            <svg width="44" height="44" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <defs><linearGradient id="lg-fav-lp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10B981"/><stop offset="1" stop-color="#6366F1"/></linearGradient></defs>
+              <rect x="0" y="0" width="64" height="64" rx="16" fill="#111827"/>
+              <path d="M14 22 H34" stroke="#10B981" stroke-width="4" stroke-linecap="round"/>
+              <path d="M14 32 H40" stroke="#34D0B0" stroke-width="4" stroke-linecap="round"/>
+              <path d="M14 42 H34" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="46" cy="32" r="8" fill="url(#lg-fav-lp)"/>
+            </svg>
+            <div>
+              <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">resolv<span style="color:#10B981;">o</span></div>
+              <div style="font-size:10px;font-weight:600;color:#4B5563;letter-spacing:3px;margin-top:-2px;">FROM CHAOS TO CLARITY</div>
             </div>
-            <input id="loginPassword" type="password" autocomplete="current-password" class="form-input" placeholder="Enter your password" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;">
           </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="checkbox" id="rememberMe" style="width:15px;height:15px;cursor:pointer;">
-            <label for="rememberMe" style="font-size:13px;color:#374151;cursor:pointer;">Remember me for 30 days</label>
-          </div>
-          <div id="loginError" style="display:none;color:#dc2626;font-size:12px;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;"></div>
-          <button id="loginBtn" style="width:100%;padding:12px;border-radius:10px;background:var(--accent,#f5a623);color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;" onclick="App._doLogin()">Sign In →</button>
         </div>
-        <p style="margin:18px 0 0;font-size:11px;color:#9ca3af;text-align:center;">Contact your administrator if you need access.</p>
-        <p style="margin:12px 0 0;font-size:10px;color:#d1d5db;text-align:center;">
-          <a href="/privacy" target="_blank" style="color:#9ca3af;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Privacy Policy</a>
-          <span style="color:#e5e7eb;margin:0 6px;">·</span>
-          <a href="/terms" target="_blank" style="color:#9ca3af;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Terms of Service</a>
-          <span style="color:#e5e7eb;margin:0 6px;">·</span>
-          <a href="/refund" target="_blank" style="color:#9ca3af;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Refund Policy</a>
-        </p>
-        <p style="margin:6px 0 0;font-size:10px;color:#d1d5db;text-align:center;">© 2026 Resolvo Group · <a href="mailto:contact@resolvogroup.com" style="color:#9ca3af;text-decoration:none;">contact@resolvogroup.com</a></p>
+        <!-- Headline -->
+        <h1 style="margin:0 0 16px;font-size:36px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.5px;">The support platform<br><span style="color:#10B981;">built for modern teams.</span></h1>
+        <p style="margin:0 0 40px;font-size:15px;color:#6B7280;line-height:1.6;max-width:400px;">Multi-brand ticketing, real-time email processing, SLA tracking, and a live operations dashboard — all in one place.</p>
+        <!-- Features -->
+        <div style="max-width:420px;">
+          <div class="login-feature">
+            <div class="login-feature-icon" style="background:rgba(16,185,129,0.12);">⚡</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#f9fafb;margin-bottom:3px;">Real-time Email Processing</div>
+              <div style="font-size:13px;color:#6B7280;line-height:1.5;">IMAP IDLE delivers customer emails as tickets in under 5 seconds — zero missed messages.</div>
+            </div>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-icon" style="background:rgba(99,102,241,0.12);">📊</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#f9fafb;margin-bottom:3px;">Live Operations Dashboard</div>
+              <div style="font-size:13px;color:#6B7280;line-height:1.5;">Drag-and-drop widgets for SLA status, CSAT scores, team workload, and sprint progress.</div>
+            </div>
+          </div>
+          <div class="login-feature">
+            <div class="login-feature-icon" style="background:rgba(245,158,11,0.12);">🏢</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#f9fafb;margin-bottom:3px;">Multi-Brand Architecture</div>
+              <div style="font-size:13px;color:#6B7280;line-height:1.5;">Manage multiple client brands from one platform with fully isolated data and inboxes.</div>
+            </div>
+          </div>
+        </div>
+        <!-- Bottom -->
+        <div style="margin-top:48px;font-size:11px;color:#374151;">© 2026 Resolvo Group · <a href="mailto:contact@resolvogroup.com" style="color:#4B5563;text-decoration:none;">contact@resolvogroup.com</a></div>
+      </div>
+      <!-- RIGHT FORM PANEL -->
+      <div id="login-right" style="width:460px;flex-shrink:0;background:#ffffff;display:flex;flex-direction:column;justify-content:center;padding:56px 48px;overflow-y:auto;">
+        <!-- Mobile logo (hidden on desktop) -->
+        <div style="display:none;text-align:center;margin-bottom:32px;" id="login-mobile-logo">
+          <div style="font-size:28px;font-weight:800;color:#0B0F19;letter-spacing:-0.5px;">resolv<span style="color:#10B981;">o</span></div>
+        </div>
+        <div style="margin-bottom:36px;">
+          <h2 style="margin:0 0 6px;font-size:28px;font-weight:800;color:#111827;letter-spacing:-0.3px;">Welcome back</h2>
+          <p style="margin:0;font-size:14px;color:#6B7280;">Sign in to your workspace to continue</p>
+          ${msg ? `<div style="margin-top:14px;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:13px;color:#dc2626;">${msg}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div>
+            <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:7px;letter-spacing:0.3px;text-transform:uppercase;">Email Address</label>
+            <input id="loginEmail" type="email" autocomplete="email" placeholder="you@company.com"
+              style="width:100%;box-sizing:border-box;padding:12px 16px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:14px;color:#111827;background:#F9FAFB;transition:all 0.2s;">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
+              <label style="font-size:12px;font-weight:700;color:#374151;letter-spacing:0.3px;text-transform:uppercase;">Password</label>
+              <button onclick="App._showForgotPassword()" style="background:none;border:none;font-size:12px;color:#10B981;cursor:pointer;font-weight:600;padding:0;">Forgot password?</button>
+            </div>
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••"
+              style="width:100%;box-sizing:border-box;padding:12px 16px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:14px;color:#111827;background:#F9FAFB;transition:all 0.2s;">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;accent-color:#10B981;">
+            <label for="rememberMe" style="font-size:13px;color:#6B7280;cursor:pointer;">Remember me for 30 days</label>
+          </div>
+          <div id="loginError" style="display:none;color:#dc2626;font-size:13px;padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;"></div>
+          <button id="loginBtn" onclick="App._doLogin()"
+            style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;transition:all 0.2s;letter-spacing:0.2px;">
+            Sign In →
+          </button>
+        </div>
+        <div style="margin-top:28px;padding-top:24px;border-top:1px solid #F3F4F6;text-align:center;">
+          <p style="margin:0 0 12px;font-size:12px;color:#9CA3AF;">Need access? Contact your administrator</p>
+          <div style="font-size:11px;color:#D1D5DB;">
+            <a href="/privacy" target="_blank" style="color:#9CA3AF;text-decoration:none;">Privacy Policy</a>
+            <span style="color:#E5E7EB;margin:0 8px;">·</span>
+            <a href="/terms" target="_blank" style="color:#9CA3AF;text-decoration:none;">Terms</a>
+            <span style="color:#E5E7EB;margin:0 8px;">·</span>
+            <a href="/refund" target="_blank" style="color:#9CA3AF;text-decoration:none;">Refund Policy</a>
+          </div>
+        </div>
       </div>`;
     document.getElementById('app').appendChild(div);
     const emailInput = div.querySelector('#loginEmail');
