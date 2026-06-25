@@ -408,7 +408,8 @@ function addWidget(cfg,save){
     +'<div class="w-body" id="body_'+id+'"><div class="w-loading">Loading…</div></div>'
   +'</div>';
 
-  grid.addWidget(el,{id:id,x:cfg.x||0,y:cfg.y||0,w:cfg.w||def.w||2,h:cfg.h||def.h||2,minW:2,minH:2});
+  var autoPos=cfg.y===undefined||cfg.y>=9999;
+  grid.addWidget(el,{id:id,x:cfg.x||0,y:autoPos?undefined:cfg.y,w:cfg.w||def.w||2,h:cfg.h||def.h||2,minW:2,minH:2,autoPosition:autoPos});
   loadWidgetData(cfg.type,el);
   if(save){updatePanelAdded();autoSave();}
 }
