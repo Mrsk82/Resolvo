@@ -760,6 +760,12 @@ function addFromPanel(type){
 
 function openPanel(){document.getElementById('panel').classList.add('open');document.getElementById('overlay').classList.add('open');}
 function closePanel(){document.getElementById('panel').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+window.openPanel=openPanel;window.closePanel=closePanel;
+window.addWidget=addWidget;window.removeWidget=removeWidget;
+window.toggleMenu=toggleMenu;window.refreshWidget=refreshWidget;
+window.onSelectWidget=onSelectWidget;window.filterPanel=filterPanel;
+window.filterCat=filterCat;window.onRangeChange=onRangeChange;
+window.resetLayout=resetLayout;window.saveLayout=saveLayout;
 
 function filterPanel(q){
   var lq=q.toLowerCase();

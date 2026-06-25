@@ -11478,6 +11478,7 @@ const App = {
     // Nav click handlers
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', (e) => {
+        if (!item.dataset.page) return; // has href, let browser navigate normally
         e.preventDefault();
         this.navigate(item.dataset.page);
       });
