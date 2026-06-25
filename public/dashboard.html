@@ -7,6 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <!-- GridStack -->
 <link rel="stylesheet" href="/gridstack.min.css">
+<link rel="stylesheet" href="/gridstack-extra.min.css">
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- GridStack JS -->
@@ -384,6 +385,7 @@ function renderWidgets(widgets){
   document.getElementById('emptyState').style.display='none';
   widgets.forEach(function(w){addWidget(w,false);});
   updatePanelAdded();
+  console.log('[Dashboard] rendered',widgets.length,'widgets, grid nodes:',grid.engine.nodes.length,'grid el children:',document.getElementById('grid').children.length);
 }
 
 function addWidget(cfg,save){
@@ -418,6 +420,7 @@ function addWidget(cfg,save){
   +'</div>';
 
   grid.addWidget(el);
+  console.log('[Widget] added',id,'style:',el.style.cssText,'h:',el.offsetHeight,'gridH:',document.getElementById('grid').offsetHeight);
   loadWidgetData(cfg.type,el);
   if(save){updatePanelAdded();autoSave();}
 }
