@@ -555,7 +555,7 @@ function renderWidgetBody(type,el,data){
             +'<div class="agent-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(a.name||a.email)+'</div>'
             +'<div class="agent-bar-track"><div class="agent-bar-fill'+(over?' over':'')+'" style="width:'+pct+'%"></div></div>'
           +'</div>'
-          +'<div class="agent-count'+(over?' danger':'')" style="'+(over?'color:var(--danger)':'')+'">'+(a.open)+'/'+a.max+'</div>'
+          +'<div class="agent-count'+(over?' danger':'')+'" style="'+(over?'color:var(--danger)':'')+'">'+(a.open)+'/'+a.max+'</div>'
         +'</div>';
       }).join('');
       break;}
