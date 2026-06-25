@@ -333,7 +333,7 @@ function loadDashboard(){
       if(d.success){
         globalRange=parseInt(d.globalRange)||30;
         document.getElementById('globalRange').value=String(globalRange);
-        renderWidgets(d.widgets||DEFAULT_WIDGETS);
+        renderWidgets((d.widgets&&d.widgets.length)?d.widgets:DEFAULT_WIDGETS);
       }else renderWidgets(DEFAULT_WIDGETS);
     }).catch(()=>renderWidgets(DEFAULT_WIDGETS));
 }
@@ -341,7 +341,8 @@ function loadDashboard(){
 function getLayout(){
   var items=grid.save(false);
   return items.map(function(item){
-    return{id:item.id,type:item.el?item.el.dataset.wtype:'',x:item.x,y:item.y,w:item.w,h:item.h,config:{}};
+    var domEl=document.getElementById(item.id);
+    return{id:item.id,type:domEl?domEl.dataset.wtype:'',x:item.x,y:item.y,w:item.w,h:item.h,config:{}};
   }).filter(function(i){return i.type;});
 }
 
