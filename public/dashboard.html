@@ -385,7 +385,6 @@ function renderWidgets(widgets){
   document.getElementById('emptyState').style.display='none';
   widgets.forEach(function(w){addWidget(w,false);});
   updatePanelAdded();
-  console.log('[Dashboard] rendered',widgets.length,'widgets, grid nodes:',grid.engine.nodes.length,'grid el children:',document.getElementById('grid').children.length);
 }
 
 function addWidget(cfg,save){
@@ -420,7 +419,6 @@ function addWidget(cfg,save){
   +'</div>';
 
   grid.addWidget(el);
-  console.log('[Widget] added',id,'style:',el.style.cssText,'h:',el.offsetHeight,'gridH:',document.getElementById('grid').offsetHeight);
   loadWidgetData(cfg.type,el);
   if(save){updatePanelAdded();autoSave();}
 }
