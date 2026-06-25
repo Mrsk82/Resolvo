@@ -8279,14 +8279,14 @@ const DEFAULT_DASHBOARD_WIDGETS=[
 
 // GET dashboard config
 app.get('/api/:slug/dashboard/config',(req,res)=>{
-  const su=getSession(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
   const db=readBrandDB(req.params.slug);
   res.json({success:true,widgets:db.dashboardConfig||DEFAULT_DASHBOARD_WIDGETS,globalRange:db.dashboardRange||'30d'});
 });
 
 // POST save dashboard config
 app.post('/api/:slug/dashboard/config',(req,res)=>{
-  const su=getSession(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
   if(su.role!=='Admin')return res.status(403).json({error:'Admin only'});
   const db=readBrandDB(req.params.slug);
   db.dashboardConfig=req.body.widgets||DEFAULT_DASHBOARD_WIDGETS;
@@ -8297,7 +8297,7 @@ app.post('/api/:slug/dashboard/config',(req,res)=>{
 
 // GET widget data
 app.get('/api/:slug/dashboard/widget',(req,res)=>{
-  const su=getSession(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
   const{slug}=req.params;
   const type=req.query.type;
   const range=parseInt(req.query.range)||30;
