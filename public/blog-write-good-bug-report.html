@@ -1,0 +1,90 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>How to Write a Good Bug Report (Template + Examples) — Resolvo Blog</title><meta name="description" content="A bad bug report wastes hours. A good one gets fixed in minutes. Here's the exact template engineers want — with real examples for web, mobile, and API bugs."><meta name="keywords" content="how to write bug report, bug report template india, good bug report example, software bug report format"><link rel="canonical" href="https://app.resolvogroup.com/blog/write-good-bug-report"><meta property="og:title" content="How to Write a Good Bug Report (Template + Examples)"><meta property="og:type" content="article"><script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;color:#111827;font-family:'Inter',sans-serif;line-height:1.8;font-size:17px;}nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}.logo-name{font-size:16px;font-weight:700;color:#111827;}.nav-links{display:flex;align-items:center;gap:20px;}.nav-links a{font-size:13px;color:#6B7280;text-decoration:none;}.nav-cta{background:#10B981;color:#fff!important;padding:7px 16px;border-radius:7px;font-weight:600!important;}.article-wrap{max-width:760px;margin:0 auto;padding:0 24px;}.article-header{padding:52px 0 36px;border-bottom:1px solid #F3F4F6;margin-bottom:40px;}.article-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;margin-bottom:14px;display:block;}.article-header h1{font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:-1.2px;line-height:1.15;color:#111827;margin-bottom:16px;}.article-intro{font-size:18px;color:#4B5563;line-height:1.75;margin-bottom:20px;}.article-meta{font-size:13px;color:#9CA3AF;}.article-body h2{font-size:24px;font-weight:800;color:#111827;margin:44px 0 14px;}.article-body h3{font-size:19px;font-weight:700;color:#111827;margin:32px 0 10px;}.article-body p{margin-bottom:20px;color:#374151;}.article-body ul,.article-body ol{margin:0 0 20px 22px;}.article-body li{margin-bottom:8px;color:#374151;}.article-body strong{color:#111827;}.callout{border-radius:12px;padding:22px 24px;margin:28px 0;}.callout-green{background:#F0FDF4;border-left:4px solid #10B981;}.callout-red{background:#FEF2F2;border-left:4px solid #EF4444;}.callout p{margin:0;font-size:15px;}.callout-green p{color:#166534;}.callout-red p{color:#991B1B;}.tbox{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:20px 22px;margin:16px 0 28px;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.7;font-family:inherit;}.inline-cta{background:linear-gradient(135deg,#0B0F19,#141c2e);border-radius:14px;padding:32px;text-align:center;margin:44px 0;}.inline-cta h3{font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px;}.inline-cta p{font-size:14px;color:#94a3b8;margin-bottom:20px;}.inline-cta a{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700;}.article-footer{border-top:1px solid #E5E7EB;margin-top:56px;padding:32px 0 80px;}.back-link{font-size:14px;color:#10B981;text-decoration:none;font-weight:600;}footer{border-top:1px solid #E5E7EB;padding:20px 28px;text-align:center;font-size:13px;color:#9CA3AF;}footer a{color:#10B981;text-decoration:none;margin:0 8px;}@media(max-width:600px){.nav-links{display:none;}}</style></head><body>
+<nav><a href="/pitch" class="logo"><img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;"><span class="logo-name">resolvo</span></a><div class="nav-links"><a href="/blog">← Blog</a><a href="/about">About</a><a href="/signup" class="nav-cta">Start Free</a></div></nav>
+<div class="article-wrap">
+<div class="article-header">
+<span class="article-tag">Issue Tracking · Engineering</span>
+<h1>How to Write a Good Bug Report (Template + Examples)</h1>
+<p class="article-intro">A vague bug report — "the app crashed" — sits in the backlog for weeks because nobody can reproduce it. A good bug report gets a fix in the next sprint. Here's the exact template engineers want, with examples for common bug types.</p>
+<div class="article-meta">By Resolvo Team · 7 min read · June 2025</div>
+</div>
+<div class="article-body">
+
+<h2>What makes a bug report good or bad</h2>
+<p>A bug report's job is to let a developer reproduce the bug without talking to the reporter. If the developer has to ask follow-up questions ("What browser? What version? What were you doing right before?"), the report has failed.</p>
+<p>Good reports contain: what happened, what should have happened, exact steps to reproduce, environment details, and evidence (screenshot or video). That's it. Everything else is optional.</p>
+
+<h2>The bug report template</h2>
+
+<div class="tbox"><strong>Title:</strong> [Component] Short description of the bug in plain English
+
+<strong>Severity:</strong> Critical / High / Medium / Low
+
+<strong>Summary:</strong>
+One sentence: what broke, where, and what the user was trying to do.
+
+<strong>Steps to Reproduce:</strong>
+1. Go to [URL / screen]
+2. Click / enter [specific thing]
+3. [Next action]
+4. Observe the result
+
+<strong>Expected Result:</strong>
+What should have happened after step 4.
+
+<strong>Actual Result:</strong>
+What actually happened. Include exact error text if any.
+
+<strong>Environment:</strong>
+- Browser / OS: Chrome 124 / Windows 11
+- App version: v2.3.1
+- User role: Admin / Standard
+- Account/email (if relevant): test@example.com
+
+<strong>Evidence:</strong>
+[Attach screenshot or screen recording]
+
+<strong>Additional context:</strong>
+Does this happen every time? Only for certain users? Introduced after a recent deploy?</div>
+
+<h2>Examples of bad vs good reports</h2>
+
+<h3>Bad report (web bug)</h3>
+<div class="callout callout-red"><p><strong>Title:</strong> Dashboard broken<br><strong>Description:</strong> The dashboard isn't loading for me. Please fix ASAP.</p></div>
+<p>What's wrong: No steps to reproduce. No environment info. "Dashboard" could mean 10 different pages. "Broken" could mean a JS error, a blank screen, or a wrong number. A developer can't fix this without calling the reporter.</p>
+
+<h3>Good report (web bug)</h3>
+<div class="callout callout-green"><p><strong>Title:</strong> [Dashboard] Ticket count widget shows 0 for Admin users after filtering by date<br><br><strong>Steps to Reproduce:</strong><br>1. Log in as Admin (admin@resolvo.com)<br>2. Go to Dashboard → Overview tab<br>3. Set date filter to "Last 7 days"<br>4. Observe ticket count widget<br><br><strong>Expected:</strong> Widget shows correct count (should be ~47 based on ticket list)<br><strong>Actual:</strong> Widget shows 0. Console error: "TypeError: Cannot read property 'count' of undefined"<br><br><strong>Environment:</strong> Chrome 124, Windows 11, v2.3.1, Admin role only (Standard users unaffected)<br><strong>Evidence:</strong> [screenshot attached]</p></div>
+
+<div class="inline-cta"><h3>Log, track, and assign bugs in Resolvo</h3><p>Bug templates, severity labels, sprint assignment. Free to start.</p><a href="/signup">Try Resolvo Free →</a></div>
+
+<h3>Bad report (mobile bug)</h3>
+<div class="callout callout-red"><p><strong>Title:</strong> App crashes sometimes<br><strong>Description:</strong> The iOS app keeps crashing when I use it. Very frustrating.</p></div>
+
+<h3>Good report (mobile bug)</h3>
+<div class="callout callout-green"><p><strong>Title:</strong> [iOS] App crashes when uploading profile photo larger than 5MB<br><br><strong>Steps to Reproduce:</strong><br>1. Open app on iPhone 14 (iOS 17.4)<br>2. Go to Profile → Edit<br>3. Tap "Change Photo"<br>4. Select any HEIC photo from Camera Roll that is over 5MB<br>5. App crashes immediately<br><br><strong>Expected:</strong> Photo uploads or shows a file-size error<br><strong>Actual:</strong> App terminates with no error message. Crash log attached.<br><br><strong>Environment:</strong> iPhone 14, iOS 17.4, App v3.1.0<br><strong>Reproducible:</strong> 100% of the time with large HEIC files, never with JPEG files under 3MB</p></div>
+
+<h2>Tips for reporters who aren't engineers</h2>
+<p>If you're a QA tester, support agent, or customer reporting a bug, you don't need to diagnose the cause — just describe what happened as precisely as possible:</p>
+<ul>
+<li>Use <strong>exact wording</strong> from error messages — don't paraphrase</li>
+<li>Note the <strong>time</strong> when the bug occurred (helps engineers find it in logs)</li>
+<li>Try to reproduce it <strong>twice</strong> before reporting — if you can't, note that</li>
+<li>Record a <strong>short screen video</strong> if a screenshot doesn't capture the full flow</li>
+</ul>
+
+<h2>What severity level to assign</h2>
+<ul>
+<li><strong>Critical</strong> — system down, data loss, security vulnerability, payment processing broken</li>
+<li><strong>High</strong> — core feature broken, no workaround, affects multiple users</li>
+<li><strong>Medium</strong> — feature partially working, workaround exists</li>
+<li><strong>Low</strong> — minor UI issue, cosmetic, affects edge case only</li>
+</ul>
+<p>When in doubt, go one level lower. Over-prioritising bugs makes "Critical" meaningless and erodes trust with engineers who deprioritise inflated severity labels.</p>
+
+<div class="inline-cta"><h3>Structured bug reporting for your whole team</h3><p>Templates, severity, sprint assignment, SLA alerts. All in Resolvo. Free to start.</p><a href="/signup">Start Free →</a></div>
+
+</div>
+<div class="article-footer"><a href="/blog" class="back-link">← Back to all articles</a></div>
+</div>
+<footer>&copy; 2025 Resolvo &nbsp;·&nbsp;<a href="/pitch">Home</a><a href="/blog">Blog</a><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/signup">Start Free</a></footer>
+</body></html>

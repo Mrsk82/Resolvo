@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Priority vs Severity in Bug Tracking: What's the Difference and Why It Matters — Resolvo Blog</title><meta name="description" content="Severity and priority are not the same. Mixing them up leads to engineers working on the wrong things. Here's the definitive explanation with real examples for software teams in India."><meta name="keywords" content="priority vs severity bugs, bug severity priority difference, how to prioritize bugs india, software bug classification"><link rel="canonical" href="https://app.resolvogroup.com/blog/priority-vs-severity-bugs"><meta property="og:title" content="Priority vs Severity in Bug Tracking: What's the Difference and Why It Matters"><meta property="og:type" content="article"><script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;color:#111827;font-family:'Inter',sans-serif;line-height:1.8;font-size:17px;}nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}.logo-name{font-size:16px;font-weight:700;color:#111827;}.nav-links{display:flex;align-items:center;gap:20px;}.nav-links a{font-size:13px;color:#6B7280;text-decoration:none;}.nav-cta{background:#10B981;color:#fff!important;padding:7px 16px;border-radius:7px;font-weight:600!important;}.article-wrap{max-width:760px;margin:0 auto;padding:0 24px;}.article-header{padding:52px 0 36px;border-bottom:1px solid #F3F4F6;margin-bottom:40px;}.article-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;margin-bottom:14px;display:block;}.article-header h1{font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:-1.2px;line-height:1.15;color:#111827;margin-bottom:16px;}.article-intro{font-size:18px;color:#4B5563;line-height:1.75;margin-bottom:20px;}.article-meta{font-size:13px;color:#9CA3AF;}.article-body h2{font-size:24px;font-weight:800;color:#111827;margin:44px 0 14px;}.article-body h3{font-size:19px;font-weight:700;color:#111827;margin:32px 0 10px;}.article-body p{margin-bottom:20px;color:#374151;}.article-body ul,.article-body ol{margin:0 0 20px 22px;}.article-body li{margin-bottom:8px;color:#374151;}.article-body strong{color:#111827;}.callout{border-radius:12px;padding:22px 24px;margin:28px 0;}.callout-green{background:#F0FDF4;border-left:4px solid #10B981;}.callout p{margin:0;font-size:15px;color:#166534;}.table-wrap{overflow-x:auto;margin:24px 0;}.article-body table{width:100%;border-collapse:collapse;font-size:15px;}.article-body th{background:#F9FAFB;padding:12px 16px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;color:#6B7280;border-bottom:2px solid #E5E7EB;}.article-body td{padding:12px 16px;border-bottom:1px solid #F3F4F6;color:#374151;vertical-align:top;}.article-body td:first-child{font-weight:600;color:#111827;}.inline-cta{background:linear-gradient(135deg,#0B0F19,#141c2e);border-radius:14px;padding:32px;text-align:center;margin:44px 0;}.inline-cta h3{font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px;}.inline-cta p{font-size:14px;color:#94a3b8;margin-bottom:20px;}.inline-cta a{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700;}.article-footer{border-top:1px solid #E5E7EB;margin-top:56px;padding:32px 0 80px;}.back-link{font-size:14px;color:#10B981;text-decoration:none;font-weight:600;}footer{border-top:1px solid #E5E7EB;padding:20px 28px;text-align:center;font-size:13px;color:#9CA3AF;}footer a{color:#10B981;text-decoration:none;margin:0 8px;}@media(max-width:600px){.nav-links{display:none;}}</style></head><body>
+<nav><a href="/pitch" class="logo"><img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;"><span class="logo-name">resolvo</span></a><div class="nav-links"><a href="/blog">← Blog</a><a href="/about">About</a><a href="/signup" class="nav-cta">Start Free</a></div></nav>
+<div class="article-wrap">
+<div class="article-header">
+<span class="article-tag">Issue Tracking · Engineering</span>
+<h1>Priority vs Severity in Bug Tracking: What's the Difference and Why It Matters</h1>
+<p class="article-intro">Most teams use priority and severity interchangeably. This leads to engineers spending days on technically severe bugs that affect 3 users, while a mildly annoying but high-visibility bug blocks 10,000 users for weeks. Here's the definitive distinction — with real examples.</p>
+<div class="article-meta">By Resolvo Team · 6 min read · June 2025</div>
+</div>
+<div class="article-body">
+
+<h2>The one-line difference</h2>
+<p><strong>Severity</strong> = how bad is the technical impact? (determined by the QA/engineering team)<br>
+<strong>Priority</strong> = how urgently does this need to be fixed? (determined by the business/product team)</p>
+<p>These are independent dimensions. A bug can be technically severe but low business priority, or technically minor but extremely high business priority. Confusing them causes misallocation of engineering effort.</p>
+
+<h2>The 4 severity levels</h2>
+<ul>
+<li><strong>Critical (S1)</strong> — System crash, data loss, security vulnerability, complete feature failure with no workaround</li>
+<li><strong>High (S2)</strong> — Major feature broken, significant user impact, workaround is difficult or unavailable</li>
+<li><strong>Medium (S3)</strong> — Feature partially broken, workaround exists, limited user impact</li>
+<li><strong>Low (S4)</strong> — Minor issue, cosmetic, very limited user impact</li>
+</ul>
+
+<h2>The 4 priority levels</h2>
+<ul>
+<li><strong>P1 (Urgent)</strong> — Fix immediately, drop everything</li>
+<li><strong>P2 (High)</strong> — Fix in the current sprint</li>
+<li><strong>P3 (Medium)</strong> — Fix in the next sprint</li>
+<li><strong>P4 (Low)</strong> — Fix when convenient, or close as Won't Fix</li>
+</ul>
+
+<h2>Real examples of the disconnect</h2>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Bug</th><th>Severity</th><th>Priority</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Payment fails for users paying in USD (affects 0.1% of Indian customers)</td><td>S1 Critical</td><td>P3 Medium</td><td>Technically severe but USD customers are rare in this market</td></tr>
+<tr><td>Company logo misaligned on the login page</td><td>S4 Low</td><td>P1 Urgent</td><td>Cosmetic, but CEO demo is tomorrow morning</td></tr>
+<tr><td>Export CSV button missing for free tier users</td><td>S2 High</td><td>P4 Low</td><td>Feature wasn't supposed to exist for free tier anyway</td></tr>
+<tr><td>Homepage loads in 8 seconds on mobile</td><td>S3 Medium</td><td>P1 Urgent</td><td>60% of traffic is mobile; Google penalises slow pages; conversion is dropping</td></tr>
+</tbody>
+</table></div>
+
+<div class="callout callout-green"><p><strong>💡 Who sets what:</strong> QA engineers set severity — they're closest to the technical impact. Product managers or business owners set priority — they know the business context. When there's a conflict, both should discuss it, not override each other unilaterally.</p></div>
+
+<h2>Why teams collapse severity and priority into one field</h2>
+<p>It's simpler. One dropdown instead of two. But the simplification creates confusion: "Critical" in a single-field system means something different to the QA engineer who logged it vs the product manager who's planning the sprint. The QA engineer meant "this is technically broken badly." The PM heard "fix this before anything else."</p>
+<p>Keeping them separate avoids this miscommunication entirely. Each person fills in their dimension; together they give a complete picture.</p>
+
+<h2>How to combine them for sprint planning</h2>
+<p>In sprint planning, look at the combined matrix:</p>
+<ul>
+<li><strong>S1 + P1</strong> — Drop everything. This is in today's deploy.</li>
+<li><strong>S1 + P2</strong> — In this sprint, scheduled early in the week.</li>
+<li><strong>S2 + P1</strong> — Also in today's deploy, right after the S1+P1 issues.</li>
+<li><strong>S3 + P3 and below</strong> — Goes in the backlog, sorted by combined score.</li>
+<li><strong>S4 + P4</strong> — Consider closing as Won't Fix. These often aren't worth the opportunity cost.</li>
+</ul>
+
+<h2>Setting up severity and priority in Resolvo</h2>
+<p>Resolvo's issue tracker supports both fields independently. When creating a bug report:</p>
+<ol>
+<li>The reporter (or QA engineer) sets Severity based on technical impact</li>
+<li>The product manager or team lead sets Priority based on business urgency</li>
+<li>SLA alerts trigger based on Priority (P1 gets alerted fastest)</li>
+<li>Sprint planning views show both fields side-by-side</li>
+</ol>
+
+<div class="inline-cta"><h3>Track bugs with both severity and priority in Resolvo</h3><p>Two-field classification, SLA by priority, sprint assignment. Free to start.</p><a href="/signup">Start Free →</a></div>
+
+</div>
+<div class="article-footer"><a href="/blog" class="back-link">← Back to all articles</a></div>
+</div>
+<footer>&copy; 2025 Resolvo &nbsp;·&nbsp;<a href="/pitch">Home</a><a href="/blog">Blog</a><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/signup">Start Free</a></footer>
+</body></html>

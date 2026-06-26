@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Post-Mortem Template for Engineering Teams: How to Run One That Actually Improves Things — Resolvo Blog</title><meta name="description" content="A post-mortem isn't a blame session — it's how you stop the same incident from happening again. Here's a template and step-by-step guide for small engineering teams in India."><meta name="keywords" content="post mortem template engineering, incident post mortem india, how to run post mortem, post incident review template"><link rel="canonical" href="https://app.resolvogroup.com/blog/post-mortem-template"><meta property="og:title" content="Post-Mortem Template for Engineering Teams: How to Run One That Actually Improves Things"><meta property="og:type" content="article"><script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;color:#111827;font-family:'Inter',sans-serif;line-height:1.8;font-size:17px;}nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}.logo-name{font-size:16px;font-weight:700;color:#111827;}.nav-links{display:flex;align-items:center;gap:20px;}.nav-links a{font-size:13px;color:#6B7280;text-decoration:none;}.nav-cta{background:#10B981;color:#fff!important;padding:7px 16px;border-radius:7px;font-weight:600!important;}.article-wrap{max-width:760px;margin:0 auto;padding:0 24px;}.article-header{padding:52px 0 36px;border-bottom:1px solid #F3F4F6;margin-bottom:40px;}.article-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;margin-bottom:14px;display:block;}.article-header h1{font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:-1.2px;line-height:1.15;color:#111827;margin-bottom:16px;}.article-intro{font-size:18px;color:#4B5563;line-height:1.75;margin-bottom:20px;}.article-meta{font-size:13px;color:#9CA3AF;}.article-body h2{font-size:24px;font-weight:800;color:#111827;margin:44px 0 14px;}.article-body h3{font-size:19px;font-weight:700;color:#111827;margin:32px 0 10px;}.article-body p{margin-bottom:20px;color:#374151;}.article-body ul,.article-body ol{margin:0 0 20px 22px;}.article-body li{margin-bottom:8px;color:#374151;}.article-body strong{color:#111827;}.callout{border-radius:12px;padding:22px 24px;margin:28px 0;}.callout-green{background:#F0FDF4;border-left:4px solid #10B981;}.callout-yellow{background:#FFFBEB;border-left:4px solid #F59E0B;}.callout p{margin:0;font-size:15px;}.callout-green p{color:#166534;}.callout-yellow p{color:#92400E;}.tbox{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:20px 22px;margin:16px 0 28px;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.7;font-family:inherit;}.inline-cta{background:linear-gradient(135deg,#0B0F19,#141c2e);border-radius:14px;padding:32px;text-align:center;margin:44px 0;}.inline-cta h3{font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px;}.inline-cta p{font-size:14px;color:#94a3b8;margin-bottom:20px;}.inline-cta a{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700;}.article-footer{border-top:1px solid #E5E7EB;margin-top:56px;padding:32px 0 80px;}.back-link{font-size:14px;color:#10B981;text-decoration:none;font-weight:600;}footer{border-top:1px solid #E5E7EB;padding:20px 28px;text-align:center;font-size:13px;color:#9CA3AF;}footer a{color:#10B981;text-decoration:none;margin:0 8px;}@media(max-width:600px){.nav-links{display:none;}}</style></head><body>
+<nav><a href="/pitch" class="logo"><img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;"><span class="logo-name">resolvo</span></a><div class="nav-links"><a href="/blog">← Blog</a><a href="/about">About</a><a href="/signup" class="nav-cta">Start Free</a></div></nav>
+<div class="article-wrap">
+<div class="article-header">
+<span class="article-tag">Issue Tracking · Engineering Process</span>
+<h1>Post-Mortem Template for Engineering Teams: How to Run One That Actually Improves Things</h1>
+<p class="article-intro">Most post-mortems result in a document nobody reads and action items that never get done. Here's how to run a post-mortem that surfaces the real root cause, assigns concrete fixes, and actually prevents the incident from happening again.</p>
+<div class="article-meta">By Resolvo Team · 7 min read · June 2025</div>
+</div>
+<div class="article-body">
+
+<h2>The blameless post-mortem principle</h2>
+<p>The most important rule: post-mortems are about systems, not people. When an incident happens, it's almost never because one person made a careless mistake. It's because the system allowed — or even invited — that mistake. A deployment process that doesn't require a second review, a monitoring setup that doesn't alert until 30 minutes after an outage starts, a test suite that doesn't cover that edge case.</p>
+<p>If your post-mortem ends with "we told the developer to be more careful," you haven't run a post-mortem. You've had a performance review. The next incident will happen for the same reason.</p>
+
+<h2>When to run a post-mortem</h2>
+<ul>
+<li>Any outage that lasted more than 30 minutes in production</li>
+<li>Any incident that affected paying customers</li>
+<li>Any data incident (data loss, data exposure)</li>
+<li>Any incident that breached your SLA</li>
+<li>Optionally: severe bugs that required an emergency hotfix</li>
+</ul>
+<p>For smaller incidents or near-misses, a brief written summary (5 minutes, no meeting) is sufficient. Reserve the full post-mortem process for significant incidents.</p>
+
+<h2>The post-mortem template</h2>
+
+<div class="tbox"><strong>INCIDENT POST-MORTEM</strong>
+
+<strong>Incident Title:</strong> [Brief description, e.g., "Payment processing outage — June 14, 2025"]
+<strong>Date of Incident:</strong> [Date]
+<strong>Duration:</strong> [How long from detection to resolution]
+<strong>Severity:</strong> Critical / High / Medium
+<strong>Author:</strong> [Name]
+<strong>Reviewers:</strong> [Names]
+
+---
+
+<strong>TIMELINE</strong>
+[UTC or IST times throughout]
+14:23 — Incident began (what triggered it)
+14:31 — First alert fired (or how it was detected)
+14:35 — On-call engineer paged
+14:52 — Root cause identified
+15:17 — Mitigation deployed
+15:24 — Full service restored
+
+---
+
+<strong>IMPACT</strong>
+- Users affected: ~1,200 (all users attempting checkout)
+- Revenue impact: ~₹2.4L in blocked transactions
+- Duration of customer impact: 61 minutes
+
+---
+
+<strong>ROOT CAUSE</strong>
+[What actually caused this — one paragraph. Be specific. "A configuration change deployed at 14:15 removed the API timeout setting, causing payment gateway calls to hang indefinitely and exhaust the connection pool within 8 minutes."]
+
+---
+
+<strong>CONTRIBUTING FACTORS</strong>
+[What conditions allowed this to happen or made it worse]
+- Config change was not reviewed before deployment
+- No alert for connection pool utilisation
+- Runbook for payment failures was out of date
+
+---
+
+<strong>WHAT WENT WELL</strong>
+- Detection was fast once the alert fired
+- Team communication on the incident Slack channel was clear
+- Rollback process worked as expected
+
+---
+
+<strong>ACTION ITEMS</strong>
+| Action | Owner | Due Date |
+|--------|-------|----------|
+| Add peer review requirement for config changes | [Name] | [Date] |
+| Add connection pool alert at 80% utilisation | [Name] | [Date] |
+| Update payment failure runbook | [Name] | [Date] |</div>
+
+<div class="callout callout-yellow"><p><strong>⚠️ Action items without due dates and owners get done 0% of the time.</strong> Every action item must have one named owner and a specific date — not "next sprint" or "soon."</p></div>
+
+<h2>Running the post-mortem meeting</h2>
+<p>The meeting should happen within 48 hours of the incident being resolved, while details are fresh. Format:</p>
+<ol>
+<li><strong>Walk the timeline</strong> (10 min) — the author presents what happened, in order, factually</li>
+<li><strong>Root cause discussion</strong> (15 min) — ask "why" 5 times until you reach a systemic cause, not a personal one</li>
+<li><strong>What went well</strong> (5 min) — don't skip this; it anchors the blameless culture and identifies things worth preserving</li>
+<li><strong>Action items</strong> (10 min) — assign owner and date to each item before the meeting ends</li>
+</ol>
+<p>Total: 40 minutes. More than this and people lose focus. Less than this and you haven't done the work.</p>
+
+<h2>The 5 Whys technique</h2>
+<p>Use this to find the real root cause instead of stopping at the surface:</p>
+<ul>
+<li>Why did the outage happen? → Payment calls were hanging</li>
+<li>Why were they hanging? → API timeout was removed</li>
+<li>Why was it removed? → Config change by an engineer</li>
+<li>Why was it not caught? → Config changes don't require review</li>
+<li>Why don't config changes require review? → We never added that to our process</li>
+</ul>
+<p>Root cause: No peer review process for configuration changes. Action item: Add config change review to deployment checklist.</p>
+
+<div class="inline-cta"><h3>Track post-mortem action items in Resolvo</h3><p>Log incidents, assign action items, track completion. Issue tracking built for engineering teams. Free to start.</p><a href="/signup">Try Resolvo Free →</a></div>
+
+</div>
+<div class="article-footer"><a href="/blog" class="back-link">← Back to all articles</a></div>
+</div>
+<footer>&copy; 2025 Resolvo &nbsp;·&nbsp;<a href="/pitch">Home</a><a href="/blog">Blog</a><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/signup">Start Free</a></footer>
+</body></html>

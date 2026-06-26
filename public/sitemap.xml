@@ -1,16 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Core pages -->
   <url><loc>https://app.resolvogroup.com/pitch</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
   <url><loc>https://app.resolvogroup.com/signup</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://app.resolvogroup.com/demo</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://app.resolvogroup.com/blog</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://app.resolvogroup.com/blog/best-jira-alternative-small-teams</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://app.resolvogroup.com/blog/how-to-set-up-email-ticketing</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://app.resolvogroup.com/blog/engineering-issue-tracking-sla</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://app.resolvogroup.com/blog/reduce-support-ticket-volume</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://app.resolvogroup.com/pro</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://app.resolvogroup.com/about</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://app.resolvogroup.com/privacy</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>
+
+  <!-- Blog index -->
+  <url><loc>https://app.resolvogroup.com/blog</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+
+  <!-- Appointments & Scheduling -->
+  <url><loc>https://app.resolvogroup.com/blog/free-appointment-software-clinics-india</loc><lastmod>2025-06-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/reduce-no-shows-salon</loc><lastmod>2025-06-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/lawyers-automate-client-scheduling</loc><lastmod>2025-06-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/online-booking-small-business-india</loc><lastmod>2025-06-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/appointment-reminder-email-templates</loc><lastmod>2025-06-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/patient-management-small-clinic</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/tutors-manage-students</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/dentists-online-booking</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/clients-prefer-online-booking</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/share-booking-link-social</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Email Ticketing & Support -->
+  <url><loc>https://app.resolvogroup.com/blog/how-to-set-up-email-ticketing</loc><lastmod>2025-05-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/reduce-support-ticket-volume</loc><lastmod>2025-05-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/sla-management-guide</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/customer-support-email-templates</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/shared-inbox-vs-helpdesk</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/handle-angry-customers-email</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/first-response-time</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/knowledge-base-setup</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/auto-replies-customer-support</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/escalate-support-ticket</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/gmail-vs-helpdesk</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Issue Tracking -->
+  <url><loc>https://app.resolvogroup.com/blog/best-jira-alternative-small-teams</loc><lastmod>2025-05-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/engineering-issue-tracking-sla</loc><lastmod>2025-05-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/bug-tracking-startups</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/sprint-planning-small-team</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/write-good-bug-report</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/priority-vs-severity-bugs</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/reduce-engineering-backlog</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/post-mortem-template</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- CRM -->
+  <url><loc>https://app.resolvogroup.com/blog/free-crm-small-business-india</loc><lastmod>2025-06-25</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/client-onboarding</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/customer-follow-up-system</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/client-history-tracking</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/segment-customers</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/client-retention-support</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- AI & Automation -->
+  <url><loc>https://app.resolvogroup.com/blog/ai-customer-support-india</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/automate-ticket-routing</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/ai-reply-suggestions-support</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/ai-summarise-email-threads</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/sentiment-analysis-support</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/daily-digest-automation</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Team Management -->
+  <url><loc>https://app.resolvogroup.com/blog/manage-remote-support-team</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/measure-agent-performance</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/on-call-schedule-small-team</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/multi-brand-support-operations</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/support-runbook</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/onboard-support-agent</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+
+  <!-- Tool Comparisons -->
+  <url><loc>https://app.resolvogroup.com/blog/calendly-vs-resolvo</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/intercom-vs-resolvo</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/notion-vs-resolvo-issue-tracking</loc><lastmod>2025-06-26</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://app.resolvogroup.com/blog/gmail-vs-helpdesk</loc><lastmod>2025-06-27</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/jira</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/freshdesk</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/zendesk</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://app.resolvogroup.com/vs/linear</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://app.resolvogroup.com/learn</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+
 </urlset>

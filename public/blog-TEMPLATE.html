@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<!-- ═══════════════════════════════════════════════
+     FILL IN: Change all {{...}} placeholders below
+     SLUG: Save this file as blog-YOUR-SLUG-HERE.html
+     ═══════════════════════════════════════════════ -->
+
+<title>{{ARTICLE TITLE}} — Resolvo Blog</title>
+<meta name="description" content="{{META DESCRIPTION — 140–155 characters. What the article covers, why the reader should care.}}">
+<meta name="keywords" content="{{keyword 1, keyword 2, keyword 3, keyword 4}}">
+<link rel="canonical" href="https://app.resolvogroup.com/blog/{{YOUR-SLUG}}">
+
+<meta property="og:title" content="{{ARTICLE TITLE}}">
+<meta property="og:description" content="{{META DESCRIPTION}}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://app.resolvogroup.com/blog/{{YOUR-SLUG}}">
+<meta property="og:image" content="https://app.resolvogroup.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "{{ARTICLE TITLE}}",
+  "description": "{{META DESCRIPTION}}",
+  "datePublished": "{{YYYY-MM-DD}}",
+  "dateModified": "{{YYYY-MM-DD}}",
+  "author": { "@type": "Organization", "name": "Resolvo Team", "url": "https://resolvogroup.com" },
+  "publisher": { "@type": "Organization", "name": "Resolvo", "logo": { "@type": "ImageObject", "url": "https://app.resolvogroup.com/logo-mark.svg" } },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://app.resolvogroup.com/blog/{{YOUR-SLUG}}" }
+}
+</script>
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#fff;color:#111827;font-family:'Inter',sans-serif;line-height:1.8;font-size:17px;}
+
+nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}
+.logo-name{font-size:16px;font-weight:700;color:#111827;}
+.nav-links{display:flex;align-items:center;gap:20px;}
+.nav-links a{font-size:13px;color:#6B7280;text-decoration:none;}
+.nav-cta{background:#10B981;color:#fff!important;padding:7px 16px;border-radius:7px;font-weight:600!important;}
+
+.article-wrap{max-width:760px;margin:0 auto;padding:0 24px;}
+
+.article-header{padding:52px 0 36px;border-bottom:1px solid #F3F4F6;margin-bottom:40px;}
+.article-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;margin-bottom:14px;display:block;}
+.article-header h1{font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:-1.2px;line-height:1.15;color:#111827;margin-bottom:16px;}
+.article-intro{font-size:18px;color:#4B5563;line-height:1.75;margin-bottom:20px;}
+.article-meta{font-size:13px;color:#9CA3AF;display:flex;align-items:center;gap:12px;}
+.article-meta .sep{color:#E5E7EB;}
+
+/* ARTICLE BODY */
+.article-body h2{font-size:24px;font-weight:800;color:#111827;margin:44px 0 14px;letter-spacing:-.4px;line-height:1.25;}
+.article-body h3{font-size:19px;font-weight:700;color:#111827;margin:32px 0 10px;letter-spacing:-.3px;}
+.article-body p{margin-bottom:20px;color:#374151;}
+.article-body ul,.article-body ol{margin:0 0 20px 22px;}
+.article-body ul li,.article-body ol li{margin-bottom:8px;color:#374151;}
+.article-body strong{color:#111827;}
+.article-body a{color:#10B981;text-decoration:underline;text-decoration-color:rgba(16,185,129,.3);}
+.article-body a:hover{text-decoration-color:#10B981;}
+
+/* CALLOUT BOXES */
+.callout{border-radius:12px;padding:22px 24px;margin:28px 0;}
+.callout-green{background:#F0FDF4;border-left:4px solid #10B981;}
+.callout-blue{background:#EFF6FF;border-left:4px solid #3B82F6;}
+.callout-yellow{background:#FFFBEB;border-left:4px solid #F59E0B;}
+.callout p{margin:0;font-size:15px;}
+.callout strong{display:block;margin-bottom:6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;}
+
+/* TABLE */
+.article-body table{width:100%;border-collapse:collapse;margin:24px 0;font-size:14px;}
+.article-body th{background:#F9FAFB;padding:12px 14px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;border-bottom:2px solid #E5E7EB;}
+.article-body td{padding:12px 14px;border-bottom:1px solid #F3F4F6;color:#374151;vertical-align:top;}
+.article-body tr:last-child td{border-bottom:none;}
+
+/* IN-ARTICLE CTA */
+.inline-cta{background:linear-gradient(135deg,#0B0F19,#141c2e);border-radius:14px;padding:32px;text-align:center;margin:44px 0;}
+.inline-cta h3{font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px;}
+.inline-cta p{font-size:14px;color:#94a3b8;margin-bottom:20px;}
+.inline-cta a{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700;}
+
+/* BOTTOM NAV */
+.article-footer{border-top:1px solid #E5E7EB;margin-top:56px;padding:32px 0 80px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.back-link{font-size:14px;color:#10B981;text-decoration:none;font-weight:600;}
+.share-label{font-size:13px;color:#9CA3AF;}
+
+footer{border-top:1px solid #E5E7EB;padding:20px 28px;text-align:center;font-size:13px;color:#9CA3AF;}
+footer a{color:#10B981;text-decoration:none;margin:0 8px;}
+
+@media(max-width:600px){
+  .article-header{padding:32px 0 24px;}
+  .article-body h2{font-size:20px;}
+  .nav-links{display:none;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" class="logo">
+    <img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;">
+    <span class="logo-name">resolvo</span>
+  </a>
+  <div class="nav-links">
+    <a href="/blog">← Blog</a>
+    <a href="/about">About</a>
+    <a href="/pro" class="nav-cta">Start Free</a>
+  </div>
+</nav>
+
+<div class="article-wrap">
+  <div class="article-header">
+    <span class="article-tag">{{CATEGORY — e.g. For Doctors · Appointments · Support}}</span>
+    <h1>{{ARTICLE TITLE}}</h1>
+    <p class="article-intro">{{ONE PARAGRAPH INTRO — 2–3 sentences. Hook the reader. State the problem and what they'll learn.}}</p>
+    <div class="article-meta">
+      <span>By Resolvo Team</span>
+      <span class="sep">·</span>
+      <span>{{X}} min read</span>
+      <span class="sep">·</span>
+      <span>{{Month YYYY}}</span>
+    </div>
+  </div>
+
+  <div class="article-body">
+
+    <!-- ═══════════════════════════════════════════════
+         WRITE YOUR ARTICLE CONTENT BELOW THIS LINE.
+         Use the patterns shown — h2, h3, p, ul, callouts, tables.
+         Add the inline-cta block once in the middle and once at the end.
+         ═══════════════════════════════════════════════ -->
+
+    <h2>{{Section 1 Heading}}</h2>
+    <p>{{Section 1 content. Write 2–4 paragraphs. Be specific and practical. Use real numbers where possible.}}</p>
+
+    <div class="callout callout-green">
+      <p><strong>💡 Quick tip</strong> {{A short, memorable tip the reader can act on immediately.}}</p>
+    </div>
+
+    <h2>{{Section 2 Heading}}</h2>
+    <p>{{Section 2 content.}}</p>
+
+    <ul>
+      <li><strong>{{Point 1}}</strong> — {{Explanation}}</li>
+      <li><strong>{{Point 2}}</strong> — {{Explanation}}</li>
+      <li><strong>{{Point 3}}</strong> — {{Explanation}}</li>
+    </ul>
+
+    <h2>{{Section 3 Heading}}</h2>
+    <p>{{Section 3 content.}}</p>
+
+    <!-- MID-ARTICLE CTA (place after 40–50% of the article) -->
+    <div class="inline-cta">
+      <h3>Try it free for your practice</h3>
+      <p>250 appointments/month. Public booking link. Auto-reminders. No credit card.</p>
+      <a href="/pro">Create Your Free Account →</a>
+    </div>
+
+    <h2>{{Section 4 Heading}}</h2>
+    <p>{{Section 4 content.}}</p>
+
+    <h2>{{Section 5 Heading}}</h2>
+    <p>{{Section 5 content.}}</p>
+
+    <h2>Final thoughts</h2>
+    <p>{{Wrap up the article in 2–3 sentences. Restate the key takeaway. End with a soft CTA.}}</p>
+
+    <!-- END-OF-ARTICLE CTA -->
+    <div class="inline-cta">
+      <h3>{{Specific to article topic — e.g. "Start accepting online bookings today"}}</h3>
+      <p>{{One line value prop. e.g. "Free for up to 250 appointments/month. Takes 3 minutes to set up."}}</p>
+      <a href="/pro">{{CTA Button Text}} →</a>
+    </div>
+
+  </div>
+
+  <div class="article-footer">
+    <a href="/blog" class="back-link">← Back to all articles</a>
+    <span class="share-label">Found this useful? Share it with a colleague.</span>
+  </div>
+</div>
+
+<footer>
+  &copy; 2025 Resolvo &nbsp;·&nbsp;
+  <a href="/pitch">Home</a>
+  <a href="/blog">Blog</a>
+  <a href="/about">About</a>
+  <a href="/privacy">Privacy</a>
+  <a href="/pro">Start Free</a>
+</footer>
+</body>
+</html>
