@@ -253,17 +253,22 @@ section{padding:96px 0;}
 /* ── FEATURES ── */
 .features-grid{
   display:grid;grid-template-columns:repeat(2,1fr);
-  gap:32px;margin-top:52px;
+  gap:20px;margin-top:52px;
 }
 .feature-block{
-  padding:28px;border:1px solid var(--border);
+  padding:24px 26px;border:1px solid var(--border);
   border-radius:var(--radius-lg);background:#fff;
-  transition:border-color .2s,box-shadow .2s;
+  transition:border-color .2s,box-shadow .2s,transform .2s;
+  display:flex;flex-direction:column;
 }
-.feature-block:hover{border-color:var(--amber);box-shadow:0 4px 20px rgba(245,158,11,.08);}
-.feat-icon{font-size:22px;margin-bottom:14px;}
+.feature-block:hover{border-color:var(--amber);box-shadow:0 6px 24px rgba(245,158,11,.10);transform:translateY(-2px);}
+.feat-icon{
+  width:40px;height:40px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:16px;flex-shrink:0;
+}
 .feat-title{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:7px;letter-spacing:-.01em;}
-.feat-desc{font-size:13px;color:var(--ink-3);line-height:1.65;}
+.feat-desc{font-size:13px;color:var(--ink-3);line-height:1.65;flex:1;}
 .feat-tag{display:inline-block;font-size:10px;font-weight:700;background:var(--amber-dim);color:#92400E;padding:2px 8px;border-radius:4px;margin-top:10px;letter-spacing:.03em;}
 
 /* ── HOW IT WORKS ── */
@@ -604,50 +609,66 @@ footer{border-top:1px solid var(--border);padding:32px 0;}
     <div class="features-grid">
 
       <div class="feature-block r">
-        <div class="feat-icon">📥</div>
+        <div class="feat-icon" style="background:#EFF6FF;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        </div>
         <div class="feat-title">Shared ticket inbox</div>
         <div class="feat-desc">Every email, WhatsApp message, and widget submission becomes a ticket. Assigned, tracked, and resolved — with full conversation history. No email lost.</div>
       </div>
 
       <div class="feature-block r d1">
-        <div class="feat-icon">⏱️</div>
+        <div class="feat-icon" style="background:#FFF7ED;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
         <div class="feat-title">SLA tracking & alerts</div>
         <div class="feat-desc">Set response time targets by priority. Critical: 4h. High: 8h. Medium: 24h. Resolvo tracks every ticket against the clock and alerts your team before a breach.</div>
       </div>
 
       <div class="feature-block r d2">
-        <div class="feat-icon">🟢</div>
+        <div class="feat-icon" style="background:#F0FDF4;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
         <div class="feat-title">WhatsApp support channel</div>
         <div class="feat-desc">Connect your WhatsApp Business number. Every message becomes a ticket. Reply from the Resolvo dashboard — no need to open WhatsApp. Full thread history maintained.</div>
         <div class="feat-tag">NEW</div>
       </div>
 
       <div class="feature-block r d3">
-        <div class="feat-icon">🤖</div>
+        <div class="feat-icon" style="background:#FAF5FF;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9333EA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+        </div>
         <div class="feat-title">AI-drafted replies</div>
         <div class="feat-desc">Resolvo drafts a reply for every incoming ticket using your previous responses as context. Agent reviews and sends. First response time drops by 60%.</div>
       </div>
 
       <div class="feature-block r">
-        <div class="feat-icon">🏪</div>
+        <div class="feat-icon" style="background:#F0FDF4;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
         <div class="feat-title">Customer self-service portal</div>
         <div class="feat-desc">Branded portal at /portal/your-brand. Customers log in via OTP, see all their tickets, add comments, check status. Cuts "what's the update?" emails by 70%.</div>
       </div>
 
       <div class="feature-block r d1">
-        <div class="feat-icon">📊</div>
+        <div class="feat-icon" style="background:#FFF7ED;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
         <div class="feat-title">Team & SLA analytics</div>
         <div class="feat-desc">Live dashboard showing open tickets, SLA compliance, agent workload, CSAT scores, and response time trends. Know what's working before your manager asks.</div>
       </div>
 
       <div class="feature-block r d2">
-        <div class="feat-icon">🔗</div>
+        <div class="feat-icon" style="background:#EFF6FF;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        </div>
         <div class="feat-title">Issue tracker built-in</div>
         <div class="feat-desc">Link support tickets to internal bugs. Engineering sees which issues are causing the most tickets. When the bug is fixed, the linked customer gets notified automatically.</div>
       </div>
 
       <div class="feature-block r d3">
-        <div class="feat-icon">📅</div>
+        <div class="feat-icon" style="background:#FFF1F2;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E11D48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
         <div class="feat-title">Appointment booking</div>
         <div class="feat-desc">Let customers book calls with your support team directly from tickets. Automatic confirmations and 1-hour reminders sent via email. No Calendly needed.</div>
       </div>
