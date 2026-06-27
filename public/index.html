@@ -7817,13 +7817,6 @@ tbody tr.row-selected {
             </a>
           </div>
 
-          <div class="nav-section" id="navAppointments" style="display:none">
-            <span class="nav-label">APPOINTMENTS</span>
-            <a href="#" class="nav-item" data-page="appointments" data-tooltip="Appointments">
-              <span class="nav-icon">📅</span>
-              <span class="nav-text">Appointments <span id="aptTodayBadge" style="display:none;background:#059669;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px;"></span></span>
-            </a>
-          </div>
 
           <div class="nav-section">
             <span class="nav-label">ISSUES</span>
@@ -11532,13 +11525,6 @@ const App = {
       document.querySelectorAll('.nav-admin').forEach(function(el) {
         el.style.display = 'block';
       });
-    }
-
-    // Show appointments nav if feature enabled
-    var _ff = this.featureFlags || {};
-    if (_ff.APPOINTMENT_BOOKING_ENABLED === true || _ff.APPOINTMENT_BOOKING_ENABLED === 'true') {
-      var navApt = document.getElementById('navAppointments');
-      if (navApt) navApt.style.display = 'block';
     }
 
     // Nav click handlers
@@ -20825,52 +20811,75 @@ const App = {
       // ── APPOINTMENTS REPORT ───────────────────────────────────────────────
       else if (tid === 'appointments') {
         var apr = await self.callAsync('getAppointments', {});
+        var bcr2 = await self.callAsync('getBookingConfig');
         var apts = (apr&&apr.appointments)||[];
+        var bc2 = (bcr2&&bcr2.success)?bcr2.config:{};
+        var bookingLink2 = bc2.bookingLink||'';
         var today = new Date().toISOString().split('T')[0];
-        var todayApts = apts.filter(function(a){return a.date===today&&a.status!=='cancelled';});
-        var upcoming2 = apts.filter(function(a){return a.date>today&&a.status!=='cancelled';});
-        var statusColor = {confirmed:'var(--low)',cancelled:'var(--critical)',pending:'var(--medium)'};
+        var todayApts   = apts.filter(function(a){return a.date===today&&a.status!=='cancelled';});
+        var upcomingApts= apts.filter(function(a){return a.date>today&&a.status!=='cancelled';});
+        var activeApts  = apts.filter(function(a){return a.status==='confirmed';});
+        var cancelledApts2=apts.filter(function(a){return a.status==='cancelled';});
+        self._aptFilter = self._aptFilter||'today';
+        var filterList  = self._aptFilter==='today'?todayApts:self._aptFilter==='upcoming'?upcomingApts:self._aptFilter==='cancelled'?cancelledApts2:apts;
+
+        function fmtTime(t){if(!t)return'';var p=t.split(':');var h=+p[0];var m=p[1];return(h>12?h-12:h||12)+':'+m+' '+(h>=12?'PM':'AM');}
+        function aptBadge(s){var map={confirmed:'<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;">✓ Confirmed</span>',cancelled:'<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;">✕ Cancelled</span>',completed:'<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;">✓ Done</span>'};return map[s]||s;}
+
+        function renderAptRows(list){
+          if(!list.length)return'<div style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px;">No appointments in this view</div>';
+          return list.map(function(a){
+            var mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            var dayNum=a.date?a.date.split('-')[2]:'—';
+            var monStr=a.date?mon[+a.date.split('-')[1]-1]:'';
+            return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;">'+
+              '<div style="background:var(--accent-dim);border-radius:8px;padding:8px 10px;text-align:center;min-width:48px;flex-shrink:0;">'+
+                '<div style="font-size:17px;font-weight:900;color:var(--accent);line-height:1;">'+dayNum+'</div>'+
+                '<div style="font-size:9px;color:var(--text-dim);margin-top:1px;text-transform:uppercase;">'+monStr+'</div>'+
+              '</div>'+
+              '<div style="flex:1;min-width:0;">'+
+                '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">'+
+                  '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(a.customerName)+'</span>'+
+                  aptBadge(a.status)+
+                '</div>'+
+                '<div style="font-size:11px;color:var(--text-dim);">🕐 '+fmtTime(a.time)+(a.customerEmail?' &nbsp;·&nbsp; ✉️ '+App._esc(a.customerEmail):'')+(a.customerPhone?' &nbsp;·&nbsp; 📱 '+App._esc(a.customerPhone):'')+'</div>'+
+                (a.topic?'<div style="font-size:12px;color:var(--text-secondary);background:var(--bg-elevated);border-radius:5px;padding:5px 9px;margin-top:6px;max-width:500px;">'+App._esc(a.topic)+'</div>':'')+
+              '</div>'+
+              '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">'+
+                (a.ticketId?'<button onclick="App.navigate(\'ticket-detail\',{id:\''+a.ticketId+'\'})" style="font-size:11px;padding:4px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);">🎫 Ticket</button>':'')+
+                (a.status!=='cancelled'?'<button onclick="App._cancelApt(\''+a.id+'\')" style="font-size:11px;padding:4px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--danger);">✕ Cancel</button>':'')+
+              '</div>'+
+            '</div>';
+          }).join('');
+        }
+
         reportEl.innerHTML =
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">'+
-            '<div><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">📅 Appointments</h2>'+
-            '<div style="font-size:12px;color:var(--text-muted);">All customer appointments</div></div>'+
+          // Header
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">'+
+            '<div>'+
+              (bookingLink2?'<div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">🔗 Booking page: <a href="'+App._esc(bookingLink2)+'" target="_blank" style="color:var(--accent);">'+App._esc(bookingLink2)+'</a> &nbsp;<button onclick="navigator.clipboard.writeText(\''+App._esc(bookingLink2)+'\').then(()=>App.showToast(\'Copied!\',\'success\'))" style="font-size:10px;padding:2px 8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--text-secondary);">Copy</button></div>':'<div style="font-size:12px;color:var(--danger);">⚠ Booking not enabled — <a href="#" onclick="App.navigate(\'settings\',{tab:\'booking-config\'})" style="color:var(--accent);">Configure now →</a></div>')+
+            '</div>'+
+            '<div style="display:flex;gap:8px;">'+
+              '<button onclick="App.navigate(\'settings\',{tab:\'booking-config\'})" style="font-size:12px;padding:6px 12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--text-secondary);">⚙ Configure</button>'+
+              '<button onclick="App._showNewAptModal()" style="font-size:12px;padding:6px 14px;background:var(--accent);border:none;border-radius:7px;cursor:pointer;color:#fff;font-weight:700;">+ New Appointment</button>'+
+            '</div>'+
           '</div>'+
-          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">'+
+          // Stats
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">'+
             statCard('📅','Today',todayApts.length,'appointments','var(--accent)')+
-            statCard('🗓','Upcoming',upcoming2.length,'this month','var(--low)')+
-            statCard('📊','Total',apts.length,'all time','var(--status-ack)')+
+            statCard('🗓','Upcoming',upcomingApts.length,'confirmed','var(--low)')+
+            statCard('✅','Active',activeApts.length,'all time','var(--status-ack)')+
+            statCard('✕','Cancelled',cancelledApts2.length,'all time','var(--critical)')+
           '</div>'+
-          (todayApts.length?
-            '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:10px;padding:14px;margin-bottom:16px;">'+
-              '<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;">Today\'s Schedule ('+todayApts.length+')</div>'+
-              todayApts.map(function(a){return '<div style="display:flex;align-items:center;gap:12px;padding:8px;background:var(--bg-card);border-radius:7px;margin-bottom:6px;">'+
-                '<div style="font-size:16px;font-weight:900;color:var(--accent);min-width:50px;">'+a.time+'</div>'+
-                '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+App._esc(a.customerName)+'</div>'+
-                '<div style="font-size:11px;color:var(--text-muted);">'+App._esc(a.topic||'')+'</div></div>'+
-                '<div style="font-size:11px;color:var(--text-dim);">'+App._esc(a.customerEmail||'')+'</div>'+
-              '</div>';}).join('')+
-            '</div>':'')+
-          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+
-            '<table style="width:100%;border-collapse:collapse;">'+
-            '<thead><tr style="background:var(--bg-elevated);">'+
-              '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Date & Time</th>'+
-              '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Customer</th>'+
-              '<th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:700;">Topic</th>'+
-              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Status</th>'+
-              '<th style="padding:10px 14px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:700;">Ticket</th>'+
-            '</tr></thead><tbody>'+
-            apts.slice(0,50).map(function(a){
-              var sc=statusColor[a.status]||'var(--text-dim)';
-              return '<tr style="border-top:1px solid var(--border);">'+
-                '<td style="padding:10px 14px;"><div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+a.date+'</div><div style="font-size:11px;color:var(--text-dim);">'+a.time+'</div></td>'+
-                '<td style="padding:10px 14px;"><div style="font-size:13px;color:var(--text-primary);">'+App._esc(a.customerName)+'</div><div style="font-size:11px;color:var(--text-dim);">'+App._esc(a.customerEmail||'')+'</div></td>'+
-                '<td style="padding:10px 14px;font-size:13px;color:var(--text-secondary);">'+App._esc((a.topic||'').substring(0,50))+'</td>'+
-                '<td style="padding:10px 14px;text-align:center;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:'+sc+'18;color:'+sc+';">'+a.status+'</span></td>'+
-                '<td style="padding:10px 14px;text-align:center;">'+(a.ticketId?'<span onclick="App.navigate(\'ticket-detail\',{id:\''+a.ticketId+'\'})" style="font-size:11px;color:var(--accent);cursor:pointer;">'+a.ticketId+'</span>':'—')+'</td>'+
-              '</tr>';
+          // Filter tabs
+          '<div style="display:flex;gap:3px;margin-bottom:14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:9px;padding:4px;width:fit-content;">'+
+            [['today','Today ('+todayApts.length+')'],['upcoming','Upcoming ('+upcomingApts.length+')'],['all','All ('+apts.length+')'],['cancelled','Cancelled ('+cancelledApts2.length+')']].map(function(f){
+              var active=self._aptFilter===f[0];
+              return '<button onclick="App._aptFilter=\''+f[0]+'\';App.renderReports(\'appointments\')" style="font-size:12px;padding:5px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:'+(active?'700':'500')+';background:'+(active?'var(--accent)':'transparent')+';color:'+(active?'#fff':'var(--text-secondary)')+';transition:all .15s;">'+f[1]+'</button>';
             }).join('')+
-            (apts.length===0?'<tr><td colspan="5" style="padding:28px;text-align:center;color:var(--text-dim);">No appointments yet. Enable booking in Settings → 📅 Appointment Booking.</td></tr>':'')+
-            '</tbody></table></div>';
+          '</div>'+
+          // List
+          '<div>'+renderAptRows(filterList)+'</div>';
       }
       else if (tid === 'csat') {
         var cr = await self.callAsync('getCSATResults', {});
