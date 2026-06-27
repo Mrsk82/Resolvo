@@ -14136,9 +14136,8 @@ const App = {
   },
 
   _showNewAptModal: function() {
-    var self = this;
     var today = new Date().toISOString().split('T')[0];
-    self.showModal('New Appointment',
+    this.openModal('New Appointment',
       '<div style="display:flex;flex-direction:column;gap:12px;">'+
         '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">CUSTOMER NAME *</label><input id="na_name" class="form-input" placeholder="Full name"></div>'+
         '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">EMAIL *</label><input id="na_email" class="form-input" type="email" placeholder="customer@email.com"></div>'+
@@ -14149,8 +14148,11 @@ const App = {
           '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">TIME *</label><input id="na_time" class="form-input" type="time"></div>'+
         '</div>'+
         '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">NOTES</label><textarea id="na_notes" class="form-input" rows="2" placeholder="Internal notes (not sent to customer)"></textarea></div>'+
-      '</div>',
-      [{label:'Create Appointment',primary:true,onclick:'App._createApt()'},{label:'Cancel',onclick:'App.closeModal()'}]
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">'+
+          '<button class="btn-secondary" onclick="App.closeModal()">Cancel</button>'+
+          '<button class="btn-primary" onclick="App._createApt()">Create Appointment</button>'+
+        '</div>'+
+      '</div>'
     );
   },
 
