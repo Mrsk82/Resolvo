@@ -4622,7 +4622,7 @@ app.get('/csat-ticket',(req,res)=>{
 
 // ── PUBLIC SELF-SIGNUP (no auth — creates trial brand) ─────────────────────
 app.post('/api/signup',async(req,res)=>{
-  const{name,email,company,password,ref}=req.body;
+  const{name,email,company,password,ref,category}=req.body;
   if(!name||!email||!company)return res.json({success:false,error:'Name, email and company required.'});
   if(!email.includes('@'))return res.json({success:false,error:'Invalid email.'});
   const owner=readOwner();
@@ -4637,8 +4637,12 @@ app.post('/api/signup',async(req,res)=>{
   while((owner.brands||[]).find(b=>b.slug===finalSlug)){finalSlug=slug+'-'+i;i++;}
   const pass=password||email.split('@')[0]+'@'+Math.floor(1000+Math.random()*9000);
   fs.mkdirSync(path.join(BRANDS_DIR,finalSlug),{recursive:true});
-  writeBrandDB(finalSlug,defaultBrandDB(company,email,name,pass));
-  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100}};
+  const bdb=defaultBrandDB(company,email,name,pass);
+  const proCats=['doctor','lawyer','consultant','salon','tutor','other-pro'];
+  const isPro=proCats.includes((category||'').toLowerCase());
+  if(isPro){bdb.bookingConfig={enabled:true,title:'Book an Appointment',slotDuration:30,buffer:15,workingHours:{}};bdb.plan={tier:'free',appointmentLimit:250};}
+  writeBrandDB(finalSlug,bdb);
+  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
   ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null},owner.email);
   // Track referral if ref code provided
@@ -4685,6 +4689,9 @@ app.get('/vs/linear',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-li
 app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
 app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));
 app.get('/signup',(req,res)=>res.sendFile(path.join(__dirname,'public','signup.html')));
+app.get('/pro',(req,res)=>res.sendFile(path.join(__dirname,'public','pro-signup.html')));
+app.get('/about',(req,res)=>res.sendFile(path.join(__dirname,'public','about.html')));
+app.get('/privacy',(req,res)=>res.sendFile(path.join(__dirname,'public','privacy.html')));
 
 // ── BLOG ROUTES ──────────────────────────────────────────────────────────────
 const BLOG_DIR=path.resolve(__dirname,'public');
@@ -4903,7 +4910,10 @@ input:focus,select:focus,textarea:focus{border-color:${accent};}
     <div class="fg"><label>Your Name *</label><input id="bk_name" placeholder="Full name"></div>
     <div class="fg"><label>Email *</label><input id="bk_email" type="email" placeholder="your@email.com"></div>
     <div class="fg"><label>Phone</label><input id="bk_phone" placeholder="+91 ..."></div>
-    <div class="fg"><label>Topic / Reason *</label><textarea id="bk_topic" rows="2" placeholder="What would you like to discuss?"></textarea></div>
+    ${cfg.serviceType==='salon'?`<div class="fg"><label>Service Requested *</label><${cfg.serviceMenu&&cfg.serviceMenu.length?'select id="bk_topic">'+ cfg.serviceMenu.map(s=>`<option>${s}</option>`).join('')+'</select>':'textarea id="bk_topic" rows="2" placeholder="e.g. Haircut, Facial, Manicure"></'+(cfg.serviceMenu&&cfg.serviceMenu.length?'select':'textarea')+'>'}}</div>`:
+      cfg.serviceType==='doctor'?`<div class="fg"><label>Chief Complaint / Symptoms *</label><textarea id="bk_topic" rows="2" placeholder="Briefly describe your symptoms or reason for visit"></textarea></div>`:
+      cfg.serviceType==='lawyer'?`<div class="fg"><label>Case Type & Matter *</label><textarea id="bk_topic" rows="2" placeholder="e.g. Property dispute, divorce, contract review"></textarea></div>`:
+      `<div class="fg"><label>Topic / Reason *</label><textarea id="bk_topic" rows="2" placeholder="What would you like to discuss?"></textarea></div>`}
     <div class="fg"><label>Select Date</label><input id="bk_date" type="date" oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" min="${nowIST().split('T')[0]}"></div>
     <div class="fg"><label>Select Time Slot</label><div class="slots" id="slotsGrid"><p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Pick a date first</p></div></div>
     <div id="bk_err" style="color:#ef4444;font-size:12px;margin-bottom:8px;display:none;"></div>
@@ -4990,6 +5000,11 @@ app.post('/book/:slug',async(req,res)=>{
   // Check slot not taken
   const taken=(db.appointments||[]).some(a=>a.date===date&&a.time===time&&a.status!=='cancelled');
   if(taken)return res.json({success:false,error:'This slot is no longer available. Please choose another.'});
+  // Free tier: 250 appointments per calendar month
+  const thisMonth=nowIST().substring(0,7);
+  const monthCount=(db.appointments||[]).filter(a=>a.createdAt&&a.createdAt.startsWith(thisMonth)&&a.status!=='cancelled').length;
+  const aptLimit=db.plan&&db.plan.appointmentLimit!=null?db.plan.appointmentLimit:250;
+  if(monthCount>=aptLimit)return res.json({success:false,error:`This practice has reached its monthly booking limit (${aptLimit} appointments). Please contact them directly to schedule.`});
   const aId=generateId('APT');
   const appointment={
     id:aId,brandSlug:slug,

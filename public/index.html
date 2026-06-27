@@ -7817,6 +7817,14 @@ tbody tr.row-selected {
             </a>
           </div>
 
+          <div class="nav-section" id="navAppointments" style="display:none">
+            <span class="nav-label">APPOINTMENTS</span>
+            <a href="#" class="nav-item" data-page="appointments" data-tooltip="Appointments">
+              <span class="nav-icon">📅</span>
+              <span class="nav-text">Appointments <span id="aptTodayBadge" style="display:none;background:#059669;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px;"></span></span>
+            </a>
+          </div>
+
           <div class="nav-section">
             <span class="nav-label">ISSUES</span>
             <a href="#" class="nav-item" data-page="create-issue" data-tooltip="New Issue">
@@ -11525,7 +11533,14 @@ const App = {
         el.style.display = 'block';
       });
     }
-    
+
+    // Show appointments nav if feature enabled
+    var _ff = this.featureFlags || {};
+    if (_ff.APPOINTMENT_BOOKING_ENABLED === true || _ff.APPOINTMENT_BOOKING_ENABLED === 'true') {
+      var navApt = document.getElementById('navAppointments');
+      if (navApt) navApt.style.display = 'block';
+    }
+
     // Nav click handlers
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', (e) => {
@@ -11681,6 +11696,7 @@ const App = {
       case 'root-causes': this.renderRootCauseClusters(); break;
       case 'workload-board': this.renderWorkloadBoard(); break;
       case 'leadership': this.renderLeadershipDashboard(); break;
+      case 'appointments': this.renderAppointments(); break;
     }
   },
 
@@ -14029,6 +14045,143 @@ const App = {
     if (!confirm('Delete this template?')) return;
     var r = await self.callAsync('deleteRecurringTemplate', id);
     if (r&&r.success) { self.showToast('Deleted','info'); self.renderRecurring(); }
+  },
+
+  // ============================================================
+  // APPOINTMENTS PAGE
+  // ============================================================
+  renderAppointments: async function() {
+    var self = this;
+    var area = document.getElementById('contentArea');
+    area.innerHTML = '<div style="padding:24px"><div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:16px"></div><div class="skeleton" style="height:400px;border-radius:12px"></div></div>';
+    var ff = self.featureFlags || {};
+    if (!ff.APPOINTMENT_BOOKING_ENABLED) {
+      area.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim)"><div style="font-size:40px;margin-bottom:12px">📅</div><h3>Appointment Booking not enabled</h3><p style="margin-top:8px;font-size:13px;">Contact your platform admin to enable this feature.</p></div>';
+      return;
+    }
+    var r = await self.callAsync('getAppointments', {});
+    var bcr = await self.callAsync('getBookingConfig');
+    var apts = (r && r.success) ? r.appointments : [];
+    var bc = (bcr && bcr.success) ? bcr.config : {};
+    var bookingLink = bc.bookingLink || '';
+    var today = new Date().toISOString().split('T')[0];
+    var todayApts = apts.filter(function(a){ return a.date === today && a.status !== 'cancelled'; });
+    var upcomingApts = apts.filter(function(a){ return a.date > today && a.status !== 'cancelled'; });
+    var cancelledApts = apts.filter(function(a){ return a.status === 'cancelled'; });
+
+    // Update badge
+    var badge = document.getElementById('aptTodayBadge');
+    if (badge) { badge.textContent = todayApts.length; badge.style.display = todayApts.length ? 'inline' : 'none'; }
+
+    self._aptFilter = self._aptFilter || 'today';
+
+    function aptStatusBadge(s) {
+      var map = { confirmed:'<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">✓ Confirmed</span>', cancelled:'<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">✕ Cancelled</span>', completed:'<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">✓ Done</span>' };
+      return map[s] || s;
+    }
+
+    function renderAptList(list) {
+      if (!list.length) return '<div style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px;">No appointments here</div>';
+      return list.map(function(a) {
+        var timeLabel = a.time ? (function(t){var p=t.split(':');var h=+p[0];var m=p[1];return (h>12?h-12:h||12)+':'+m+' '+(h>=12?'PM':'AM');})(a.time) : '';
+        return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:flex-start;gap:14px;margin-bottom:10px;">'+
+          '<div style="background:var(--accent-dim);border-radius:10px;padding:10px 12px;text-align:center;min-width:56px;flex-shrink:0;">'+
+            '<div style="font-size:18px;font-weight:800;color:var(--accent);line-height:1;">'+(a.date?a.date.split('-')[2]:'—')+'</div>'+
+            '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">'+(a.date?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+a.date.split('-')[1]-1]:'')+'</div>'+
+          '</div>'+
+          '<div style="flex:1;min-width:0;">'+
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">'+
+              '<span style="font-size:14px;font-weight:700;color:var(--text-primary);">'+self._esc(a.customerName)+'</span>'+
+              aptStatusBadge(a.status)+
+            '</div>'+
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">'+
+              '🕐 '+timeLabel+(a.date?' · 📆 '+a.date:'')+
+              (a.customerEmail?' · ✉️ '+self._esc(a.customerEmail):'')+
+              (a.customerPhone?' · 📱 '+self._esc(a.customerPhone):'')+
+            '</div>'+
+            (a.topic?'<div style="font-size:12px;color:var(--text-secondary);background:var(--bg-elevated);border-radius:6px;padding:6px 10px;margin-top:6px;">'+self._esc(a.topic)+'</div>':'')+
+          '</div>'+
+          '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">'+
+            (a.ticketId?'<button onclick="App.navigate(\'ticket-detail\',{id:\''+a.ticketId+'\'})" style="font-size:11px;padding:5px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--text-secondary);">🎫 Ticket</button>':'')+
+            (a.status!=='cancelled'?'<button onclick="App._cancelApt(\''+a.id+'\')" style="font-size:11px;padding:5px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--danger);">✕ Cancel</button>':'')+
+          '</div>'+
+        '</div>';
+      }).join('');
+    }
+
+    var filterList = self._aptFilter==='today' ? todayApts : self._aptFilter==='upcoming' ? upcomingApts : self._aptFilter==='cancelled' ? cancelledApts : apts;
+
+    area.innerHTML =
+      '<div style="padding:24px;max-width:900px;">'+
+        // Header
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">'+
+          '<div><h2 style="margin:0;font-size:20px;font-weight:800;">📅 Appointments</h2>'+
+          (bookingLink?'<p style="margin:4px 0 0;font-size:12px;color:var(--text-dim);">Booking page: <a href="'+self._esc(bookingLink)+'" target="_blank" style="color:var(--accent);">'+self._esc(bookingLink)+'</a> &nbsp;<button onclick="navigator.clipboard.writeText(\''+self._esc(bookingLink)+'\').then(()=>App.showToast(\'Copied!\',\'success\'))" style="font-size:10px;padding:2px 8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:5px;cursor:pointer;">Copy</button></p>':'')+'</div>'+
+          '<div style="display:flex;gap:8px;">'+
+            '<button onclick="App.navigate(\'settings\',{tab:\'booking-config\'})" style="font-size:12px;padding:7px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text-secondary);">⚙ Configure</button>'+
+            '<button onclick="App._showNewAptModal()" style="font-size:12px;padding:7px 14px;background:var(--accent);border:none;border-radius:8px;cursor:pointer;color:#fff;font-weight:700;">+ New Appointment</button>'+
+          '</div>'+
+        '</div>'+
+        // Stats row
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;"><div style="font-size:22px;font-weight:800;color:var(--accent);">'+todayApts.length+'</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Today</div></div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;"><div style="font-size:22px;font-weight:800;color:#2563EB;">'+upcomingApts.length+'</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Upcoming</div></div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;"><div style="font-size:22px;font-weight:800;color:#059669;">'+apts.filter(function(a){return a.status==='confirmed';}).length+'</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Total Active</div></div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;"><div style="font-size:22px;font-weight:800;color:var(--text-dim);">'+cancelledApts.length+'</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Cancelled</div></div>'+
+        '</div>'+
+        // Filter tabs
+        '<div style="display:flex;gap:4px;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;">'+
+          ['today','upcoming','all','cancelled'].map(function(f){
+            var labels={today:'Today ('+todayApts.length+')',upcoming:'Upcoming ('+upcomingApts.length+')',all:'All ('+apts.length+')',cancelled:'Cancelled ('+cancelledApts.length+')'};
+            var active = self._aptFilter === f;
+            return '<button onclick="App._aptFilter=\''+f+'\';App.renderAppointments();" style="font-size:12px;padding:6px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:'+(active?'700':'500')+';background:'+(active?'var(--accent)':'transparent')+';color:'+(active?'#fff':'var(--text-secondary)')+';transition:all .15s;">'+labels[f]+'</button>';
+          }).join('')+
+        '</div>'+
+        // List
+        '<div id="aptList">'+renderAptList(filterList)+'</div>'+
+      '</div>';
+  },
+
+  _cancelApt: async function(id) {
+    if (!confirm('Cancel this appointment?')) return;
+    var r = await this.callAsync('cancelAppointment', id, '');
+    if (r && r.success) { this.showToast('Appointment cancelled','info'); this.renderAppointments(); }
+    else this.showToast('Error: '+(r?r.error:'unknown'),'error');
+  },
+
+  _showNewAptModal: function() {
+    var self = this;
+    var today = new Date().toISOString().split('T')[0];
+    self.showModal('New Appointment',
+      '<div style="display:flex;flex-direction:column;gap:12px;">'+
+        '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">CUSTOMER NAME *</label><input id="na_name" class="form-input" placeholder="Full name"></div>'+
+        '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">EMAIL *</label><input id="na_email" class="form-input" type="email" placeholder="customer@email.com"></div>'+
+        '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">PHONE</label><input id="na_phone" class="form-input" placeholder="+91 ..."></div>'+
+        '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">TOPIC / REASON *</label><textarea id="na_topic" class="form-input" rows="2" placeholder="Reason for appointment"></textarea></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
+          '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">DATE *</label><input id="na_date" class="form-input" type="date" min="'+today+'"></div>'+
+          '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">TIME *</label><input id="na_time" class="form-input" type="time"></div>'+
+        '</div>'+
+        '<div><label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;">NOTES</label><textarea id="na_notes" class="form-input" rows="2" placeholder="Internal notes (not sent to customer)"></textarea></div>'+
+      '</div>',
+      [{label:'Create Appointment',primary:true,onclick:'App._createApt()'},{label:'Cancel',onclick:'App.closeModal()'}]
+    );
+  },
+
+  _createApt: async function() {
+    var data = {
+      customerName: document.getElementById('na_name').value.trim(),
+      customerEmail: document.getElementById('na_email').value.trim(),
+      phone: document.getElementById('na_phone').value.trim(),
+      topic: document.getElementById('na_topic').value.trim(),
+      date: document.getElementById('na_date').value,
+      time: document.getElementById('na_time').value,
+      notes: document.getElementById('na_notes').value.trim()
+    };
+    if (!data.customerName || !data.customerEmail || !data.date || !data.time) { this.showToast('Please fill all required fields','warning'); return; }
+    var r = await this.callAsync('createAppointment', data);
+    if (r && r.success) { this.closeModal(); this.showToast('Appointment created','success'); this.renderAppointments(); }
+    else this.showToast('Error: '+(r?r.error:'unknown'),'error');
   },
 
   // ============================================================
@@ -17304,7 +17457,14 @@ const App = {
               '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="bc_enabled" '+(bc.enabled?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;">'+(bc.enabled?'Enabled':'Disabled')+'</span></label>'),
             App._sRow('Page Title','Title shown on booking page',
               '<input id="bc_title" class="form-input" style="width:240px;" value="'+App._esc(bc.title||'Book an Appointment')+'">'),
-            App._sRow('Slot Duration (min)','Length of each appointment slot',
+            App._sRow('Business Type','Customises the intake form for your profession',
+            '<select id="bc_serviceType" class="form-input" style="width:200px;">'+
+              ['general','doctor','lawyer','salon','consultant'].map(function(t){
+                var labels={general:'General / Other',doctor:'Doctor / Clinic',lawyer:'Lawyer / Legal',salon:'Salon / Spa',consultant:'Consultant'};
+                return '<option value="'+t+'"'+(bc.serviceType===t?' selected':'')+'>'+labels[t]+'</option>';
+              }).join('')+
+            '</select>'),
+          App._sRow('Slot Duration (min)','Length of each appointment slot',
               '<input type="number" id="bc_duration" class="form-input" style="width:80px;" value="'+(bc.slotDuration||30)+'" min="15" max="120">'),
             App._sRow('Buffer Between Slots (min)','Gap between appointments',
               '<input type="number" id="bc_buffer" class="form-input" style="width:80px;" value="'+(bc.buffer||15)+'" min="0" max="60">'),
@@ -18287,6 +18447,7 @@ const App = {
     var config = {
       enabled: document.getElementById('bc_enabled')?.checked||false,
       title: document.getElementById('bc_title')?.value?.trim()||'Book an Appointment',
+      serviceType: document.getElementById('bc_serviceType')?.value||'general',
       slotDuration: parseInt(document.getElementById('bc_duration')?.value||30),
       buffer: parseInt(document.getElementById('bc_buffer')?.value||15),
       workingHours: wh
