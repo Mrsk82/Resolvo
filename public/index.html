@@ -8386,10 +8386,15 @@ tbody tr.row-selected {
   <!-- Notification Center Drawer -->
   <div class="notif-center-drawer" id="notifCenterDrawer">
     <div class="notif-center-header">
-      <span class="notif-center-title">🔔 Notifications</span>
+      <span class="notif-center-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Notifications
+      </span>
       <div class="notif-center-actions">
         <button class="notif-mark-all" onclick="NotifCenter.markAllRead()">Mark all read</button>
-        <button class="notif-close-drawer" onclick="NotifCenter.close()">×</button>
+        <button class="notif-close-drawer" onclick="NotifCenter.close()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
     </div>
     <div class="notif-filter-tabs">
@@ -15427,10 +15432,27 @@ const App = {
               <div id="replyToInfo" data-from="${self._esc(t.from)}" style="font-size:11px;color:var(--text-dim);">📧 Will be sent to: <strong style="color:var(--text-secondary);">${self._esc(t.from)}</strong></div>
               <div id="typingIndicator" style="font-size:11px;color:var(--medium);display:none;">✍ Someone is typing...</div>
               <div id="cannedDropdown" style="display:none;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;"></div>
-              <textarea id="replyText" class="form-textarea" style="min-height:80px;max-height:160px;resize:vertical;" placeholder="Type your reply... (type / for canned responses)" oninput="App._onReplyInput(this,'${t.id}')" onkeydown="App._replyKeydown(event,'${t.id}')"></textarea>
+              <!-- Rich reply toolbar -->
+              <div style="display:flex;align-items:center;gap:2px;padding:5px 8px;background:var(--bg-elevated);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;">
+                <button onclick="App._replyFormat('bold')" title="Bold (Ctrl+B)" style="width:28px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'"><b>B</b></button>
+                <button onclick="App._replyFormat('italic')" title="Italic (Ctrl+I)" style="width:28px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'"><i>I</i></button>
+                <button onclick="App._replyFormat('code')" title="Inline code" style="width:28px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;font-size:11px;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'">&lt;/&gt;</button>
+                <button onclick="App._replyFormat('link')" title="Insert link" style="width:28px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                </button>
+                <button onclick="App._replyFormat('bullet')" title="Bullet list" style="width:28px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+                <div style="width:1px;height:16px;background:var(--border);margin:0 4px;"></div>
+                <button onclick="App._showCannedResponses('${t.id}')" title="Canned responses" style="display:flex;align-items:center;gap:4px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;padding:0 6px;font-size:11px;font-family:var(--font-display);transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Canned
+                </button>
+                <button onclick="App._insertBookingLink('${t.id}')" title="Insert booking link" style="display:flex;align-items:center;gap:4px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;padding:0 6px;font-size:11px;font-family:var(--font-display);transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Book
+                </button>
+              </div>
+              <textarea id="replyText" class="form-textarea" style="min-height:90px;max-height:180px;resize:vertical;border-radius:0 0 8px 8px;border-top:none;" placeholder="Type your reply… (/ for canned responses)" oninput="App._onReplyInput(this,'${t.id}')" onkeydown="App._replyKeydown(event,'${t.id}')"></textarea>
               <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;">
-                <button onclick="App._showCannedResponses('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:5px 10px;background:none;cursor:pointer;" title="Canned Responses">⚡ Canned</button>
-                <button onclick="App._insertBookingLink('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:5px 10px;background:none;cursor:pointer;" title="Insert booking link">📅 Book Call</button>
                 <div style="display:flex;gap:8px;">
                   <select onchange="App._changeTicketStatus('${t.id}',this.value,this)" style="font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);">
                     ${(self._customStatuses||[{id:'new',label:'New'},{id:'open',label:'Open'},{id:'pending',label:'Pending'},{id:'resolved',label:'Resolved'},{id:'closed',label:'Closed'}]).map(s=>`<option value="${s.id}" ${t.status===s.id?'selected':''}>${s.label||s.id}</option>`).join('')}
@@ -22288,6 +22310,32 @@ const App = {
   _es: function(icon, title, sub, btnLabel, btnAction) {
     var btn = btnLabel ? '<button class="btn-primary es-btn" onclick="' + btnAction + '">' + btnLabel + '</button>' : '';
     return '<div class="es"><div class="es-icon">' + icon + '</div><div class="es-title">' + title + '</div><div class="es-sub">' + sub + '</div>' + btn + '</div>';
+  },
+
+  _replyFormat: function(type) {
+    var ta = document.getElementById('replyText');
+    if (!ta) return;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    var sel = ta.value.substring(start, end);
+    var wrap = { bold: ['**','**'], italic: ['_','_'], code: ['`','`'] };
+    var insert = '';
+    if (wrap[type]) {
+      var w = wrap[type];
+      insert = w[0] + (sel || (type === 'bold' ? 'bold text' : type === 'italic' ? 'italic text' : 'code')) + w[1];
+      ta.setRangeText(insert, start, end, 'select');
+      ta.focus();
+    } else if (type === 'link') {
+      var url = prompt('Enter URL:');
+      if (!url) return;
+      insert = '[' + (sel || 'link text') + '](' + url + ')';
+      ta.setRangeText(insert, start, end, 'end');
+      ta.focus();
+    } else if (type === 'bullet') {
+      var lines = (sel || 'Item').split('\n').map(function(l) { return '• ' + l; }).join('\n');
+      ta.setRangeText(lines, start, end, 'end');
+      ta.focus();
+    }
+    ta.dispatchEvent(new Event('input'));
   },
 
   renderUpgradePage: function() {
