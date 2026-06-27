@@ -2695,32 +2695,74 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
 /* ============================================================ TOAST ============================================================ */
 
 .toast-container {
-  position: fixed; bottom: 24px; right: 24px;
+  position: fixed; bottom: 20px; right: 20px;
   z-index: 9999;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  pointer-events: none;
 }
-
 .toast {
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  min-width: 280px; max-width: 380px;
-  display: flex; align-items: center; gap: 10px;
-  box-shadow: var(--shadow);
-  animation: slideIn 0.2s ease;
-  font-size: 13px;
+  border-radius: 12px;
+  padding: 0;
+  min-width: 300px; max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
+  animation: toastIn 0.25s cubic-bezier(0.34,1.4,0.64,1);
+  overflow: hidden;
+  pointer-events: all;
+}
+.toast-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 14px 16px 12px;
+}
+.toast-icon {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+  margin-top: 1px;
+}
+.toast.success .toast-icon { background: rgba(16,185,129,.15); color: #10B981; }
+.toast.error   .toast-icon { background: rgba(239,68,68,.15);  color: #EF4444; }
+.toast.warning .toast-icon { background: rgba(245,158,11,.15); color: #F59E0B; }
+.toast.info    .toast-icon { background: rgba(99,102,241,.15); color: #818CF8; }
+.toast-body { flex: 1; min-width: 0; }
+.toast-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 1px; }
+.toast-sub   { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.toast-close { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px; padding: 2px; align-self: flex-start; flex-shrink: 0; margin-top: 1px; border-radius: 4px; }
+.toast-close:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.toast-progress { height: 2px; background: var(--border); }
+.toast-progress-bar { height: 100%; }
+.toast.success .toast-progress-bar { background: #10B981; }
+.toast.error   .toast-progress-bar { background: #EF4444; }
+.toast.warning .toast-progress-bar { background: #F59E0B; }
+.toast.info    .toast-progress-bar { background: #818CF8; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.toast.success { border-left: 3px solid var(--low); }
-.toast.error { border-left: 3px solid var(--critical); }
-.toast.warning { border-left: 3px solid var(--medium); }
-.toast.info { border-left: 3px solid var(--status-ack); }
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+/* ── EMPTY STATE v2 ── */
+.es {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 56px 24px; text-align: center;
 }
+.es-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 16px; background: var(--bg-elevated); }
+.es-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.es-sub   { font-size: 13px; color: var(--text-secondary); line-height: 1.6; max-width: 320px; margin: 0 auto; }
+.es-btn   { margin-top: 20px; }
+
+/* ── ANNOUNCEMENT BANNER ── */
+.announce-bar {
+  display: none; align-items: center; justify-content: center; gap: 12px;
+  padding: 10px 20px; font-size: 13px; font-weight: 500;
+  position: relative; flex-shrink: 0;
+}
+.announce-bar.info    { background: rgba(99,102,241,.12);  color: #818CF8; border-bottom: 1px solid rgba(99,102,241,.2); }
+.announce-bar.warning { background: rgba(245,158,11,.12);  color: #F59E0B; border-bottom: 1px solid rgba(245,158,11,.2); }
+.announce-bar.success { background: rgba(16,185,129,.12);  color: #10B981; border-bottom: 1px solid rgba(16,185,129,.2); }
+.announce-bar.danger  { background: rgba(239,68,68,.12);   color: #EF4444; border-bottom: 1px solid rgba(239,68,68,.2); }
+.announce-bar.active  { display: flex; }
+.announce-close { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: inherit; opacity: .6; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+.announce-close:hover { opacity: 1; background: rgba(255,255,255,.08); }
 
 /* ============================================================ MODAL ============================================================ */
 
@@ -7991,6 +8033,11 @@ tbody tr.row-selected {
       
       <!-- Main Content -->
       <main class="main-content" id="mainContent">
+        <!-- Announcement banner — shown by admin via App.showAnnouncement() -->
+        <div class="announce-bar" id="announceBanner">
+          <span id="announceText"></span>
+          <button class="announce-close" onclick="App.dismissAnnouncement()" aria-label="Dismiss">&#x2715;</button>
+        </div>
         <header class="topbar">
           <div class="topbar-left">
             <h1 class="page-title" id="pageTitle">Dashboard</h1>
@@ -15081,21 +15128,12 @@ const App = {
             </div>
           </div>
 
-          ${tickets.length === 0 ? `
-            <div style="padding:60px;text-align:center;">
-              <div style="font-size:48px;margin-bottom:16px;">📭</div>
-              <div style="font-size:16px;font-weight:600;color:var(--text-secondary);">
-                ${self._ticketFilter==='mine'?'No tickets assigned to you':''}
-                ${self._ticketFilter==='unassigned'?'No unassigned tickets — queue is clear ✅':''}
-                ${self._ticketFilter!=='mine'&&self._ticketFilter!=='unassigned'?'No tickets yet':''}
-              </div>
-              <div style="font-size:13px;color:var(--text-dim);margin-top:6px;">
-                ${self._ticketFilter==='mine'?'Tickets assigned to you will appear here':''}
-                ${self._ticketFilter==='unassigned'?'All incoming tickets have been assigned':''}
-                ${self._ticketFilter!=='mine'&&self._ticketFilter!=='unassigned'?'Configure email ticketing in Admin → 📬 Email Ticketing':''}
-              </div>
-            </div>
-          ` : `
+          ${tickets.length === 0 ? (() => {
+            var emptyIcon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>';
+            if(self._ticketFilter==='mine') return App._es(emptyIcon,'No tickets assigned to you','Tickets assigned to you will appear here.','View all tickets',"App._ticketFilter='all';App.renderTicketInbox()");
+            if(self._ticketFilter==='unassigned') return App._es('<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>','Queue is clear','All incoming tickets have been assigned. Great work!','','');
+            return App._es(emptyIcon,'No tickets yet','Connect an inbox in Settings to start receiving email tickets.','Configure email','App.navigate(\'email-ticketing\')');
+          })() : `
           <div id="ticketListRows">
           ${tickets.map(t => {
             const sc = statusColors[t.status] || '#6B7280';
@@ -16362,44 +16400,78 @@ const App = {
     var isEnterprise = self.currentUser && ['Enterprise'].includes(self.currentUser.brandTier);
     var isPro = self.currentUser && ['Pro','Enterprise','Trial'].includes(self.currentUser.brandTier);
 
+    // SVG icon map for settings tabs
+    var _SI = {
+      general:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+      sla:         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      team:        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      features:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+      'advanced-features': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+      'api-tokens':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+      'slack-alerts':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+      security:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      'notify-prefs':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+      'data-export':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      email:       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+      canned:      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>',
+      templates:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
+      ooo:         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+      'csat-config':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+      'queue-config':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+      'vip-config':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>',
+      'booking-config':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      'ticket-classification':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+      'status-management':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+      'issue-form':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+      escalation:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      'recurring-tkt':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+      'approval-rules':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+      'knowledge-base':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+      roadmap:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+      integrations:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+      'api-keys':  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+      'two-fa':    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+      gdpr:        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+    };
+
     // All tabs — each has an optional 'requires' feature flag
     var ALL_TABS = [
       // ── ALWAYS VISIBLE ──
-      {id:'general',     icon:'🏢', label:'General',            group:'Core'},
-      {id:'sla',         icon:'⏱', label:'SLA Configuration',  group:'Core'},
-      {id:'team',        icon:'🤝', label:'Team & Roles',       group:'Core'},
-      {id:'features',         icon:'⚡', label:'Features & Plan',    group:'Core'},
-      {id:'advanced-features',icon:'🚀', label:'Advanced Features',  group:'Core'},
-      {id:'api-tokens',       icon:'🔑', label:'API Tokens',         group:'Core'},
-      {id:'slack-alerts',     icon:'💬', label:'Slack Alerts',       group:'Core'},
-      {id:'security',         icon:'🔐', label:'Security',           group:'Core'},
-      {id:'notify-prefs',icon:'🔔', label:'My Notifications',   group:'Core'},
-      {id:'data-export', icon:'📦', label:'Data Export',        group:'Core'},
+      {id:'general',     label:'General',            group:'Core'},
+      {id:'sla',         label:'SLA Configuration',  group:'Core'},
+      {id:'team',        label:'Team & Roles',       group:'Core'},
+      {id:'features',         label:'Features & Plan',    group:'Core'},
+      {id:'advanced-features',label:'Advanced Features',  group:'Core'},
+      {id:'api-tokens',       label:'API Tokens',         group:'Core'},
+      {id:'slack-alerts',     label:'Slack Alerts',       group:'Core'},
+      {id:'security',         label:'Security',           group:'Core'},
+      {id:'notify-prefs',label:'My Notifications',   group:'Core'},
+      {id:'data-export', label:'Data Export',        group:'Core'},
       // ── EMAIL & TICKETING ──
-      {id:'email',         icon:'📬', label:'Email & Ticketing',   group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
-      {id:'canned',        icon:'⚡', label:'Canned Responses',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
-      {id:'templates',     icon:'📋', label:'Ticket Templates',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
-      {id:'ooo',           icon:'🏖', label:'Out of Office',       group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
-      {id:'csat-config',   icon:'⭐', label:'CSAT Settings',        group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
-      {id:'queue-config',  icon:'🔄', label:'Assignment Queue',    group:'Email & Support', requires:'QUEUE_ENABLED'},
-      {id:'vip-config',    icon:'⭐', label:'VIP Customers',       group:'Email & Support', requires:'QUEUE_ENABLED'},
-      {id:'booking-config',icon:'📅', label:'Appointment Booking', group:'Email & Support', requires:'APPOINTMENT_BOOKING_ENABLED'},
+      {id:'email',         label:'Email & Ticketing',   group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'canned',        label:'Canned Responses',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'templates',     label:'Ticket Templates',    group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'ooo',           label:'Out of Office',       group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'csat-config',   label:'CSAT Settings',        group:'Email & Support', requires:'EMAIL_TICKETING_ENABLED'},
+      {id:'queue-config',  label:'Assignment Queue',    group:'Email & Support', requires:'QUEUE_ENABLED'},
+      {id:'vip-config',    label:'VIP Customers',       group:'Email & Support', requires:'QUEUE_ENABLED'},
+      {id:'booking-config',label:'Appointment Booking', group:'Email & Support', requires:'APPOINTMENT_BOOKING_ENABLED'},
       // ── WORKFLOW ──
-      {id:'ticket-classification', icon:'🏷', label:'Ticket Classification', group:'Workflow'},
-      {id:'status-management', icon:'🔖', label:'Ticket Statuses', group:'Workflow'},
-      {id:'issue-form',    icon:'📝', label:'Issue Form Builder',  group:'Workflow', requires:'ISSUE_TEMPLATES_ENABLED'},
-      {id:'escalation',    icon:'🚨', label:'Escalation Rules',    group:'Workflow'},
-      {id:'recurring-tkt', icon:'🔁', label:'Recurring Tickets',   group:'Workflow'},
-      {id:'approval-rules',icon:'✅', label:'Approval Workflows',  group:'Workflow', requires:'APPROVAL_WORKFLOWS_ENABLED'},
+      {id:'ticket-classification', label:'Ticket Classification', group:'Workflow'},
+      {id:'status-management', label:'Ticket Statuses', group:'Workflow'},
+      {id:'issue-form',    label:'Issue Form Builder',  group:'Workflow', requires:'ISSUE_TEMPLATES_ENABLED'},
+      {id:'escalation',    label:'Escalation Rules',    group:'Workflow'},
+      {id:'recurring-tkt', label:'Recurring Tickets',   group:'Workflow'},
+      {id:'approval-rules',label:'Approval Workflows',  group:'Workflow', requires:'APPROVAL_WORKFLOWS_ENABLED'},
       // ── CONTENT ──
-      {id:'knowledge-base',icon:'📖', label:'Knowledge Base',      group:'Content', requires:'KNOWLEDGE_BASE_ENABLED'},
-      {id:'roadmap',       icon:'🗺', label:'Roadmap',             group:'Content', requires:'ROADMAP_ENABLED'},
+      {id:'knowledge-base',label:'Knowledge Base',      group:'Content', requires:'KNOWLEDGE_BASE_ENABLED'},
+      {id:'roadmap',       label:'Roadmap',             group:'Content', requires:'ROADMAP_ENABLED'},
       // ── INTEGRATIONS ──
-      {id:'integrations',  icon:'🔗', label:'Integrations',        group:'Integrations'},
-      {id:'api-keys',      icon:'🔑', label:'API Keys',            group:'Integrations', requires:'API_KEYS_ENABLED'},
+      {id:'integrations',  label:'Integrations',        group:'Integrations'},
+      {id:'api-keys',      label:'API Keys',            group:'Integrations', requires:'API_KEYS_ENABLED'},
       // ── SECURITY ──
-      {id:'two-fa',        icon:'🔒', label:'Two-Factor Auth',     group:'Security', requires:'TWO_FA_ENABLED'},
-      {id:'gdpr',          icon:'🛡', label:'GDPR & Privacy',      group:'Compliance', requires:'GDPR_TOOLS_ENABLED'},
+      {id:'two-fa',        label:'Two-Factor Auth',     group:'Security', requires:'TWO_FA_ENABLED'},
+      {id:'gdpr',          label:'GDPR & Privacy',      group:'Compliance', requires:'GDPR_TOOLS_ENABLED'},
     ];
 
     // Filter tabs based on feature flags — only show tabs for enabled features
@@ -16465,9 +16537,10 @@ const App = {
           '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);">'+g+'</div>'+
           '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">'+
           gridGroups[g].map(function(t){
+            var ico = _SI[t.id] || '';
             return '<div onclick="App._fromSettingsGrid=true;App.renderUnifiedSettings(\''+t.id+'\')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:all .15s;display:flex;gap:12px;align-items:flex-start;" onmouseover="this.style.background=\'var(--bg-elevated)\';this.style.borderColor=\'var(--border-accent)\'" onmouseout="this.style.background=\'var(--bg-card)\';this.style.borderColor=\'var(--border)\'">'+
-              '<span style="font-size:22px;flex-shrink:0;margin-top:1px;">'+t.icon+'</span>'+
-              '<div><div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">'+t.label+'</div>'+
+              '<div style="width:32px;height:32px;border-radius:8px;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+ico+'</div>'+
+              '<div><div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px;">'+t.label+'</div>'+
               '<div style="font-size:11px;color:var(--text-dim);line-height:1.4;">'+(cardDescs[t.id]||'Configure '+t.label.toLowerCase())+'</div></div>'+
             '</div>';
           }).join('')+
@@ -16489,24 +16562,26 @@ const App = {
       groups[g].push(t);
     });
 
-    // Build grouped sidebar
-    var tabsHtml = '<div onclick="App.renderUnifiedSettings()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;border-radius:7px;margin-bottom:6px;border-bottom:1px solid var(--border);color:var(--text-dim);font-size:12px;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text-dim)\'">← All Settings</div>'+
+    // Build grouped sidebar with SVG icons
+    var tabsHtml = '<div onclick="App.renderUnifiedSettings()" style="display:flex;align-items:center;gap:7px;padding:7px 10px;cursor:pointer;border-radius:7px;margin-bottom:8px;color:var(--text-dim);font-size:12px;transition:color .12s;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text-dim)\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> All Settings</div>'+
     Object.entries(groups).map(function(entry){
       var groupName = entry[0];
       var groupTabs = entry[1];
       var tabItems = groupTabs.map(function(t){
         var active = t.id === self._settingsTab;
+        var ico = _SI[t.id] || '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
         return '<div onclick="App._settingsTab=\''+t.id+'\';App.renderUnifiedSettings(\''+t.id+'\')" '+
-          'style="display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;border-radius:7px;'+
+          'style="display:flex;align-items:center;gap:9px;padding:7px 10px;cursor:pointer;border-radius:7px;'+
           'background:'+(active?'var(--accent-dim)':'transparent')+';'+
-          'border:1px solid '+(active?'var(--border-accent)':'transparent')+';margin-bottom:1px;transition:all .12s;">'+
-          '<span style="font-size:14px;">'+t.icon+'</span>'+
-          '<span style="font-size:12px;font-weight:'+(active?700:500)+';color:'+(active?'var(--accent)':'var(--text-secondary)')+';">'+t.label+'</span>'+
+          'color:'+(active?'var(--accent)':'var(--text-secondary)')+';margin-bottom:1px;transition:all .12s;" '+
+          'onmouseover="if(!this.classList.contains(\'_a\'))this.style.background=\'var(--bg-elevated)\'" '+
+          'onmouseout="this.style.background=\''+(active?'var(--accent-dim)':'transparent')+'\'">'+
+          '<span style="opacity:'+(active?1:.65)+';display:flex;align-items:center;">'+ico+'</span>'+
+          '<span style="font-size:12px;font-weight:'+(active?600:400)+';">'+t.label+'</span>'+
           '</div>';
       }).join('');
-      // Only show group label if there are multiple groups
       return (Object.keys(groups).length>1?
-        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);padding:8px 12px 3px;margin-top:4px;">'+groupName+'</div>':'')+
+        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);padding:10px 10px 3px;opacity:.6;">'+groupName+'</div>':'')+
         tabItems;
     }).join('');
 
@@ -16515,7 +16590,7 @@ const App = {
       area.innerHTML =
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);">'+
           '<div onclick="App._fromSettingsGrid=false;App.renderUnifiedSettings()" style="cursor:pointer;color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:5px;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text-dim)\'">← All Settings</div>'+
-          (curTabInfo?'<span style="color:var(--text-dim);">›</span><span style="font-size:13px;font-weight:600;color:var(--text-primary);">'+curTabInfo.icon+' '+curTabInfo.label+'</span>':'')+
+          (curTabInfo?'<span style="color:var(--text-dim);">›</span><span style="font-size:13px;font-weight:600;color:var(--text-primary);">'+curTabInfo.label+'</span>':'')+
         '</div>'+
         '<div id="settingsContent"><div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-dim);">Loading...</div></div>';
     } else {
@@ -22144,7 +22219,7 @@ const App = {
   // ============================================================
   // ENHANCED TOAST (with progress bar)
   // ============================================================
-  showToast: function(message, type, duration) {
+  showToast: function(message, type, duration, subtitle) {
     var self = this;
     type = type || 'info';
     duration = duration || 3500;
@@ -22155,43 +22230,58 @@ const App = {
       container.className = 'toast-container';
       document.body.appendChild(container);
     }
-    var icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+    var svgIcons = {
+      success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+      error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+    };
+    var pid = 'tpb' + Date.now();
     var toast = document.createElement('div');
     toast.className = 'toast ' + type;
     toast.innerHTML =
       '<div class="toast-row">' +
-        '<span style="font-size:14px;flex-shrink:0;">' + (icons[type]||'ℹ') + '</span>' +
-        '<span style="flex:1;font-size:13px;">' + message + '</span>' +
-        '<button onclick="this.closest(\'.toast\').remove()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:0 0 0 8px;flex-shrink:0;">&#x2715;</button>' +
+        '<div class="toast-icon">' + (svgIcons[type] || svgIcons.info) + '</div>' +
+        '<div class="toast-body">' +
+          '<div class="toast-title">' + message + '</div>' +
+          (subtitle ? '<div class="toast-sub">' + subtitle + '</div>' : '') +
+        '</div>' +
+        '<button class="toast-close" onclick="this.closest(\'.toast\').remove()">&#x2715;</button>' +
       '</div>' +
-      '<div class="toast-progress"><div class="toast-progress-bar" id="tpb' + Date.now() + '"></div></div>';
+      '<div class="toast-progress"><div class="toast-progress-bar" id="' + pid + '" style="width:100%;transition:width ' + duration + 'ms linear;"></div></div>';
     container.appendChild(toast);
-
-    // Animate progress bar
-    var pbId = toast.querySelector('[id^="tpb"]');
-    if (pbId) {
-      pbId.style.width = '100%';
-      pbId.style.transition = 'width ' + duration + 'ms linear';
-      setTimeout(function() { if (pbId) pbId.style.width = '0%'; }, 50);
-    }
-
-    // Auto-dismiss
+    setTimeout(function() { var pb = document.getElementById(pid); if (pb) pb.style.width = '0%'; }, 50);
     setTimeout(function() {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(16px)';
-      toast.style.transition = 'opacity 0.3s, transform 0.3s';
-      setTimeout(function() { if (toast.parentNode) toast.remove(); }, 320);
+      toast.style.opacity = '0'; toast.style.transform = 'translateY(8px) scale(0.96)';
+      toast.style.transition = 'opacity 0.25s, transform 0.25s';
+      setTimeout(function() { if (toast.parentNode) toast.remove(); }, 260);
     }, duration);
-
-    // Push to notification centre
     if (type === 'success' || type === 'error') {
-      Notif.push(message.replace(/<[^>]+>/g,''), type);
+      try { Notif.push(message.replace(/<[^>]+>/g,''), type); } catch(e) {}
     }
   },
 
   // ============================================================
   // ANIMATED STAT COUNTER
   // ============================================================
+  showAnnouncement: function(text, type) {
+    var b = document.getElementById('announceBanner');
+    var t = document.getElementById('announceText');
+    if (!b || !t) return;
+    t.textContent = text || '';
+    b.className = 'announce-bar active ' + (type || 'info');
+  },
+  dismissAnnouncement: function() {
+    var b = document.getElementById('announceBanner');
+    if (b) b.className = 'announce-bar';
+  },
+
+  // ── EMPTY STATE HELPER ──
+  _es: function(icon, title, sub, btnLabel, btnAction) {
+    var btn = btnLabel ? '<button class="btn-primary es-btn" onclick="' + btnAction + '">' + btnLabel + '</button>' : '';
+    return '<div class="es"><div class="es-icon">' + icon + '</div><div class="es-title">' + title + '</div><div class="es-sub">' + sub + '</div>' + btn + '</div>';
+  },
+
   animateCounter: function(el, target) {
     if (!el) return;
     var start = 0;

@@ -117,7 +117,20 @@ function errorMiddleware(err,req,res,next){
     'User-Agent':(req.headers['user-agent']||'').substring(0,100),
     'IP':req.ip||'unknown'
   });
-  res.status(err.status||500).json({error:'Internal server error',message:err.message});
+  const status=err.status||500;
+  if(req.accepts('html')&&!req.path.startsWith('/api')){
+    const page=status===404?'404.html':'500.html';
+    return res.status(status).sendFile(path.join(__dirname,'public',page));
+  }
+  res.status(status).json({error:'Internal server error',message:err.message});
+}
+
+// 404 catch-all for HTML pages
+function notFoundMiddleware(req,res,next){
+  if(req.method==='GET'&&req.accepts('html')&&!req.path.startsWith('/api')){
+    return res.status(404).sendFile(path.join(__dirname,'public','404.html'));
+  }
+  res.status(404).json({error:'Not found'});
 }
 
 // Layer 4 — Memory spike monitor (runs every 5 min via cron)
@@ -8805,7 +8818,8 @@ app.get('/api/:slug/dashboard/widget',(req,res)=>{
 
 // ── END CUSTOMER DASHBOARD ────────────────────────────────────────────────────
 
-app.use(errorMiddleware); // Layer 3 — Express error handler (must be last)
+app.use(notFoundMiddleware); // 404 for unknown HTML routes
+app.use(errorMiddleware);   // Layer 3 — Express error handler (must be last)
 
 app.listen(PORT,()=>{
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());

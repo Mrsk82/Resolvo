@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How did we do? — Resolvo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#F8FAFC;color:#111827;font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 32px;display:flex;align-items:center;gap:10px;}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+.logo-name{font-size:16px;font-weight:800;color:#0B0F19;letter-spacing:-.3px;}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;}
+.card{background:#fff;border:1px solid #E5E7EB;border-radius:20px;padding:40px 36px;max-width:520px;width:100%;text-align:center;}
+.brand-avatar{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#10B981,#6366F1);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;margin:0 auto 20px;}
+.ticket-ref{font-size:12px;color:#9CA3AF;margin-bottom:6px;font-family:monospace;}
+h1{font-size:22px;font-weight:700;color:#111827;margin-bottom:8px;letter-spacing:-.3px;}
+.sub{font-size:14px;color:#6B7280;margin-bottom:32px;line-height:1.6;}
+.rating-row{display:flex;gap:10px;justify-content:center;margin-bottom:32px;}
+.star{width:52px;height:52px;border-radius:12px;border:1.5px solid #E5E7EB;background:#F9FAFB;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:all .15s;}
+.star:hover,.star.active{border-color:#10B981;background:rgba(16,185,129,.08);transform:scale(1.08);}
+.label-row{display:flex;justify-content:space-between;font-size:11px;color:#9CA3AF;margin-top:-20px;margin-bottom:24px;padding:0 4px;}
+.fg{margin-bottom:16px;text-align:left;}
+label{display:block;font-size:11px;font-weight:600;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+textarea{width:100%;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px;padding:11px 14px;font-size:14px;color:#111827;font-family:inherit;outline:none;resize:none;transition:border-color .15s;}
+textarea:focus{border-color:#10B981;background:#fff;}
+.btn{width:100%;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+.btn:hover{opacity:.9;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.success{display:none;text-align:center;padding:20px 0;}
+.success-icon{width:64px;height:64px;background:#D1FAE5;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;}
+.footer{text-align:center;padding:24px;font-size:12px;color:#9CA3AF;}
+.footer a{color:#10B981;text-decoration:none;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/pitch" class="logo">
+    <img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;">
+    <span class="logo-name">Resolvo</span>
+  </a>
+</nav>
+<div class="main">
+  <div class="card">
+    <div id="formView">
+      <div class="brand-avatar" id="brandAvatar">R</div>
+      <div class="ticket-ref" id="ticketRef">Ticket #—</div>
+      <h1>How did we do?</h1>
+      <p class="sub" id="cardSub">Rate your support experience and help us improve.</p>
+
+      <div class="rating-row" id="ratingRow">
+        <div class="star" data-v="1" onclick="rate(1)" title="Terrible">😞</div>
+        <div class="star" data-v="2" onclick="rate(2)" title="Bad">😕</div>
+        <div class="star" data-v="3" onclick="rate(3)" title="Okay">😐</div>
+        <div class="star" data-v="4" onclick="rate(4)" title="Good">😊</div>
+        <div class="star" data-v="5" onclick="rate(5)" title="Excellent">😄</div>
+      </div>
+      <div class="label-row"><span>Terrible</span><span>Excellent</span></div>
+
+      <div class="fg">
+        <label>Any comments? (optional)</label>
+        <textarea id="comment" rows="3" placeholder="What could we have done better?"></textarea>
+      </div>
+      <button class="btn" id="submitBtn" onclick="submit()" disabled>Submit feedback</button>
+    </div>
+
+    <div class="success" id="successView">
+      <div class="success-icon">✅</div>
+      <h2 style="font-size:20px;font-weight:700;color:#111827;margin-bottom:8px;">Thank you!</h2>
+      <p style="font-size:14px;color:#6B7280;line-height:1.6;">Your feedback helps us serve you better. We read every response.</p>
+    </div>
+  </div>
+</div>
+<div class="footer">Powered by <a href="/pitch">Resolvo</a> · Your data is private</div>
+
+<script>
+var _rating = 0;
+var params = new URLSearchParams(location.search);
+var ticketId = params.get('t') || '';
+var slug = params.get('s') || '';
+var token = params.get('tok') || '';
+
+if (ticketId) document.getElementById('ticketRef').textContent = 'Ticket #' + ticketId;
+if (slug) {
+  fetch('/portal/' + slug + '/auth', {method:'GET'}).then(function(r){return r.json();}).then(function(d){
+    if (d && d.brand) {
+      var av = document.getElementById('brandAvatar');
+      av.textContent = (d.brand.name||'R').charAt(0).toUpperCase();
+      if (d.brand.accent) av.style.background = d.brand.accent;
+      if (d.brand.name) document.getElementById('cardSub').textContent = 'Rate your experience with ' + d.brand.name + ' support.';
+      document.title = 'How did we do? — ' + d.brand.name;
+    }
+  }).catch(function(){});
+}
+
+function rate(v) {
+  _rating = v;
+  document.querySelectorAll('.star').forEach(function(s){
+    s.classList.toggle('active', parseInt(s.dataset.v) <= v);
+  });
+  document.getElementById('submitBtn').disabled = false;
+}
+
+async function submit() {
+  if (!_rating) return;
+  var btn = document.getElementById('submitBtn');
+  btn.textContent = 'Submitting…'; btn.disabled = true;
+  var comment = document.getElementById('comment').value.trim();
+  try {
+    await fetch('/api/csat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ slug:slug, ticketId:ticketId, token:token, rating:_rating, comment:comment })
+    });
+  } catch(e) {}
+  document.getElementById('formView').style.display = 'none';
+  document.getElementById('successView').style.display = 'block';
+}
+</script>
+</body>
+</html>
