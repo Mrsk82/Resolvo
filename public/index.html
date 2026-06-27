@@ -8503,19 +8503,31 @@ const Notif = {
     var list = document.getElementById('notifList');
     if (!list) return;
     if (this._items.length === 0) {
-      list.innerHTML = '<div class="notif-empty">&#x2714; All caught up!</div>';
+      list.innerHTML = '<div class="notif-empty"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--low)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 8px;display:block;"><polyline points="20 6 9 17 4 12"/></svg>All caught up!</div>';
       return;
     }
-    var icons = { info: 'ℹ', success: '✓', warning: '⚠', error: '✕', assigned: '◆', mention: '@', review: '✔', sla: '⚠' };
-    var self = this;
+    var svgIcons = {
+      info:     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      success:  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+      warning:  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      error:    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      assigned: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+      mention:  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>',
+      sla:      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+    };
+    var typeColors = { info:'#3B82F6', success:'#10B981', warning:'#F59E0B', error:'#EF4444', assigned:'#8B5CF6', mention:'#06B6D4', sla:'#EF4444' };
     list.innerHTML = this._items.slice(0, 20).map(function(n) {
       var timeAgo = App.relativeTime ? App.relativeTime(n.time) : new Date(n.time).toLocaleTimeString();
-      return '<div class="notif-item ' + (n.read ? '' : 'unread') + '" onclick="Notif._click(\'' + n.id + '\',\'' + (n.issueId||'') + '\')">' +
-        '<div class="notif-icon">' + (icons[n.type] || 'ℹ') + '</div>' +
-        '<div class="notif-body">' +
-          '<div class="notif-text">' + n.text + '</div>' +
-          '<div class="notif-time">' + timeAgo + '</div>' +
-        '</div></div>';
+      var color = typeColors[n.type] || '#6B7280';
+      var icon = svgIcons[n.type] || svgIcons.info;
+      return '<div class="notif-item ' + (n.read ? '' : 'unread') + '" onclick="Notif._click(\'' + n.id + '\',\'' + (n.issueId||'') + '\')" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;"  onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'">' +
+        '<div style="width:26px;height:26px;border-radius:50%;background:' + color + '18;border:1.5px solid ' + color + '44;display:flex;align-items:center;justify-content:center;color:' + color + ';flex-shrink:0;margin-top:1px;">' + icon + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:12px;color:var(--text-secondary);line-height:1.45;' + (n.read?'':'font-weight:500;color:var(--text-primary);') + '">' + n.text + '</div>' +
+          '<div style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--font-mono);">' + timeAgo + '</div>' +
+        '</div>' +
+        (!n.read ? '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px;"></div>' : '') +
+      '</div>';
     }).join('');
   },
 
