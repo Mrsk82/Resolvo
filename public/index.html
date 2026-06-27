@@ -3301,23 +3301,30 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
    ============================================================ */
 
 /* Kanban Board */
-.kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:8px; align-items:flex-start; }
-.kanban-col { flex-shrink:0; width:240px; background:var(--bg-elevated); border-radius:12px; border:1px solid var(--border); display:flex; flex-direction:column; max-height:calc(100vh - 220px); }
-.kanban-col-header { padding:12px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-.kanban-col-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; font-family:var(--font-mono); color:var(--text-muted); }
-.kanban-col-count { background:var(--bg-card); border:1px solid var(--border); border-radius:999px; padding:1px 8px; font-size:10px; font-family:var(--font-mono); color:var(--text-dim); }
-.kanban-cards { padding:10px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1; }
-.kanban-card { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:pointer; transition:border-color 0.15s, transform 0.1s; }
-.kanban-card:hover { border-color:var(--border-accent); transform:translateY(-1px); }
-.kanban-card-id { font-size:10px; font-family:var(--font-mono); color:var(--accent); margin-bottom:4px; }
-.kanban-card-title { font-size:12px; color:var(--text-primary); font-weight:500; line-height:1.4; margin-bottom:8px; }
-.kanban-card-footer { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-.kanban-card-module { font-size:10px; color:var(--text-dim); font-family:var(--font-mono); }
-.kanban-card-sla { margin-left:auto; font-size:10px; color:var(--critical); font-weight:700; }
-.kanban-card-breached { border-left:3px solid var(--critical); }
-.kanban-col.drop-target { box-shadow: 0 0 0 2px rgba(46,213,115,0.2); }
-.kanban-card.dragging { opacity:0.6; }
-.kanban-empty { font-size:11px; color:var(--text-dim); text-align:center; padding:16px; border:1px dashed var(--border); border-radius:10px; }
+.kanban-board { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; align-items:flex-start; }
+.kanban-col { flex-shrink:0; width:248px; background:var(--bg-elevated); border-radius:12px; border:1px solid var(--border); display:flex; flex-direction:column; max-height:calc(100vh - 200px); }
+.kanban-col-header { padding:10px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.kanban-col-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; font-family:var(--font-mono); }
+.kanban-col-count { background:var(--bg-card); border:1px solid var(--border); border-radius:999px; padding:1px 7px; font-size:10px; font-family:var(--font-mono); color:var(--text-dim); }
+.kanban-cards { padding:8px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; }
+.kanban-card { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px 11px 9px; cursor:pointer; transition:border-color 0.15s, box-shadow 0.15s, transform 0.1s; position:relative; overflow:hidden; }
+.kanban-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; opacity:0; transition:opacity .15s; }
+.kanban-card.pri-Critical::before { background:var(--critical); opacity:1; }
+.kanban-card.pri-High::before { background:var(--high); opacity:1; }
+.kanban-card.pri-Medium::before { background:#F59E0B; opacity:1; }
+.kanban-card.pri-Low::before { background:var(--low); opacity:1; }
+.kanban-card:hover { border-color:var(--border-accent); box-shadow:0 4px 16px rgba(0,0,0,.25); transform:translateY(-1px); }
+.kanban-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+.kanban-card-id { font-size:10px; font-family:var(--font-mono); color:var(--accent); font-weight:600; }
+.kanban-card-title { font-size:12px; color:var(--text-primary); font-weight:500; line-height:1.45; margin-bottom:8px; }
+.kanban-card-footer { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.kanban-card-module { font-size:10px; color:var(--text-dim); font-family:var(--font-mono); background:var(--bg-elevated); border-radius:4px; padding:1px 5px; }
+.kanban-card-sla { font-size:9px; color:var(--critical); font-weight:800; letter-spacing:.05em; }
+.kanban-card-breached { border-color:rgba(239,68,68,.35); }
+.kanban-col.drop-target { box-shadow:0 0 0 2px rgba(16,185,129,.35); }
+.kanban-drop-target { box-shadow:0 0 0 2px rgba(16,185,129,.35) !important; }
+.kanban-card.dragging { opacity:0.45; box-shadow:0 8px 32px rgba(0,0,0,.4); }
+.kanban-empty { font-size:11px; color:var(--text-dim); text-align:center; padding:20px 12px; border:1.5px dashed var(--border); border-radius:10px; line-height:1.5; }
 
 /* Workload Balancer */
 .workload-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
@@ -4738,32 +4745,40 @@ tr:hover .row-preview-btn { opacity: 1; }
 .kbd-overlay.open { display: flex; animation: fadeUp 0.2s ease; }
 .kbd-overlay-panel {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 16px; padding: 28px 32px; width: 460px; max-width: 90vw;
+  border-radius: 16px; padding: 24px 28px 20px; width: 640px; max-width: 94vw;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
   animation: slideIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
 }
 .kbd-overlay-title {
-  font-size: 16px; font-weight: 700; color: var(--text-primary);
-  margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
 }
+.kbd-overlay-close {
+  margin-left: auto; background: none; border: none; color: var(--text-dim);
+  cursor: pointer; padding: 4px; border-radius: 6px; display: flex; align-items: center;
+  transition: color .15s, background .15s;
+}
+.kbd-overlay-close:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.kbd-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
 .kbd-section { margin-bottom: 16px; }
 .kbd-section-title {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.12em; color: var(--text-dim); font-family: var(--font-mono); margin-bottom: 8px;
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.14em; color: var(--text-dim); font-family: var(--font-mono); margin-bottom: 8px;
 }
 .kbd-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 0; border-bottom: 1px solid var(--border);
+  padding: 6px 0; border-bottom: 1px solid var(--border);
 }
 .kbd-row:last-child { border-bottom: none; }
-.kbd-desc { font-size: 13px; color: var(--text-secondary); }
-.kbd-keys { display: flex; align-items: center; gap: 4px; }
+.kbd-desc { font-size: 12px; color: var(--text-secondary); }
+.kbd-keys { display: flex; align-items: center; gap: 3px; }
+.kbd-footer-hint { font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .kbd {
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-bottom: 2px solid var(--border); border-radius: 5px;
-  padding: 3px 7px; font-size: 11px; font-weight: 600;
-  font-family: var(--font-mono); color: var(--text-secondary); min-width: 24px;
+  padding: 2px 6px; font-size: 10px; font-weight: 600;
+  font-family: var(--font-mono); color: var(--text-secondary); min-width: 22px;
 }
 .kbd-plus { font-size: 10px; color: var(--text-dim); }
 .kbd-help-btn {
@@ -8026,6 +8041,10 @@ tbody tr.row-selected {
               </div>
             </div>
             <a href="/learn" target="_blank" style="display:flex;align-items:center;gap:7px;width:100%;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);text-decoration:none;transition:color 0.15s,border-color 0.15s;margin-bottom:5px;" onmouseover="this.style.color='var(--low)';this.style.borderColor='var(--low)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">📚 Learning Center</a>
+            <button onclick="App.navigate('upgrade')" style="display:flex;align-items:center;gap:7px;width:100%;background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:var(--radius);padding:6px 10px;color:var(--accent);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);font-weight:700;transition:opacity .15s;margin-bottom:5px;" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              Upgrade Plan
+            </button>
             <button onclick="App._logout()" style="width:100%;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);transition:color 0.15s,border-color 0.15s;" onmouseover="this.style.color='var(--critical)';this.style.borderColor='var(--critical-dim)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">⎋ Sign Out</button>
           </div>
         </div>
@@ -8307,48 +8326,34 @@ tbody tr.row-selected {
     <!-- ===== KEYBOARD SHORTCUT OVERLAY ===== -->
     <div class="kbd-overlay" id="kbdOverlay" role="dialog" aria-label="Keyboard shortcuts">
       <div class="kbd-overlay-panel">
-        <div class="kbd-overlay-title">&#x2328; Keyboard Shortcuts</div>
-        <div class="kbd-section">
-          <div class="kbd-section-title">Actions</div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Create new ticket</span>
-            <div class="kbd-keys"><span class="kbd">C</span></div>
+        <div class="kbd-overlay-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+          Keyboard Shortcuts
+          <button class="kbd-overlay-close" onclick="Keyboard._closeKbdHelp()" title="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="kbd-two-col">
+          <div class="kbd-section">
+            <div class="kbd-section-title">Actions</div>
+            <div class="kbd-row"><span class="kbd-desc">New ticket</span><div class="kbd-keys"><span class="kbd">C</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Quick capture</span><div class="kbd-keys"><span class="kbd">Q</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Open search</span><div class="kbd-keys"><span class="kbd">/</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Toggle filters</span><div class="kbd-keys"><span class="kbd">F</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Mark resolved</span><div class="kbd-keys"><span class="kbd">R</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Assign to me</span><div class="kbd-keys"><span class="kbd">A</span></div></div>
           </div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Open search</span>
-            <div class="kbd-keys"><span class="kbd">/</span></div>
-          </div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Toggle filter bar</span>
-            <div class="kbd-keys"><span class="kbd">F</span></div>
-          </div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Quick capture</span>
-            <div class="kbd-keys"><span class="kbd">Q</span></div>
+          <div class="kbd-section">
+            <div class="kbd-section-title">Navigation</div>
+            <div class="kbd-row"><span class="kbd-desc">AI command bar</span><div class="kbd-keys"><span class="kbd">Ctrl</span><span class="kbd-plus">+</span><span class="kbd">K</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Smart search</span><div class="kbd-keys"><span class="kbd">Ctrl</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">F</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Dashboard</span><div class="kbd-keys"><span class="kbd">G</span><span class="kbd-plus"> </span><span class="kbd">D</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Inbox</span><div class="kbd-keys"><span class="kbd">G</span><span class="kbd-plus"> </span><span class="kbd">I</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Show shortcuts</span><div class="kbd-keys"><span class="kbd">?</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Close / cancel</span><div class="kbd-keys"><span class="kbd">Esc</span></div></div>
           </div>
         </div>
-        <div class="kbd-section">
-          <div class="kbd-section-title">Navigation</div>
-          <div class="kbd-row">
-            <span class="kbd-desc">AI command bar</span>
-            <div class="kbd-keys"><span class="kbd">Ctrl</span><span class="kbd-plus">+</span><span class="kbd">K</span></div>
-          </div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Smart search</span>
-            <div class="kbd-keys"><span class="kbd">Ctrl</span><span class="kbd-plus">+</span><span class="kbd">Shift</span><span class="kbd-plus">+</span><span class="kbd">F</span></div>
-          </div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Close / Cancel</span>
-            <div class="kbd-keys"><span class="kbd">Esc</span></div>
-          </div>
-          <div class="kbd-row">
-            <span class="kbd-desc">Show shortcuts</span>
-            <div class="kbd-keys"><span class="kbd">?</span></div>
-          </div>
-        </div>
-        <div style="text-align:center;margin-top:20px">
-          <button class="btn-secondary btn-sm" onclick="Keyboard._closeKbdHelp()">Close</button>
-        </div>
+        <div class="kbd-footer-hint">Press <span class="kbd" style="font-size:10px;">?</span> anywhere to toggle this panel</div>
       </div>
     </div>
 
@@ -11730,6 +11735,7 @@ const App = {
       case 'workload-board': this.renderWorkloadBoard(); break;
       case 'leadership': this.renderLeadershipDashboard(); break;
       case 'appointments': this.renderAppointments(); break;
+      case 'upgrade': this.renderUpgradePage(); break;
     }
   },
 
@@ -20290,20 +20296,22 @@ const App = {
         html += '<div class="kanban-empty">Empty</div>';
       }
       cards.forEach(function(i) {
-        html += '<div class="kanban-card' + (i.slaBreached ? ' kanban-card-breached' : '') + '" draggable="true" ondragstart="App.startKanbanDrag(event,\'' + i.id + '\')" ondragend="App.endKanbanDrag(event)" onclick="App.navigate(\'issue-detail\',{id:\'' + i.id + '\'})">';
-        html += '<div class="kanban-card-id">' + i.id + '</div>';
+        var priCls = i.priority ? ' pri-' + i.priority : '';
+        html += '<div class="kanban-card' + (i.slaBreached ? ' kanban-card-breached' : '') + priCls + '" draggable="true" ondragstart="App.startKanbanDrag(event,\'' + i.id + '\')" ondragend="App.endKanbanDrag(event)" onclick="App.navigate(\'issue-detail\',{id:\'' + i.id + '\'})">';
+        html += '<div class="kanban-card-head"><span class="kanban-card-id">' + i.id + '</span>';
+        if (i.slaBreached) html += '<span class="kanban-card-sla">⚠ SLA</span>';
+        html += '</div>';
         html += '<div class="kanban-card-title">' + self._esc(i.title) + '</div>';
         html += '<div class="kanban-card-footer">';
-        html += '<span class="badge-status ' + i.status.toLowerCase().replace(/\s+/g,'-') + '" style="font-size:10px;padding:3px 8px;">' + i.priority + '</span>';
+        var priColors = {Critical:'var(--critical)',High:'var(--high)',Medium:'#F59E0B',Low:'var(--low)'};
+        var pc2 = priColors[i.priority]||'var(--text-dim)';
+        html += '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+pc2+'18;color:'+pc2+';">' + (i.priority||'') + '</span>';
         if (i.module) html += '<span class="kanban-card-module">' + i.module + '</span>';
-        if (i.slaBreached) html += '<span class="kanban-card-sla">SLA!</span>';
-        /* Age badge on card */
         var ageDays = i.createdDate ? Math.floor((Date.now()-new Date(i.createdDate))/86400000) : 0;
         var ageCls  = ageDays<=3?'age-fresh':ageDays<=7?'age-normal':ageDays<=14?'age-aging':ageDays<=29?'age-old':'age-stale';
-        html += '<span class="age-badge '+ageCls+' kanban-card-age" title="'+ageDays+' days since raised">⏱ '+(ageDays===0?'today':ageDays+'d')+'</span>';
-        /* Follow-up dot on card */
+        html += '<span class="age-badge '+ageCls+' kanban-card-age" style="margin-left:auto;" title="'+ageDays+' days">'+(ageDays===0?'today':ageDays+'d')+'</span>';
         var fuN = FollowUp.count(i.id);
-        html += '<span class="kanban-fu-dot" title="'+(fuN>0?fuN+' follow-up(s)':'Log follow-up')+'" onclick="event.stopPropagation();FollowUp.openModal(\''+i.id+'\')">'+(fuN>0?'🚩 '+fuN:'🚩')+'</span>';
+        html += '<span class="kanban-fu-dot" title="'+(fuN>0?fuN+' follow-up(s)':'Log follow-up')+'" onclick="event.stopPropagation();FollowUp.openModal(\''+i.id+'\')">'+(fuN>0?'🚩'+fuN:'🚩')+'</span>';
         html += '</div></div>';
       });
       html += '</div></div>';
@@ -22280,6 +22288,66 @@ const App = {
   _es: function(icon, title, sub, btnLabel, btnAction) {
     var btn = btnLabel ? '<button class="btn-primary es-btn" onclick="' + btnAction + '">' + btnLabel + '</button>' : '';
     return '<div class="es"><div class="es-icon">' + icon + '</div><div class="es-title">' + title + '</div><div class="es-sub">' + sub + '</div>' + btn + '</div>';
+  },
+
+  renderUpgradePage: function() {
+    var self = this;
+    self.setPage('Plans & Billing', 'Upgrade');
+    var area = document.getElementById('contentArea');
+    var cu = self.currentUser || {};
+    var currentPlan = cu.plan || 'starter';
+    var plans = [
+      { id:'starter', name:'Starter', price:'Free', priceNote:'forever', color:'#6B7280', features:['3 agents','500 tickets/mo','Email ticketing','Basic reports','Community support'], cta:'Current Plan' },
+      { id:'growth',  name:'Growth',  price:'₹2,999', priceNote:'/month', color:'#10B981', features:['10 agents','5,000 tickets/mo','WhatsApp + Web widget','AI triage & auto-assign','SLA management','Priority support'], cta:'Upgrade to Growth', badge:'Popular' },
+      { id:'pro',     name:'Pro',     price:'₹7,999', priceNote:'/month', color:'#6366F1', features:['Unlimited agents','Unlimited tickets','All channels','AI command bar (Ctrl+K)','Custom branding & CSAT','Audit trail & analytics','Dedicated support'], cta:'Upgrade to Pro' },
+    ];
+    var usageItems = [
+      { label:'Agents used', val: cu.agentCount||1, max: cu.agentLimit||3, unit:'agents' },
+      { label:'Tickets this month', val: cu.ticketCount||0, max: cu.ticketLimit||500, unit:'tickets' },
+      { label:'Storage', val: 0.4, max: 1, unit:'GB' },
+    ];
+    var html = '<div style="max-width:960px;margin:0 auto;padding:0 4px;">';
+    // Current usage strip
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:24px;">';
+    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:14px;">Current Usage — <span style="color:var(--accent);text-transform:none;font-size:12px;">'+currentPlan.charAt(0).toUpperCase()+currentPlan.slice(1)+' Plan</span></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">';
+    usageItems.forEach(function(u) {
+      var pct = Math.min(100, Math.round(u.val / u.max * 100));
+      var barColor = pct > 85 ? 'var(--critical)' : pct > 60 ? '#F59E0B' : 'var(--accent)';
+      html += '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-secondary);">'+u.label+'</span><span style="color:var(--text-primary);font-weight:600;">'+u.val+' / '+u.max+' '+u.unit+'</span></div>';
+      html += '<div style="height:5px;background:var(--bg-elevated);border-radius:999px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:999px;transition:width .4s;"></div></div></div>';
+    });
+    html += '</div></div>';
+    // Plan cards
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:28px;">';
+    plans.forEach(function(p) {
+      var isCurrent = p.id === currentPlan;
+      html += '<div style="background:var(--bg-card);border:2px solid '+(isCurrent?p.color:'var(--border)')+';border-radius:16px;padding:24px;position:relative;transition:border-color .15s,box-shadow .15s;" onmouseover="this.style.boxShadow=\'0 8px 32px rgba(0,0,0,.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
+      if (p.badge) html += '<span style="position:absolute;top:16px;right:16px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:'+p.color+'22;color:'+p.color+';">'+p.badge+'</span>';
+      html += '<div style="font-size:13px;font-weight:700;color:'+p.color+';margin-bottom:4px;">'+p.name+'</div>';
+      html += '<div style="font-size:28px;font-weight:800;color:var(--text-primary);letter-spacing:-.5px;line-height:1.1;">'+p.price+'<span style="font-size:13px;font-weight:400;color:var(--text-dim);margin-left:3px;">'+p.priceNote+'</span></div>';
+      html += '<div style="height:1px;background:var(--border);margin:16px 0;"></div>';
+      html += '<ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:8px;">';
+      p.features.forEach(function(f) {
+        html += '<li style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-secondary);">';
+        html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+p.color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><polyline points="20 6 9 17 4 12"/></svg>';
+        html += f + '</li>';
+      });
+      html += '</ul>';
+      if (isCurrent) {
+        html += '<div style="width:100%;padding:10px;text-align:center;border-radius:9px;border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-dim);">✓ Current Plan</div>';
+      } else {
+        html += '<button onclick="App.showToast(\'Contact sales to upgrade — coming soon!\',\'info\')" style="width:100%;padding:11px;background:'+p.color+';color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-display);transition:opacity .15s;" onmouseover="this.style.opacity=\'.88\'" onmouseout="this.style.opacity=\'1\'">'+p.cta+' →</button>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    // FAQ / contact strip
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">';
+    html += '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">Need a custom plan?</div><div style="font-size:12px;color:var(--text-secondary);">Large team or special requirements? We\'ll build a plan around you.</div></div>';
+    html += '<a href="mailto:contact@resolvogroup.com" style="background:var(--accent);color:#0D0E14;text-decoration:none;border-radius:9px;padding:10px 20px;font-size:13px;font-weight:700;white-space:nowrap;">Contact Sales →</a>';
+    html += '</div></div>';
+    area.innerHTML = html;
   },
 
   animateCounter: function(el, target) {
