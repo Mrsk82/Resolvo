@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Resolvo — Appointment & Support Management for Indian Professionals</title>
+<meta name="description" content="Resolvo is a free appointment management and support platform built for Indian service professionals — doctors, lawyers, consultants, salons and tutors.">
+<link rel="canonical" href="https://app.resolvogroup.com/about">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0B0F19;color:#f1f5f9;font-family:'Inter',sans-serif;line-height:1.7;}
+
+/* NAV */
+nav{background:#0B0F19;border-bottom:1px solid rgba(255,255,255,.07);padding:16px 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);}
+.logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none;}
+.logo-name{font-size:17px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px;}
+.nav-links{display:flex;align-items:center;gap:24px;}
+.nav-links a{font-size:13px;color:#64748b;text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:#f1f5f9;}
+.nav-cta{background:#10B981;color:#fff!important;padding:8px 18px;border-radius:8px;font-weight:700!important;font-size:13px;transition:opacity .15s!important;}
+.nav-cta:hover{opacity:.9;}
+
+/* HERO */
+.hero{padding:100px 40px 80px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(16,185,129,.07) 0%,transparent 70%);pointer-events:none;}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:6px 16px;font-size:12px;font-weight:700;color:#10B981;letter-spacing:.06em;text-transform:uppercase;margin-bottom:24px;}
+.hero h1{font-size:clamp(32px,5vw,52px);font-weight:800;color:#f1f5f9;letter-spacing:-1.5px;margin-bottom:20px;line-height:1.1;}
+.hero h1 span{color:#10B981;}
+.hero p{font-size:17px;color:#94a3b8;max-width:560px;margin:0 auto 40px;line-height:1.7;}
+.hero-cta{display:inline-flex;align-items:center;gap:10px;background:#10B981;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;transition:opacity .15s;}
+.hero-cta:hover{opacity:.9;}
+
+/* STATS STRIP */
+.stats-strip{background:#141c2e;border-top:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);padding:36px 40px;}
+.stats-grid{max-width:900px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:0;}
+.stat-item{text-align:center;padding:0 20px;border-right:1px solid rgba(255,255,255,.07);}
+.stat-item:last-child{border-right:none;}
+.stat-num{font-size:32px;font-weight:800;color:#10B981;letter-spacing:-1px;line-height:1;}
+.stat-label{font-size:13px;color:#64748b;margin-top:6px;}
+
+/* SECTIONS */
+.section{max-width:800px;margin:0 auto;padding:72px 40px;}
+.section-eyebrow{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;}
+.section h2{font-size:28px;font-weight:800;color:#f1f5f9;letter-spacing:-.5px;margin-bottom:16px;line-height:1.2;}
+.section p{font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:16px;}
+
+/* MISSION QUOTE */
+.mission-quote{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(99,102,241,.08));border:1px solid rgba(16,185,129,.2);border-radius:16px;padding:32px 36px;margin:40px 0;position:relative;}
+.mission-quote::before{content:'"';position:absolute;top:-10px;left:24px;font-size:72px;color:#10B981;line-height:1;font-weight:800;opacity:.3;}
+.mission-quote p{font-size:18px;color:#e2e8f0;font-style:italic;line-height:1.7;margin:0;}
+.mission-quote cite{display:block;font-size:13px;color:#64748b;margin-top:14px;font-style:normal;}
+
+/* FEATURES GRID */
+.features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:32px 0;}
+.feature-card{background:#141c2e;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px 22px;transition:border-color .15s;}
+.feature-card:hover{border-color:rgba(16,185,129,.3);}
+.feature-icon{width:40px;height:40px;background:rgba(16,185,129,.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;}
+.feature-title{font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:6px;}
+.feature-desc{font-size:13px;color:#64748b;line-height:1.6;}
+
+/* WHO GRID */
+.who-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0;}
+.who-card{background:#141c2e;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;text-align:center;transition:border-color .15s;}
+.who-card:hover{border-color:rgba(16,185,129,.3);}
+.who-emoji{font-size:28px;margin-bottom:8px;}
+.who-label{font-size:13px;font-weight:600;color:#f1f5f9;}
+.who-sub{font-size:11px;color:#64748b;margin-top:3px;}
+
+/* VALUES */
+.values-list{display:flex;flex-direction:column;gap:0;margin:24px 0;}
+.value-row{display:flex;align-items:flex-start;gap:16px;padding:18px 0;border-bottom:1px solid rgba(255,255,255,.06);}
+.value-row:last-child{border-bottom:none;}
+.value-dot{width:8px;height:8px;background:#10B981;border-radius:50%;flex-shrink:0;margin-top:6px;}
+.value-title{font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:3px;}
+.value-desc{font-size:13px;color:#64748b;line-height:1.6;}
+
+/* CTA SECTION */
+.cta-section{background:#141c2e;border-top:1px solid rgba(255,255,255,.07);}
+.cta-inner{max-width:700px;margin:0 auto;padding:80px 40px;text-align:center;}
+.cta-inner h2{font-size:32px;font-weight:800;color:#f1f5f9;letter-spacing:-.5px;margin-bottom:14px;}
+.cta-inner p{font-size:16px;color:#94a3b8;margin-bottom:32px;}
+.cta-buttons{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+.cta-btn-primary{display:inline-flex;align-items:center;gap:8px;background:#10B981;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;transition:opacity .15s;}
+.cta-btn-primary:hover{opacity:.9;}
+.cta-btn-secondary{display:inline-flex;align-items:center;gap:8px;background:transparent;color:#94a3b8;padding:13px 28px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:600;border:1px solid rgba(255,255,255,.12);transition:all .15s;}
+.cta-btn-secondary:hover{border-color:rgba(255,255,255,.25);color:#f1f5f9;}
+
+/* FOOTER */
+footer{border-top:1px solid rgba(255,255,255,.07);padding:24px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+footer p{font-size:13px;color:#334155;}
+.footer-links{display:flex;gap:20px;}
+.footer-links a{font-size:13px;color:#334155;text-decoration:none;transition:color .15s;}
+.footer-links a:hover{color:#10B981;}
+
+@media(max-width:700px){
+  nav{padding:14px 20px;}.hero{padding:60px 20px 48px;}.section{padding:48px 20px;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}.stats-grid .stat-item:nth-child(2){border-right:none;}
+  .features-grid,.who-grid{grid-template-columns:1fr;}
+  footer{flex-direction:column;align-items:flex-start;}.cta-inner{padding:56px 20px;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" class="logo">
+    <img src="/logo-mark.svg" alt="Resolvo" width="28" height="28" style="border-radius:7px;">
+    <span class="logo-name">resolvo</span>
+  </a>
+  <div class="nav-links">
+    <a href="/pitch">Home</a>
+    <a href="/blog">Blog</a>
+    <a href="/about">About</a>
+    <a href="/pro" class="nav-cta">Start Free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">About Resolvo</div>
+  <h1>Built for India's<br><span>service professionals</span></h1>
+  <p>We're on a mission to give every doctor, lawyer, consultant, salon, and tutor the tools they need to run a better practice — starting with free appointment management.</p>
+  <a href="/pro" class="hero-cta">Start for free →</a>
+</div>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stats-grid">
+    <div class="stat-item"><div class="stat-num">500+</div><div class="stat-label">Teams using Resolvo</div></div>
+    <div class="stat-item"><div class="stat-num">250</div><div class="stat-label">Free appointments/month</div></div>
+    <div class="stat-item"><div class="stat-num">5 min</div><div class="stat-label">Avg setup time</div></div>
+    <div class="stat-item"><div class="stat-num">₹0</div><div class="stat-label">Cost to get started</div></div>
+  </div>
+</div>
+
+<!-- MISSION -->
+<div class="section">
+  <div class="section-eyebrow">Our Mission</div>
+  <h2>Practice management shouldn't cost a fortune</h2>
+  <p>Every service professional in India deserves simple, affordable tools to manage clients — without expensive software, a full-time receptionist, or losing bookings to phone tag.</p>
+
+  <div class="mission-quote">
+    <p>Every service professional in India deserves a simple, affordable way to manage their clients and appointments — without expensive software, without a full-time receptionist, and without losing bookings to phone tag.</p>
+    <cite>— Resolvo founding principle</cite>
+  </div>
+</div>
+
+<!-- WHAT WE OFFER -->
+<div class="section" style="padding-top:0;">
+  <div class="section-eyebrow">What We Offer</div>
+  <h2>Everything to run your practice</h2>
+  <div class="features-grid">
+    <div class="feature-card"><div class="feature-icon">🔗</div><div class="feature-title">Public booking page</div><div class="feature-desc">Share a link with your clients so they can book directly, 24/7 — no calls needed.</div></div>
+    <div class="feature-card"><div class="feature-icon">📧</div><div class="feature-title">Auto-confirmations & reminders</div><div class="feature-desc">Clients get an email the moment they book, and again 24 hours before the appointment.</div></div>
+    <div class="feature-card"><div class="feature-icon">📋</div><div class="feature-title">Client history dashboard</div><div class="feature-desc">Every visit, note, and follow-up in one place. Never lose track of a client again.</div></div>
+    <div class="feature-card"><div class="feature-icon">🎫</div><div class="feature-title">Support ticketing</div><div class="feature-desc">Manage client queries and issues without inbox chaos. SLA tracking included.</div></div>
+    <div class="feature-card"><div class="feature-icon">🏢</div><div class="feature-title">Multi-brand management</div><div class="feature-desc">Run multiple practices or locations from one account with fully isolated data.</div></div>
+    <div class="feature-card"><div class="feature-icon">📊</div><div class="feature-title">Analytics & reporting</div><div class="feature-desc">Understand your busiest days, no-show rates, and team performance at a glance.</div></div>
+  </div>
+</div>
+
+<!-- WHO USES RESOLVO -->
+<div class="section" style="padding-top:0;">
+  <div class="section-eyebrow">Who Uses Resolvo</div>
+  <h2>Built for every service professional</h2>
+  <div class="who-grid">
+    <div class="who-card"><div class="who-emoji">🩺</div><div class="who-label">Doctors & Clinics</div><div class="who-sub">Manage patient slots & reminders</div></div>
+    <div class="who-card"><div class="who-emoji">⚖️</div><div class="who-label">Lawyers & Advocates</div><div class="who-sub">Client intake & case tracking</div></div>
+    <div class="who-card"><div class="who-emoji">💼</div><div class="who-label">Consultants & CAs</div><div class="who-sub">Meetings, proposals, follow-ups</div></div>
+    <div class="who-card"><div class="who-emoji">✂️</div><div class="who-label">Salons & Spas</div><div class="who-sub">Service menu & staff scheduling</div></div>
+    <div class="who-card"><div class="who-emoji">📚</div><div class="who-label">Tutors & Coaches</div><div class="who-sub">Session scheduling & notes</div></div>
+    <div class="who-card"><div class="who-emoji">🏢</div><div class="who-label">Any Service Business</div><div class="who-sub">Appointments + support, one tool</div></div>
+  </div>
+</div>
+
+<!-- OUR STORY -->
+<div class="section" style="padding-top:0;">
+  <div class="section-eyebrow">Our Story</div>
+  <h2>Started from a real problem</h2>
+  <p>Resolvo started as an internal support tool for Indian D2C brands. Over time, we noticed that the same core problems — missed client communications, double-bookings, no follow-up system — affected almost every service professional in India, not just ecommerce brands.</p>
+  <p>In 2025 we expanded Resolvo to serve any appointment-driven professional. The free plan for service professionals is our commitment to making modern practice management accessible to everyone in India, regardless of the size of their practice.</p>
+</div>
+
+<!-- VALUES -->
+<div class="section" style="padding-top:0;">
+  <div class="section-eyebrow">Our Values</div>
+  <h2>What we believe</h2>
+  <div class="values-list">
+    <div class="value-row"><div class="value-dot"></div><div><div class="value-title">Simple over powerful</div><div class="value-desc">We build tools that work on day one, not after a week of setup. Complexity is a bug, not a feature.</div></div></div>
+    <div class="value-row"><div class="value-dot"></div><div><div class="value-title">Free first</div><div class="value-desc">The core product should be free for solo practitioners and small practices. Growth should unlock value, not access.</div></div></div>
+    <div class="value-row"><div class="value-dot"></div><div><div class="value-title">Built for India</div><div class="value-desc">Time zones, payment methods, languages, and workflows that match how Indian professionals actually work.</div></div></div>
+    <div class="value-row"><div class="value-dot"></div><div><div class="value-title">Privacy by default</div><div class="value-desc">Your client data is yours. We never sell it, share it, or use it for advertising. Ever.</div></div></div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="cta-inner">
+    <h2>Ready to get started?</h2>
+    <p>Free plan includes 250 appointments/month. No credit card. Setup in 5 minutes.</p>
+    <div class="cta-buttons">
+      <a href="/pro" class="cta-btn-primary">Start for free →</a>
+      <a href="mailto:contact@resolvogroup.com" class="cta-btn-secondary">✉ contact@resolvogroup.com</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 Resolvo Group</p>
+  <div class="footer-links">
+    <a href="/pitch">Home</a>
+    <a href="/blog">Blog</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/pro">Start Free</a>
+    <a href="mailto:contact@resolvogroup.com">Contact</a>
+  </div>
+</footer>
+</body>
+</html>

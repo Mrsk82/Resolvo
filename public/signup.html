@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -17,94 +17,189 @@
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-27BVPWPG8N");</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#F9FAFB;color:#111827;font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
-nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;}
-.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}
-.logo-name{font-size:16px;font-weight:700;color:#111827;}
-.main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:72px;max-width:860px;width:100%;align-items:center;}
-.left h1{font-size:26px;font-weight:800;color:#111827;letter-spacing:-0.5px;margin-bottom:10px;line-height:1.25;}
-.left p{font-size:14px;color:#6B7280;line-height:1.7;margin-bottom:24px;}
-.perks{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
-.perk{display:flex;align-items:center;gap:10px;font-size:14px;color:#374151;}
-.perk-icon{width:20px;height:20px;background:#FEF3C7;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:#92400E;font-weight:700;}
-.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#6B7280;}
-.badge-dot{width:7px;height:7px;background:#10B981;border-radius:50%;}
-.card{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:32px;}
-.card-top{display:flex;align-items:center;gap:8px;margin-bottom:20px;}
-.card-top span{font-size:15px;font-weight:700;color:#111827;}
-.card h2{font-size:19px;font-weight:700;color:#111827;margin-bottom:4px;}
-.card .sub{font-size:13px;color:#6B7280;margin-bottom:22px;}
-.fg{margin-bottom:14px;}
-label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;}
-input{width:100%;background:#fff;border:1px solid #D1D5DB;border-radius:8px;padding:10px 13px;font-size:14px;color:#111827;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s;}
-input:focus{border-color:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.1);}
-.btn{width:100%;background:#F59E0B;color:#fff;border:none;border-radius:8px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:background .15s;}
-.btn:hover{background:#D97706;}
-.btn:disabled{opacity:.6;cursor:not-allowed;}
-.msg{display:none;margin-top:12px;padding:10px 13px;border-radius:7px;font-size:13px;text-align:center;}
-.flinks{text-align:center;margin-top:14px;font-size:13px;color:#6B7280;}
-.flinks a{color:#D97706;text-decoration:none;font-weight:600;}
-@media(max-width:680px){.split{grid-template-columns:1fr;gap:28px;}.left{display:none;}}
+body{background:#0B0F19;color:#f1f5f9;font-family:'Inter',sans-serif;min-height:100vh;display:flex;}
+
+/* ── LEFT PANEL ── */
+.left{width:54%;background:#0B0F19;display:flex;flex-direction:column;justify-content:center;padding:56px 52px;position:relative;overflow:hidden;}
+.left::before{content:'';position:absolute;top:-100px;left:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,.1) 0%,transparent 70%);pointer-events:none;}
+.left::after{content:'';position:absolute;bottom:-80px;right:-40px;width:280px;height:280px;background:radial-gradient(circle,rgba(99,102,241,.08) 0%,transparent 70%);pointer-events:none;}
+
+.logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:52px;text-decoration:none;}
+.logo-mark{width:36px;height:36px;border-radius:9px;}
+.logo-name{font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px;}
+
+.badge{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#10B981;margin-bottom:28px;width:fit-content;}
+.badge-dot{width:6px;height:6px;background:#10B981;border-radius:50%;}
+
+.left h1{font-size:34px;font-weight:800;line-height:1.2;letter-spacing:-.6px;color:#f1f5f9;margin-bottom:16px;}
+.left h1 span{color:#10B981;}
+.left > p{font-size:15px;color:#94a3b8;line-height:1.7;margin-bottom:40px;max-width:380px;}
+
+.perks{display:flex;flex-direction:column;gap:14px;margin-bottom:44px;}
+.perk{display:flex;align-items:flex-start;gap:14px;}
+.perk-icon{width:36px;height:36px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:1px;}
+.perk-text strong{display:block;font-size:14px;font-weight:600;color:#f1f5f9;margin-bottom:2px;}
+.perk-text span{font-size:13px;color:#64748b;}
+
+.social-proof{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;}
+.avatars{display:flex;}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#10B981,#6366F1);border:2px solid #0B0F19;margin-left:-8px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;}
+.avatar:first-child{margin-left:0;}
+.sp-text{font-size:12px;color:#94a3b8;line-height:1.5;}
+.sp-text strong{color:#f1f5f9;font-weight:600;}
+
+/* ── RIGHT PANEL ── */
+.right{width:46%;background:#ffffff;display:flex;align-items:center;justify-content:center;padding:56px 48px;}
+.form-card{width:100%;max-width:400px;}
+.form-card h2{font-size:24px;font-weight:800;color:#111827;letter-spacing:-.4px;margin-bottom:6px;}
+.form-card .sub{font-size:13px;color:#6B7280;margin-bottom:28px;line-height:1.6;}
+
+.fg{margin-bottom:16px;}
+label{display:block;font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
+input{width:100%;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;padding:11px 14px;font-size:14px;color:#111827;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;}
+input:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);background:#fff;}
+
+.btn{width:100%;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;transition:opacity .15s;letter-spacing:.01em;}
+.btn:hover{opacity:.9;}
+.btn:disabled{opacity:.55;cursor:not-allowed;}
+
+.msg{display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;text-align:center;}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:#9CA3AF;font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#E5E7EB;}
+.flinks{text-align:center;font-size:13px;color:#6B7280;margin-top:16px;}
+.flinks a{color:#10B981;text-decoration:none;font-weight:600;}
+.terms{text-align:center;font-size:11px;color:#9CA3AF;margin-top:14px;line-height:1.6;}
+.terms a{color:#6B7280;text-decoration:none;}
+
+/* Password strength */
+.pw-strength{display:flex;gap:4px;margin-top:6px;}
+.pw-bar{flex:1;height:3px;border-radius:2px;background:#E5E7EB;transition:background .2s;}
+.pw-bar.weak{background:#ef4444;}
+.pw-bar.fair{background:#f59e0b;}
+.pw-bar.good{background:#10B981;}
+
+@media(max-width:800px){
+  body{flex-direction:column;}
+  .left{width:100%;padding:40px 28px 32px;}
+  .left::before,.left::after{display:none;}
+  .right{width:100%;padding:32px 28px 48px;}
+  .left h1{font-size:26px;}
+  .perks{display:none;}
+}
 </style>
 </head>
 <body>
-<nav>
+<!-- LEFT BRAND PANEL -->
+<div class="left">
   <a href="/pitch" class="logo">
-    <img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;">
+    <img src="/logo-mark.svg" alt="Resolvo" class="logo-mark">
     <span class="logo-name">resolvo</span>
   </a>
-</nav>
-<div class="main">
-  <div class="split">
-    <div class="left">
-      <h1>Stop managing support from your inbox</h1>
-      <p>Resolvo brings all your customer conversations into one clean workspace. Built for Indian D2C brands.</p>
-      <div class="perks">
-        <div class="perk"><div class="perk-icon">&#10003;</div>Email ticketing + SLA timers</div>
-        <div class="perk"><div class="perk-icon">&#10003;</div>Smart queue &amp; auto-assign</div>
-        <div class="perk"><div class="perk-icon">&#10003;</div>Customer self-service portal</div>
-        <div class="perk"><div class="perk-icon">&#10003;</div>Up to 10 team members &mdash; free</div>
-        <div class="perk"><div class="perk-icon">&#10003;</div>No credit card needed</div>
+
+  <div class="badge"><span class="badge-dot"></span>Free forever — no card needed</div>
+
+  <h1>From inbox chaos<br>to <span>clarity</span> — free.</h1>
+  <p>Resolvo is a unified support platform built for Indian D2C brands and growing teams. Get started in under 5 minutes.</p>
+
+  <div class="perks">
+    <div class="perk">
+      <div class="perk-icon">⚡</div>
+      <div class="perk-text">
+        <strong>Real-time email ticketing</strong>
+        <span>IMAP IDLE delivers emails as tickets in under 5 seconds.</span>
       </div>
-      <div class="badge"><div class="badge-dot"></div>Setup takes under 5 minutes</div>
     </div>
-    <div class="card">
-      <div class="card-top">
-        <img src="/logo-mark.svg" alt="Resolvo" width="24" height="24" style="border-radius:5px;">
-        <span>resolvo</span>
+    <div class="perk">
+      <div class="perk-icon">📊</div>
+      <div class="perk-text">
+        <strong>SLA tracking & live dashboard</strong>
+        <span>Know which tickets are at risk before customers escalate.</span>
       </div>
-      <h2>Create your free account</h2>
-      <p class="sub">No credit card. No setup fees. Running in minutes.</p>
-      <div class="fg"><label>Your Name</label><input id="s_name" placeholder="Rahul Sharma"></div>
-      <div class="fg"><label>Brand / Company Name</label><input id="s_company" placeholder="Mango Clothing"></div>
-      <div class="fg"><label>Work Email</label><input id="s_email" type="email" placeholder="rahul@yourstore.com"></div>
-      <div class="fg"><label>Password</label><input id="s_pass" type="password" placeholder="Min 8 characters"></div>
-      <button class="btn" id="s_btn" onclick="doSignup()">Create free account</button>
-      <div class="msg" id="s_msg"></div>
-      <div class="flinks">Already have an account? <a href="/">Sign in</a></div>
-      <div class="flinks" style="margin-top:6px;"><a href="/pitch">&larr; Back to home</a></div>
+    </div>
+    <div class="perk">
+      <div class="perk-icon">🏢</div>
+      <div class="perk-text">
+        <strong>Multi-brand in one workspace</strong>
+        <span>Manage all your brands with isolated inboxes and data.</span>
+      </div>
+    </div>
+    <div class="perk">
+      <div class="perk-icon">📅</div>
+      <div class="perk-text">
+        <strong>Appointment booking included</strong>
+        <span>Online booking page for doctors, lawyers, salons and more.</span>
+      </div>
     </div>
   </div>
+
+  <div class="social-proof">
+    <div class="avatars">
+      <div class="avatar">R</div>
+      <div class="avatar">P</div>
+      <div class="avatar">S</div>
+      <div class="avatar">A</div>
+    </div>
+    <div class="sp-text"><strong>500+ teams</strong> already using Resolvo across India</div>
+  </div>
 </div>
+
+<!-- RIGHT FORM PANEL -->
+<div class="right">
+  <div class="form-card">
+    <h2>Create your free account</h2>
+    <p class="sub">No credit card. No setup fees. Up and running in minutes.</p>
+
+    <div class="fg"><label>Your Name</label><input id="s_name" placeholder="Rahul Sharma" autocomplete="name"></div>
+    <div class="fg"><label>Brand / Company Name</label><input id="s_company" placeholder="Mango Clothing"></div>
+    <div class="fg"><label>Work Email</label><input id="s_email" type="email" placeholder="rahul@yourstore.com" autocomplete="email"></div>
+    <div class="fg">
+      <label>Password</label>
+      <input id="s_pass" type="password" placeholder="Min 8 characters" autocomplete="new-password" oninput="updateStrength(this.value)">
+      <div class="pw-strength" id="pw_bars">
+        <div class="pw-bar" id="pw1"></div>
+        <div class="pw-bar" id="pw2"></div>
+        <div class="pw-bar" id="pw3"></div>
+        <div class="pw-bar" id="pw4"></div>
+      </div>
+    </div>
+
+    <button class="btn" id="s_btn" onclick="doSignup()">Create free account →</button>
+    <div class="msg" id="s_msg"></div>
+
+    <div class="divider">or</div>
+    <div class="flinks">Already have an account? <a href="/">Sign in</a></div>
+    <div class="terms">By signing up you agree to our <a href="/privacy">Privacy Policy</a> and <a href="/pitch#terms">Terms of Service</a>.</div>
+  </div>
+</div>
+
 <script>
+function updateStrength(v){
+  var s=0;
+  if(v.length>=8)s++;if(v.length>=12)s++;if(/[A-Z]/.test(v)&&/[0-9]/.test(v))s++;if(/[^A-Za-z0-9]/.test(v))s++;
+  var cls=s<=1?'weak':s===2?'fair':'good';
+  [1,2,3,4].forEach(function(i){
+    var el=document.getElementById('pw'+i);
+    el.className='pw-bar'+(i<=s?' '+cls:'');
+  });
+}
 async function doSignup(){
   var name=document.getElementById('s_name').value.trim();
   var company=document.getElementById('s_company').value.trim();
   var email=document.getElementById('s_email').value.trim();
-  var pass=document.getElementById('s_pass').value.trim();
+  var pass=document.getElementById('s_pass').value;
   var btn=document.getElementById('s_btn');
-  if(!name||!company||!email){showMsg('Please fill all fields.','error');return;}
+  if(!name||!company||!email){showMsg('Please fill in all fields.','error');return;}
+  if(!email.includes('@')){showMsg('Please enter a valid email address.','error');return;}
   if(pass&&pass.length<8){showMsg('Password must be at least 8 characters.','error');return;}
-  btn.textContent='Creating your account...';btn.disabled=true;
-  var r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,company:company,email:email,password:pass||undefined})}).then(function(x){return x.json();}).catch(function(){return{success:false,error:'Network error'};});
+  btn.textContent='Creating your account…';btn.disabled=true;
+  var r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company,email,password:pass||undefined})}).then(function(x){return x.json();}).catch(function(){return{success:false,error:'Network error — please try again.'};});
   if(r.success){
-    showMsg('Account created! Taking you in...','success');
-    btn.textContent='Account created!';
-    setTimeout(function(){window.location.href='/';},2500);
+    showMsg('Account created! Taking you in…','success');
+    btn.textContent='✓ Account created!';
+    setTimeout(function(){window.location.href='/';},2000);
   } else {
-    showMsg(r.error||'Something went wrong.','error');
-    btn.textContent='Create free account';btn.disabled=false;
+    showMsg(r.error||'Something went wrong. Please try again.','error');
+    btn.textContent='Create free account →';btn.disabled=false;
   }
 }
 function showMsg(text,type){

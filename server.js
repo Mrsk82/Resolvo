@@ -3785,13 +3785,108 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Not found'};
       db.appointments[idx].status='cancelled';db.appointments[idx].cancelReason=reason||'';db.appointments[idx].cancelledAt=nowIST();db.appointments[idx].cancelledBy=su.email;
       wDB(db);
-      // Notify customer
       const apt=db.appointments[idx];
       if(apt.customerEmail){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
-        sendBrandEmail(slug,apt.customerEmail,`Appointment Cancelled — ${brand.name||'Support'}`,`<p>Hi ${apt.customerName},</p><p>Your appointment on ${apt.date} at ${apt.time} has been cancelled.${reason?'<br>Reason: '+reason:''}</p><p>Please rebook at your convenience.</p>`,`Your appointment on ${apt.date} at ${apt.time} has been cancelled`).catch(()=>{});
+        const accent=brand.accentColor||'#10B981';
+        sendBrandEmail(slug,apt.customerEmail,`Appointment Cancelled — ${brand.name||'Support'}`,
+          `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#fff;border-radius:14px;border:1px solid #e5e7eb;">
+          <div style="background:#fee2e2;border-radius:10px;padding:20px;text-align:center;margin-bottom:20px;"><div style="font-size:32px;">❌</div><h2 style="margin:8px 0 0;color:#991b1b;">Appointment Cancelled</h2></div>
+          <p>Hi <strong>${apt.customerName}</strong>,</p>
+          <p>Your appointment on <strong>${apt.date}</strong> at <strong>${apt.time}</strong> has been cancelled.</p>
+          ${reason?`<p style="background:#f9fafb;border-radius:8px;padding:12px;font-size:13px;color:#6b7280;">Reason: ${reason}</p>`:''}
+          <p>Please <a href="${BASE_URL}/book/${slug}" style="color:${accent};">rebook here</a> at your convenience.</p></div>`,
+          `Your appointment on ${apt.date} at ${apt.time} has been cancelled`).catch(()=>{});
       }
       return{success:true};
+    },
+
+    rescheduleAppointment:(id,newDate,newTime)=>{
+      const db=rDB();const idx=(db.appointments||[]).findIndex(a=>a.id===id);
+      if(idx===-1)return{success:false,error:'Not found'};
+      // Check new slot not taken
+      const taken=(db.appointments||[]).some((a,i)=>i!==idx&&a.date===newDate&&a.time===newTime&&a.status!=='cancelled');
+      if(taken)return{success:false,error:'That slot is already booked. Please choose another time.'};
+      const apt=db.appointments[idx];
+      const oldDate=apt.date,oldTime=apt.time;
+      db.appointments[idx].date=newDate;db.appointments[idx].time=newTime;
+      db.appointments[idx].rescheduledAt=nowIST();db.appointments[idx].rescheduledBy=su.email;
+      db.appointments[idx].previousDate=oldDate;db.appointments[idx].previousTime=oldTime;
+      wDB(db);
+      if(apt.customerEmail){
+        const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+        const accent=brand.accentColor||'#10B981';
+        sendBrandEmail(slug,apt.customerEmail,`Appointment Rescheduled — ${brand.name||'Support'}`,
+          `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#fff;border-radius:14px;border:1px solid #e5e7eb;">
+          <div style="background:${accent}18;border-radius:10px;padding:20px;text-align:center;margin-bottom:20px;"><div style="font-size:32px;">📅</div><h2 style="margin:8px 0 0;color:${accent};">Appointment Rescheduled</h2></div>
+          <p>Hi <strong>${apt.customerName}</strong>,</p>
+          <p>Your appointment has been rescheduled:</p>
+          <table style="width:100%;border-collapse:collapse;margin:12px 0;">
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Previous</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;text-decoration:line-through;color:#9ca3af;">${oldDate} ${oldTime}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">New</td><td style="padding:8px 0;font-weight:700;color:${accent};">${newDate} ${newTime}</td></tr>
+          </table>
+          <p style="font-size:13px;color:#6b7280;">If this doesn't work for you, <a href="${BASE_URL}/book/${slug}" style="color:${accent};">rebook here</a>.</p></div>`,
+          `Appointment rescheduled to ${newDate} ${newTime}`).catch(()=>{});
+      }
+      return{success:true};
+    },
+
+    markNoShow:(id)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const idx=(db.appointments||[]).findIndex(a=>a.id===id);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.appointments[idx].status='no-show';db.appointments[idx].noShowAt=nowIST();db.appointments[idx].noShowBy=su.email;
+      wDB(db);return{success:true};
+    },
+
+    exportAppointments:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const apts=db.appointments||[];
+      const rows=[['ID','Customer Name','Email','Phone','Date','Time','Topic','Status','Service','Staff','Created At','Ticket ID']];
+      apts.forEach(a=>rows.push([a.id,a.customerName||'',a.customerEmail||'',a.customerPhone||'',a.date||'',a.time||'',a.topic||'',a.status||'',(a.service||''),(a.staff||''),a.createdAt||'',a.ticketId||'']));
+      const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+      return{success:true,csv,filename:`appointments-${slug}-${nowIST().substring(0,10)}.csv`};
+    },
+
+    getAvailableSlots:(date,staffName)=>{
+      const db=rDB();const cfg=db.bookingConfig||{};
+      if(!cfg.enabled)return{slots:[],message:'Booking disabled'};
+      if(!date)return{slots:[],message:'No date provided'};
+      const d=new Date(date+'T12:00:00');
+      const dayName=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][d.getDay()];
+      let wh,duration=parseInt(cfg.slotDuration||30),buffer=parseInt(cfg.buffer||15);
+      // Staff-specific hours
+      if(staffName&&cfg.staff&&cfg.staff.length){
+        const staffMember=(cfg.staff||[]).find(s=>s.name===staffName);
+        if(staffMember&&staffMember.hours&&staffMember.hours[dayName]){
+          wh=staffMember.hours[dayName];
+          if(staffMember.slotDuration)duration=parseInt(staffMember.slotDuration);
+        }
+      }
+      if(!wh){
+        const defaultByDay={sunday:{enabled:false},monday:{enabled:true,start:'09:00',end:'18:00'},tuesday:{enabled:true,start:'09:00',end:'18:00'},wednesday:{enabled:true,start:'09:00',end:'18:00'},thursday:{enabled:true,start:'09:00',end:'18:00'},friday:{enabled:true,start:'09:00',end:'18:00'},saturday:{enabled:true,start:'09:00',end:'13:00'}};
+        wh=(cfg.workingHours||{})[dayName]||defaultByDay[dayName]||{start:'09:00',end:'18:00',enabled:true};
+      }
+      if(!wh.enabled)return{slots:[],message:'Not available on this day'};
+      // Min notice
+      const minNotice=parseInt(cfg.minNoticeHours||0);
+      const nowMs=Date.now();
+      const slots=[];
+      const[sh,sm]=wh.start.split(':').map(Number);
+      const[eh,em]=wh.end.split(':').map(Number);
+      let cur=sh*60+sm;const end=eh*60+em;
+      while(cur+duration<=end){
+        const h=Math.floor(cur/60);const m=cur%60;
+        const timeStr=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+        const slotMs=new Date(date+'T'+timeStr+':00').getTime();
+        if(minNotice&&slotMs-nowMs<minNotice*3600000){cur+=duration+buffer;continue;}
+        const taken=(db.appointments||[]).some(a=>a.date===date&&a.time===timeStr&&(!staffName||a.staff===staffName)&&a.status!=='cancelled');
+        const label=(h>12?h-12:h||12)+':'+(String(m).padStart(2,'0'))+' '+(h>=12?'PM':'AM');
+        slots.push({time:timeStr,label,taken});
+        cur+=duration+buffer;
+      }
+      return{slots,date,dayName};
     },
     getAgentCalendar:(agentEmail,month)=>{
       const db=rDB();
@@ -4884,84 +4979,278 @@ app.get('/book/:slug',(req,res)=>{
   const{slug}=req.params;
   const db=readBrandDB(slug);
   const cfg=db.bookingConfig||{};
-  if(!cfg.enabled)return res.send('<html><body style="font-family:Arial;padding:40px;text-align:center;"><h2>Booking unavailable</h2><p>Appointment booking is currently disabled.</p></body></html>');
+  if(!cfg.enabled)return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Booking Unavailable</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f9fafb;font-family:-apple-system,Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}</style></head><body><div style="text-align:center;max-width:400px;"><div style="font-size:52px;margin-bottom:16px;">📅</div><h2 style="font-size:22px;color:#111827;margin-bottom:8px;">Booking Unavailable</h2><p style="color:#6b7280;font-size:15px;">Appointment booking is currently disabled. Please contact us directly.</p></div></body></html>`);
   const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
   const accent=brand.accentColor||'#10B981';
+  const accentDark=accent.replace('#','');
   const brandName=brand.name||'Support';
-  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book Appointment — ${brandName}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f0f2f5;font-family:-apple-system,Arial,sans-serif;padding:20px;}
-.card{max-width:520px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);overflow:hidden;}
-.hdr{background:${accent};padding:28px;text-align:center;color:#fff;}
-.hdr h1{font-size:22px;font-weight:800;margin-bottom:6px;}
-.body{padding:28px;}
-.fg{margin-bottom:16px;}label{font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;}
-input,select,textarea{width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;}
-input:focus,select:focus,textarea:focus{border-color:${accent};}
-.btn{width:100%;padding:14px;background:${accent};color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
-.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;}
-.slot{padding:8px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-size:13px;cursor:pointer;transition:all .15s;}
-.slot:hover,.slot.selected{border-color:${accent};background:${accent}18;color:${accent};font-weight:700;}
-.slot.taken{opacity:.4;cursor:not-allowed;text-decoration:line-through;}
-#success{display:none;text-align:center;padding:40px 28px;}
+  const services=cfg.services||[];
+  const staff=cfg.staff||[];
+  const hasServices=services.length>0;
+  const hasStaff=staff.length>0;
+  const topicLabel={doctor:'Chief Complaint / Symptoms',lawyer:'Case Type & Matter',salon:'Service Requested',consultant:'Topic / Agenda'}[cfg.serviceType||'general']||'Reason for Appointment';
+  const topicPlaceholder={doctor:'Briefly describe your symptoms or reason for visit',lawyer:'e.g. Property dispute, divorce, contract review',salon:'e.g. Haircut, Facial, Manicure',consultant:'What would you like to discuss?'}[cfg.serviceType||'general']||'What would you like to discuss?';
+  const today=nowIST().split('T')[0];
+  const maxDate=cfg.advanceBookingDays?new Date(Date.now()+parseInt(cfg.advanceBookingDays)*86400000).toISOString().split('T')[0]:'';
+
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Book Appointment — ${brandName}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--accent:${accent};--accent-light:${accent}18;--accent-border:${accent}40;}
+body{background:linear-gradient(135deg,#f0f4ff 0%,#faf9ff 100%);font-family:'Inter',sans-serif;min-height:100vh;padding:20px 16px 60px;}
+.wrap{max-width:560px;margin:0 auto;}
+.brand-bar{text-align:center;padding:32px 0 24px;}
+.brand-bar .logo{width:52px;height:52px;background:var(--accent);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;box-shadow:0 4px 16px var(--accent-border);}
+.brand-bar h1{font-size:22px;font-weight:800;color:#111827;margin-bottom:4px;}
+.brand-bar p{font-size:14px;color:#6b7280;}
+.card{background:#fff;border-radius:20px;box-shadow:0 4px 32px rgba(0,0,0,.08);overflow:hidden;}
+.step{padding:28px;}
+.step-title{font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.step-desc{font-size:15px;font-weight:700;color:#111827;margin-bottom:20px;}
+.fg{margin-bottom:16px;}
+.fg label{font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;}
+.fg input,.fg select,.fg textarea{width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s,box-shadow .15s;color:#111827;background:#fff;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.service-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px;}
+.service-card{border:1.5px solid #e5e7eb;border-radius:12px;padding:14px;cursor:pointer;transition:all .15s;text-align:left;}
+.service-card:hover{border-color:var(--accent);background:var(--accent-light);}
+.service-card.selected{border-color:var(--accent);background:var(--accent-light);}
+.service-card .svc-name{font-size:13px;font-weight:700;color:#111827;margin-bottom:4px;}
+.service-card .svc-meta{font-size:11px;color:#6b7280;}
+.staff-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px;}
+.staff-card{border:1.5px solid #e5e7eb;border-radius:12px;padding:14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;}
+.staff-card:hover{border-color:var(--accent);background:var(--accent-light);}
+.staff-card.selected{border-color:var(--accent);background:var(--accent-light);}
+.staff-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
+.staff-name{font-size:13px;font-weight:700;color:#111827;}
+.staff-role{font-size:11px;color:#6b7280;}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
+.slot{padding:9px 4px;border:1.5px solid #e5e7eb;border-radius:9px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;color:#374151;}
+.slot:hover:not(.taken){border-color:var(--accent);background:var(--accent-light);color:var(--accent);}
+.slot.selected{border-color:var(--accent);background:var(--accent);color:#fff;}
+.slot.taken{opacity:.35;cursor:not-allowed;text-decoration:line-through;font-weight:400;}
+.btn{width:100%;padding:15px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn:hover{opacity:.92;}
+.btn:disabled{opacity:.6;cursor:not-allowed;}
+.btn-outline{background:#fff;color:var(--accent);border:1.5px solid var(--accent);margin-bottom:10px;}
+#bk_err{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:13px;color:#dc2626;margin-bottom:12px;display:none;}
+.divider{height:1px;background:#f3f4f6;margin:0;}
+.progress-bar{height:3px;background:var(--accent-light);}
+.progress-fill{height:100%;background:var(--accent);transition:width .3s ease;}
+#success{display:none;padding:48px 28px;text-align:center;}
+.success-icon{width:72px;height:72px;background:#d1fae5;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:20px;}
+.confirm-box{background:#f9fafb;border-radius:12px;padding:16px;text-align:left;margin:20px 0;}
+.confirm-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;}
+.confirm-row:last-child{border:none;}
+.confirm-label{color:#6b7280;}
+.confirm-val{font-weight:700;color:#111827;}
+@media(max-width:480px){.slots{grid-template-columns:repeat(3,1fr);}.service-grid,.staff-grid{grid-template-columns:1fr;}.row2{grid-template-columns:1fr;}}
 </style></head><body>
-<div class="card">
-  <div class="hdr"><div style="font-size:32px;margin-bottom:8px;">📅</div><h1>${brandName}</h1><p style="opacity:.85;font-size:14px;">${cfg.title||'Book an Appointment'}</p></div>
-  <div class="body" id="bookForm">
-    <div class="fg"><label>Your Name *</label><input id="bk_name" placeholder="Full name"></div>
-    <div class="fg"><label>Email *</label><input id="bk_email" type="email" placeholder="your@email.com"></div>
-    <div class="fg"><label>Phone</label><input id="bk_phone" placeholder="+91 ..."></div>
-    ${cfg.serviceType==='salon'?`<div class="fg"><label>Service Requested *</label><${cfg.serviceMenu&&cfg.serviceMenu.length?'select id="bk_topic">'+ cfg.serviceMenu.map(s=>`<option>${s}</option>`).join('')+'</select>':'textarea id="bk_topic" rows="2" placeholder="e.g. Haircut, Facial, Manicure"></'+(cfg.serviceMenu&&cfg.serviceMenu.length?'select':'textarea')+'>'}}</div>`:
-      cfg.serviceType==='doctor'?`<div class="fg"><label>Chief Complaint / Symptoms *</label><textarea id="bk_topic" rows="2" placeholder="Briefly describe your symptoms or reason for visit"></textarea></div>`:
-      cfg.serviceType==='lawyer'?`<div class="fg"><label>Case Type & Matter *</label><textarea id="bk_topic" rows="2" placeholder="e.g. Property dispute, divorce, contract review"></textarea></div>`:
-      `<div class="fg"><label>Topic / Reason *</label><textarea id="bk_topic" rows="2" placeholder="What would you like to discuss?"></textarea></div>`}
-    <div class="fg"><label>Select Date</label><input id="bk_date" type="date" oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" min="${nowIST().split('T')[0]}"></div>
-    <div class="fg"><label>Select Time Slot</label><div class="slots" id="slotsGrid"><p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Pick a date first</p></div></div>
-    <div id="bk_err" style="color:#ef4444;font-size:12px;margin-bottom:8px;display:none;"></div>
-    <button class="btn" id="bk_btn" onclick="submitBooking()">📅 Confirm Appointment</button>
+<div class="wrap">
+  <div class="brand-bar">
+    <div class="logo">📅</div>
+    <h1>${brandName}</h1>
+    <p>${cfg.title||'Book an Appointment'}</p>
   </div>
-  <div id="success"><div style="font-size:52px;margin-bottom:16px;">✅</div><h2 style="color:#111827;margin-bottom:8px;">Appointment Booked!</h2><p style="color:#6b7280;" id="successMsg">We'll send a confirmation to your email.</p></div>
+  <div class="card">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:25%"></div></div>
+    <div id="bookForm">
+      <!-- STEP 1: Personal Info -->
+      <div class="step" id="step1">
+        <div class="step-title">Step 1 of ${hasServices||hasStaff?4:3}</div>
+        <div class="step-desc">Your Details</div>
+        <div class="fg"><label>Full Name *</label><input id="bk_name" placeholder="e.g. Priya Sharma" autocomplete="name"></div>
+        <div class="row2">
+          <div class="fg"><label>Email *</label><input id="bk_email" type="email" placeholder="you@email.com" autocomplete="email"></div>
+          <div class="fg"><label>Phone ${cfg.requirePhone?'*':''}</label><input id="bk_phone" placeholder="+91 98765 43210" autocomplete="tel"></div>
+        </div>
+        <div class="fg"><label>${topicLabel} *</label><textarea id="bk_topic" rows="3" placeholder="${topicPlaceholder}"></textarea></div>
+        <div id="bk_err"></div>
+        <button class="btn" onclick="goStep(2)">Continue →</button>
+      </div>
+
+      ${hasServices?`
+      <!-- STEP 2: Service Selection -->
+      <div class="step" id="step2" style="display:none">
+        <div class="step-title">Step 2 of ${hasStaff?4:3}</div>
+        <div class="step-desc">Choose a Service</div>
+        <div class="service-grid">
+          ${services.map((s,i)=>`<div class="service-card" data-idx="${i}" data-name="${s.name||s}" data-duration="${s.duration||cfg.slotDuration||30}" onclick="selectService(this)">
+            <div class="svc-name">${s.name||s}</div>
+            <div class="svc-meta">${s.duration?s.duration+' min':''} ${s.price?'· ₹'+s.price:''}</div>
+          </div>`).join('')}
+        </div>
+        <div id="bk_err2" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:13px;color:#dc2626;margin:12px 0;display:none;"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+          <button class="btn" onclick="goStep(${hasStaff?3:3})">Continue →</button>
+        </div>
+      </div>`:''}
+
+      ${hasStaff?`
+      <!-- STEP ${hasServices?3:2}: Staff Selection -->
+      <div class="step" id="step${hasServices?3:2}" style="display:none">
+        <div class="step-title">Step ${hasServices?3:2} of ${hasServices?4:3}</div>
+        <div class="step-desc">Choose Your ${cfg.serviceType==='doctor'?'Doctor':cfg.serviceType==='lawyer'?'Lawyer':'Staff Member'}</div>
+        <div class="staff-grid">
+          <div class="staff-card" data-name="" onclick="selectStaff(this)">
+            <div class="staff-avatar" style="background:#6b7280;">?</div>
+            <div><div class="staff-name">No Preference</div><div class="staff-role">Any available</div></div>
+          </div>
+          ${staff.map(s=>`<div class="staff-card" data-name="${s.name}" onclick="selectStaff(this)">
+            <div class="staff-avatar">${s.name.charAt(0).toUpperCase()}</div>
+            <div><div class="staff-name">${s.name}</div><div class="staff-role">${s.role||''}</div></div>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button class="btn btn-outline" onclick="goStep(${hasServices?2:1})">← Back</button>
+          <button class="btn" onclick="goStep(${hasServices?4:3})">Continue →</button>
+        </div>
+      </div>`:''}
+
+      <!-- STEP LAST-1: Pick Date & Time -->
+      <div class="step" id="step${hasServices&&hasStaff?4:hasServices||hasStaff?3:2}" style="display:none">
+        <div class="step-title">Step ${hasServices&&hasStaff?4:hasServices||hasStaff?3:2} of ${hasServices&&hasStaff?4:hasServices||hasStaff?3:3}</div>
+        <div class="step-desc">Pick Date & Time</div>
+        <div class="fg"><label>Select Date *</label>
+          <input id="bk_date" type="date" min="${today}" ${maxDate?`max="${maxDate}"`:''}
+            oninput="loadSlots(this.value)" onchange="loadSlots(this.value)" style="font-size:15px;padding:12px 14px;">
+        </div>
+        <div class="fg"><label>Available Slots</label>
+          <div class="slots" id="slotsGrid"><div style="grid-column:span 4;padding:20px;text-align:center;color:#9ca3af;font-size:13px;">← Pick a date first</div></div>
+        </div>
+        <div id="bk_err3" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:13px;color:#dc2626;margin-bottom:12px;display:none;"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-outline" onclick="goStep(${hasServices&&hasStaff?3:hasServices||hasStaff?2:1})">← Back</button>
+          <button class="btn" onclick="submitBooking()">📅 Confirm Appointment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div id="success">
+      <div class="success-icon">✅</div>
+      <h2 style="font-size:22px;font-weight:800;color:#111827;margin-bottom:8px;">Appointment Booked!</h2>
+      <p style="color:#6b7280;font-size:14px;" id="successSubtitle">Confirmation sent to your email.</p>
+      <div class="confirm-box" id="confirmBox"></div>
+      <p style="font-size:12px;color:#9ca3af;margin-top:8px;" id="successRef"></p>
+    </div>
+  </div>
+  <p style="text-align:center;font-size:11px;color:#d1d5db;margin-top:20px;">Powered by Resolvo</p>
 </div>
 <script>
-var selectedSlot=null;
-function showErr(msg){var e=document.getElementById('bk_err');e.textContent=msg;e.style.display='block';e.scrollIntoView({behavior:'smooth',block:'nearest'});}
-function hideErr(){document.getElementById('bk_err').style.display='none';}
+var selectedSlot=null,selectedService=null,selectedStaff=null;
+var currentStep=1;
+var totalSteps=${hasServices&&hasStaff?4:hasServices||hasStaff?3:3};
+
+function goStep(n){
+  // Validate before moving forward
+  if(n>currentStep){
+    if(currentStep===1){
+      var name=document.getElementById('bk_name').value.trim();
+      var email=document.getElementById('bk_email').value.trim();
+      var topic=document.getElementById('bk_topic').value.trim();
+      var phone=document.getElementById('bk_phone').value.trim();
+      if(!name){showStepErr(1,'Please enter your full name.');return;}
+      if(!email||!email.includes('@')){showStepErr(1,'Please enter a valid email address.');return;}
+      ${cfg.requirePhone?`if(!phone){showStepErr(1,'Phone number is required.');return;}`:''}
+      if(!topic){showStepErr(1,'Please fill in the ${topicLabel.toLowerCase()} field.');return;}
+    }
+    ${hasServices?`if(currentStep===2&&!selectedService){showStepErr(2,'Please select a service.');return;}`:''}
+  }
+  currentStep=n;
+  document.querySelectorAll('[id^="step"]').forEach(function(el){el.style.display='none';});
+  var el=document.getElementById('step'+n);
+  if(el)el.style.display='block';
+  document.getElementById('progressFill').style.width=Math.round((n/totalSteps)*100)+'%';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function showStepErr(step,msg){
+  var ids={1:'bk_err',2:'bk_err2',3:'bk_err3',4:'bk_err3'};
+  var el=document.getElementById(ids[step]||'bk_err');
+  if(el){el.textContent=msg;el.style.display='block';}
+}
+function clearErrs(){['bk_err','bk_err2','bk_err3'].forEach(function(id){var e=document.getElementById(id);if(e){e.style.display='none';}});}
+function selectService(el){
+  document.querySelectorAll('.service-card').forEach(function(c){c.classList.remove('selected');});
+  el.classList.add('selected');
+  selectedService={name:el.dataset.name,duration:parseInt(el.dataset.duration||30)};
+  clearErrs();
+}
+function selectStaff(el){
+  document.querySelectorAll('.staff-card').forEach(function(c){c.classList.remove('selected');});
+  el.classList.add('selected');
+  selectedStaff=el.dataset.name||'';
+  // Reload slots if date already selected
+  var date=document.getElementById('bk_date');
+  if(date&&date.value)loadSlots(date.value);
+  clearErrs();
+}
 function loadSlots(date){
   var g=document.getElementById('slotsGrid');
-  g.innerHTML='<p style="color:#9ca3af;font-size:13px;grid-column:span 3;">Loading slots...</p>';
+  g.innerHTML='<div style="grid-column:span 4;padding:20px;text-align:center;color:#9ca3af;font-size:13px;">Loading slots...</div>';
   selectedSlot=null;
-  fetch('/book/${slug}/slots?date='+date).then(function(r){return r.json();}).then(function(data){
+  var staffParam=selectedStaff?'&staff='+encodeURIComponent(selectedStaff):'';
+  fetch('/book/${slug}/slots?date='+date+staffParam).then(function(r){return r.json();}).then(function(data){
     if(!data.slots||!data.slots.length){
-      var msg=data.message||'No slots available on this day. Try another date.';
-      g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">'+msg+'</p>';
+      g.innerHTML='<div style="grid-column:span 4;padding:20px;text-align:center;color:#ef4444;font-size:13px;">'+(data.message||'No slots available. Try another date.')+'</div>';
       return;
     }
     g.innerHTML=data.slots.map(function(s){
       var cls='slot'+(s.taken?' taken':'');
-      var attr=s.taken?'':'data-time="'+s.time+'" onclick="selectSlot(this)"';
-      return '<div class="'+cls+'" '+attr+'>'+s.label+'</div>';
+      return '<div class="'+cls+'"'+(s.taken?'':' onclick="selectSlot(this)" data-time="'+s.time+'"')+'>'+s.label+'</div>';
     }).join('');
-  }).catch(function(){g.innerHTML='<p style="color:#ef4444;font-size:13px;grid-column:span 3;">Failed to load slots. Please refresh.</p>';});
+  }).catch(function(){g.innerHTML='<div style="grid-column:span 4;padding:20px;text-align:center;color:#ef4444;font-size:13px;">Failed to load slots. Please refresh.</div>';});
 }
-function selectSlot(el){selectedSlot=el.getAttribute('data-time');document.querySelectorAll('.slot').forEach(function(s){s.classList.remove('selected');});el.classList.add('selected');hideErr();}
+function selectSlot(el){
+  selectedSlot=el.dataset.time;
+  document.querySelectorAll('.slot').forEach(function(s){s.classList.remove('selected');});
+  el.classList.add('selected');
+  clearErrs();
+}
 function submitBooking(){
-  var name=document.getElementById('bk_name').value.trim();
-  var email=document.getElementById('bk_email').value.trim();
-  var topic=document.getElementById('bk_topic').value.trim();
   var date=document.getElementById('bk_date').value;
-  var btn=document.getElementById('bk_btn');
-  if(!name){showErr('Please enter your name.');return;}
-  if(!email||!email.includes('@')){showErr('Please enter a valid email address.');return;}
-  if(!topic){showErr('Please describe the topic or reason for your appointment.');return;}
-  if(!date){showErr('Please select a date.');return;}
-  if(!selectedSlot){showErr('Please select a time slot from the grid above.');return;}
-  hideErr();
-  btn.textContent='Booking…';btn.disabled=true;
-  fetch('/book/${slug}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,phone:document.getElementById('bk_phone').value,topic,date,time:selectedSlot})})
-  .then(r=>r.json()).then(d=>{
-    if(d.success){document.getElementById('bookForm').style.display='none';document.getElementById('success').style.display='block';document.getElementById('successMsg').textContent='Confirmation sent to '+email+'. Ref: '+d.appointmentId;}
-    else{showErr(d.error||'Booking failed. Please try again.');btn.textContent='📅 Confirm Appointment';btn.disabled=false;}
-  }).catch(()=>{showErr('Network error. Please check your connection and try again.');btn.textContent='📅 Confirm Appointment';btn.disabled=false;});
+  var btn=event.target;
+  if(!date){showStepErr(totalSteps,'Please select a date.');return;}
+  if(!selectedSlot){showStepErr(totalSteps,'Please select a time slot.');return;}
+  clearErrs();
+  btn.disabled=true;btn.innerHTML='<span style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px;">⏳</span> Booking...';
+  var payload={
+    name:document.getElementById('bk_name').value.trim(),
+    email:document.getElementById('bk_email').value.trim(),
+    phone:document.getElementById('bk_phone').value.trim(),
+    topic:document.getElementById('bk_topic').value.trim(),
+    date:date,time:selectedSlot,
+    service:selectedService?selectedService.name:'',
+    staff:selectedStaff||''
+  };
+  fetch('/book/${slug}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.success){
+      document.getElementById('bookForm').style.display='none';
+      document.getElementById('success').style.display='block';
+      document.getElementById('successSubtitle').textContent='Confirmation sent to '+payload.email;
+      document.getElementById('successRef').textContent='Ref: '+d.appointmentId;
+      var rows=[['Date',payload.date],['Time',(function(t){var p=t.split(':');var h=+p[0];return(h>12?h-12:h||12)+':'+p[1]+' '+(h>=12?'PM':'AM');})(payload.time)]];
+      if(selectedService)rows.push(['Service',selectedService.name]);
+      if(selectedStaff)rows.push(['With',selectedStaff]);
+      rows.push(['Topic',payload.topic]);
+      document.getElementById('confirmBox').innerHTML=rows.map(function(r){return'<div class="confirm-row"><span class="confirm-label">'+r[0]+'</span><span class="confirm-val">'+r[1]+'</span></div>';}).join('');
+      document.getElementById('progressFill').style.width='100%';
+    } else {
+      showStepErr(totalSteps,d.error||'Booking failed. Please try again.');
+      btn.disabled=false;btn.innerHTML='📅 Confirm Appointment';
+    }
+  }).catch(function(){
+    showStepErr(totalSteps,'Network error. Please check your connection.');
+    btn.disabled=false;btn.innerHTML='📅 Confirm Appointment';
+  });
 }
+</style>
+<style>@keyframes spin{to{transform:rotate(360deg);}}</style>
 </script></body></html>`);
 });
 
@@ -6485,7 +6774,51 @@ function runBackgroundJobs(){
       }catch(e){}
     }
   });
-  console.log('[Jobs] Background jobs started (reminders, digest, follow-ups)');
+  // 24-hour advance appointment reminders — runs daily at 8am
+  cron.schedule('0 8 * * *',async()=>{
+    const owner=readOwner();
+    const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+    const tomorrowStr=tomorrow.toISOString().split('T')[0];
+    for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+      try{
+        const db=readBrandDB(brand.slug);
+        const cfg=db.bookingConfig||{};
+        if(!cfg.enabled)continue;
+        const toRemind=(db.appointments||[]).filter(a=>a.date===tomorrowStr&&a.status==='confirmed'&&!a.reminder24Sent&&a.customerEmail);
+        for(const apt of toRemind){
+          const idx=(db.appointments||[]).findIndex(x=>x.id===apt.id);
+          const fmtT=t=>{const p=t.split(':');const h=+p[0];return(h>12?h-12:h||12)+':'+p[1]+' '+(h>=12?'PM':'AM');};
+          await sendBrandEmail(brand.slug,apt.customerEmail,`📅 Appointment Tomorrow — ${brand.name}`,
+            `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+            <div style="background:${brand.accentColor||'#10B981'};padding:24px;border-radius:12px 12px 0 0;text-align:center;color:#fff;">
+              <div style="font-size:36px;margin-bottom:8px;">📅</div>
+              <h2 style="margin:0;font-size:20px;">Appointment Reminder</h2>
+            </div>
+            <div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
+              <p style="font-size:15px;color:#374151;">Hi <strong>${apt.customerName}</strong>,</p>
+              <p style="font-size:14px;color:#6b7280;">This is a reminder that you have an appointment <strong>tomorrow</strong>:</p>
+              <div style="background:#f9fafb;border-radius:8px;padding:16px;margin:16px 0;">
+                <table style="width:100%;font-size:14px;"><tbody>
+                  <tr><td style="color:#6b7280;padding:4px 0;">Date</td><td style="font-weight:700;color:#111827;">${apt.date}</td></tr>
+                  <tr><td style="color:#6b7280;padding:4px 0;">Time</td><td style="font-weight:700;color:#111827;">${fmtT(apt.time)}</td></tr>
+                  ${apt.topic?`<tr><td style="color:#6b7280;padding:4px 0;">Topic</td><td style="color:#111827;">${apt.topic}</td></tr>`:''}
+                  ${apt.service?`<tr><td style="color:#6b7280;padding:4px 0;">Service</td><td style="color:#111827;">${apt.service}</td></tr>`:''}
+                  ${apt.staff?`<tr><td style="color:#6b7280;padding:4px 0;">With</td><td style="color:#111827;">${apt.staff}</td></tr>`:''}
+                </tbody></table>
+              </div>
+              <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:12px;margin-top:16px;">
+                This reminder was sent by ${brand.name}. Reply to this email if you have questions.
+              </p>
+            </div></div>`,
+            `Reminder: Your appointment at ${apt.time} tomorrow (${apt.date})`).catch(e=>console.error('[24hReminder] Email err:',e.message));
+          if(idx>=0){db.appointments[idx].reminder24Sent=true;}
+          console.log(`[24hReminder] Sent to ${apt.customerEmail} for ${tomorrowStr} (${brand.slug})`);
+        }
+        if(toRemind.length>0)writeBrandDB(brand.slug,db);
+      }catch(e){console.error('[24hReminder] Error:',brand.slug,e.message);}
+    }
+  });
+  console.log('[Jobs] Background jobs started (reminders, digest, follow-ups, 24h-apt-reminders)');
 }
 
 // ── Auto-deploy webhook (GitHub Actions → VPS curl) ──────────────────────────
