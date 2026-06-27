@@ -22103,26 +22103,64 @@ const App = {
     var self = this;
     self.setPage('Audit Trail', 'Admin / Audit Trail');
     var area = document.getElementById('contentArea');
-    area.innerHTML = '<div class="empty-state"><p>Loading audit log...</p></div>';
+    // skeleton
+    area.innerHTML = '<div style="max-width:800px;">' + [1,2,3,4,5].map(function(){
+      return '<div style="display:flex;gap:14px;margin-bottom:18px;"><div class="nova-skeleton" style="width:32px;height:32px;border-radius:50%;flex-shrink:0;"></div><div style="flex:1;"><div class="nova-skeleton" style="height:13px;width:55%;margin-bottom:6px;border-radius:4px;"></div><div class="nova-skeleton" style="height:11px;width:30%;border-radius:4px;"></div></div></div>';
+    }).join('') + '</div>';
     var r = await self.callAsync('getAuditTrail', {});
-    if (!r || !r.success) { self.showPageError(area, r && r.error ? r.error : 'getAuditTrail failed. Admin role required. Redeploy Code.gs if needed.'); return; }
+    if (!r || !r.success) { self.showPageError(area, r && r.error ? r.error : 'getAuditTrail failed. Admin role required.'); return; }
     var logs = r.logs || [];
-        var html = '<div style="max-width:900px"><div class="card">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><span class="card-title">Full Audit Trail</span>';
-    html += '<span style="font-size:11px;font-family:var(--font-mono);color:var(--text-dim);">' + logs.length + ' entries</span></div>';
+    // action → icon + color
+    var actionMeta = function(action) {
+      var a = (action||'').toLowerCase();
+      if (a.includes('creat') || a.includes('add'))    return { icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>', color: 'var(--low)', bg: 'var(--low-dim)' };
+      if (a.includes('delet') || a.includes('remov'))  return { icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>', color: 'var(--critical)', bg: 'var(--critical-dim)' };
+      if (a.includes('status') || a.includes('mov'))   return { icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>', color: 'var(--accent)', bg: 'var(--accent-dim)' };
+      if (a.includes('login') || a.includes('auth'))   return { icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>', color: '#6366F1', bg: 'rgba(99,102,241,.12)' };
+      if (a.includes('assign'))                        return { icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>', color: '#F59E0B', bg: 'rgba(245,158,11,.12)' };
+      return { icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>', color: 'var(--text-dim)', bg: 'var(--bg-elevated)' };
+    };
+    // group by date
+    var groups = {};
+    logs.slice(0, 200).forEach(function(l) {
+      var d = l.timestamp ? new Date(l.timestamp).toDateString() : 'Unknown';
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(l);
+    });
+    var html = '<div style="max-width:800px;">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">';
+    html += '<div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);">' + logs.length + ' entries</div>';
+    html += '<input class="search-input" placeholder="Filter by user or action…" style="width:220px;" oninput="(function(v){document.querySelectorAll(\'.audit-row\').forEach(function(r){r.style.display=r.dataset.s.includes(v.toLowerCase())?\'flex\':\'none\'});})(this.value)">';
+    html += '</div>';
     if (logs.length === 0) {
-      html += '<p style="font-size:12px;color:var(--text-muted);">No audit entries yet.</p>';
+      html += self._es('<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>', 'No audit entries yet', 'Actions taken in the system will appear here.', '', '');
     } else {
-      logs.slice(0,100).forEach(function(l) {
-        html += '<div class="ai-query-row">';
-        html += '<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);width:90px;flex-shrink:0;">' + self._esc(l.issueId||'SYSTEM') + '</span>';
-        html += '<span style="flex:1;color:var(--text-secondary);font-size:12px;">' + self._esc(l.action||'') + '</span>';
-        html += '<span style="color:var(--text-dim);font-size:11px;font-family:var(--font-mono);">' + self._esc(l.user||'') + '</span>';
-        html += '<span style="color:var(--text-dim);font-size:10px;font-family:var(--font-mono);margin-left:10px;flex-shrink:0;">' + (l.timestamp ? new Date(l.timestamp).toLocaleString() : '') + '</span>';
+      Object.keys(groups).forEach(function(date) {
+        html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:10px;padding-top:4px;">' + date + '</div>';
+        html += '<div style="position:relative;margin-bottom:20px;">';
+        html += '<div style="position:absolute;left:15px;top:0;bottom:0;width:1px;background:var(--border);"></div>';
+        groups[date].forEach(function(l) {
+          var m = actionMeta(l.action);
+          var actor = (l.user || 'System').split('@')[0];
+          var initial = actor.charAt(0).toUpperCase();
+          var searchStr = (l.action + ' ' + l.user + ' ' + l.issueId).toLowerCase();
+          html += '<div class="audit-row" data-s="' + self._esc(searchStr) + '" style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;padding-left:4px;">';
+          html += '<div style="width:24px;height:24px;border-radius:50%;background:' + m.bg + ';border:1.5px solid ' + m.color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;color:' + m.color + ';position:relative;z-index:1;">' + m.icon + '</div>';
+          html += '<div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;">';
+          html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+          html += '<div style="width:20px;height:20px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-secondary);">' + initial + '</div>';
+          html += '<span style="font-size:12px;font-weight:600;color:var(--text-primary);">' + self._esc(actor) + '</span>';
+          html += '<span style="font-size:12px;color:var(--text-secondary);">' + self._esc(l.action || '') + '</span>';
+          if (l.issueId) html += '<span style="font-size:10px;font-family:var(--font-mono);color:var(--accent);background:var(--accent-dim);padding:1px 6px;border-radius:4px;">' + self._esc(l.issueId) + '</span>';
+          html += '<span style="margin-left:auto;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap;">' + (l.timestamp ? new Date(l.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '') + '</span>';
+          html += '</div>';
+          if (l.detail) html += '<div style="font-size:11px;color:var(--text-dim);margin-top:4px;padding-top:4px;border-top:1px solid var(--border);">' + self._esc(l.detail) + '</div>';
+          html += '</div></div>';
+        });
         html += '</div>';
       });
     }
-    html += '</div></div>';
+    html += '</div>';
     area.innerHTML = html;
   },
 
