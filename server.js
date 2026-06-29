@@ -6854,6 +6854,11 @@ app.post('/deploy-webhook',express.json(),(req,res)=>{
     `curl -sf -o ${dir}/public/pitch.html ${base}/public/pitch.html`,
     `curl -sf -o ${dir}/public/signup.html ${base}/public/signup.html`,
     `curl -sf -o ${dir}/public/portal.html ${base}/public/portal.html`,
+    `curl -sf -o ${dir}/public/demo.html ${base}/public/demo.html`,
+    `curl -sf -o ${dir}/public/about.html ${base}/public/about.html`,
+    `curl -sf -o ${dir}/public/contact.html ${base}/public/contact.html`,
+    `curl -sf -o ${dir}/public/privacy.html ${base}/public/privacy.html`,
+    `curl -sf -o ${dir}/public/pro-signup.html ${base}/public/pro-signup.html`,
     `cd ${dir} && npm install --production`
   ].join(' && ');
   exec(deployCmd,(err,stdout,stderr)=>{
