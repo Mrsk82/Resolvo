@@ -6106,15 +6106,23 @@ function startEmailPoller(slug) {
       });
     });
 
-    imap.once('error', (err) => {
-      console.error(`[EmailIDLE] Error for ${slug}:`, err.message);
-      recordPollerFailure(slug, err.message);
+    let reconnScheduled = false;
+    function onDrop(reason) {
+      if (stopped || reconnScheduled) return;
+      reconnScheduled = true;
+      // ECONNRESET / socket-ended are normal Gmail IMAP drops — not real failures
+      const transient = /ECONNRESET|EPIPE|ended by the other party|socket hang up|ETIMEDOUT/i.test(reason);
+      if (transient) {
+        console.log(`[EmailIDLE] Transient drop for ${slug} (${reason}) — reconnecting`);
+      } else {
+        console.error(`[EmailIDLE] Error for ${slug}:`, reason);
+        recordPollerFailure(slug, reason);
+      }
       scheduleReconnect();
-    });
+    }
 
-    imap.once('end', () => {
-      if (!stopped) { console.log(`[EmailIDLE] Connection ended for ${slug} — will reconnect`); scheduleReconnect(); }
-    });
+    imap.once('error', (err) => onDrop(err.message));
+    imap.once('end', () => { if (!stopped) onDrop('connection ended'); });
 
     imap.connect();
   }
