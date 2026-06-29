@@ -15006,10 +15006,11 @@ const App = {
     if (self._lastTicketFilter !== statusFilter+channelFilter) { self._ticketLimit = 10; self._lastTicketFilter = statusFilter+channelFilter; }
     self._ticketLimit = self._ticketLimit || 10;
     // Server-side pagination: fetch only the current page; counts come back computed over all tickets
-    var [r, cfgR, stR] = await Promise.all([
+    var [r, cfgR, stR, pollerStatusR] = await Promise.all([
       self.callAsync('getTickets', { status: statusFilter, channel: channelFilter, limit: self._ticketLimit }),
       self.callAsync('getEmailTicketingConfig'),
-      self.callAsync('getStatusConfig')
+      self.callAsync('getStatusConfig'),
+      self.currentUser.role === 'Admin' ? fetch('/api/email-ticketing/status', { headers: {'x-session-token': self.sessionToken} }).then(r=>r.json()).catch(()=>null) : Promise.resolve(null)
     ]);
     var customStatuses = (stR && stR.success && stR.statuses) ? stR.statuses.slice().sort((a,b)=>a.order-b.order) : [
       {id:'new',label:'New',color:'#7C3AED',order:1},{id:'open',label:'Open',color:'#2563EB',order:2},
@@ -15048,10 +15049,21 @@ const App = {
           ${hasCredentials?'▶ Enable Email Ticketing':'⚙ Connect Inbox'}
         </button>
       </div>` : `
-      <div style="background:var(--low-dim);border:1px solid rgba(22,163,74,.25);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:12px;color:var(--low);">⚡ <strong>Connected:</strong> Monitoring <strong>${self._esc(emailCfg.user||'')}</strong> — instant delivery (IDLE)</div>
-        <button onclick="App._pollAndRefresh()" style="background:none;border:1px solid var(--low)44;border-radius:5px;padding:4px 12px;font-size:11px;color:var(--low);cursor:pointer;">⟳ Check Now</button>
-      </div>`}
+      ${(()=>{
+        var ps = pollerStatusR && pollerStatusR.success ? pollerStatusR.status : null;
+        var pollerDown = ps && !ps.healthy && ps.failureCount >= 3;
+        var lastOk = ps && ps.lastSuccessAgo != null ? (ps.lastSuccessAgo < 60 ? ps.lastSuccessAgo+'s ago' : Math.round(ps.lastSuccessAgo/60)+'m ago') : null;
+        if (pollerDown) return `
+        <div style="background:#3b0f0f;border:1px solid #dc2626;border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="font-size:12px;color:#fca5a5;">⚠️ <strong>Inbox disconnected</strong> — Emails may be missed · ${ps.failureCount} failures · ${ps.lastError||''}</div>
+          <button onclick="App.navigate('email-ticketing')" style="background:#dc2626;color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Fix →</button>
+        </div>`;
+        return `
+        <div style="background:var(--low-dim);border:1px solid rgba(22,163,74,.25);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:12px;color:var(--low);">✓ <strong>Polling every 30s</strong> · Monitoring <strong>${self._esc(emailCfg.user||'')}</strong>${lastOk?' · last check: '+lastOk:''}</div>
+          <button onclick="App._pollAndRefresh()" style="background:none;border:1px solid var(--low)44;border-radius:5px;padding:4px 12px;font-size:11px;color:var(--low);cursor:pointer;">⟳ Check Now</button>
+        </div>`;
+      })()}`}
 
       <div style="display:flex;gap:0;height:calc(100vh - ${!isEmailEnabled?'180px':'150px'});min-height:400px;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
 
@@ -19458,11 +19470,27 @@ const App = {
     var ticketCounts = (ticketR && ticketR.success) ? ticketR.counts : {};
     var totalTickets = ticketCounts.all || 0;
 
+    // Fetch live poller health
+    var statusR = await fetch('/api/email-ticketing/status', { headers: {'x-session-token': self.sessionToken} }).then(r=>r.json()).catch(()=>({success:false}));
+    var ps = (statusR && statusR.success) ? statusR.status : null;
+    var pollerDown = cfg.enabled && ps && !ps.healthy && ps.failureCount >= 3;
+    var lastPollStr = ps && ps.lastSuccessAgo != null ? (ps.lastSuccessAgo < 60 ? ps.lastSuccessAgo+'s ago' : Math.round(ps.lastSuccessAgo/60)+'m ago') : 'never';
+
     area.innerHTML = `
       <div style="max-width:720px;">
 
+        ${pollerDown ? `
+        <div style="background:#3b0f0f;border:1px solid #dc2626;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:20px;flex-shrink:0;">⚠️</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:#fca5a5;">Inbox disconnected — emails may be missed</div>
+            <div style="font-size:12px;color:#f87171;margin-top:2px;">${ps.lastError||'Connection error'} · ${ps.failureCount} consecutive failures</div>
+          </div>
+          <button onclick="App._testEmailConnection()" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Test & Fix →</button>
+        </div>` : ''}
+
         <!-- MAIN STATUS CARD -->
-        <div style="background:var(--bg-card);border:2px solid ${cfg.enabled?'var(--low)':'var(--border)'};border-radius:14px;padding:24px;margin-bottom:20px;">
+        <div style="background:var(--bg-card);border:2px solid ${pollerDown?'#dc2626':cfg.enabled?'var(--low)':'var(--border)'};border-radius:14px;padding:24px;margin-bottom:20px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
             <div style="display:flex;align-items:center;gap:14px;">
               <!-- Status dot -->
@@ -19478,7 +19506,7 @@ const App = {
                 </div>
                 <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">
                   ${cfg.enabled
-                    ? 'Polling every '+(cfg.intervalMinutes||5)+' min · inbox: <strong style="color:var(--text-secondary);">'+(cfg.user||'')+'</strong>'
+                    ? `Polling every 30s · last success: <strong style="color:var(--text-secondary);">${lastPollStr}</strong> · inbox: <strong style="color:var(--text-secondary);">${cfg.user||''}</strong>`
                     : hasCredentials
                       ? 'Inbox <strong style="color:var(--text-secondary);">'+(cfg.user||'')+'</strong> is configured but not being monitored'
                       : 'Connect a Gmail or IMAP inbox below to start receiving email tickets'}

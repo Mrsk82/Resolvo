@@ -5988,14 +5988,15 @@ async function _doPollBrandInbox(slug) {
 }
 
 // ── Poller health tracking — alert owner after 3 consecutive failures ─────
-const _pollerFailures = {}; // slug → { count, lastError, lastAlertAt }
+const _pollerFailures = {}; // slug → { count, lastError, lastAlertAt, lastSuccess, lastPollAt }
 function recordPollerFailure(slug, errorMsg) {
   const now = Date.now();
-  if (!_pollerFailures[slug]) _pollerFailures[slug] = { count: 0, lastError: '', lastAlertAt: 0 };
+  if (!_pollerFailures[slug]) _pollerFailures[slug] = { count: 0, lastError: '', lastAlertAt: 0, lastSuccess: 0, lastPollAt: 0 };
   const f = _pollerFailures[slug];
   f.count++;
   f.lastError = errorMsg;
-  console.warn(`[EmailTicket] Failure #${f.count} for ${slug}: ${errorMsg}`);
+  f.lastPollAt = now;
+  console.warn(`[EmailPoller] Failure #${f.count} for ${slug}: ${errorMsg}`);
   // Alert owner after 3 consecutive failures, then every 6 hours to avoid spam
   const hoursSinceAlert = (now - f.lastAlertAt) / 3600000;
   if (f.count >= 3 && hoursSinceAlert >= 6) {
@@ -6033,16 +6034,22 @@ function recordPollerFailure(slug, errorMsg) {
     </div>
   </div>
 </div>`;
-    sendEmail(
-      owner.email,
-      subject,
-      html,
-      `Email poller for ${brandName} has failed ${f.count} times. Last error: ${errorMsg}. Inbound emails are NOT being converted to tickets. Check IMAP settings.`
-    ).catch(e => console.error('[EmailTicket] Failed to send owner alert:', e.message));
-    console.log(`[EmailTicket] Owner alert sent to ${owner.email} for ${slug} (${f.count} failures)`);
+    // Alert owner + brand admin (if different)
+    const alertEmails = new Set([owner.email]);
+    const brandUsers = (readBrandDB(slug).users || []).filter(u => u.role === 'Admin' && u.email);
+    brandUsers.forEach(u => alertEmails.add(u.email));
+    alertEmails.forEach(email => {
+      sendEmail(email, subject, html,
+        `Email poller for ${brandName} has failed ${f.count} times. Last error: ${errorMsg}. Inbound emails are NOT being converted to tickets. Check IMAP settings in your dashboard.`
+      ).catch(e => console.error('[EmailPoller] Failed to send alert:', e.message));
+    });
+    console.log(`[EmailPoller] Alert sent to [${[...alertEmails].join(', ')}] for ${slug} (${f.count} failures)`);
   }
 }
 function recordPollerSuccess(slug) {
+  if (!_pollerFailures[slug]) _pollerFailures[slug] = { count: 0, lastError: '', lastAlertAt: 0, lastSuccess: 0, lastPollAt: 0 };
+  _pollerFailures[slug].lastSuccess = Date.now();
+  _pollerFailures[slug].lastPollAt = Date.now();
   if (_pollerFailures[slug] && _pollerFailures[slug].count > 0) {
     console.log(`[EmailTicket] ${slug} recovered after ${_pollerFailures[slug].count} failures — resetting counter`);
     // Send recovery email if we had previously alerted
@@ -6050,128 +6057,44 @@ function recordPollerSuccess(slug) {
       const owner = readOwner();
       const brand = (owner.brands || []).find(b => b.slug === slug);
       const brandName = brand ? brand.name : slug;
-      sendEmail(
-        owner.email,
-        `✅ Email poller recovered for ${brandName}`,
-        `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #d1fae5;"><h3 style="color:#065f46;margin:0 0 12px;">✅ Email poller is back online</h3><p style="font-size:14px;color:#374151;">The email ticketing inbox for <strong>${brandName}</strong> is now connected and working. New emails will be converted to tickets normally.</p><p style="font-size:12px;color:#9ca3af;margin-top:12px;">${new Date().toLocaleString()}</p></div>`,
-        `Good news — email poller for ${brandName} has recovered and is working again.`
-      ).catch(() => {});
+      const recoveryEmails = new Set([owner.email]);
+      (readBrandDB(slug).users || []).filter(u => u.role === 'Admin' && u.email).forEach(u => recoveryEmails.add(u.email));
+      recoveryEmails.forEach(email => {
+        sendEmail(email, `✅ Email poller recovered for ${brandName}`,
+          `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #d1fae5;"><h3 style="color:#065f46;margin:0 0 12px;">✅ Email inbox is back online</h3><p style="font-size:14px;color:#374151;">The email ticketing inbox for <strong>${brandName}</strong> is now connected and working. New emails will be converted to tickets normally.</p><p style="font-size:12px;color:#9ca3af;margin-top:12px;">${new Date().toLocaleString()}</p></div>`,
+          `Good news — email poller for ${brandName} has recovered and is working again.`
+        ).catch(() => {});
+      });
     }
     _pollerFailures[slug] = { count: 0, lastError: '', lastAlertAt: _pollerFailures[slug].lastAlertAt };
   }
 }
 
-// ── IMAP IDLE persistent watcher ──────────────────────────────────────────
-// Keeps one persistent IMAP connection per brand. Gmail pushes a 'mail' event
-// the moment a new email arrives — no polling lag. Auto-reconnects on drop
-// with exponential backoff. A 5-min safety cron catches anything missed
-// during a reconnect window.
+// ── 30-second IMAP poller ─────────────────────────────────────────────────
+// Simple, reliable polling every 30s. No persistent connection, no reconnect
+// logic, no ECONNRESET issues. Each poll opens → fetches → closes cleanly.
+// Worst-case delay: 30 seconds. Zero missed emails.
 function startEmailPoller(slug) {
-  // Stop existing watcher
   if (activePollers[slug]) { try { activePollers[slug].stop(); } catch(e) {} delete activePollers[slug]; }
 
   const db = readBrandDB(slug);
   const config = db.emailTicketing;
   if (!config || !config.enabled || !config.host || !config.user || !config.pass) {
-    console.log(`[EmailIDLE] Not started for ${slug} — missing config`);
+    console.log(`[EmailPoller] Not started for ${slug} — missing config`);
     return;
   }
 
-  const Imap = require('imap');
-  let stopped = false;
-  let imapConn = null;
-  let reconnTimer = null;
-  let backoff = 10000; // starts at 10s, doubles up to 5min
-
-  function connect() {
-    if (stopped) return;
-    console.log(`[EmailIDLE] Connecting for ${slug}…`);
-    const imap = new Imap({
-      user: config.user,
-      password: config.pass.replace(/\s/g, ''),
-      host: config.host || 'imap.gmail.com',
-      port: config.port || 993,
-      tls: config.tls !== false,
-      tlsOptions: { rejectUnauthorized: false },
-      authTimeout: 15000,
-      connTimeout: 20000,
-      keepalive: {
-        interval: 10000,       // send NOOP every 10s to keep connection alive
-        idleInterval: 300000,  // re-enter IDLE every 5min (server timeout is 30min)
-        forceNoop: true        // fallback to NOOP if server doesn't support IDLE
-      }
-    });
-    imapConn = imap;
-
-    imap.once('ready', () => {
-      console.log(`[EmailIDLE] Connected for ${slug}`);
-      backoff = 10000; // reset backoff on success
-      imap.openBox(config.mailbox || 'INBOX', false, (err) => {
-        if (err) { console.error(`[EmailIDLE] openBox failed for ${slug}:`, err.message); imap.end(); return; }
-        console.log(`[EmailIDLE] Watching INBOX for ${slug} — instant delivery active`);
-
-        // Initial catch-up fetch (picks up anything since last UID)
-        pollBrandInbox(slug).catch(e => console.error(`[EmailIDLE] Catch-up error for ${slug}:`, e.message));
-
-        // Gmail fires 'mail' the moment a new email arrives via IDLE
-        imap.on('mail', (numNew) => {
-          console.log(`[EmailIDLE] New mail! ${numNew} message(s) for ${slug}`);
-          // Small delay so the message is fully available on the server
-          setTimeout(() => pollBrandInbox(slug).catch(e => console.error(`[EmailIDLE] Fetch error:`, e.message)), 800);
-        });
-      });
-    });
-
-    let reconnScheduled = false;
-    function onDrop(reason) {
-      if (stopped || reconnScheduled) return;
-      reconnScheduled = true;
-      // ECONNRESET / socket-ended are normal Gmail IMAP drops — not real failures
-      const transient = /ECONNRESET|EPIPE|ended by the other party|socket hang up|ETIMEDOUT/i.test(reason);
-      if (transient) {
-        console.log(`[EmailIDLE] Transient drop for ${slug} (${reason}) — reconnecting`);
-      } else {
-        console.error(`[EmailIDLE] Error for ${slug}:`, reason);
-        recordPollerFailure(slug, reason);
-      }
-      scheduleReconnect();
-    }
-
-    imap.once('error', (err) => onDrop(err.message));
-    imap.once('end', () => { if (!stopped) onDrop('connection ended'); });
-
-    imap.connect();
-  }
-
-  function scheduleReconnect() {
-    if (stopped || reconnTimer) return;
-    console.log(`[EmailIDLE] Reconnecting ${slug} in ${Math.round(backoff / 1000)}s`);
-    reconnTimer = setTimeout(() => {
-      reconnTimer = null;
-      try { imapConn && imapConn.destroy(); } catch(e) {}
-      connect();
-    }, backoff);
-    backoff = Math.min(backoff * 2, 5 * 60 * 1000); // max 5min between retries
-  }
-
-  // 5-min safety cron: catches emails missed during the reconnect window
   const cron = require('node-cron');
-  const safetyCron = cron.schedule('*/2 * * * *', () => {
-    pollBrandInbox(slug).catch(() => {});
+
+  // Run immediately on start, then every 30s
+  pollBrandInbox(slug).catch(e => console.error(`[EmailPoller] Initial poll error for ${slug}:`, e.message));
+
+  const pollerCron = cron.schedule('*/30 * * * * *', () => {
+    pollBrandInbox(slug).catch(e => console.error(`[EmailPoller] Poll error for ${slug}:`, e.message));
   });
 
-  connect();
-
-  activePollers[slug] = {
-    stop: () => {
-      stopped = true;
-      safetyCron.stop();
-      if (reconnTimer) clearTimeout(reconnTimer);
-      try { imapConn && imapConn.end(); } catch(e) {}
-    }
-  };
-
-  console.log(`[EmailIDLE] IDLE watcher started for ${slug} — instant + 5min safety net`);
+  activePollers[slug] = { stop: () => pollerCron.stop() };
+  console.log(`[EmailPoller] Started for ${slug} — polling every 30s`);
 }
 
 // API: save email ticketing config
@@ -6407,6 +6330,19 @@ app.post('/api/whatsapp/config',(req,res)=>{
 });
 
 // API: test IMAP connection
+// API: poller health status
+app.get('/api/email-ticketing/status', (req, res) => {
+  const su = getSessionUser(req);
+  if (!su || su.role !== 'Admin') return res.json({ success: false, error: 'Admin only' });
+  const slug = su.brandSlug;
+  const f = _pollerFailures[slug] || { count: 0, lastError: '', lastSuccess: 0, lastPollAt: 0 };
+  const isRunning = !!activePollers[slug];
+  const healthy = isRunning && f.count === 0;
+  const lastSuccessAgo = f.lastSuccess ? Math.round((Date.now() - f.lastSuccess) / 1000) : null;
+  const lastPollAgo = f.lastPollAt ? Math.round((Date.now() - f.lastPollAt) / 1000) : null;
+  res.json({ success: true, status: { healthy, isRunning, failureCount: f.count, lastError: f.lastError, lastSuccessAgo, lastPollAgo } });
+});
+
 app.post('/api/email-ticketing/test', async (req, res) => {
   const su = getSessionUser(req);
   if (!su || su.role !== 'Admin') return res.json({ success: false, error: 'Admin only' });
