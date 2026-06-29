@@ -285,8 +285,27 @@ function submitForm() {
     return;
   }
 
-  document.getElementById('contact-form').style.display = 'none';
-  document.getElementById('success-msg').style.display = 'block';
+  var btn = document.querySelector('.btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  var phone = document.getElementById('phone') ? document.getElementById('phone').value.trim() : '';
+
+  fetch('/api/contact', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: fname, email: email, phone: phone, company: company, topic: reason, message: message})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    document.getElementById('contact-form').style.display = 'none';
+    document.getElementById('success-msg').style.display = 'block';
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+    alert('Something went wrong. Please email us directly at contact@resolvogroup.com');
+  });
 }
 
 document.querySelectorAll('input,select,textarea').forEach(function(el) {

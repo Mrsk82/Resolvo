@@ -4800,6 +4800,52 @@ app.get('/signup',(req,res)=>res.sendFile(path.join(__dirname,'public','signup.h
 app.get('/pro',(req,res)=>res.sendFile(path.join(__dirname,'public','pro-signup.html')));
 app.get('/about',(req,res)=>res.sendFile(path.join(__dirname,'public','about.html')));
 app.get('/contact',(req,res)=>res.sendFile(path.join(__dirname,'public','contact.html')));
+
+app.post('/api/contact',async(req,res)=>{
+  try{
+    const {name,email,phone,company,topic,message}=req.body||{};
+    if(!name||!email||!message)return res.status(400).json({error:'Missing required fields'});
+    const nm=require('nodemailer');
+    const user=process.env.EMAIL_USER||'',pass=(process.env.EMAIL_PASS||'').replace(/\s/g,'');
+    if(!user||!pass)return res.status(500).json({error:'Email not configured'});
+    const t=nm.createTransport({service:'gmail',auth:{user,pass}});
+    const html=`<!DOCTYPE html><html><body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;padding:24px 16px;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+<div style="background:#10B981;padding:20px 28px;">
+  <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em;">New Contact Form Submission</div>
+  <div style="font-size:20px;font-weight:800;color:#fff;margin-top:4px;">resolvogroup.com/contact</div>
+</div>
+<div style="padding:24px 28px;">
+  <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;">
+    <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;width:120px;">Name</td><td style="padding:8px 12px;font-size:14px;font-weight:600;">${name}</td></tr>
+    <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Email</td><td style="padding:8px 12px;font-size:14px;"><a href="mailto:${email}">${email}</a></td></tr>
+    ${phone?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Phone</td><td style="padding:8px 12px;font-size:14px;">${phone}</td></tr>`:''}
+    ${company?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Company</td><td style="padding:8px 12px;font-size:14px;">${company}</td></tr>`:''}
+    ${topic?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Topic</td><td style="padding:8px 12px;font-size:14px;">${topic}</td></tr>`:''}
+  </table>
+  <div style="margin-top:20px;background:#1e293b;border-radius:8px;padding:16px 20px;">
+    <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Message</div>
+    <pre style="margin:0;font-size:13px;color:#e2e8f0;white-space:pre-wrap;line-height:1.6;">${message}</pre>
+  </div>
+</div>
+<div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;">
+  Reply directly to this email to respond to ${name}
+</div>
+</div></body></html>`;
+    await t.sendMail({
+      from:`"Resolvo Website" <${user}>`,
+      to:'contact@resolvogroup.com',
+      replyTo:email,
+      subject:`[Contact Form] ${topic||'Enquiry'} — ${name}${company?' ('+company+')':''}`,
+      text:`Name: ${name}\nEmail: ${email}\nPhone: ${phone||'-'}\nCompany: ${company||'-'}\nTopic: ${topic||'-'}\n\nMessage:\n${message}`,
+      html
+    });
+    res.json({ok:true});
+  }catch(e){
+    console.error('[Contact] Form email error:',e.message);
+    res.status(500).json({error:'Failed to send'});
+  }
+});
 app.get('/privacy',(req,res)=>res.sendFile(path.join(__dirname,'public','privacy.html')));
 
 // ── BLOG ROUTES ──────────────────────────────────────────────────────────────
