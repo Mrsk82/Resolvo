@@ -6846,7 +6846,7 @@ app.post('/deploy-webhook',express.json(),(req,res)=>{
   const{exec}=require('child_process');
   // Download server.js + all public frontend files — never touch data/
   const base='https://raw.githubusercontent.com/Mrsk82/Resolvo/main';
-  const dir=__dirname;
+  const dir='/root/Resolvo';
   const deployCmd=[
     `curl -sf -o ${dir}/server.js.new ${base}/server.js && mv ${dir}/server.js.new ${dir}/server.js`,
     `mkdir -p ${dir}/public`,
