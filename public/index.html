@@ -7913,23 +7913,6 @@ tbody tr.row-selected {
             </a>
           </div>
 
-          <!-- ADMIN — only shown to admins -->
-          <div class="nav-section nav-admin" id="adminNav" style="display:none">
-            <span class="nav-label">Intelligence</span>
-            <a href="#" class="nav-item" data-page="ai-hub" data-tooltip="AI Intelligence Hub">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 1 8 8c0 3-1.5 5.5-4 7l-1 3H9l-1-3c-2.5-1.5-4-4-4-7a8 8 0 0 1 8-8z"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span>
-              <span class="nav-text">AI Hub</span>
-            </a>
-            <a href="#" class="nav-item" data-page="revenue-dashboard" data-tooltip="Revenue Impact">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-              <span class="nav-text">Revenue Impact</span>
-            </a>
-            <a href="#" class="nav-item" data-page="customer-health" data-tooltip="Customer Health">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
-              <span class="nav-text">Customer Health</span>
-            </a>
-          </div>
-
           <!-- ADMIN settings etc — only shown to admins -->
           <div class="nav-section nav-admin" id="adminNav" style="display:none">
             <span class="nav-label">Admin</span>
@@ -7956,96 +7939,95 @@ tbody tr.row-selected {
           </div>
         </nav>
         
-        <div class="sidebar-footer" style="flex-direction:column;gap:0;padding:0">
-          <!-- Theme picker panel -->
+        <div class="sidebar-footer" style="flex-direction:column;gap:0;padding:0;">
+
+          <!-- Theme picker panel (floats above footer) -->
           <div class="theme-picker" id="themePicker">
             <div class="theme-picker-title">Choose Theme</div>
-
             <div class="theme-option active" data-theme-pick="midnight" onclick="Themes.set('midnight',this)">
-              <div class="theme-swatch">
-                <span style="background:#0d0e14"></span><span style="background:#f5a623"></span>
-                <span style="background:#1a1b27"></span><span style="background:#ff4757"></span>
-              </div>
+              <div class="theme-swatch"><span style="background:#0d0e14"></span><span style="background:#f5a623"></span><span style="background:#1a1b27"></span><span style="background:#ff4757"></span></div>
               <span class="theme-label">Midnight</span>
             </div>
-
             <div class="theme-option" data-theme-pick="arctic" onclick="Themes.set('arctic',this)">
-              <div class="theme-swatch">
-                <span style="background:#f0f4f8"></span><span style="background:#2563eb"></span>
-                <span style="background:#ffffff"></span><span style="background:#dc2626"></span>
-              </div>
+              <div class="theme-swatch"><span style="background:#f0f4f8"></span><span style="background:#2563eb"></span><span style="background:#ffffff"></span><span style="background:#dc2626"></span></div>
               <span class="theme-label">Arctic Light</span>
             </div>
-
             <div class="theme-option" data-theme-pick="forest" onclick="Themes.set('forest',this)">
-              <div class="theme-swatch">
-                <span style="background:#0a1a0f"></span><span style="background:#4ade80"></span>
-                <span style="background:#162d1f"></span><span style="background:#f87171"></span>
-              </div>
+              <div class="theme-swatch"><span style="background:#0a1a0f"></span><span style="background:#4ade80"></span><span style="background:#162d1f"></span><span style="background:#f87171"></span></div>
               <span class="theme-label">Forest</span>
             </div>
-
             <div class="theme-option" data-theme-pick="ocean" onclick="Themes.set('ocean',this)">
-              <div class="theme-swatch">
-                <span style="background:#060d1a"></span><span style="background:#38bdf8"></span>
-                <span style="background:#0f1e35"></span><span style="background:#f87171"></span>
-              </div>
+              <div class="theme-swatch"><span style="background:#060d1a"></span><span style="background:#38bdf8"></span><span style="background:#0f1e35"></span><span style="background:#f87171"></span></div>
               <span class="theme-label">Ocean</span>
             </div>
-
-            <div class="theme-option" data-theme-pick="nova" onclick="Themes.set('nova',this)" style="position:relative;overflow:hidden;">
-              <div class="theme-swatch" style="background:linear-gradient(135deg,#04050d,#7c6cf0);border-radius:4px;">
-                <span style="background:#04050d"></span><span style="background:#7c6cf0"></span>
-                <span style="background:#e879f9"></span><span style="background:#34d399"></span>
-              </div>
+            <div class="theme-option" data-theme-pick="nova" onclick="Themes.set('nova',this)">
+              <div class="theme-swatch" style="background:linear-gradient(135deg,#04050d,#7c6cf0);border-radius:4px;"><span style="background:#04050d"></span><span style="background:#7c6cf0"></span><span style="background:#e879f9"></span><span style="background:#34d399"></span></div>
               <span class="theme-label" style="background:linear-gradient(135deg,#7c6cf0,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">✦ Nova</span>
             </div>
-
-            <!-- Custom Accent Color -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-top:1px solid var(--border);margin-top:2px;">
-              <span style="font-size:10px;color:var(--text-muted);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Accent Color</span>
-              <input type="color" class="accent-color-input" id="accentColorPicker" value="#f5a623" oninput="Themes.setCustomAccent(this.value)" title="Custom accent color">
-            </div>
-            <!-- Font Size -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-top:1px solid var(--border);">
-              <span style="font-size:10px;color:var(--text-muted);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Text Size</span>
-              <div style="display:flex;gap:4px;">
+            <!-- Accent + Font Size row -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-top:1px solid var(--border);margin-top:4px;gap:8px;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:10px;color:var(--text-muted);font-weight:700;letter-spacing:.07em;text-transform:uppercase;">Accent</span>
+                <input type="color" class="accent-color-input" id="accentColorPicker" value="#10B981" oninput="Themes.setCustomAccent(this.value)" title="Custom accent" style="width:22px;height:22px;border:2px solid var(--border);border-radius:5px;padding:0;cursor:pointer;background:none;">
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:10px;color:var(--text-muted);font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-right:2px;">Size</span>
                 <button class="kanban-size-btn" id="fontSm" onclick="Themes.setFontSize('small',this)">S</button>
                 <button class="kanban-size-btn active" id="fontMd" onclick="Themes.setFontSize('medium',this)">M</button>
                 <button class="kanban-size-btn" id="fontLg" onclick="Themes.setFontSize('large',this)">L</button>
               </div>
             </div>
-            <!-- High Contrast / Reduced Motion -->
-            <div style="display:flex;gap:6px;padding:5px 10px;border-top:1px solid var(--border);">
-              <button class="kanban-size-btn" id="contrastBtn" onclick="Themes.toggleContrast(this)" style="flex:1;text-align:center;">⬡ Contrast</button>
-              <button class="kanban-size-btn" id="motionBtn" onclick="Themes.toggleMotion(this)" style="flex:1;text-align:center;">⟳ Motion</button>
+            <!-- Contrast + Motion row -->
+            <div style="display:flex;gap:6px;padding:0 10px 10px;">
+              <button class="kanban-size-btn" id="contrastBtn" onclick="Themes.toggleContrast(this)" style="flex:1;font-size:10px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z"/></svg>Contrast
+              </button>
+              <button class="kanban-size-btn" id="motionBtn" onclick="Themes.toggleMotion(this)" style="flex:1;font-size:10px;padding:5px 4px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Motion
+              </button>
             </div>
           </div>
 
-          <button class="theme-btn" id="themeToggleBtn" onclick="Themes.toggle()">
-            <span class="theme-btn-icon" id="themeIcon">•</span>
-            <span id="themeLabel">Theme</span>
-          </button>
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--border)">
-            <div class="status-dot"></div>
-            <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">System Online</span>
+          <!-- Onboarding progress (shown when incomplete) -->
+          <div id="onboardingBar" style="display:none;padding:8px 12px 4px;border-top:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:4px;">
+              <span>Setup progress</span><span id="onboardingPct" style="color:var(--accent);">0%</span>
+            </div>
+            <div style="background:var(--border);border-radius:3px;height:3px;cursor:pointer;" onclick="App._showOnboardingChecklist()">
+              <div id="onboardingFill" style="height:3px;background:var(--accent);border-radius:3px;transition:width .4s;width:0%"></div>
+            </div>
           </div>
-          <div style="padding:6px 10px;border-top:1px solid var(--border)">
-            <!-- Onboarding progress bar -->
-            <div id="onboardingBar" style="display:none;margin-bottom:8px;">
-              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:4px;">
-                <span>Setup progress</span><span id="onboardingPct" style="color:var(--accent);">0%</span>
-              </div>
-              <div style="background:var(--border);border-radius:3px;height:4px;cursor:pointer;" onclick="App._showOnboardingChecklist()">
-                <div id="onboardingFill" style="height:4px;background:var(--accent);border-radius:3px;transition:width .4s;width:0%"></div>
+
+          <!-- Compact action row: Theme · Learn · Upgrade · Sign Out -->
+          <div style="border-top:1px solid var(--border);padding:8px 10px;display:flex;flex-direction:column;gap:4px;">
+
+            <!-- Row 1: Theme toggle + System status -->
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button class="theme-btn" id="themeToggleBtn" onclick="Themes.toggle()" style="flex:1;border-radius:6px;padding:6px 8px;font-size:11px;gap:6px;">
+                <span class="theme-btn-icon" id="themeIcon" style="font-size:13px;">•</span>
+                <span id="themeLabel">Theme</span>
+              </button>
+              <div style="display:flex;align-items:center;gap:4px;padding:6px 8px;background:var(--bg-elevated);border-radius:6px;flex-shrink:0;" title="All systems operational">
+                <div class="status-dot" style="width:6px;height:6px;"></div>
+                <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);white-space:nowrap;">Online</span>
               </div>
             </div>
-            <a href="/learn" target="_blank" style="display:flex;align-items:center;gap:7px;width:100%;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);text-decoration:none;transition:color 0.15s,border-color 0.15s;margin-bottom:5px;" onmouseover="this.style.color='var(--low)';this.style.borderColor='var(--low)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">📚 Learning Center</a>
-            <button onclick="App.navigate('upgrade')" style="display:flex;align-items:center;gap:7px;width:100%;background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:var(--radius);padding:6px 10px;color:var(--accent);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);font-weight:700;transition:opacity .15s;margin-bottom:5px;" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-              Upgrade Plan
-            </button>
-            <button onclick="App._logout()" style="width:100%;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;font-family:var(--font-mono);transition:color 0.15s,border-color 0.15s;" onmouseover="this.style.color='var(--critical)';this.style.borderColor='var(--critical-dim)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">⎋ Sign Out</button>
+
+            <!-- Row 2: Learn + Upgrade side by side -->
+            <div style="display:flex;gap:4px;">
+              <a href="/learn" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 6px;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);font-size:11px;font-family:var(--font-mono);text-decoration:none;transition:color .15s,border-color .15s;white-space:nowrap;" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--border-accent)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Learn
+              </a>
+              <button onclick="App.navigate('upgrade')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 6px;background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:6px;color:var(--accent);font-size:11px;font-family:var(--font-mono);font-weight:700;cursor:pointer;transition:opacity .15s;white-space:nowrap;" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Upgrade
+              </button>
+              <button onclick="App._logout()" style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:6px 8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);font-size:11px;cursor:pointer;transition:color .15s,border-color .15s;" title="Sign Out" onmouseover="this.style.color='var(--critical)';this.style.borderColor='rgba(255,71,87,.3)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </button>
+            </div>
+
           </div>
         </div>
       </aside>
@@ -26418,7 +26400,7 @@ const KanbanEnhance = {
 
 // ── THEMES ENHANCEMENTS ────────────────────────────────────────────
 // Extend the existing Themes object
-if (window.Themes) {
+if (typeof Themes !== 'undefined') {
   Themes.setCustomAccent = function(color) {
     document.documentElement.style.setProperty('--accent', color);
     document.documentElement.style.setProperty('--accent-dim', color + '26');
