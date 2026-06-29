@@ -15357,71 +15357,62 @@ const App = {
 
     var thread = t.thread || [];
 
-    var _msgExpanded = {};
     function msgBubble(msg, idx) {
       var isIncoming = msg.type === 'incoming';
       var isNote = msg.type === 'note';
-      var isReply = msg.type === 'reply';
       var name = msg.fromName || msg.from || 'System';
       var initial = (name || '?').charAt(0).toUpperCase();
       var ago = App._relTime ? App._relTime(msg.timestamp) : (msg.timestamp||'').replace('T',' ').substring(0,16);
       var msgId = msg.id || ('msg_'+idx);
-
-      // Colours per message type
-      var accentColor = isNote ? '#D97706' : isIncoming ? 'var(--text-muted)' : 'var(--accent)';
-      var bgColor = isNote ? 'rgba(217,119,6,.08)' : isIncoming ? 'var(--bg-surface)' : 'rgba(16,185,129,.06)';
-      var borderColor = isNote ? 'rgba(217,119,6,.25)' : isIncoming ? 'var(--border)' : 'rgba(16,185,129,.2)';
-      var labelHtml = isNote
-        ? '<span style="font-size:10px;font-weight:700;background:rgba(217,119,6,.15);color:#D97706;padding:2px 8px;border-radius:6px;letter-spacing:.04em;">INTERNAL NOTE</span>'
-        : isReply
-          ? '<span style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);color:var(--accent);padding:2px 8px;border-radius:6px;letter-spacing:.04em;">REPLY SENT</span>'
-          : '';
-
-      // Determine body to show — prefer HTML for incoming emails
       var hasHtml = !!(msg.emailHtml && msg.emailHtml.trim());
       var hasText = !!(msg.body && msg.body.trim());
-      var iframeId = 'emailFrame_'+msgId;
       var bodyHtml;
 
       if (hasHtml && isIncoming) {
-        // Render original HTML email in sandboxed iframe
-        var encoded = encodeURIComponent(
-          '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'+
-          'body{margin:0;padding:12px;font-family:Arial,sans-serif;font-size:13px;color:#1f2937;line-height:1.6;word-break:break-word;}'+
-          'img{max-width:100%;height:auto;}a{color:#10B981;}'+
-          '</style></head><body>'+msg.emailHtml+'</body></html>'
-        );
-        bodyHtml = '<iframe id="'+iframeId+'" src="data:text/html;charset=utf-8,'+encoded+'" sandbox="allow-same-origin" style="width:100%;border:none;min-height:80px;display:block;" onload="(function(f){try{f.style.height=(f.contentDocument.body.scrollHeight+24)+\'px\';}catch(e){}})(this)"></iframe>';
+        var encoded = encodeURIComponent('<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px 16px;font-family:Arial,sans-serif;font-size:13px;color:#1f2937;line-height:1.6;word-break:break-word;}img{max-width:100%;height:auto;}a{color:#10B981;}</style></head><body>'+msg.emailHtml+'</body></html>');
+        bodyHtml = '<iframe src="data:text/html;charset=utf-8,'+encoded+'" sandbox="allow-same-origin" style="width:100%;border:none;min-height:60px;display:block;" onload="(function(f){try{f.style.height=(f.contentDocument.body.scrollHeight+16)+\'px\';}catch(e){}})(this)"></iframe>';
       } else if (hasText) {
         var escaped = self._esc(msg.body.trim()).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);">$1</a>');
-        bodyHtml = '<div style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:var(--text-primary);">'+escaped+'</div>';
+        bodyHtml = '<div style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;padding:10px 14px;color:var(--text-primary);">'+escaped+'</div>';
       } else {
-        bodyHtml = '<span style="font-size:12px;color:var(--text-dim);font-style:italic;">(No text content — HTML-only or image email)</span>';
+        bodyHtml = '<div style="padding:10px 14px;font-size:12px;color:var(--text-dim);font-style:italic;">(No text content)</div>';
       }
 
-      return '<div style="margin-bottom:20px;" id="bubble_'+msgId+'">'
-        // Header row
-        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-          + '<div style="width:30px;height:30px;border-radius:50%;background:'+accentColor+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">'+initial+'</div>'
-          + '<div style="flex:1;min-width:0;">'
-            + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">'+self._esc(name)+'</span>'
-            + (msg.from && msg.from !== name ? ' <span style="font-size:11px;color:var(--text-dim);">&lt;'+self._esc(msg.from)+'&gt;</span>' : '')
-          + '</div>'
-          + labelHtml
-          + '<span style="font-size:11px;color:var(--text-dim);flex-shrink:0;">'+ago+'</span>'
-        + '</div>'
-        // Body card
-        + '<div style="margin-left:40px;background:'+bgColor+';border:1px solid '+borderColor+';border-radius:0 10px 10px 10px;overflow:hidden;">'
-          + bodyHtml
-        + '</div>'
-      + '</div>';
+      if (isNote) {
+        return '<div style="margin-bottom:14px;" id="bubble_'+msgId+'">'
+          +'<div style="background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.2);border-radius:10px;overflow:hidden;">'
+          +'<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(217,119,6,.15);">'
+          +'<div style="width:24px;height:24px;border-radius:50%;background:#D97706;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">'+initial+'</div>'
+          +'<span style="font-size:12px;font-weight:600;color:var(--text-primary);">'+self._esc(name)+'</span>'
+          +'<span style="font-size:10px;font-weight:700;background:rgba(217,119,6,.15);color:#D97806;padding:1px 7px;border-radius:5px;">NOTE</span>'
+          +'<span style="font-size:11px;color:var(--text-dim);margin-left:auto;">'+ago+'</span>'
+          +'</div>'
+          +'<div style="padding:10px 14px;font-size:13px;line-height:1.7;color:var(--text-primary);white-space:pre-wrap;">'+self._esc((msg.body||'').trim())+'</div>'
+          +'</div></div>';
+      }
+
+      if (isIncoming) {
+        return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:14px;" id="bubble_'+msgId+'">'
+          +'<div style="width:30px;height:30px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">'+initial+'</div>'
+          +'<div style="max-width:76%;min-width:0;">'
+          +'<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">'+self._esc(name)+(msg.from&&msg.from!==name?' &lt;'+self._esc(msg.from)+'&gt;':'')+' · '+ago+'</div>'
+          +'<div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:4px 12px 12px 12px;overflow:hidden;">'+bodyHtml+'</div>'
+          +'</div></div>';
+      }
+
+      return '<div style="display:flex;gap:8px;align-items:flex-start;flex-direction:row-reverse;margin-bottom:14px;" id="bubble_'+msgId+'">'
+        +'<div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">'+initial+'</div>'
+        +'<div style="max-width:76%;min-width:0;">'
+        +'<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;text-align:right;">'+self._esc(name)+' · '+ago+' <span style="font-size:10px;background:rgba(16,185,129,.12);color:var(--accent);padding:1px 6px;border-radius:4px;">SENT</span></div>'
+        +'<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:12px 4px 12px 12px;overflow:hidden;">'+bodyHtml+'</div>'
+        +'</div></div>';
     }
 
     area.innerHTML = `
-      <div style="display:flex;gap:16px;height:calc(100vh - 72px);">
+      <div style="display:flex;gap:0;height:calc(100vh - 72px);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
 
-        <!-- MAIN: Thread -->
-        <div style="flex:1;display:flex;flex-direction:column;background:var(--bg-card);border-radius:10px;overflow:hidden;min-width:0;">
+        <!-- MAIN: Thread + Composer -->
+        <div style="flex:1;display:flex;flex-direction:column;background:var(--bg-card);min-width:0;border-right:1px solid var(--border);">
 
           <!-- Ticket header -->
           <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg-surface);">
@@ -15500,12 +15491,10 @@ const App = {
         </div>
 
         <!-- RIGHT sidebar: ticket info -->
-        <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
-
-
+        <div style="width:256px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
 
           <!-- Customer info -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">Customer</div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
               <div style="width:38px;height:38px;border-radius:50%;background:${sc}22;border:2px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${sc};flex-shrink:0;">${(t.fromName||t.from||'?').charAt(0).toUpperCase()}</div>
@@ -15521,7 +15510,7 @@ const App = {
           </div>
 
           <!-- SLA + Time Bomb -->
-          <div style="background:var(--bg-card);border:1px solid ${t.slaPaused?'var(--medium)':'var(--border)'};border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">SLA & Escalation</div>
             ${t.slaPaused?`<div style="background:var(--medium-dim);border:1px solid var(--medium)44;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:8px;">⏸ SLA Paused — waiting for customer</div>`:''}
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
@@ -15536,7 +15525,7 @@ const App = {
           </div>
 
           <!-- Ticket details -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Details</div>
             ${[
               ['Created', App._fmtDT(t.createdDate, true)],
@@ -15548,7 +15537,7 @@ const App = {
           </div>
 
           <!-- Classification -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;" id="classificationCard_${t.id}">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);" id="classificationCard_${t.id}">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">🏷 Classification</div>
             <div style="margin-bottom:8px;">
               <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Type</label>
@@ -15567,7 +15556,7 @@ const App = {
           </div>
 
           <!-- Assign & Priority -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Assignment</div>
             <div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Assigned To</label>
               <select onchange="App.callAsync('assignTicket','${t.id}',this.value).then(()=>App.showToast('Assigned','success'))" class="form-select" style="font-size:12px;width:100%;">
@@ -15583,14 +15572,14 @@ const App = {
           </div>
 
           <!-- Watchers -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;" id="watchersPanel">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);" id="watchersPanel">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Watchers</div>
             <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">${(t.watchers||[]).map(w=>`<span style="display:inline-block;background:var(--bg-elevated);padding:2px 8px;border-radius:12px;margin:2px;">${w.split('@')[0]}</span>`).join('')||'No watchers'}</div>
             <button id="watchBtn" onclick="App._toggleWatch('${t.id}')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:${(t.watchers||[]).includes(self._currentUser?.email)?'var(--accent-dim)':'var(--bg-elevated)'};color:${(t.watchers||[]).includes(self._currentUser?.email)?'var(--accent)':'var(--text-muted)'};cursor:pointer;">${(t.watchers||[]).includes(self._currentUser?.email)?'👁 Watching':'+ Watch'}</button>
           </div>
 
           <!-- Parent / Child linking -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Linked Tickets</div>
             ${t.parentId?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Parent: <span onclick="App.renderTicketDetail('${t.parentId}')" style="color:var(--accent);cursor:pointer;">${t.parentId}</span> <span onclick="App.callAsync('unlinkTicketParent','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="color:var(--critical);cursor:pointer;font-size:10px;">× unlink</span></div>`:''}
             ${(t.children||[]).length?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Children: ${(t.children||[]).map(c=>`<span onclick="App.renderTicketDetail('${c}')" style="color:var(--accent);cursor:pointer;">${c}</span>`).join(', ')}</div>`:''}
@@ -15598,7 +15587,7 @@ const App = {
           </div>
 
           <!-- Tags -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Tags</div>
             <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
               ${(t.tags||[]).map(tag=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent-dim);color:var(--accent);cursor:pointer;" onclick="App.callAsync('removeTicketTag','${t.id}','${tag}').then(()=>App.renderTicketDetail('${t.id}'))">${self._esc(tag)} ×</span>`).join('')||'<span style="font-size:11px;color:var(--text-dim);">No tags</span>'}
@@ -15607,10 +15596,10 @@ const App = {
           </div>
 
           <!-- 🗂 CUSTOM FIELDS -->
-          <div id="ticketCustomFieldsPanel" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;"></div>
+          <div id="ticketCustomFieldsPanel" style="padding:14px 16px;border-bottom:1px solid var(--border);"></div>
 
           <!-- ✅ CHECKLIST (Feature 7) -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);">✅ Checklist</div>
               ${(t.checklist||[]).length>0?`<span style="font-size:10px;color:var(--low);">${(t.checklist||[]).filter(c=>c.done).length}/${(t.checklist||[]).length} done</span>`:''}
@@ -15619,7 +15608,7 @@ const App = {
           </div>
 
           <!-- ⏰ FOLLOW-UP + 📅 PROMISE (Features 8 & 9) -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Actions</div>
             ${t.followUpAt&&!t.followUpDone?`<div style="background:var(--medium-dim);border:1px solid var(--medium)33;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:6px;display:flex;justify-content:space-between;"><span>⏰ Follow-up: ${t.followUpAt}</span><button onclick="App.callAsync('markFollowUpDone','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--low);">Done ✓</button></div>`:''}
             ${t.slaPromiseDate?`<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--accent);margin-bottom:6px;">📅 Promised by: ${t.slaPromiseDate.split('T')[0]}</div>`:''}
@@ -15631,7 +15620,7 @@ const App = {
           </div>
 
           <!-- ✦ AI ACTIONS — always visible -->
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">✦ AI Actions</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
               <button onclick="App._aiSummarize('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📋 Summarize ticket</button>
@@ -15643,7 +15632,7 @@ const App = {
           </div>
 
           <!-- 🚀 ADVANCED FEATURES PANEL — only renders enabled ones -->
-          <div id="advFeaturesPanel" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <div id="advFeaturesPanel" style="display:flex;flex-direction:column;"></div>
 
         </div>
       </div>`;
