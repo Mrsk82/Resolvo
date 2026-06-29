@@ -15357,33 +15357,62 @@ const App = {
 
     var thread = t.thread || [];
 
-    function msgBubble(msg) {
+    var _msgExpanded = {};
+    function msgBubble(msg, idx) {
       var isIncoming = msg.type === 'incoming';
       var isNote = msg.type === 'note';
-      var bg = isNote ? 'var(--medium-dim)' : isIncoming ? 'var(--bg-elevated)' : 'var(--accent-dim)';
-      var borderColor = isNote ? 'var(--medium)' : isIncoming ? 'var(--border)' : 'var(--border-accent)';
-      var avatarBg = isNote ? 'var(--medium)' : isIncoming ? 'var(--text-muted)' : 'var(--accent)';
+      var isReply = msg.type === 'reply';
       var name = msg.fromName || msg.from || 'System';
       var initial = (name || '?').charAt(0).toUpperCase();
       var ago = App._relTime ? App._relTime(msg.timestamp) : (msg.timestamp||'').replace('T',' ').substring(0,16);
-      // body: escape for safety, linkify URLs, keep line breaks; graceful empty state
-      var raw = (msg.body||'').trim();
+      var msgId = msg.id || ('msg_'+idx);
+
+      // Colours per message type
+      var accentColor = isNote ? '#D97706' : isIncoming ? 'var(--text-muted)' : 'var(--accent)';
+      var bgColor = isNote ? 'rgba(217,119,6,.08)' : isIncoming ? 'var(--bg-surface)' : 'rgba(16,185,129,.06)';
+      var borderColor = isNote ? 'rgba(217,119,6,.25)' : isIncoming ? 'var(--border)' : 'rgba(16,185,129,.2)';
+      var labelHtml = isNote
+        ? '<span style="font-size:10px;font-weight:700;background:rgba(217,119,6,.15);color:#D97706;padding:2px 8px;border-radius:6px;letter-spacing:.04em;">INTERNAL NOTE</span>'
+        : isReply
+          ? '<span style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);color:var(--accent);padding:2px 8px;border-radius:6px;letter-spacing:.04em;">REPLY SENT</span>'
+          : '';
+
+      // Determine body to show — prefer HTML for incoming emails
+      var hasHtml = !!(msg.emailHtml && msg.emailHtml.trim());
+      var hasText = !!(msg.body && msg.body.trim());
+      var iframeId = 'emailFrame_'+msgId;
       var bodyHtml;
-      if (!raw) {
-        bodyHtml = '<span style="color:var(--text-dim);font-style:italic;">(No text content — likely an image-only email)</span>';
+
+      if (hasHtml && isIncoming) {
+        // Render original HTML email in sandboxed iframe
+        var encoded = encodeURIComponent(
+          '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'+
+          'body{margin:0;padding:12px;font-family:Arial,sans-serif;font-size:13px;color:#1f2937;line-height:1.6;word-break:break-word;}'+
+          'img{max-width:100%;height:auto;}a{color:#10B981;}'+
+          '</style></head><body>'+msg.emailHtml+'</body></html>'
+        );
+        bodyHtml = '<iframe id="'+iframeId+'" src="data:text/html;charset=utf-8,'+encoded+'" sandbox="allow-same-origin" style="width:100%;border:none;min-height:80px;display:block;" onload="(function(f){try{f.style.height=(f.contentDocument.body.scrollHeight+24)+\'px\';}catch(e){}})(this)"></iframe>';
+      } else if (hasText) {
+        var escaped = self._esc(msg.body.trim()).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);">$1</a>');
+        bodyHtml = '<div style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:var(--text-primary);">'+escaped+'</div>';
       } else {
-        bodyHtml = self._esc(raw).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);">$1</a>');
+        bodyHtml = '<span style="font-size:12px;color:var(--text-dim);font-style:italic;">(No text content — HTML-only or image email)</span>';
       }
-      var avatar = '<div style="width:32px;height:32px;border-radius:50%;background:'+avatarBg+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">'+initial+'</div>';
-      return '<div style="display:flex;gap:10px;margin-bottom:18px;'+(isIncoming?'':'flex-direction:row-reverse;')+'">'
-        + avatar
-        + '<div style="max-width:78%;">'
-          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;'+(isIncoming?'':'flex-direction:row-reverse;')+'">'
-            + (isNote?'<span style="font-size:10px;font-weight:700;background:var(--medium-dim);color:var(--medium);padding:1px 8px;border-radius:8px;">INTERNAL NOTE</span>':'')
-            + '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">'+self._esc(name)+'</span>'
-            + '<span style="font-size:11px;color:var(--text-dim);">'+ago+'</span>'
+
+      return '<div style="margin-bottom:20px;" id="bubble_'+msgId+'">'
+        // Header row
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+          + '<div style="width:30px;height:30px;border-radius:50%;background:'+accentColor+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">'+initial+'</div>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">'+self._esc(name)+'</span>'
+            + (msg.from && msg.from !== name ? ' <span style="font-size:11px;color:var(--text-dim);">&lt;'+self._esc(msg.from)+'&gt;</span>' : '')
           + '</div>'
-          + '<div style="background:'+bg+';border:1px solid '+borderColor+';border-radius:'+(isIncoming?'4px 14px 14px 14px':'14px 4px 14px 14px')+';padding:12px 16px;font-size:13px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;word-break:break-word;">'+bodyHtml+'</div>'
+          + labelHtml
+          + '<span style="font-size:11px;color:var(--text-dim);flex-shrink:0;">'+ago+'</span>'
+        + '</div>'
+        // Body card
+        + '<div style="margin-left:40px;background:'+bgColor+';border:1px solid '+borderColor+';border-radius:0 10px 10px 10px;overflow:hidden;">'
+          + bodyHtml
         + '</div>'
       + '</div>';
     }
@@ -15424,7 +15453,7 @@ const App = {
 
           <!-- Thread messages -->
           <div style="flex:1;overflow-y:auto;padding:20px 24px;" id="threadContainer">
-            ${thread.map(msgBubble).join('')}
+            ${thread.map(function(msg,idx){return msgBubble(msg,idx);}).join('')}
           </div>
 
           <!-- Reply box -->

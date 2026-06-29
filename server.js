@@ -5652,7 +5652,8 @@ async function createTicketFromEmail(slug, emailData) {
     existingTicket.thread.push({
       id: generateId('MSG'), type: 'incoming',
       from: emailData.from, fromName: emailData.fromName || emailData.from,
-      body: emailData.text || emailData.html || '',
+      body: emailData.text || '',
+      emailHtml: emailData.html || '',
       timestamp: emailData.date || nowIST(),
       messageId: emailData.messageId
     });
@@ -5703,7 +5704,8 @@ async function createTicketFromEmail(slug, emailData) {
       type: 'incoming',
       from: emailData.from || '',
       fromName: emailData.fromName || emailData.from || '',
-      body: emailData.text || emailData.html || '',
+      body: emailData.text || '',
+      emailHtml: emailData.html || '',
       timestamp: now,
       messageId: emailData.messageId || ''
     }]
@@ -5905,7 +5907,7 @@ async function _doPollBrandInbox(slug) {
                 const parsed = await simpleParser(buf);
                 const msgId = parsed.messageId;
                 if (msgId && processedSet.has(msgId)) continue;
-                await createTicketFromEmail(slug, { messageId: msgId, inReplyTo: parsed.inReplyTo, subject: decodeMimeWords(parsed.subject)||'(No Subject)', from: parsed.from?.value?.[0]?.address||'', fromName: parsed.from?.value?.[0]?.name||'', text: parsed.text||'', html: parsed.textAsHtml||'', date: parsed.date?.toISOString()||nowIST() });
+                await createTicketFromEmail(slug, { messageId: msgId, inReplyTo: parsed.inReplyTo, subject: decodeMimeWords(parsed.subject)||'(No Subject)', from: parsed.from?.value?.[0]?.address||'', fromName: parsed.from?.value?.[0]?.name||'', text: parsed.text||'', html: parsed.html||parsed.textAsHtml||'', date: parsed.date?.toISOString()||nowIST() });
               } catch(e) { console.error('[EmailTicket] Seed parse error:', e.message); }
             }
             const d2 = readBrandDB(slug);
@@ -5954,7 +5956,7 @@ async function _doPollBrandInbox(slug) {
                   from: parsed.from?.value?.[0]?.address || '',
                   fromName: parsed.from?.value?.[0]?.name || '',
                   text: parsed.text || '',
-                  html: parsed.textAsHtml || '',
+                  html: parsed.html || parsed.textAsHtml || '',
                   date: parsed.date?.toISOString() || nowIST()
                 };
                 await createTicketFromEmail(slug, emailData);
@@ -6274,7 +6276,7 @@ async function _processGmailHistory(slug,newHistoryId){
           subject:parsed.subject||'(No Subject)',
           from:parsed.from?.value?.[0]?.address||'',
           fromName:parsed.from?.value?.[0]?.name||'',
-          text:parsed.text||'',html:parsed.textAsHtml||'',
+          text:parsed.text||'',html:parsed.html||parsed.textAsHtml||'',
           date:parsed.date?.toISOString()||nowIST()
         });
         if(parsed.messageId)processedSet.add(parsed.messageId);
