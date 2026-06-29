@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free for Professionals — Resolvo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="description" content="Free appointment management for doctors, lawyers, consultants, salons and tutors. 250 appointments/month, forever free.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0B0F19;color:#f1f5f9;font-family:'Inter',sans-serif;min-height:100vh;display:flex;}
+
+/* ── LEFT PANEL ── */
+.left{width:52%;background:#0B0F19;display:flex;flex-direction:column;justify-content:center;padding:56px 52px;position:relative;overflow:hidden;}
+.left::before{content:'';position:absolute;top:-120px;left:-80px;width:420px;height:420px;background:radial-gradient(circle,rgba(16,185,129,.13) 0%,transparent 70%);pointer-events:none;}
+.left::after{content:'';position:absolute;bottom:-80px;right:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(99,102,241,.1) 0%,transparent 70%);pointer-events:none;}
+
+.logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:52px;}
+.logo-mark{width:36px;height:36px;border-radius:9px;}
+.logo-name{font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px;}
+
+.badge{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#10B981;margin-bottom:28px;width:fit-content;}
+.badge-dot{width:6px;height:6px;background:#10B981;border-radius:50%;}
+
+.left h1{font-size:34px;font-weight:800;line-height:1.2;letter-spacing:-.6px;color:#f1f5f9;margin-bottom:16px;}
+.left h1 span{color:#10B981;}
+.left p{font-size:15px;color:#94a3b8;line-height:1.7;margin-bottom:40px;max-width:380px;}
+
+.perks{display:flex;flex-direction:column;gap:16px;margin-bottom:44px;}
+.perk{display:flex;align-items:flex-start;gap:14px;}
+.perk-icon{width:36px;height:36px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:1px;}
+.perk-text strong{display:block;font-size:14px;font-weight:600;color:#f1f5f9;margin-bottom:2px;}
+.perk-text span{font-size:13px;color:#64748b;}
+
+.cats-label{font-size:11px;font-weight:700;color:#64748b;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
+.cat-chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:6px 13px;font-size:12px;color:#94a3b8;}
+.chip em{font-style:normal;font-size:14px;}
+
+/* ── RIGHT PANEL ── */
+.right{width:48%;background:#ffffff;display:flex;align-items:center;justify-content:center;padding:56px 48px;}
+.form-card{width:100%;max-width:400px;}
+.form-card h2{font-size:24px;font-weight:800;color:#111827;letter-spacing:-.4px;margin-bottom:6px;}
+.form-card .sub{font-size:13px;color:#6B7280;margin-bottom:30px;}
+
+.fg{margin-bottom:16px;}
+label{display:block;font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
+input,select{width:100%;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;padding:11px 14px;font-size:14px;color:#111827;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;}
+input:focus,select:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);background:#fff;}
+
+/* Category picker */
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;}
+.cat-btn{padding:10px 6px;border:1.5px solid #E5E7EB;border-radius:10px;background:#F9FAFB;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;}
+.cat-btn:hover{border-color:#10B981;background:rgba(16,185,129,.05);}
+.cat-btn.selected{border-color:#10B981;background:rgba(16,185,129,.08);box-shadow:0 0 0 3px rgba(16,185,129,.1);}
+.cat-btn .cat-emoji{font-size:20px;display:block;margin-bottom:4px;}
+.cat-btn .cat-label{font-size:11px;font-weight:600;color:#374151;}
+.cat-btn.selected .cat-label{color:#059669;}
+
+.btn{width:100%;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;transition:opacity .15s;letter-spacing:.01em;}
+.btn:hover{opacity:.92;}
+.btn:disabled{opacity:.55;cursor:not-allowed;}
+
+.msg{display:none;margin-top:14px;padding:12px 14px;border-radius:9px;font-size:13px;text-align:center;}
+
+.flinks{text-align:center;margin-top:16px;font-size:13px;color:#6B7280;}
+.flinks a{color:#10B981;text-decoration:none;font-weight:600;}
+
+.free-badge{display:flex;align-items:center;gap:8px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;margin-bottom:24px;}
+.free-badge span{font-size:13px;color:#166534;font-weight:500;}
+.free-badge strong{color:#059669;}
+
+@media(max-width:768px){
+  body{flex-direction:column;}
+  .left{display:none;}
+  .right{width:100%;padding:32px 24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+<div class="left">
+  <a href="/" class="logo">
+    <img src="/logo-mark.svg" alt="Resolvo" class="logo-mark">
+    <span class="logo-name">resolvo</span>
+  </a>
+
+  <div class="badge"><div class="badge-dot"></div>Free for Service Professionals</div>
+
+  <h1>Manage appointments<br>like a <span>pro</span></h1>
+  <p>Give your clients a seamless booking experience. Track every appointment, send auto-reminders, and never miss a follow-up — all free.</p>
+
+  <div class="perks">
+    <div class="perk">
+      <div class="perk-icon">📅</div>
+      <div class="perk-text">
+        <strong>Public booking link</strong>
+        <span>Your clients book directly — no phone tag</span>
+      </div>
+    </div>
+    <div class="perk">
+      <div class="perk-icon">📧</div>
+      <div class="perk-text">
+        <strong>Auto-confirmation emails</strong>
+        <span>Clients get instant confirmation + reminders</span>
+      </div>
+    </div>
+    <div class="perk">
+      <div class="perk-icon">📊</div>
+      <div class="perk-text">
+        <strong>Client history & tracking</strong>
+        <span>Every visit, note and follow-up in one place</span>
+      </div>
+    </div>
+    <div class="perk">
+      <div class="perk-icon">🆓</div>
+      <div class="perk-text">
+        <strong>250 appointments/month, free forever</strong>
+        <span>No credit card. No hidden charges.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cats-label">Perfect for</div>
+  <div class="cat-chips">
+    <div class="chip"><em>🩺</em> Doctors &amp; Clinics</div>
+    <div class="chip"><em>⚖️</em> Lawyers</div>
+    <div class="chip"><em>💼</em> Consultants</div>
+    <div class="chip"><em>✂️</em> Salons &amp; Spas</div>
+    <div class="chip"><em>📚</em> Tutors &amp; Coaches</div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="right">
+  <div class="form-card">
+    <h2>Start free today</h2>
+    <p class="sub">Setup takes under 3 minutes. No credit card needed.</p>
+
+    <div class="free-badge">
+      <span>🎁 <strong>Free plan</strong> — up to 250 appointments/month, forever</span>
+    </div>
+
+    <div class="fg"><label>Your Name</label><input id="s_name" placeholder="Dr. Priya Sharma"></div>
+    <div class="fg"><label>Practice / Business Name</label><input id="s_company" placeholder="Sharma Dental Clinic"></div>
+    <div class="fg"><label>Work Email</label><input id="s_email" type="email" placeholder="priya@sharmadental.com"></div>
+    <div class="fg"><label>Password</label><input id="s_pass" type="password" placeholder="Min 8 characters"></div>
+
+    <div class="fg">
+      <label>Category</label>
+      <div class="cat-grid" id="catGrid">
+        <button class="cat-btn" data-cat="doctor" onclick="selectCat(this)"><span class="cat-emoji">🩺</span><span class="cat-label">Doctor / Clinic</span></button>
+        <button class="cat-btn" data-cat="lawyer" onclick="selectCat(this)"><span class="cat-emoji">⚖️</span><span class="cat-label">Lawyer</span></button>
+        <button class="cat-btn" data-cat="consultant" onclick="selectCat(this)"><span class="cat-emoji">💼</span><span class="cat-label">Consultant</span></button>
+        <button class="cat-btn" data-cat="salon" onclick="selectCat(this)"><span class="cat-emoji">✂️</span><span class="cat-label">Salon / Spa</span></button>
+        <button class="cat-btn" data-cat="tutor" onclick="selectCat(this)"><span class="cat-emoji">📚</span><span class="cat-label">Tutor / Coach</span></button>
+        <button class="cat-btn" data-cat="other-pro" onclick="selectCat(this)"><span class="cat-emoji">🏢</span><span class="cat-label">Other</span></button>
+      </div>
+    </div>
+
+    <button class="btn" id="s_btn" onclick="doSignup()">Create Free Account →</button>
+    <div class="msg" id="s_msg"></div>
+    <div class="flinks" style="margin-top:18px;">Already have an account? <a href="/">Sign in</a></div>
+    <div class="flinks" style="margin-top:8px;"><a href="/signup">Running a D2C brand? Sign up here →</a></div>
+  </div>
+</div>
+
+<script>
+var selectedCat='';
+function selectCat(el){
+  document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('selected');});
+  el.classList.add('selected');
+  selectedCat=el.getAttribute('data-cat');
+}
+async function doSignup(){
+  var name=document.getElementById('s_name').value.trim();
+  var company=document.getElementById('s_company').value.trim();
+  var email=document.getElementById('s_email').value.trim();
+  var pass=document.getElementById('s_pass').value.trim();
+  var btn=document.getElementById('s_btn');
+  if(!name||!company||!email){showMsg('Please fill in all fields.','error');return;}
+  if(!selectedCat){showMsg('Please select your category.','error');return;}
+  if(pass&&pass.length<8){showMsg('Password must be at least 8 characters.','error');return;}
+  btn.textContent='Creating your account…';btn.disabled=true;
+  var r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,company:company,email:email,password:pass||undefined,category:selectedCat,source:'pro'})}).then(function(x){return x.json();}).catch(function(){return{success:false,error:'Network error'};});
+  if(r.success){
+    showMsg('🎉 Account created! Sending you your login details…','success');
+    btn.textContent='Account created!';
+    setTimeout(function(){window.location.href='/';},2800);
+  }else{
+    showMsg(r.error||'Something went wrong.','error');
+    btn.textContent='Create Free Account →';btn.disabled=false;
+  }
+}
+function showMsg(text,type){
+  var el=document.getElementById('s_msg');el.textContent=text;el.style.display='block';
+  if(type==='success'){el.style.background='#F0FDF4';el.style.border='1px solid #BBF7D0';el.style.color='#166534';}
+  else{el.style.background='#FEF2F2';el.style.border='1px solid #FECACA';el.style.color='#991B1B';}
+}
+document.addEventListener('keydown',function(e){if(e.key==='Enter')doSignup();});
+</script>
+</body>
+</html>

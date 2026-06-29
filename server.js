@@ -4799,6 +4799,7 @@ app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html'
 app.get('/signup',(req,res)=>res.sendFile(path.join(__dirname,'public','signup.html')));
 app.get('/pro',(req,res)=>res.sendFile(path.join(__dirname,'public','pro-signup.html')));
 app.get('/about',(req,res)=>res.sendFile(path.join(__dirname,'public','about.html')));
+app.get('/contact',(req,res)=>res.sendFile(path.join(__dirname,'public','contact.html')));
 app.get('/privacy',(req,res)=>res.sendFile(path.join(__dirname,'public','privacy.html')));
 
 // ── BLOG ROUTES ──────────────────────────────────────────────────────────────
