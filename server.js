@@ -5813,11 +5813,27 @@ async function createTicketFromEmail(slug, emailData) {
 
 // Poll a brand's IMAP inbox for new emails
 const _pollInProgress = new Set();
+const _pollQueued = new Set(); // follow-up poll requested while one was in progress
 async function pollBrandInbox(slug) {
-  // Skip if a poll is already running for this brand (prevents connection pile-up)
-  if (_pollInProgress.has(slug)) { console.log(`[EmailTicket] Poll skipped for ${slug} — previous poll still running`); return; }
+  if (_pollInProgress.has(slug)) {
+    // Queue a follow-up so we don't lose an email that arrived mid-poll
+    _pollQueued.add(slug);
+    console.log(`[EmailTicket] Poll queued for ${slug} — will run after current poll`);
+    return;
+  }
   _pollInProgress.add(slug);
-  try { return await _doPollBrandInbox(slug); } finally { _pollInProgress.delete(slug); }
+  try {
+    await _doPollBrandInbox(slug);
+    // If a follow-up was queued while we were running, do it now
+    if (_pollQueued.has(slug)) {
+      _pollQueued.delete(slug);
+      console.log(`[EmailTicket] Running queued follow-up poll for ${slug}`);
+      await _doPollBrandInbox(slug);
+    }
+  } finally {
+    _pollInProgress.delete(slug);
+    _pollQueued.delete(slug);
+  }
 }
 
 async function _doPollBrandInbox(slug) {
@@ -6140,7 +6156,7 @@ function startEmailPoller(slug) {
 
   // 5-min safety cron: catches emails missed during the reconnect window
   const cron = require('node-cron');
-  const safetyCron = cron.schedule('*/5 * * * *', () => {
+  const safetyCron = cron.schedule('*/2 * * * *', () => {
     pollBrandInbox(slug).catch(() => {});
   });
 
