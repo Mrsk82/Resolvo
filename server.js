@@ -107,20 +107,28 @@ function monitorReq(req,res,next){
 }
 
 // Layer 3 — 500 error tracker with request context
+// Known bot-scan paths — never alert on these
+const BOT_PATH_PATTERNS=[/\/wp-/i,/xmlrpc/i,/wlwmanifest/i,/\.php$/i,/\/ads\.txt$/i,/\/vs-/i,/\/pitch\//i,/favicon\.ico$/i,/robots\.txt$/i,/sitemap/i];
+function isBotPath(p){return BOT_PATH_PATTERNS.some(r=>r.test(p));}
 function errorMiddleware(err,req,res,next){
-  const stack=err.stack||err.message||String(err);
-  console.error('[ERROR] Express error:',stack);
-  sendAlert('ERROR',`API Error: ${req.method} ${req.path}`,stack,{
-    'Route':req.method+' '+req.originalUrl,
-    'Status':err.status||500,
-    'Body':JSON.stringify(req.body||{}).substring(0,300),
-    'User-Agent':(req.headers['user-agent']||'').substring(0,100),
-    'IP':req.ip||'unknown'
-  });
   const status=err.status||500;
+  const stack=err.stack||err.message||String(err);
+  // Only log + alert for real server errors, not 404s or bot scans
+  if(status>=500&&!isBotPath(req.path)){
+    console.error('[ERROR] Express error:',stack);
+    sendAlert('ERROR',`API Error: ${req.method} ${req.path}`,stack,{
+      'Route':req.method+' '+req.originalUrl,
+      'Status':status,
+      'Body':JSON.stringify(req.body||{}).substring(0,300),
+      'User-Agent':(req.headers['user-agent']||'').substring(0,100),
+      'IP':req.ip||'unknown'
+    });
+  }
   if(req.accepts('html')&&!req.path.startsWith('/api')){
     const page=status===404?'404.html':'500.html';
-    return res.status(status).sendFile(path.join(__dirname,'public',page));
+    return res.status(status).sendFile(path.join(__dirname,'public',page),e=>{
+      if(e) res.status(status).send('<h1>'+status+'</h1>');
+    });
   }
   res.status(status).json({error:'Internal server error',message:err.message});
 }
@@ -128,7 +136,9 @@ function errorMiddleware(err,req,res,next){
 // 404 catch-all for HTML pages
 function notFoundMiddleware(req,res,next){
   if(req.method==='GET'&&req.accepts('html')&&!req.path.startsWith('/api')){
-    return res.status(404).sendFile(path.join(__dirname,'public','404.html'));
+    return res.status(404).sendFile(path.join(__dirname,'public','404.html'),e=>{
+      if(e) res.status(404).send('<h1>404 Not Found</h1>');
+    });
   }
   res.status(404).json({error:'Not found'});
 }
