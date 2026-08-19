@@ -6082,10 +6082,13 @@ function recordPollerSuccess(slug) {
   }
 }
 
-// ── 30-second IMAP poller ─────────────────────────────────────────────────
-// Simple, reliable polling every 30s. No persistent connection, no reconnect
-// logic, no ECONNRESET issues. Each poll opens → fetches → closes cleanly.
-// Worst-case delay: 30 seconds. Zero missed emails.
+// ── IMAP poller ────────────────────────────────────────────────────────────
+// Polls every 2 minutes. No persistent connection, no reconnect logic.
+// Each poll opens → fetches → closes cleanly.
+// NOTE: was 30s until 2026-08-19 — Gmail was silently tarpitting the TLS/IMAP
+// handshake (TCP connects fine, LOGIN never completes) after sustained
+// reconnects every 30s from this VPS's IP. 2min keeps us well under Gmail's
+// abuse-detection threshold for repeated password-auth IMAP logins.
 function startEmailPoller(slug) {
   if (activePollers[slug]) { try { activePollers[slug].stop(); } catch(e) {} delete activePollers[slug]; }
 
@@ -6098,15 +6101,15 @@ function startEmailPoller(slug) {
 
   const cron = require('node-cron');
 
-  // Run immediately on start, then every 30s
+  // Run immediately on start, then every 2 minutes
   pollBrandInbox(slug).catch(e => console.error(`[EmailPoller] Initial poll error for ${slug}:`, e.message));
 
-  const pollerCron = cron.schedule('*/30 * * * * *', () => {
+  const pollerCron = cron.schedule('*/2 * * * *', () => {
     pollBrandInbox(slug).catch(e => console.error(`[EmailPoller] Poll error for ${slug}:`, e.message));
   });
 
   activePollers[slug] = { stop: () => pollerCron.stop() };
-  console.log(`[EmailPoller] Started for ${slug} — polling every 30s`);
+  console.log(`[EmailPoller] Started for ${slug} — polling every 2 minutes`);
 }
 
 // API: save email ticketing config
