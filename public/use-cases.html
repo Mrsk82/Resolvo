@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo Use Cases — How Indian Businesses Use Resolvo</title>
+<meta name="description" content="See exactly how D2C brands, clinics, SaaS startups, salons, EdTech platforms and more use Resolvo to transform their customer support.">
+<link rel="canonical" href="https://resolvogroup.com/use-cases">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+
+:root{
+  --g:#10B981;--g2:#059669;--g3:#065F46;
+  --g-dim:rgba(16,185,129,.10);--g-glow:rgba(16,185,129,.3);
+  --ink:#0A0F1E;--ink2:#1E293B;--ink3:#475569;--ink4:#94A3B8;
+  --white:#fff;--border:#E2E8F0;--border-d:rgba(255,255,255,.08);
+  --soft:#F8FAFC;--card:#fff;
+  --sans:'Inter',system-ui,sans-serif;
+  --r:12px;--r2:20px;
+}
+
+body{font-family:var(--sans);background:var(--white);color:var(--ink);overflow-x:hidden;line-height:1.6;}
+.w{max-width:1200px;margin:0 auto;padding:0 32px;}
+@media(max-width:640px){.w{padding:0 20px;}}
+
+/* ── TOPBAR ── */
+.topbar{background:linear-gradient(90deg,#065F46,#10B981,#065F46);background-size:200%;animation:gs 6s ease infinite;text-align:center;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;}
+.topbar a{color:#fff;text-decoration:underline;}
+@keyframes gs{0%,100%{background-position:0%}50%{background-position:100%}}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:200;background:rgba(10,15,30,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border-d);height:64px;display:flex;align-items:center;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1200px;margin:0 auto;padding:0 32px;}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#10B981,#059669);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;box-shadow:0 0 16px var(--g-glow);}
+.nav-logo-text{font-size:16px;font-weight:700;color:#fff;}
+.nav-links{display:flex;gap:2px;list-style:none;}
+.nav-links a{color:var(--ink4);text-decoration:none;font-size:13.5px;font-weight:500;padding:7px 13px;border-radius:8px;transition:all .15s;}
+.nav-links a:hover,.nav-links a.active{color:#fff;background:rgba(255,255,255,.08);}
+.nav-r{display:flex;gap:10px;align-items:center;}
+.btn-ghost-nav{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;color:var(--ink4);border:1px solid var(--border-d);background:transparent;}
+.btn-ghost-nav:hover{color:#fff;border-color:rgba(255,255,255,.2);}
+.btn-green{padding:9px 20px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;background:var(--g);color:#fff;border:none;cursor:pointer;font-family:var(--sans);transition:all .2s;box-shadow:0 0 16px var(--g-glow);}
+.btn-green:hover{background:var(--g2);transform:translateY(-1px);}
+@media(max-width:800px){.nav-links,.nav-r{display:none;}}
+
+/* ── HERO ── */
+.uc-hero{
+  background:linear-gradient(160deg,#0A0F1E 0%,#0F2027 60%,#0A0F1E 100%);
+  padding:80px 0 70px;text-align:center;position:relative;overflow:hidden;
+  border-bottom:1px solid var(--border-d);
+}
+.uc-hero::before{
+  content:'';position:absolute;
+  width:800px;height:400px;
+  background:radial-gradient(ellipse,rgba(16,185,129,.15) 0%,transparent 70%);
+  top:0;left:50%;transform:translateX(-50%);pointer-events:none;
+}
+.uc-eyebrow{display:inline-flex;align-items:center;gap:7px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);border-radius:100px;padding:5px 14px 5px 10px;font-size:12px;font-weight:700;color:#6EE7B7;margin-bottom:24px;letter-spacing:.04em;}
+.uc-eyebrow-dot{width:6px;height:6px;border-radius:50%;background:var(--g);box-shadow:0 0 6px var(--g);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.5);}}
+.uc-hero h1{font-size:clamp(34px,5vw,60px);font-weight:900;letter-spacing:-.05em;line-height:1.05;color:#fff;margin-bottom:18px;}
+.uc-hero h1 span{background:linear-gradient(90deg,#10B981,#34D399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.uc-hero p{font-size:17px;color:var(--ink4);line-height:1.7;max-width:580px;margin:0 auto 36px;}
+.uc-hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.btn-hero{display:inline-flex;align-items:center;gap:8px;background:var(--g);color:#fff;padding:14px 28px;border-radius:100px;font-size:15px;font-weight:700;text-decoration:none;transition:all .2s;box-shadow:0 0 32px var(--g-glow);}
+.btn-hero:hover{background:var(--g2);transform:translateY(-2px);}
+.btn-outline-hero{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);color:#CBD5E1;padding:14px 26px;border-radius:100px;font-size:15px;font-weight:500;text-decoration:none;border:1px solid rgba(255,255,255,.12);transition:all .2s;}
+.btn-outline-hero:hover{background:rgba(255,255,255,.10);color:#fff;}
+
+/* Industry count chips */
+.uc-chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:40px;position:relative;}
+.uc-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:6px 14px;font-size:12px;color:var(--ink4);font-weight:500;}
+
+/* ── LAYOUT: sidebar + content ── */
+.uc-layout{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:100vh;align-items:start;}
+
+/* ── SIDEBAR ── */
+.uc-sidebar{
+  position:sticky;top:64px;
+  background:var(--soft);
+  border-right:1px solid var(--border);
+  padding:28px 0;
+  max-height:calc(100vh - 64px);
+  overflow-y:auto;
+}
+.uc-sidebar::-webkit-scrollbar{width:4px;}
+.uc-sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.sidebar-label{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.1em;padding:0 20px;margin-bottom:10px;}
+.sidebar-count{font-size:10px;color:var(--ink4);float:right;}
+.industry-btn{
+  width:100%;background:none;border:none;text-align:left;
+  padding:12px 20px;cursor:pointer;font-family:var(--sans);
+  display:flex;align-items:center;gap:12px;
+  transition:all .15s;border-left:3px solid transparent;
+  position:relative;
+}
+.industry-btn:hover{background:rgba(16,185,129,.06);}
+.industry-btn.active{background:rgba(16,185,129,.08);border-left-color:var(--g);}
+.industry-btn .ib-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:transform .2s;}
+.industry-btn.active .ib-icon{transform:scale(1.1);}
+.ib-text{flex:1;}
+.ib-name{font-size:13px;font-weight:600;color:var(--ink2);line-height:1.3;}
+.industry-btn.active .ib-name{color:var(--g2);}
+.ib-sub{font-size:11px;color:var(--ink4);}
+.ib-arr{font-size:14px;color:var(--ink4);opacity:0;transition:opacity .15s;}
+.industry-btn.active .ib-arr{opacity:1;color:var(--g);}
+.sidebar-divider{height:1px;background:var(--border);margin:12px 20px;}
+
+/* ── CONTENT AREA ── */
+.uc-content{padding:48px 52px;}
+.industry-pane{display:none;}
+.industry-pane.active{display:block;}
+
+/* Pane header */
+.pane-header{margin-bottom:40px;}
+.pane-eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--g-dim);border:1px solid rgba(16,185,129,.2);border-radius:100px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--g2);margin-bottom:16px;letter-spacing:.04em;}
+.pane-icon-big{font-size:48px;margin-bottom:12px;}
+.pane-h{font-size:clamp(26px,3.5vw,40px);font-weight:900;letter-spacing:-.04em;line-height:1.1;color:var(--ink);margin-bottom:12px;}
+.pane-h span{color:var(--g2);}
+.pane-sub{font-size:16px;color:var(--ink3);line-height:1.75;max-width:600px;}
+
+/* Pain points */
+.pain-section{margin-bottom:44px;}
+.section-label{font-size:11px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.pain-card{background:#FFF5F5;border:1px solid #FED7D7;border-radius:var(--r);padding:18px;}
+.pain-card-icon{font-size:20px;margin-bottom:8px;}
+.pain-card-h{font-size:13px;font-weight:700;color:#9B1C1C;margin-bottom:4px;}
+.pain-card-p{font-size:12px;color:#C53030;line-height:1.6;}
+
+/* Feature use cases */
+.features-section{margin-bottom:44px;}
+.feat-uc-list{display:flex;flex-direction:column;gap:16px;}
+.feat-uc-item{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:var(--r2);overflow:hidden;
+  transition:border-color .2s,box-shadow .2s;
+}
+.feat-uc-item:hover{border-color:var(--g);box-shadow:0 4px 20px rgba(16,185,129,.08);}
+.feat-uc-header{
+  display:flex;align-items:center;gap:14px;padding:18px 22px;
+  cursor:pointer;
+}
+.feat-uc-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.feat-uc-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;}
+.feat-uc-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:nowrap;}
+.tag-core{background:#EFF6FF;color:#1D4ED8;}
+.tag-ai{background:#F3E8FF;color:#7C3AED;}
+.tag-new{background:#ECFDF5;color:#065F46;}
+.tag-auto{background:#FFF7ED;color:#C2410C;}
+.feat-uc-arrow{font-size:18px;color:var(--ink4);transition:transform .3s;}
+.feat-uc-item.open .feat-uc-arrow{transform:rotate(180deg);}
+.feat-uc-body{
+  max-height:0;overflow:hidden;
+  transition:max-height .4s cubic-bezier(.16,1,.3,1);
+  border-top:0 solid var(--border);
+}
+.feat-uc-item.open .feat-uc-body{border-top-width:1px;}
+.feat-uc-inner{padding:20px 22px 22px 76px;}
+.feat-uc-scenario{
+  background:var(--soft);border:1px solid var(--border);
+  border-radius:var(--r);padding:14px 16px;margin-bottom:14px;
+  font-size:13px;color:var(--ink3);line-height:1.7;
+  border-left:3px solid var(--g);
+}
+.feat-uc-scenario strong{color:var(--ink);font-weight:600;}
+.feat-bullets{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.feat-bullets li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--ink3);line-height:1.6;}
+.feat-bullets li::before{content:'✓';color:var(--g);font-weight:800;flex-shrink:0;margin-top:1px;}
+
+/* Outcome / Results */
+.outcome-section{margin-bottom:44px;}
+.outcome-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.outcome-card{
+  background:linear-gradient(135deg,#F0FDF4,#ECFDF5);
+  border:1px solid rgba(16,185,129,.2);
+  border-radius:var(--r2);padding:20px;text-align:center;
+}
+.outcome-n{font-size:36px;font-weight:900;letter-spacing:-.05em;line-height:1;color:var(--g2);margin-bottom:6px;}
+.outcome-l{font-size:12px;color:var(--g3);font-weight:600;line-height:1.4;}
+
+/* Real scenario / workflow */
+.workflow-section{margin-bottom:44px;}
+.workflow-card{
+  background:var(--ink);border-radius:var(--r2);overflow:hidden;
+}
+.wf-header{
+  background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);
+  padding:14px 20px;display:flex;align-items:center;gap:8px;
+}
+.wf-dot{width:10px;height:10px;border-radius:50%;}
+.wf-url{flex:1;background:rgba(255,255,255,.05);border-radius:5px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,.3);font-family:monospace;margin:0 12px;}
+.wf-body{padding:24px;}
+.wf-steps{display:flex;flex-direction:column;gap:0;}
+.wf-step{display:flex;gap:16px;padding-bottom:24px;position:relative;}
+.wf-step:last-child{padding-bottom:0;}
+.wf-step:not(:last-child)::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:rgba(255,255,255,.08);}
+.wf-step-num{width:32px;height:32px;border-radius:50%;background:var(--g);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;z-index:1;}
+.wf-step-content{flex:1;padding-top:6px;}
+.wf-step-action{font-size:12px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.wf-step-desc{font-size:13px;color:#CBD5E1;line-height:1.6;}
+.wf-step-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:3px 10px;font-size:11px;color:#6EE7B7;font-weight:600;margin-top:6px;}
+.wf-step-badge.ai{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.2);color:#C4B5FD;}
+.wf-step-badge.auto{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.2);color:#FCD34D;}
+
+/* CTA per pane */
+.pane-cta{
+  background:linear-gradient(135deg,var(--ink),#0F2027);
+  border-radius:var(--r2);padding:36px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  flex-wrap:wrap;
+}
+.pane-cta-text h3{font-size:20px;font-weight:800;color:#fff;margin-bottom:6px;letter-spacing:-.03em;}
+.pane-cta-text p{font-size:14px;color:rgba(255,255,255,.5);}
+.pane-cta-btns{display:flex;gap:10px;flex-wrap:wrap;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .uc-layout{grid-template-columns:1fr;}
+  .uc-sidebar{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);padding:16px 0;display:flex;flex-direction:row;overflow-x:auto;gap:0;}
+  .uc-sidebar::-webkit-scrollbar{height:4px;}
+  .industry-btn{min-width:140px;border-left:none;border-bottom:3px solid transparent;flex-direction:column;text-align:center;padding:10px 16px;gap:6px;}
+  .industry-btn.active{border-bottom-color:var(--g);background:rgba(16,185,129,.06);}
+  .ib-text{text-align:center;}
+  .ib-arr,.sidebar-label,.sidebar-divider,.sidebar-count{display:none;}
+  .uc-content{padding:28px 24px;}
+  .pain-grid{grid-template-columns:1fr 1fr;}
+  .outcome-grid{grid-template-columns:repeat(2,1fr);}
+}
+@media(max-width:560px){
+  .pain-grid{grid-template-columns:1fr;}
+  .outcome-grid{grid-template-columns:repeat(2,1fr);}
+  .feat-uc-inner{padding:16px 16px 18px 16px;}
+  .pane-cta{padding:24px;}
+  .pane-cta-text h3{font-size:17px;}
+}
+
+/* ── REVEAL ── */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .55s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1);}
+.reveal.in{opacity:1;transform:translateY(0);}
+.d1{transition-delay:.08s;}.d2{transition-delay:.16s;}.d3{transition-delay:.24s;}
+
+/* Footer */
+footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:36px 0;}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.footer-logo{display:flex;align-items:center;gap:9px;}
+.footer-logo-mark{width:28px;height:28px;border-radius:7px;background:var(--g);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;}
+.footer-logo-text{font-size:14px;font-weight:700;color:rgba(255,255,255,.5);}
+.footer-links{display:flex;gap:20px;flex-wrap:wrap;}
+.footer-links a{font-size:13px;color:rgba(255,255,255,.3);text-decoration:none;}
+.footer-links a:hover{color:rgba(255,255,255,.7);}
+.footer-copy{font-size:12px;color:rgba(255,255,255,.2);}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">🚀 New: AI reply drafts &amp; appointment booking — <a href="/signup">Start free for 3 months →</a></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">R</div>
+      <span class="nav-logo-text">Resolvo</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/pitch">Product</a></li>
+      <li><a href="/use-cases" class="active">Use Cases</a></li>
+      <li><a href="/pitch#pricing">Pricing</a></li>
+      <li><a href="/blog">Blog</a></li>
+    </ul>
+    <div class="nav-r">
+      <a href="/" class="btn-ghost-nav">Sign in</a>
+      <a href="/signup" class="btn-green">Get started →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="uc-hero">
+  <div class="w">
+    <div class="uc-eyebrow reveal"><div class="uc-eyebrow-dot"></div>Industry Use Cases</div>
+    <h1 class="reveal d1">See Resolvo in <span>your industry</span></h1>
+    <p class="reveal d2">Every industry has different support challenges. See exactly how Resolvo's features map to your specific workflows — with real scenarios, step-by-step flows, and measurable outcomes.</p>
+    <div class="uc-hero-btns reveal d3">
+      <a href="/signup" class="btn-hero">Start free — 3 months →</a>
+      <a href="/pitch" class="btn-outline-hero">See all features</a>
+    </div>
+    <div class="uc-chips reveal d3">
+      <span class="uc-chip">👗 D2C Fashion</span>
+      <span class="uc-chip">💄 Beauty & Skincare</span>
+      <span class="uc-chip">💊 Health & Nutrition</span>
+      <span class="uc-chip">🏥 Clinics</span>
+      <span class="uc-chip">✂️ Salons</span>
+      <span class="uc-chip">📚 EdTech</span>
+      <span class="uc-chip">⚖️ Legal</span>
+      <span class="uc-chip">💳 Fintech</span>
+      <span class="uc-chip">💻 SaaS</span>
+      <span class="uc-chip">🏢 Multi-Brand</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="uc-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="uc-sidebar">
+    <div class="sidebar-label">Select industry <span class="sidebar-count">10 industries</span></div>
+
+    <button class="industry-btn active" data-industry="fashion" onclick="switchIndustry('fashion',this)">
+      <div class="ib-icon" style="background:#FFF0F9;">👗</div>
+      <div class="ib-text"><div class="ib-name">D2C Fashion & Apparel</div><div class="ib-sub">Returns, exchanges, SLA</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="beauty" onclick="switchIndustry('beauty',this)">
+      <div class="ib-icon" style="background:#FFF5F5;">💄</div>
+      <div class="ib-text"><div class="ib-name">Beauty & Skincare</div><div class="ib-sub">Complaints, CSAT, CRM</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="health" onclick="switchIndustry('health',this)">
+      <div class="ib-icon" style="background:#F0FFF4;">💊</div>
+      <div class="ib-text"><div class="ib-name">Health & Nutrition</div><div class="ib-sub">Subscriptions, queries</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <div class="sidebar-divider"></div>
+
+    <button class="industry-btn" data-industry="clinic" onclick="switchIndustry('clinic',this)">
+      <div class="ib-icon" style="background:#EBF8FF;">🏥</div>
+      <div class="ib-text"><div class="ib-name">Clinics & Healthcare</div><div class="ib-sub">Appointments, reminders</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="salon" onclick="switchIndustry('salon',this)">
+      <div class="ib-icon" style="background:#FFF5F5;">✂️</div>
+      <div class="ib-text"><div class="ib-name">Salons & Beauty Services</div><div class="ib-sub">Booking, no-shows</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="edtech" onclick="switchIndustry('edtech',this)">
+      <div class="ib-icon" style="background:#FFFAF0;">📚</div>
+      <div class="ib-text"><div class="ib-name">EdTech & Coaching</div><div class="ib-sub">Sessions, student queries</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <div class="sidebar-divider"></div>
+
+    <button class="industry-btn" data-industry="legal" onclick="switchIndustry('legal',this)">
+      <div class="ib-icon" style="background:#F7F0FF;">⚖️</div>
+      <div class="ib-text"><div class="ib-name">Legal Services</div><div class="ib-sub">Client scheduling, docs</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="fintech" onclick="switchIndustry('fintech',this)">
+      <div class="ib-icon" style="background:#F0F9FF;">💳</div>
+      <div class="ib-text"><div class="ib-name">Fintech & Payments</div><div class="ib-sub">Disputes, SLA, KYC</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="saas" onclick="switchIndustry('saas',this)">
+      <div class="ib-icon" style="background:#EEF2FF;">💻</div>
+      <div class="ib-text"><div class="ib-name">SaaS Startups</div><div class="ib-sub">Bug tracker, triage</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+
+    <button class="industry-btn" data-industry="multibrand" onclick="switchIndustry('multibrand',this)">
+      <div class="ib-icon" style="background:#FFF9F0;">🏢</div>
+      <div class="ib-text"><div class="ib-name">Multi-Brand Operations</div><div class="ib-sub">Agencies, conglomerates</div></div>
+      <span class="ib-arr">→</span>
+    </button>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="uc-content">
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 1. D2C FASHION -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane active" id="pane-fashion">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">👗 D2C Fashion & Apparel</div>
+        <div class="pane-icon-big">👗</div>
+        <h2 class="pane-h">Your returns inbox is a<br><span>WhatsApp nightmare.</span></h2>
+        <p class="pane-sub">Fashion D2C brands get hit with high volumes of repetitive tickets — wrong size, delayed delivery, COD refund, exchange requests. Your team is drowning. Resolvo turns that chaos into a structured, trackable, AI-accelerated support operation.</p>
+      </div>
+
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">😤</div><div class="pain-card-h">Duplicate replies</div><div class="pain-card-p">Two agents reply to the same return request — customer gets contradictory answers, brand looks unprofessional.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">⏰</div><div class="pain-card-h">SLA invisible</div><div class="pain-card-p">No visibility on which exchanges have been pending 3 days. Customer escalates on Instagram. Fire drills every evening.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📵</div><div class="pain-card-h">Agent quits, history gone</div><div class="pain-card-p">Support agent leaves. Customer conversations are on their personal WhatsApp. New agent starts from zero.</div></div>
+        </div>
+      </div>
+
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EFF6FF;">📬</div>
+              <div class="feat-uc-title">Shared Ticket Inbox — Every return request in one place</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body">
+              <div class="feat-uc-inner">
+                <div class="feat-uc-scenario"><strong>Scenario:</strong> A customer emails support@yourbrand.com about a wrong-size Kurti. Another messages on WhatsApp about a delayed kurta. Both land in Resolvo as tickets — auto-tagged "exchange" and "delivery" — assigned to two different agents. No overlap. No miss.</div>
+                <ul class="feat-bullets">
+                  <li>Email, WhatsApp, and web widget tickets all in one queue</li>
+                  <li>Auto-tag by keywords: "return", "exchange", "refund", "COD"</li>
+                  <li>Collision detection — see if another agent is viewing the same ticket</li>
+                  <li>Full conversation history preserved across agent changes</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F3E8FF;">🤖</div>
+              <div class="feat-uc-title">AI Reply Drafts — Handle 50 return emails in 30 minutes</div>
+              <span class="feat-uc-tag tag-ai">AI</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body">
+              <div class="feat-uc-inner">
+                <div class="feat-uc-scenario"><strong>Scenario:</strong> "Wrong size delivered" is your #1 ticket type. AI learns from your past 500 replies. Every new wrong-size ticket gets a perfect draft: acknowledge, ask for photo, confirm replacement. Agent reads, hits send. Done in 45 seconds.</div>
+                <ul class="feat-bullets">
+                  <li>Draft trained on your brand's own past replies — sounds like you</li>
+                  <li>Handles exchange, refund, COD, delivery queries out of the box</li>
+                  <li>Agent can edit, regenerate, or reject — AI never sends without approval</li>
+                  <li>60% reduction in first response time (measured across brands)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF7ED;">⏱</div>
+              <div class="feat-uc-title">SLA Tracking — No exchange request pending more than 24h</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body">
+              <div class="feat-uc-inner">
+                <div class="feat-uc-scenario"><strong>Scenario:</strong> Exchange requests: SLA 24h. Refund requests: SLA 48h. Delivery complaints: SLA 4h. Resolvo shows a red countdown on every at-risk ticket. Your team lead gets an email alert 2 hours before breach. No more "we forgot" moments.</div>
+                <ul class="feat-bullets">
+                  <li>Custom SLA by ticket type — returns ≠ queries</li>
+                  <li>Real-time countdown visible to all agents</li>
+                  <li>Alert email to team lead 2h before breach</li>
+                  <li>Daily compliance report: SLA % per agent, per channel</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F0FDF4;">🏠</div>
+              <div class="feat-uc-title">Self-Service Portal — "Where's my return?" handled without an agent</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body">
+              <div class="feat-uc-inner">
+                <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer logs in via OTP at portal.yourbrand.com. Sees all their tickets — including the return they raised 3 days ago, current status "In progress", and agent notes. Doesn't need to email again. Support email volume drops 40%.</div>
+                <ul class="feat-bullets">
+                  <li>Branded portal — your colours, your logo</li>
+                  <li>OTP login — no password needed for customers</li>
+                  <li>Customers can add comments, attach photos to existing tickets</li>
+                  <li>70% reduction in "what's the update?" follow-up emails</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes after 30 days</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">60%</div><div class="outcome-l">faster first response time with AI drafts</div></div>
+          <div class="outcome-card"><div class="outcome-n">94%</div><div class="outcome-l">SLA compliance vs. ~40% before Resolvo</div></div>
+          <div class="outcome-card"><div class="outcome-n">70%</div><div class="outcome-l">drop in follow-up "update?" emails</div></div>
+          <div class="outcome-card"><div class="outcome-n">5 min</div><div class="outcome-l">to go live — no developer, no IT ticket</div></div>
+        </div>
+      </div>
+
+      <div class="workflow-section reveal">
+        <div class="section-label">End-to-end workflow: Exchange request</div>
+        <div class="workflow-card">
+          <div class="wf-header">
+            <div class="wf-dot" style="background:#FF5F57"></div><div class="wf-dot" style="background:#FFBD2E"></div><div class="wf-dot" style="background:#28CA42"></div>
+            <div class="wf-url">app.resolvogroup.com/tickets → #KN-2481</div>
+          </div>
+          <div class="wf-body">
+            <div class="wf-steps">
+              <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-content"><div class="wf-step-action">Customer emails</div><div class="wf-step-desc">Priya emails support@yourbrand.com: "I ordered size M Kurti but received size S. Please help." Email auto-creates Ticket #KN-2481, tagged "exchange", priority High.</div><div class="wf-step-badge">🔁 Auto-created</div></div></div>
+              <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-content"><div class="wf-step-action">AI drafts reply</div><div class="wf-step-desc">Within 10 seconds, AI generates: "Hi Priya, I'm sorry for the mix-up! Can you share a photo of the size tag? We'll arrange the correct size M dispatch immediately 🙏"</div><div class="wf-step-badge ai">🤖 AI Draft</div></div></div>
+              <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-content"><div class="wf-step-action">Agent reviews &amp; sends</div><div class="wf-step-desc">Agent Aman reviews the draft, hits Send. First response done in 90 seconds. SLA clock shows 22h 30m remaining. Ticket status: Awaiting customer.</div></div></div>
+              <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-content"><div class="wf-step-action">Customer responds with photo</div><div class="wf-step-desc">Priya replies with photo of wrong tag. Ticket reopens. AI drafts: "Thank you! I've raised a pickup for the wrong item. Correct size M will ship tomorrow. Tracking sent to your email."</div><div class="wf-step-badge ai">🤖 AI Draft</div></div></div>
+              <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-content"><div class="wf-step-action">Ticket resolved + CSAT sent</div><div class="wf-step-desc">Aman resolves the ticket. Auto-CSAT email sent to Priya: "How was your support experience?" Priya rates 5★. Score logged to dashboard.</div><div class="wf-step-badge auto">📨 Auto CSAT</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pane-cta reveal">
+        <div class="pane-cta-text"><h3>Ready to fix your fashion brand's support?</h3><p>Setup in 5 minutes. 3 months free. No credit card.</p></div>
+        <div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a><a href="/pitch" class="btn-outline-hero" style="color:#CBD5E1;border-color:rgba(255,255,255,.15);">See all features</a></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 2. BEAUTY & SKINCARE -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-beauty">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">💄 Beauty & Skincare</div>
+        <div class="pane-icon-big">💄</div>
+        <h2 class="pane-h">Ingredient queries,<br><span>reaction complaints, broken trust.</span></h2>
+        <p class="pane-sub">Beauty brands face sensitive, high-stakes support. A customer with a skin reaction needs an urgent, empathetic response — not a canned reply 48 hours later. Resolvo gives you SLA tracking, AI-drafted empathetic responses, CSAT scoring, and a full customer CRM so agents always know who they're talking to.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">😰</div><div class="pain-card-h">Reaction complaints go cold</div><div class="pain-card-p">A customer messages about a rash. Gets lost in the inbox for 2 days. They post on Instagram. Crisis begins.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">🔍</div><div class="pain-card-h">No customer history</div><div class="pain-card-p">Agent doesn't know this is the customer's 3rd complaint. No context. Wrong tone. Customer churns.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📉</div><div class="pain-card-h">CSAT unmeasured</div><div class="pain-card-p">You don't know if customers are happy or angry until they review-bomb you on Nykaa or Amazon.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF1F2;">🚨</div>
+              <div class="feat-uc-title">Priority SLA — Reaction complaints escalated in under 2 hours</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer emails with "I got a rash after using your serum." AI detects sentiment: negative + health keyword → auto-escalated to Critical, SLA 2h. Team lead alerted immediately via email.</div>
+              <ul class="feat-bullets">
+                <li>Sentiment detection flags angry/health-risk tickets automatically</li>
+                <li>Critical SLA: 2h response guaranteed</li>
+                <li>Alert to team lead on escalation, not just breach</li>
+                <li>Full thread history so every agent sees what was already promised</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#ECFDF5;">👤</div>
+              <div class="feat-uc-title">Customer CRM — Know your customer before you reply</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Meera emails about her second reaction to a product. CRM shows: purchased 3 times, raised 2 prior complaints, CSAT 2★. Agent immediately knows this is a priority case, adjusts tone, offers a full refund proactively.</div>
+              <ul class="feat-bullets">
+                <li>Full purchase and ticket history in one CRM profile</li>
+                <li>Past complaints, promises made, resolutions given — all visible</li>
+                <li>CSAT history per customer — know who to prioritise</li>
+                <li>Agent notes visible across team — no repeating questions</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF9C4;">⭐</div>
+              <div class="feat-uc-title">CSAT Scoring — Know if customers are happy before they review-bomb you</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Every resolved ticket auto-sends a 1-click CSAT survey. Low score (1-2★) triggers an immediate alert to the team lead. You can call the customer before they post a bad review on Nykaa.</div>
+              <ul class="feat-bullets">
+                <li>Auto-sent CSAT survey on ticket close — 1 click for customer</li>
+                <li>Score dashboard by agent, channel, week, month</li>
+                <li>Low-score alert: team lead notified within minutes</li>
+                <li>CSAT trend in daily digest — see if quality is dropping</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">2h</div><div class="outcome-l">guaranteed first response on reaction complaints</div></div>
+          <div class="outcome-card"><div class="outcome-n">4.7★</div><div class="outcome-l">average CSAT score after 60 days on Resolvo</div></div>
+          <div class="outcome-card"><div class="outcome-n">85%</div><div class="outcome-l">of low-CSAT customers retained with proactive follow-up</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">bad reviews caught before they posted in first month</div></div>
+        </div>
+      </div>
+      <div class="workflow-section reveal">
+        <div class="section-label">Workflow: Reaction complaint → Proactive save</div>
+        <div class="workflow-card">
+          <div class="wf-header"><div class="wf-dot" style="background:#FF5F57"></div><div class="wf-dot" style="background:#FFBD2E"></div><div class="wf-dot" style="background:#28CA42"></div><div class="wf-url">app.resolvogroup.com/tickets → #SK-1147</div></div>
+          <div class="wf-body"><div class="wf-steps">
+            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-content"><div class="wf-step-action">Email received</div><div class="wf-step-desc">Meera emails: "I got a rash on my neck after using your Vitamin C serum." AI sentiment: Negative + health risk → auto-tagged Critical, SLA 2h, team lead alerted.</div><div class="wf-step-badge auto">⚠️ Auto-escalated</div></div></div>
+            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-content"><div class="wf-step-action">CRM pulled up</div><div class="wf-step-desc">Agent sees Meera's CRM: 3 orders, 1 prior complaint (serum sensitivity 6 months ago), CSAT 3★. Knows this needs extra care. AI draft adjusts tone — more empathetic, offers full refund upfront.</div><div class="wf-step-badge ai">🤖 Context-aware draft</div></div></div>
+            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-content"><div class="wf-step-action">Resolved in 40 minutes</div><div class="wf-step-desc">Refund processed, free replacement offered, dermatologist contact shared. Ticket resolved. CSAT auto-sent.</div></div></div>
+            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-content"><div class="wf-step-action">CSAT: 5★</div><div class="wf-step-desc">Meera rates 5★ and leaves a note: "Fastest and kindest response I've ever gotten from a brand." Score saved to her CRM profile.</div><div class="wf-step-badge">⭐ 5★ CSAT saved</div></div></div>
+          </div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Ready to build a world-class beauty support team?</h3><p>3 months free. No credit card. Setup in 5 minutes.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 3. HEALTH & NUTRITION -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-health">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">💊 Health & Nutrition</div>
+        <div class="pane-icon-big">💊</div>
+        <h2 class="pane-h">Dosage questions, subscriptions,<br><span>and no system to track any of it.</span></h2>
+        <p class="pane-sub">Health and nutrition brands deal with medically sensitive questions, subscription management, and strict delivery expectations. Every unanswered query is a potential churn — or worse, a health risk. Resolvo gives you structured ticketing, automated follow-ups, and the audit trail you need.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">💉</div><div class="pain-card-h">Dosage queries unanswered</div><div class="pain-card-p">Customer asks if they can take two supplements together. Email gets lost. Customer makes a wrong decision. Brand liable.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">🔄</div><div class="pain-card-h">Subscription chaos</div><div class="pain-card-p">Customer wants to pause, cancel, or change frequency of subscription. 4 emails back and forth. No agent has full context.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📦</div><div class="pain-card-h">Delivery escalation</div><div class="pain-card-p">Monthly subscription box 3 days late. Customer is out of medication. Urgent escalation becomes a crisis with no SLA in place.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F0FDF4;">📋</div>
+              <div class="feat-uc-title">Ticket Audit Trail — Every dosage query documented forever</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer asks if Ashwagandha + Magnesium is safe together. Agent replies with expert guidance. Full conversation stored — who replied, when, what was said. If query comes back 3 months later, agent sees the full history.</div>
+              <ul class="feat-bullets">
+                <li>Complete conversation history — never starts from zero</li>
+                <li>Internal notes for medical/compliance context, invisible to customer</li>
+                <li>Agent name + timestamp on every response — full accountability</li>
+                <li>Exportable audit trail for compliance teams</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF7ED;">📨</div>
+              <div class="feat-uc-title">Automated Follow-ups — Subscription renewals handled automatically</div>
+              <span class="feat-uc-tag tag-auto">Automation</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer raises a "pause subscription" request. Ticket created. After pause is processed, auto-follow-up sent: "Your subscription is paused until [date]. We'll send you a reminder 3 days before it resumes. Want to adjust the date?" No manual follow-up needed.</div>
+              <ul class="feat-bullets">
+                <li>Auto follow-up emails on ticket close — confirm action taken</li>
+                <li>Reminder sequences for subscription-type queries</li>
+                <li>Daily digest: which subscription requests are pending today</li>
+                <li>SLA on subscription queries: max 4h response guaranteed</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FEF3C7;">🚨</div>
+              <div class="feat-uc-title">SLA Escalation — Urgent delivery complaints never slip</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer emails: "My iron supplement subscription box is 3 days late, I'm running out." AI detects urgency → Critical priority, SLA 2h. Logistics team alerted via internal note. Customer gets real-time update. Churn prevented.</div>
+              <ul class="feat-bullets">
+                <li>Keyword-triggered escalation: "running out", "medical", "urgent"</li>
+                <li>Internal notes to loop in logistics or ops team</li>
+                <li>Customer gets proactive status update email</li>
+                <li>Breach prevented — never a delayed delivery complaint unanswered again</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">100%</div><div class="outcome-l">of dosage queries documented with full audit trail</div></div>
+          <div class="outcome-card"><div class="outcome-n">4h</div><div class="outcome-l">max response SLA on urgent delivery complaints</div></div>
+          <div class="outcome-card"><div class="outcome-n">45%</div><div class="outcome-l">reduction in subscription-related churn</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">escalations that went unanswered after SLA setup</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Health brands need airtight support. Resolvo delivers it.</h3><p>Start free today. No credit card needed.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 4. CLINICS & HEALTHCARE -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-clinic">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">🏥 Clinics & Healthcare</div>
+        <div class="pane-icon-big">🏥</div>
+        <h2 class="pane-h">Your receptionist can't<br><span>be on WhatsApp 24/7.</span></h2>
+        <p class="pane-sub">Clinics lose patients every week because booking is hard, reminders don't go out, and follow-up falls through the cracks. Resolvo's appointment booking, automated reminders, and patient ticket portal change all of that — without replacing your existing practice management software.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">📵</div><div class="pain-card-h">No-shows cost money</div><div class="pain-card-p">30% of appointments don't show up. No reminder was sent. That's a slot lost forever. At ₹800/consultation, it adds up fast.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📞</div><div class="pain-card-h">Receptionist overloaded</div><div class="pain-card-p">Phone rings nonstop with booking requests, rescheduling calls, and "which doctor is available?" queries. Front desk chaos.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📋</div><div class="pain-card-h">No follow-up system</div><div class="pain-card-p">Patient comes for consultation. Told to follow up in 2 weeks. Nobody calls. Patient doesn't come back. Lifetime value lost.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EBF8FF;">📅</div>
+              <div class="feat-uc-title">Appointment Booking — Patients book online, reminders sent automatically</div>
+              <span class="feat-uc-tag tag-new">KEY</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Share your clinic's booking link on WhatsApp, Instagram, and your website. Patient picks doctor, date, time slot — books in 60 seconds. Confirmation email sent instantly. 1-hour reminder sent before appointment. No-shows drop by 60%.</div>
+              <ul class="feat-bullets">
+                <li>Shareable booking link — works everywhere (WhatsApp, Instagram bio, website)</li>
+                <li>Custom availability per doctor / per specialty</li>
+                <li>Instant confirmation email with appointment details</li>
+                <li>Automated 1-hour reminder email — zero manual effort</li>
+                <li>Rescheduling handled via reply — no phone call needed</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F0FDF4;">💬</div>
+              <div class="feat-uc-title">WhatsApp + Shared Inbox — All patient queries in one place</div>
+              <span class="feat-uc-tag tag-new">NEW</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Patients ask questions on WhatsApp, email, and your website. All land in Resolvo. Reception team manages every query from one screen. "Which doctor for knee pain?", "Can I book for this Saturday?", "What's the fee?" — all handled without switching apps.</div>
+              <ul class="feat-bullets">
+                <li>WhatsApp Business connected — messages become tickets</li>
+                <li>Email inbox connected — zero missed queries</li>
+                <li>Assignment to receptionist or doctor's assistant</li>
+                <li>Internal notes for confidential patient info</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF7ED;">📨</div>
+              <div class="feat-uc-title">Automated Follow-ups — Never lose a patient after their first visit</div>
+              <span class="feat-uc-tag tag-auto">Automation</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> After consultation, ticket is created: "Follow-up in 14 days." Resolvo auto-sends a reminder to the patient on day 12: "Your follow-up with Dr. Sharma is due. Book your slot here: [link]." Patient books. Retention up.</div>
+              <ul class="feat-bullets">
+                <li>Scheduled follow-up reminders per patient ticket</li>
+                <li>Automatic booking link in follow-up email</li>
+                <li>Daily digest for reception: who is due for follow-up today</li>
+                <li>No patient falls through the cracks</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">60%</div><div class="outcome-l">fewer no-shows with automated reminders</div></div>
+          <div class="outcome-card"><div class="outcome-n">3x</div><div class="outcome-l">more follow-up appointments booked</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">patient queries missed — everything is a ticket</div></div>
+          <div class="outcome-card"><div class="outcome-n">2h</div><div class="outcome-l">saved daily by reception team on manual booking</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Built for clinics. Ready in 5 minutes.</h3><p>Free appointment booking, reminders, and WhatsApp support — all in one platform.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 5. SALONS -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-salon">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">✂️ Salons & Beauty Services</div>
+        <div class="pane-icon-big">✂️</div>
+        <h2 class="pane-h">Empty slots from no-shows.<br><span>Bookings lost in DMs.</span></h2>
+        <p class="pane-sub">Salons run on bookings. Every no-show is money lost. Every booking via Instagram DM is a booking that might get forgotten. Resolvo gives salons a professional booking system with automated reminders, WhatsApp management, and multi-stylist scheduling — without a ₹20,000/month salon software.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">🪑</div><div class="pain-card-h">Empty chair, full DMs</div><div class="pain-card-p">Customer DMed you on Instagram to book. You replied. They confirmed. Day arrives — they don't show. No reminder was sent. Chair empty.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📲</div><div class="pain-card-h">Booking on personal phone</div><div class="pain-card-p">All bookings are in the stylist's WhatsApp. Staff changes, bookings go missing. No central record.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">💇</div><div class="pain-card-h">Double-booking</div><div class="pain-card-p">Two clients booked for the same stylist at the same time. Chaos at the counter. Embarrassing for the brand.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF0F9;">📅</div>
+              <div class="feat-uc-title">Appointment Booking — From Instagram bio to confirmed booking in 60 seconds</div>
+              <span class="feat-uc-tag tag-new">KEY</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Add your Resolvo booking link to your Instagram bio, WhatsApp status, and Google Business profile. Customer clicks, picks stylist, service, and time — confirmed in 60 seconds. They get a confirmation + 1-hour reminder. Show-up rate goes from 65% to 92%.</div>
+              <ul class="feat-bullets">
+                <li>Booking link works anywhere — Instagram, WhatsApp, Google, website</li>
+                <li>Per-stylist availability configuration</li>
+                <li>Service types (haircut, colour, bridal) with duration</li>
+                <li>Automatic confirmation + 1-hour reminder via email</li>
+                <li>Central calendar — no double-booking, ever</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F0FDF4;">💬</div>
+              <div class="feat-uc-title">WhatsApp Inbox — Stop managing bookings in personal WhatsApp</div>
+              <span class="feat-uc-tag tag-new">NEW</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> All WhatsApp booking messages now come into your Resolvo dashboard. Any staff member can respond. If a stylist leaves, the conversations stay with the salon. Customer gets consistent, professional service every time.</div>
+              <ul class="feat-bullets">
+                <li>Official WhatsApp Business number connected — no personal phones</li>
+                <li>Any staff member can handle bookings from the same dashboard</li>
+                <li>Full conversation history — even after staff changes</li>
+                <li>AI drafts booking confirmations and rescheduling replies</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EBF8FF;">⭐</div>
+              <div class="feat-uc-title">CSAT After Visit — Build your 5★ reputation automatically</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> After each appointment, auto-CSAT email sent to customer. They rate their experience. 5★ customers get a follow-up message asking them to leave a Google review. Low-score customers get a personal callback offer before they post anywhere.</div>
+              <ul class="feat-bullets">
+                <li>Auto CSAT survey sent after appointment completion</li>
+                <li>5★ customers nudged toward Google/Instagram review</li>
+                <li>Low-score alert so you can fix it before it becomes a public review</li>
+                <li>CSAT dashboard by stylist — know who's delivering great service</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">92%</div><div class="outcome-l">show-up rate with automated reminders</div></div>
+          <div class="outcome-card"><div class="outcome-n">3x</div><div class="outcome-l">more Google reviews from happy customers</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">double-bookings since switching to Resolvo</div></div>
+          <div class="outcome-card"><div class="outcome-n">100%</div><div class="outcome-l">booking history retained even after staff changes</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Fill every chair. Build your reputation.</h3><p>Professional booking for salons. Start free today.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 6. EDTECH -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-edtech">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">📚 EdTech & Coaching</div>
+        <div class="pane-icon-big">📚</div>
+        <h2 class="pane-h">Students ask 200 questions a day.<br><span>You have 3 people to answer them.</span></h2>
+        <p class="pane-sub">EdTech platforms and coaching institutes deal with a flood of repetitive queries — enrollment questions, session scheduling, study material access, fee payment. Resolvo lets a small team handle it all with AI drafts, structured queues, and a self-service portal where students can check their own ticket status.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">📧</div><div class="pain-card-h">Repetitive query flood</div><div class="pain-card-p">"When does batch start?", "How do I access my videos?", "Can I change my batch?" — same 10 questions, 100 times a day. Team exhausted.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📅</div><div class="pain-card-h">Session scheduling mess</div><div class="pain-card-p">1:1 sessions with tutors managed via WhatsApp back-and-forth. Reschedules are a nightmare. Students miss sessions.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">🎓</div><div class="pain-card-h">No student context</div><div class="pain-card-p">Student contacts support for the 5th time about the same issue. Agent has no history. Student gets same wrong answer again. They churn.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F3E8FF;">🤖</div>
+              <div class="feat-uc-title">AI Reply Drafts — Answer 80% of queries in under 60 seconds</div>
+              <span class="feat-uc-tag tag-ai">AI</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> "When does the UPSC batch start?" — AI draft instantly: "Hi Rohit! The next UPSC Foundation batch starts August 20. Classes are Mon-Wed-Fri, 7-9 PM IST. Enroll here: [link]. Let me know if you have any questions!" Agent hits Send. Done in 15 seconds.</div>
+              <ul class="feat-bullets">
+                <li>AI trained on your FAQ, past replies, and batch schedules</li>
+                <li>Handles enrollment, access, fee, batch, and schedule queries</li>
+                <li>Agent adds personal touch if needed, or just hits Send</li>
+                <li>80% of repetitive queries handled in under 60 seconds each</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFFAF0;">📅</div>
+              <div class="feat-uc-title">Booking — 1:1 tutor sessions scheduled without WhatsApp chaos</div>
+              <span class="feat-uc-tag tag-new">KEY</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Student wants a doubt-clearing session. Clicks booking link in their portal. Picks tutor, subject, and 30-minute slot. Confirmation + Zoom link auto-sent. 1-hour reminder sent. Tutor has full context from student's CRM profile.</div>
+              <ul class="feat-bullets">
+                <li>Per-tutor booking availability</li>
+                <li>Session type (doubt clearing, mock test review, mentorship)</li>
+                <li>Auto Zoom/Meet link in confirmation email</li>
+                <li>1-hour reminder to both student and tutor</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EFF6FF;">🏠</div>
+              <div class="feat-uc-title">Student Portal — Students check their own ticket status</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Student raised a "video access not working" ticket 2 days ago. Instead of emailing again, they log into the portal via OTP, see status "In Progress — team is checking with tech team", and add a comment: "Still not working on mobile either." No follow-up email clutter.</div>
+              <ul class="feat-bullets">
+                <li>Branded student portal — your institute's name and colors</li>
+                <li>OTP login — no password to remember</li>
+                <li>Students add comments and attachments to open tickets</li>
+                <li>Cuts "what's the update on my ticket?" emails by 70%</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">80%</div><div class="outcome-l">of repetitive queries handled by AI in under 60s</div></div>
+          <div class="outcome-card"><div class="outcome-n">3x</div><div class="outcome-l">more 1:1 sessions booked per week</div></div>
+          <div class="outcome-card"><div class="outcome-n">70%</div><div class="outcome-l">fewer "update on my ticket?" follow-up emails</div></div>
+          <div class="outcome-card"><div class="outcome-n">4.8★</div><div class="outcome-l">average student CSAT score</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Scale your support without scaling your team.</h3><p>EdTech-ready. Start free today.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 7. LEGAL -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-legal">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">⚖️ Legal Services</div>
+        <div class="pane-icon-big">⚖️</div>
+        <h2 class="pane-h">Client consultations managed<br><span>on personal phones. That's a liability.</span></h2>
+        <p class="pane-sub">Law firms and legal consultants need structured client communication with audit trails, scheduled consultations, document request tracking, and deadline reminders. Resolvo gives you all of that — without sharing your personal mobile number with every client.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">📱</div><div class="pain-card-h">Personal number shared with clients</div><div class="pain-card-p">Clients message you at 11 PM. No separation between personal and professional. No record of what was promised.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📄</div><div class="pain-card-h">Document requests lost</div><div class="pain-card-p">"Please send your Aadhaar and PAN." Client sends it. You reply on email. Then WhatsApp. Nobody knows which version is current.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">⏰</div><div class="pain-card-h">Consultation scheduling is manual</div><div class="pain-card-p">3 emails back and forth to schedule a 30-minute call. Calendar conflicts. Missed meetings. Client gets frustrated before the engagement even begins.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F7F0FF;">📅</div>
+              <div class="feat-uc-title">Consultation Booking — From inquiry to booked call in 2 minutes</div>
+              <span class="feat-uc-tag tag-new">KEY</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Prospective client lands on your website. Clicks "Book a consultation." Picks lawyer, date, and time from your real availability. Confirms. Gets a calendar invite. You get a notification. No 3-email back-and-forth. Professional from first touch.</div>
+              <ul class="feat-bullets">
+                <li>Per-lawyer availability with custom hourly/half-hour slots</li>
+                <li>Consultation type: initial, follow-up, document review, court prep</li>
+                <li>Calendar invite auto-sent to both parties</li>
+                <li>1-hour reminder email to reduce no-shows</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EEF2FF;">📋</div>
+              <div class="feat-uc-title">Ticket Audit Trail — Every client promise documented</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Client asks: "Did I send you my property documents last month?" You open their ticket thread — every email, every attachment, every reply timestamped. You confirm in 10 seconds. "Yes, received on July 14, confirmed by Advocate Sharma." No ambiguity.</div>
+              <ul class="feat-bullets">
+                <li>Complete email and document thread per client case</li>
+                <li>Internal notes for legal strategy — never visible to client</li>
+                <li>Every action timestamped and agent-tagged</li>
+                <li>Exportable for compliance or dispute resolution</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF7ED;">📨</div>
+              <div class="feat-uc-title">Deadline Reminders — Court dates and document deadlines tracked</div>
+              <span class="feat-uc-tag tag-auto">Automation</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Client has to submit affidavit by September 15. Ticket created with due-date. Auto-reminder sent to client on September 10: "Reminder: your affidavit submission deadline is in 5 days. Documents needed: [list]." Client submits on time. Case proceeds.</div>
+              <ul class="feat-bullets">
+                <li>SLA tracking doubles as deadline management</li>
+                <li>Auto-reminder emails to clients before deadlines</li>
+                <li>Daily digest: which client deadlines are coming this week</li>
+                <li>Document checklist in ticket — track what's received, what's pending</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">100%</div><div class="outcome-l">of client communications documented with timestamps</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">missed deadlines since implementing SLA tracking</div></div>
+          <div class="outcome-card"><div class="outcome-n">3x</div><div class="outcome-l">faster consultation scheduling vs. email back-and-forth</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">personal phone numbers shared with clients</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Professional client management for modern legal practices.</h3><p>Start free today. No credit card needed.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 8. FINTECH -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-fintech">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">💳 Fintech & Payments</div>
+        <div class="pane-icon-big">💳</div>
+        <h2 class="pane-h">Transaction disputes need<br><span>4-hour SLAs, not 48-hour Gmail.</span></h2>
+        <p class="pane-sub">In fintech, support SLAs aren't just good practice — they're regulatory. A payment dispute unresolved in 24 hours means a chargeback, a compliance flag, or an angry RBI grievance. Resolvo gives fintech teams structured escalation, priority queuing, full audit trails, and real-time SLA dashboards.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">💸</div><div class="pain-card-h">Chargebacks from slow response</div><div class="pain-card-p">Transaction dispute sits in Gmail for 3 days. Customer raises chargeback with bank. You lose the dispute and the ₹5,000. Avoidable.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">🏛️</div><div class="pain-card-h">Regulatory compliance gap</div><div class="pain-card-p">RBI mandates grievance resolution timelines. You have no proof of when you responded. Audit comes. You scramble.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">🔐</div><div class="pain-card-h">KYC queries escalate</div><div class="pain-card-p">"My account is frozen" or "KYC rejected" queries hit your support email. No priority, no SLA, no urgency. Customer goes to social media.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FEF3C7;">⏱</div>
+              <div class="feat-uc-title">Priority SLA — Transaction disputes resolved in 4 hours, guaranteed</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer emails: "₹3,200 debited twice for the same order." Auto-tagged "dispute" → Critical → SLA 4h. Assigned to disputes team. Alert sent to team lead. Response with resolution plan sent in 3h 20m. Chargeback prevented.</div>
+              <ul class="feat-bullets">
+                <li>Keyword auto-tagging: "dispute", "debit", "failed transaction", "refund"</li>
+                <li>Critical SLA: 4h response for financial disputes</li>
+                <li>Escalation to senior agent if not responded in 2h</li>
+                <li>Full resolution documented in ticket — RBI audit ready</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F0FDF4;">📋</div>
+              <div class="feat-uc-title">Audit Trail — Every response timestamped, exportable for compliance</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> RBI audit requires proof that your grievance response time is under 30 days for all tickets. You export the full ticket log from Resolvo: date received, date first response, date resolved, agent name. Audit passed. No scrambling.</div>
+              <ul class="feat-bullets">
+                <li>Every ticket timestamped: received, first response, resolved</li>
+                <li>Agent name logged on every action</li>
+                <li>Exportable compliance report: CSV or filtered view</li>
+                <li>Internal notes for legal/compliance context — never visible to customer</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EFF6FF;">📊</div>
+              <div class="feat-uc-title">Analytics — Track resolution time, breach rate, agent performance</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Head of Support pulls up the weekly analytics dashboard. Average resolution time: 3.2h. SLA compliance: 98%. Dispute tickets breached: 0. KYC queries: avg 6h (above target — team needs coaching). Data-driven decisions every Monday.</div>
+              <ul class="feat-bullets">
+                <li>Resolution time, first response time, SLA compliance — all tracked</li>
+                <li>Per-ticket-type breakdown: disputes vs. KYC vs. general</li>
+                <li>Agent performance table — who is fast, who needs support</li>
+                <li>Weekly digest emailed to Head of Support every Monday morning</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">4h</div><div class="outcome-l">guaranteed first response on financial disputes</div></div>
+          <div class="outcome-card"><div class="outcome-n">98%</div><div class="outcome-l">SLA compliance — audit-ready at all times</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">chargebacks from slow response after going live</div></div>
+          <div class="outcome-card"><div class="outcome-n">100%</div><div class="outcome-l">of tickets timestamped, exportable for RBI compliance</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Compliance-ready support for fintech teams.</h3><p>SLA tracking, audit trails, real-time dashboards — start free.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 9. SAAS -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-saas">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">💻 SaaS Startups</div>
+        <div class="pane-icon-big">💻</div>
+        <h2 class="pane-h">Support tickets and bug reports<br><span>are the same thing. Treat them that way.</span></h2>
+        <p class="pane-sub">SaaS support is unique: customers report bugs through your support channel, and engineering needs to know which bugs are generating the most tickets. Resolvo bridges support and engineering — tickets link to bugs, customers get auto-notified when the fix ships, and your team sees priority clearly.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">🐛</div><div class="pain-card-h">Support ↔ Engineering gap</div><div class="pain-card-p">10 customers report the same bug. Support sends each one a manual reply. Engineering doesn't know this is a P0. Priority is wrong.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📣</div><div class="pain-card-h">Customers not notified on fix</div><div class="pain-card-p">Bug fixed. Engineer closes the issue. Nobody tells the 10 customers who reported it. They think it's still broken. CSAT suffers.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">⏰</div><div class="pain-card-h">Triage takes hours</div><div class="pain-card-p">Support agent doesn't know if something is a bug or a user error. Goes back and forth with engineering. Meanwhile, customer is waiting.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EEF2FF;">🐛</div>
+              <div class="feat-uc-title">Issue Tracker — Link tickets to bugs. Auto-notify customers on fix.</div>
+              <span class="feat-uc-tag tag-new">KEY</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> 8 customers report "export to CSV is broken." Support links all 8 tickets to Bug #BUG-441. Engineering sees: 8 customer tickets linked → P0. Bug fixed on Friday. Resolvo auto-sends email to all 8 customers: "The CSV export issue has been fixed — please refresh and try again." Zero manual follow-up.</div>
+              <ul class="feat-bullets">
+                <li>Link multiple customer tickets to one internal bug</li>
+                <li>Engineering sees ticket count per bug — automatic priority signal</li>
+                <li>Bug resolved → all linked customers notified automatically</li>
+                <li>Support agent knows not to keep individually chasing engineering</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F3E8FF;">🤖</div>
+              <div class="feat-uc-title">AI Triage — Bug or user error? Decided in seconds.</div>
+              <span class="feat-uc-tag tag-ai">AI</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Customer reports: "I can't login — keep getting error 401." AI draft: "Hi Raj, error 401 usually means your session expired. Try clearing cache and logging in again. If it persists, please share a screenshot of the error page." Agent hits Send. Issue resolved without pinging engineering.</div>
+              <ul class="feat-bullets">
+                <li>AI draft uses your past resolutions as context</li>
+                <li>Common user errors handled without engineering involvement</li>
+                <li>Only genuine bugs escalated — engineering time saved</li>
+                <li>AI reply history builds knowledge base automatically</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EFF6FF;">📊</div>
+              <div class="feat-uc-title">Analytics — Which features generate the most support tickets?</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Weekly product meeting. PM pulls up Resolvo analytics: "CSV export" tag has 23 tickets this month. "Billing" has 18. "API integration" has 7. Product prioritises CSV export fix next sprint. Data-driven roadmap, not HiPPO decisions.</div>
+              <ul class="feat-bullets">
+                <li>Ticket tagging by feature area — automatic or manual</li>
+                <li>Tag analytics: which features drive the most support volume</li>
+                <li>Trend over time: is a new release causing a spike?</li>
+                <li>Weekly digest to PM and Engineering lead every Monday</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">100%</div><div class="outcome-l">of bug-affected customers notified automatically on fix</div></div>
+          <div class="outcome-card"><div class="outcome-n">3x</div><div class="outcome-l">faster bug prioritisation from ticket-count signal</div></div>
+          <div class="outcome-card"><div class="outcome-n">60%</div><div class="outcome-l">fewer escalations to engineering (user errors handled by AI)</div></div>
+          <div class="outcome-card"><div class="outcome-n">4.8★</div><div class="outcome-l">average CSAT — customers love being notified on fixes</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>The support tool that talks to your engineering team.</h3><p>Built for SaaS. Start free today.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- 10. MULTI-BRAND -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="industry-pane" id="pane-multibrand">
+      <div class="pane-header reveal">
+        <div class="pane-eyebrow">🏢 Multi-Brand Operations</div>
+        <div class="pane-icon-big">🏢</div>
+        <h2 class="pane-h">5 brands. 3 support agents.<br><span>One Resolvo account.</span></h2>
+        <p class="pane-sub">Agencies, D2C groups, and conglomerates running multiple brands don't need 5 Zendesk accounts at $500/month each. Resolvo's multi-brand architecture gives each brand its own inbox, portal, SLA policy, and branding — while your leadership team gets a single consolidated dashboard across all brands.</p>
+      </div>
+      <div class="pain-section reveal d1">
+        <div class="section-label">What breaks without Resolvo</div>
+        <div class="pain-grid">
+          <div class="pain-card"><div class="pain-card-icon">💸</div><div class="pain-card-h">Per-seat pricing kills margins</div><div class="pain-card-p">Zendesk or Freshdesk charges per seat per brand. 5 brands × 5 agents × ₹3,000/agent/month = ₹75,000/month. For an SMB, that's unsustainable.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">🔀</div><div class="pain-card-h">Agents confused across brands</div><div class="pain-card-p">Same agent handles Brand A and Brand B. Wrong tone, wrong email template, wrong SLA. Brand identity lost. Customer trust broken.</div></div>
+          <div class="pain-card"><div class="pain-card-icon">📊</div><div class="pain-card-h">No consolidated view</div><div class="pain-card-p">Operations head wants to see which brand is struggling this week. Has to log into 5 systems, compile manually. Takes 2 hours every Monday.</div></div>
+        </div>
+      </div>
+      <div class="features-section reveal d2">
+        <div class="section-label">How Resolvo features solve it</div>
+        <div class="feat-uc-list">
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#FFF9F0;">🏢</div>
+              <div class="feat-uc-title">Multi-Brand Architecture — Each brand fully isolated, one dashboard</div>
+              <span class="feat-uc-tag tag-new">KEY</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> You run Konnect Insights, Atomberg Fans, and Ajay Chandran Law. Each has its own Resolvo inbox, its own branded portal, its own SLA policy (Konnect: 4h, Atomberg: 8h, Legal: 24h), and its own email templates. Your ops head logs into one dashboard and sees all three. Switches between them in one click.</div>
+              <ul class="feat-bullets">
+                <li>Separate inbox, SLA policy, and portal per brand</li>
+                <li>Brand-specific email templates and accent colors</li>
+                <li>Agents can be restricted to one brand or shared across brands</li>
+                <li>Owner dashboard shows all brands in one view</li>
+                <li>Flat per-brand pricing — add brands, not seats</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#EFF6FF;">📊</div>
+              <div class="feat-uc-title">Consolidated Analytics — All brands, one weekly report</div>
+              <span class="feat-uc-tag tag-core">Core</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Monday morning. Ops head opens Resolvo dashboard. Sees: Konnect — 94% SLA, 4.7★ CSAT. Atomberg — 88% SLA (dipped — delivery complaints spike). Legal — 100% SLA. Immediately knows where to focus this week. No compiling. No spreadsheets. 5 minutes.</div>
+              <ul class="feat-bullets">
+                <li>Per-brand SLA compliance in one view</li>
+                <li>CSAT scores across all brands</li>
+                <li>Weekly digest: which brand had the most tickets this week</li>
+                <li>Agent performance across brands — who's overloaded, who's free</li>
+              </ul>
+            </div></div>
+          </div>
+          <div class="feat-uc-item">
+            <div class="feat-uc-header" onclick="toggleFeat(this)">
+              <div class="feat-uc-icon" style="background:#F0FDF4;">💬</div>
+              <div class="feat-uc-title">Per-Brand WhatsApp — Different numbers, one platform</div>
+              <span class="feat-uc-tag tag-new">NEW</span>
+              <span class="feat-uc-arrow">▾</span>
+            </div>
+            <div class="feat-uc-body"><div class="feat-uc-inner">
+              <div class="feat-uc-scenario"><strong>Scenario:</strong> Konnect has WhatsApp number +91-99001-11111. Atomberg has +91-99002-22222. Both connected to Resolvo. Messages from each number land in the correct brand's inbox. Same agents handle both — but each brand's messages stay separate, branded, and tracked independently.</div>
+              <ul class="feat-bullets">
+                <li>Multiple WhatsApp Business numbers — one per brand</li>
+                <li>Each brand's WhatsApp inbox is fully isolated</li>
+                <li>Agents reply from the correct brand identity automatically</li>
+                <li>SLA tracking per brand, per channel</li>
+              </ul>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="outcome-section reveal">
+        <div class="section-label">Typical outcomes</div>
+        <div class="outcome-grid">
+          <div class="outcome-card"><div class="outcome-n">80%</div><div class="outcome-l">cost saving vs. per-seat enterprise tools</div></div>
+          <div class="outcome-card"><div class="outcome-n">5 min</div><div class="outcome-l">weekly ops review across all brands (vs. 2 hours)</div></div>
+          <div class="outcome-card"><div class="outcome-n">0</div><div class="outcome-l">brand identity mix-ups since switching to Resolvo</div></div>
+          <div class="outcome-card"><div class="outcome-n">∞</div><div class="outcome-l">agents on any plan — we don't charge per seat</div></div>
+        </div>
+      </div>
+      <div class="pane-cta reveal"><div class="pane-cta-text"><h3>Running multiple brands? This is built for you.</h3><p>One account. All brands. Flat pricing. Start free.</p></div><div class="pane-cta-btns"><a href="/signup" class="btn-hero">Start free →</a><a href="/contact.html" class="btn-outline-hero" style="color:#CBD5E1;border-color:rgba(255,255,255,.15);">Talk to us</a></div></div>
+    </div>
+
+  </div><!-- /uc-content -->
+</div><!-- /uc-layout -->
+
+<!-- FOOTER -->
+<footer>
+  <div class="w">
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <div class="footer-logo-mark">R</div>
+        <span class="footer-logo-text">Resolvo · Built for Indian Businesses</span>
+      </div>
+      <div class="footer-links">
+        <a href="/pitch">Product</a>
+        <a href="/use-cases">Use Cases</a>
+        <a href="/pitch#pricing">Pricing</a>
+        <a href="/blog">Blog</a>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy</a>
+      </div>
+      <div class="footer-copy">© 2025 Resolvo. Made with ♥ in India.</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── INDUSTRY SWITCHER ──
+function switchIndustry(id, btn) {
+  document.querySelectorAll('.industry-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.industry-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const pane = document.getElementById('pane-' + id);
+  if (pane) {
+    pane.classList.add('active');
+    // scroll content to top on mobile
+    if (window.innerWidth < 900) {
+      pane.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+    // re-trigger reveal animations
+    pane.querySelectorAll('.reveal').forEach(el => {
+      el.classList.remove('in');
+      setTimeout(() => el.classList.add('in'), 60);
+    });
+  }
+}
+
+// ── FEATURE ACCORDION ──
+function toggleFeat(header) {
+  const item = header.parentElement;
+  const isOpen = item.classList.contains('open');
+  // close all in this pane
+  const pane = item.closest('.industry-pane');
+  pane.querySelectorAll('.feat-uc-item').forEach(i => {
+    i.classList.remove('open');
+    i.querySelector('.feat-uc-body').style.maxHeight = '0';
+  });
+  if (!isOpen) {
+    item.classList.add('open');
+    const body = item.querySelector('.feat-uc-body');
+    body.style.maxHeight = body.querySelector('.feat-uc-inner').scrollHeight + 'px';
+  }
+}
+
+// ── REVEAL on scroll ──
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); observer.unobserve(e.target); }
+  });
+}, {threshold: 0.08});
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Auto-open first feature item in each pane
+document.querySelectorAll('.industry-pane').forEach(pane => {
+  const first = pane.querySelector('.feat-uc-item');
+  if (first) {
+    first.classList.add('open');
+    const body = first.querySelector('.feat-uc-body');
+    // delay so layout is settled
+    setTimeout(() => {
+      body.style.maxHeight = body.querySelector('.feat-uc-inner').scrollHeight + 'px';
+    }, 100);
+  }
+});
+</script>
+</body>
+</html>

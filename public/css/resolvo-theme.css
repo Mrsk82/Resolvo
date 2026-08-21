@@ -1,0 +1,100 @@
+/* Resolvo shared theme — dark nav/footer + core tokens used across the marketing site.
+   Introduced when unifying pitch.html / use-cases.html's design onto the rest of the site.
+   Page-specific layout/content styles stay inline per page; this file only covers the
+   pieces every marketing page shares: color tokens, topbar, nav, mobile nav panel, footer. */
+
+:root{
+  --g: #10B981;
+  --g2: #059669;
+  --g-dim: rgba(16,185,129,.12);
+  --g-glow: rgba(16,185,129,.35);
+  --ink: #0A0F1E;
+  --ink2: #1E293B;
+  --ink3: #64748B;
+  --ink4: #94A3B8;
+  --white: #FFFFFF;
+  --border: rgba(255,255,255,.08);
+  --border-l: #E2E8F0;
+  --card-bg: rgba(255,255,255,.04);
+  --r: 12px;
+  --r2: 20px;
+  --sans: 'Inter', system-ui, sans-serif;
+}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:linear-gradient(90deg,#065F46,#059669,#10B981,#059669,#065F46);
+  background-size:300% 100%;
+  animation:gradshift 6s ease infinite;
+  text-align:center;padding:10px 20px;
+  font-size:13px;font-weight:600;color:#fff;letter-spacing:-.01em;
+}
+.topbar a{color:#fff;text-decoration:underline;opacity:.9;}
+.topbar a:hover{opacity:1;}
+@keyframes gradshift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* ── NAV ── */
+nav{
+  position:sticky;top:0;z-index:200;
+  background:rgba(10,15,30,.85);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  height:64px;display:flex;align-items:center;
+}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1160px;margin:0 auto;padding:0 32px;}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo-icon{
+  width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,#10B981,#059669);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#fff;letter-spacing:-.05em;
+  box-shadow:0 0 20px var(--g-glow);
+}
+.nav-logo-text{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px;}
+.nav-links{display:flex;gap:2px;list-style:none;}
+.nav-links a{color:var(--ink4);text-decoration:none;font-size:13.5px;font-weight:500;padding:7px 13px;border-radius:8px;transition:all .15s;}
+.nav-links a:hover,.nav-links a.active{color:#fff;background:rgba(255,255,255,.07);}
+.nav-r{display:flex;align-items:center;gap:10px;}
+.btn-ghost-nav{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;color:var(--ink4);border:1px solid var(--border);background:transparent;cursor:pointer;font-family:var(--sans);transition:all .15s;}
+.btn-ghost-nav:hover{color:#fff;border-color:rgba(255,255,255,.2);}
+.btn-green{
+  padding:9px 20px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;
+  background:var(--g);color:#fff;border:none;cursor:pointer;font-family:var(--sans);
+  transition:all .2s;box-shadow:0 0 20px var(--g-glow);
+}
+.btn-green:hover{background:var(--g2);transform:translateY(-1px);box-shadow:0 4px 24px var(--g-glow);}
+.nav-burger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:6px;}
+.nav-burger span{display:block;width:22px;height:2px;background:var(--ink4);border-radius:2px;transition:all .3s;}
+.nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-burger.open span:nth-child(2){opacity:0;}
+.nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+@media(max-width:800px){.nav-links,.nav-r{display:none;}.nav-burger{display:flex;}}
+
+/* ── MOBILE NAV PANEL ── */
+.mobile-panel{display:none;position:absolute;top:64px;left:0;right:0;background:rgba(10,15,30,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:16px 24px 20px;flex-direction:column;gap:2px;max-height:calc(100vh - 64px);overflow-y:auto;}
+.mobile-panel.open{display:flex;}
+.mobile-panel a{color:var(--ink4);text-decoration:none;font-size:15px;font-weight:500;padding:12px 10px;border-radius:8px;}
+.mobile-panel a:hover{color:#fff;background:rgba(255,255,255,.07);}
+.mp-divider{height:1px;background:var(--border);margin:8px 2px;}
+.mp-ctas{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+@media(min-width:801px){.mobile-panel{display:none !important;}}
+
+/* ── FOOTER ── */
+footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40px 0;}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;}
+.footer-logo{display:flex;align-items:center;gap:9px;text-decoration:none;}
+.footer-logo-mark{
+  width:28px;height:28px;border-radius:7px;
+  background:var(--g);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;color:#fff;
+}
+.footer-logo-text{font-size:14px;font-weight:700;color:rgba(255,255,255,.6);}
+.footer-links{display:flex;gap:20px;flex-wrap:wrap;}
+.footer-links a{font-size:13px;color:rgba(255,255,255,.3);text-decoration:none;transition:color .15s;}
+.footer-links a:hover{color:rgba(255,255,255,.7);}
+.footer-copy{font-size:12px;color:rgba(255,255,255,.2);}
+
+/* ── shared utility ── */
+.w{max-width:1160px;margin:0 auto;padding:0 32px;}
+.wm{max-width:760px;margin:0 auto;padding:0 32px;}
+@media(max-width:640px){.w,.wm{padding:0 20px;}}

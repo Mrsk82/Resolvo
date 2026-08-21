@@ -4905,6 +4905,7 @@ button{width:100%;background:linear-gradient(135deg,#22D3EE,#818CF8);color:#000;
   res.sendFile('architecture.html',{root:path.join(__dirname,'public')});
 });
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
+app.get('/use-cases',(req,res)=>res.sendFile(path.join(__dirname,'public','use-cases.html')));
 app.get('/learn',(req,res)=>res.sendFile(path.join(__dirname,'public','learn.html')));
 
 // ── PUBLIC ROADMAP (/roadmap/:slug) ────────────────────────────────────────
@@ -6149,6 +6150,8 @@ function _gmailOAuthClient(){
 
 // Step 1 — redirect brand admin to Google consent screen
 app.get('/api/gmail-oauth/start',(req,res)=>{
+  // Plain <a href> navigation can't send the x-session-token header, so accept it via query param too
+  if(req.query.token&&!req.headers['x-session-token'])req.headers['x-session-token']=req.query.token;
   const su=getSessionUser(req);
   if(!su||su.role!=='Admin')return res.status(403).send('Admin only');
   if(!process.env.GOOGLE_CLIENT_ID)return res.status(500).send('GOOGLE_CLIENT_ID not set in .env');

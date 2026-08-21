@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/resolvo-theme.css">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
@@ -29,24 +30,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .w{max-width:1120px;margin:0 auto;padding:0 28px;}
 .ws{max-width:740px;margin:0 auto;padding:0 28px;}
 
-.topbar{background:var(--amber);text-align:center;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;letter-spacing:-.01em;}
-.topbar a{color:#fff;text-decoration:underline;font-weight:700;}
-
-nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);height:60px;display:flex;align-items:center;}
-.nav-w{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1120px;margin:0 auto;padding:0 28px;}
-.nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;}
-.nav-logo-mark{width:30px;height:30px;border-radius:8px;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;}
-.nav-logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--ink);}
-.nav-links{display:flex;gap:4px;list-style:none;}
-.nav-links a{color:var(--ink-3);text-decoration:none;font-size:14px;font-weight:500;padding:6px 12px;border-radius:7px;transition:color .15s,background .15s;}
-.nav-links a:hover{color:var(--ink);background:var(--bg-soft);}
-.nav-links a.active{color:var(--amber);font-weight:600;}
-.nav-r{display:flex;align-items:center;gap:8px;}
-.btn-ghost{padding:8px 16px;border-radius:8px;font-size:13.5px;font-weight:600;text-decoration:none;border:1px solid var(--border);color:var(--ink-2);background:transparent;transition:all .15s;}
-.btn-ghost:hover{border-color:var(--border-dark);background:var(--bg-soft);}
-.btn-solid{padding:8px 18px;border-radius:8px;font-size:13.5px;font-weight:700;text-decoration:none;border:none;color:#fff;background:var(--amber);transition:all .15s;}
-.btn-solid:hover{background:#059669;}
-@media(max-width:760px){.nav-links,.nav-r{display:none;}}
 
 /* PAGE HERO */
 .page-hero{padding:64px 0 56px;border-bottom:1px solid var(--border);background:var(--bg-soft);}
@@ -107,15 +90,6 @@ select{cursor:pointer;}
 .resp-type{font-size:13px;font-weight:600;color:var(--ink-2);flex:1;}
 .resp-time{font-size:12px;color:var(--amber);font-weight:700;}
 
-footer{background:var(--bg-soft);border-top:1px solid var(--border);padding:40px 0;}
-.footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
-.footer-logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
-.footer-logo-mark{width:24px;height:24px;border-radius:6px;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;}
-.footer-logo-text{font-size:14px;font-weight:700;color:var(--ink);}
-.footer-links{display:flex;gap:20px;flex-wrap:wrap;}
-.footer-links a{font-size:13px;color:var(--ink-3);text-decoration:none;font-weight:500;transition:color .15s;}
-.footer-links a:hover{color:var(--ink);}
-.footer-copy{font-size:12px;color:var(--ink-4);}
 </style>
 </head>
 <body>
@@ -123,20 +97,34 @@ footer{background:var(--bg-soft);border-top:1px solid var(--border);padding:40px
 <div class="topbar">Early access open — <a href="/signup">Get 3 months free when you sign up today &rarr;</a></div>
 
 <nav>
-  <div class="nav-w">
+  <div class="nav-inner">
     <a href="/pitch" class="nav-logo">
-      <div class="nav-logo-mark">R</div>
+      <div class="nav-logo-icon">R</div>
       <span class="nav-logo-text">Resolvo</span>
     </a>
     <ul class="nav-links">
       <li><a href="/pitch">Features</a></li>
+      <li><a href="/use-cases">Use Cases</a></li>
       <li><a href="/pitch#pricing">Pricing</a></li>
       <li><a href="/about">About</a></li>
       <li><a href="/contact" class="active">Contact</a></li>
     </ul>
     <div class="nav-r">
-      <a href="/" class="btn-ghost">Log in</a>
-      <a href="/signup" class="btn-solid">Start free</a>
+      <a href="/" class="btn-ghost-nav">Sign in</a>
+      <a href="/signup" class="btn-green">Get started &rarr;</a>
+    </div>
+    <button class="nav-burger" id="navBurger"><span></span><span></span><span></span></button>
+  </div>
+  <div class="mobile-panel" id="mobilePanel">
+    <a href="/pitch">Features</a>
+    <a href="/use-cases">Use Cases</a>
+    <a href="/pitch#pricing">Pricing</a>
+    <a href="/about">About</a>
+    <a href="/contact">Contact</a>
+    <div class="mp-divider"></div>
+    <div class="mp-ctas">
+      <a href="/" class="btn-ghost-nav" style="text-align:center;">Sign in</a>
+      <a href="/signup" class="btn-green" style="text-align:center;">Get started &rarr;</a>
     </div>
   </div>
 </nav>
@@ -255,6 +243,7 @@ footer{background:var(--bg-soft);border-top:1px solid var(--border);padding:40px
       </a>
       <div class="footer-links">
         <a href="/pitch">Features</a>
+        <a href="/use-cases">Use Cases</a>
         <a href="/pitch#pricing">Pricing</a>
         <a href="/about">About</a>
         <a href="/contact">Contact</a>
@@ -296,8 +285,14 @@ function submitForm() {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({name: fname, email: email, phone: phone, company: company, topic: reason, message: message})
   })
-  .then(function(r) { return r.json(); })
-  .then(function() {
+  .then(function(r) { return r.json().then(function(body) { return {ok: r.ok, body: body}; }); })
+  .then(function(result) {
+    if (!result.ok || result.body.error) {
+      btn.disabled = false;
+      btn.textContent = 'Send Message';
+      alert('Something went wrong sending your message. Please email us directly at contact@resolvogroup.com');
+      return;
+    }
     document.getElementById('contact-form').style.display = 'none';
     document.getElementById('success-msg').style.display = 'block';
   })
@@ -314,6 +309,19 @@ document.querySelectorAll('input,select,textarea').forEach(function(el) {
     el.style.background = '';
   });
 });
+
+const burger = document.getElementById('navBurger');
+const mobilePanel = document.getElementById('mobilePanel');
+if(burger && mobilePanel){
+  burger.addEventListener('click', () => {
+    burger.classList.toggle('open');
+    mobilePanel.classList.toggle('open');
+  });
+  mobilePanel.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+    burger.classList.remove('open');
+    mobilePanel.classList.remove('open');
+  }));
+}
 </script>
 </body>
 </html>
