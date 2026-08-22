@@ -2742,7 +2742,7 @@ app.post('/api/call',async(req,res)=>{
           ? (existing.enabledAt || nowIST())  // always ensure a date when enabled
           : (existing.enabledAt || null);                      // keep date even when disabled
 
-        db.emailTicketing={...config,pass:newPass,tls:true,enabledAt};
+        db.emailTicketing={...existing,...config,pass:newPass,tls:true,enabledAt};
         wDB(db);
 
         // Start or stop poller
@@ -6119,7 +6119,7 @@ app.post('/api/email-ticketing/config', async (req, res) => {
   if (!su || su.role !== 'Admin') return res.json({ success: false, error: 'Admin only' });
   const { config } = req.body;
   const db = readBrandDB(su.brandSlug);
-  db.emailTicketing = { ...config, pass: config.pass ? config.pass.replace(/\s/g, '') : (db.emailTicketing?.pass || '') };
+  db.emailTicketing = { ...db.emailTicketing, ...config, pass: config.pass ? config.pass.replace(/\s/g, '') : (db.emailTicketing?.pass || '') };
   writeBrandDB(su.brandSlug, db);
   if (config.enabled) startEmailPoller(su.brandSlug);
   else if (activePollers[su.brandSlug]) { activePollers[su.brandSlug].stop(); delete activePollers[su.brandSlug]; }
@@ -6168,7 +6168,7 @@ app.get('/api/gmail-oauth/start',(req,res)=>{
 // Step 2 — Google redirects back with code
 app.get('/api/gmail-oauth/callback',async(req,res)=>{
   const{code,state:slug,error}=req.query;
-  if(error)return res.send(`<script>alert('Google OAuth denied: ${error}');location.href='/';</script>`);
+  if(error)return res.redirect(`/?toast=${encodeURIComponent('Google OAuth denied: '+error)}&toastType=error`);
   if(!code||!slug)return res.send('Missing code or state');
   try{
     const{google}=require('googleapis');
@@ -6198,10 +6198,10 @@ app.get('/api/gmail-oauth/callback',async(req,res)=>{
     // Stop IMAP poller — push replaces it
     if(activePollers[slug]){activePollers[slug].stop();delete activePollers[slug];}
     console.log(`[GmailPush] OAuth connected for ${slug} — ${email}, historyId=${watchRes.data.historyId}`);
-    res.send(`<script>alert('Gmail connected! Instant push delivery is now active for ${email}');location.href='/';</script>`);
+    res.redirect(`/?toast=${encodeURIComponent('Gmail connected! Instant push delivery is now active for '+email)}&toastType=success`);
   }catch(e){
     console.error('[GmailPush] OAuth callback error:',e.message);
-    res.send(`<script>alert('OAuth failed: ${e.message}');location.href='/';</script>`);
+    res.redirect(`/?toast=${encodeURIComponent('OAuth failed: '+e.message)}&toastType=error`);
   }
 });
 
@@ -6230,11 +6230,14 @@ app.post('/api/gmail-oauth/disconnect',async(req,res)=>{
 
 // Pub/Sub push webhook — Google calls this the moment an email arrives
 // Must return 200 immediately or Google will retry
-app.post('/api/webhook/gmail-push',express.raw({type:'*/*'}),async(req,res)=>{
+app.post('/api/webhook/gmail-push',async(req,res)=>{
   res.sendStatus(200);
   try{
-    const body=JSON.parse(req.body.toString());
-    if(!body.message?.data)return;
+    // The global express.json() middleware (app.use, near top of file) already
+    // parses this into an object — Buffer.isBuffer covers the rare case a proxy
+    // sends a different content-type and it arrives unparsed.
+    const body=Buffer.isBuffer(req.body)?JSON.parse(req.body.toString()):req.body;
+    if(!body?.message?.data)return;
     const data=JSON.parse(Buffer.from(body.message.data,'base64').toString());
     const{emailAddress,historyId}=data;
     if(!emailAddress||!historyId)return;

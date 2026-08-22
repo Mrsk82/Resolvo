@@ -9423,6 +9423,14 @@ const App = {
     const urlParams = new URLSearchParams(window.location.search);
     const resetToken = urlParams.get('token');
     const inviteToken = urlParams.get('invite');
+
+    // Server-side redirects (e.g. Gmail OAuth callback) pass a toast to show on landing
+    const pendingToast = urlParams.get('toast');
+    if (pendingToast) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+      setTimeout(() => { if (App.showToast) App.showToast(pendingToast, urlParams.get('toastType') || 'info'); }, 500);
+    }
     if (window.location.pathname === '/reset-password' && resetToken) {
       document.getElementById('loading-screen').style.display = 'none';
       App._showResetPasswordPage(resetToken);
@@ -15060,7 +15068,7 @@ const App = {
         </div>`;
         return `
         <div style="background:var(--low-dim);border:1px solid rgba(22,163,74,.25);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
-          <div style="font-size:12px;color:var(--low);">✓ <strong>Polling every 30s</strong> · Monitoring <strong>${self._esc(emailCfg.user||'')}</strong>${lastOk?' · last check: '+lastOk:''}</div>
+          <div style="font-size:12px;color:var(--low);">✓ <strong>Polling every 2 min</strong> · Monitoring <strong>${self._esc(emailCfg.user||'')}</strong>${lastOk?' · last check: '+lastOk:''}</div>
           <button onclick="App._pollAndRefresh()" style="background:none;border:1px solid var(--low)44;border-radius:5px;padding:4px 12px;font-size:11px;color:var(--low);cursor:pointer;">⟳ Check Now</button>
         </div>`;
       })()}`}
@@ -15149,6 +15157,7 @@ const App = {
             var emptyIcon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>';
             if(self._ticketFilter==='mine') return App._es(emptyIcon,'No tickets assigned to you','Tickets assigned to you will appear here.','View all tickets',"App._ticketFilter='all';App.renderTicketInbox()");
             if(self._ticketFilter==='unassigned') return App._es('<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>','Queue is clear','All incoming tickets have been assigned. Great work!','','');
+            if(isEmailEnabled) return App._es(emptyIcon,'No tickets yet','Your inbox is connected and being monitored — new emails will appear here automatically.','⟳ Check Now','App._pollAndRefresh()');
             return App._es(emptyIcon,'No tickets yet','Connect an inbox in Settings to start receiving email tickets.','Configure email','App.navigate(\'email-ticketing\')');
           })() : `
           <div id="ticketListRows">
@@ -19524,7 +19533,7 @@ const App = {
                 </div>
                 <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">
                   ${cfg.enabled
-                    ? `Polling every 30s · last success: <strong style="color:var(--text-secondary);">${lastPollStr}</strong> · inbox: <strong style="color:var(--text-secondary);">${cfg.user||''}</strong>`
+                    ? `Polling every 2 min · last success: <strong style="color:var(--text-secondary);">${lastPollStr}</strong> · inbox: <strong style="color:var(--text-secondary);">${cfg.user||''}</strong>`
                     : hasCredentials
                       ? 'Inbox <strong style="color:var(--text-secondary);">'+(cfg.user||'')+'</strong> is configured but not being monitored'
                       : 'Connect a Gmail or IMAP inbox below to start receiving email tickets'}
