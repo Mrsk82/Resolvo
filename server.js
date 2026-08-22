@@ -1674,10 +1674,15 @@ app.post('/api/call',async(req,res)=>{
       if(!isNote&&ticket.from){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
-        await sendBrandEmail(slug,ticket.from,`Re: [${brandName}] ${ticket.subject}`,
-          `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:16px 24px;display:flex;align-items:center;gap:12px;"><div style="font-size:13px;font-weight:700;color:#fff;">${brandName} Support</div><div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);">${ticketId}</div></div><div style="padding:24px 28px;"><p style="color:#374151;font-size:14px;line-height:1.7;white-space:pre-wrap;margin:0 0 20px;">${replyText}</p><hr style="border:none;border-top:1px solid #f0f2f5;margin:0 0 16px;"><p style="color:#9ca3af;font-size:12px;margin:0;">Reply to this email to continue the conversation &nbsp;·&nbsp; Ref: ${ticketId}</p></div></div></body></html>`,
-          replyText
-        );
+        const replySubject=`Re: [${brandName}] ${ticket.subject}`;
+        const replyHtml=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:16px 24px;display:flex;align-items:center;gap:12px;"><div style="font-size:13px;font-weight:700;color:#fff;">${brandName} Support</div><div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);">${ticketId}</div></div><div style="padding:24px 28px;"><p style="color:#374151;font-size:14px;line-height:1.7;white-space:pre-wrap;margin:0 0 20px;">${replyText}</p><hr style="border:none;border-top:1px solid #f0f2f5;margin:0 0 16px;"><p style="color:#9ca3af;font-size:12px;margin:0;">Reply to this email to continue the conversation &nbsp;·&nbsp; Ref: ${ticketId}</p></div></div></body></html>`;
+        // Prefer sending through the brand's connected Gmail OAuth account (same
+        // authenticated inbox used for receiving, properly threaded) — fall back
+        // to brand/owner SMTP if this brand has no Gmail Push connection or it fails.
+        let sentViaGmailApi=false;
+        try{ sentViaGmailApi=await sendGmailApiReply(slug,ticket,replySubject,replyHtml,replyText); }
+        catch(e){ console.error(`[GmailPush] Reply send failed for ${ticketId}, falling back to SMTP:`,e.message); }
+        if(!sentViaGmailApi)await sendBrandEmail(slug,ticket.from,replySubject,replyHtml,replyText);
         for(const ccEmail of (ticket.cc||[])){
           sendBrandEmail(slug,ccEmail,`CC: Re: [${brandName}] ${ticket.subject}`,`<p>${replyText}</p><p style="color:#9ca3af;font-size:12px;">You are CC'd on ticket ${ticketId}</p>`,replyText).catch(()=>{});
         }
@@ -5709,6 +5714,7 @@ async function createTicketFromEmail(slug, emailData) {
     createdDate: now,
     lastActivity: now,
     linkedIssueId: null,
+    gmailThreadId: emailData.gmailThreadId || null,
     messageIds: [emailData.messageId].filter(Boolean),
     thread: [{
       id: generateId('MSG'),
@@ -6296,7 +6302,8 @@ async function _processGmailHistory(slug,newHistoryId){
           from:parsed.from?.value?.[0]?.address||'',
           fromName:parsed.from?.value?.[0]?.name||'',
           text:parsed.text||'',html:parsed.html||parsed.textAsHtml||'',
-          date:parsed.date?.toISOString()||nowIST()
+          date:parsed.date?.toISOString()||nowIST(),
+          gmailThreadId:msgData.data.threadId||null
         });
         if(parsed.messageId)processedSet.add(parsed.messageId);
       }catch(e){console.error('[GmailPush] Message fetch error:',e.message);}
@@ -6318,6 +6325,55 @@ async function _processGmailHistory(slug,newHistoryId){
       console.error(`[GmailPush] History error for ${slug}:`,e.message);
     }
   }
+}
+
+// Build an RFC 2822 raw message for the Gmail API's messages.send (base64url, no padding)
+function _buildGmailRawMessage({from,to,subject,html,text,inReplyTo,references}){
+  const encodedSubject=`=?UTF-8?B?${Buffer.from(subject||'').toString('base64')}?=`;
+  const headers=[`From: ${from}`,`To: ${to}`,`Subject: ${encodedSubject}`,'MIME-Version: 1.0'];
+  if(inReplyTo)headers.push(`In-Reply-To: ${inReplyTo}`);
+  if(references)headers.push(`References: ${references}`);
+  headers.push('Content-Type: text/html; charset="UTF-8"','Content-Transfer-Encoding: base64');
+  const body=Buffer.from(html||text||'','utf-8').toString('base64');
+  const message=headers.join('\r\n')+'\r\n\r\n'+body;
+  return Buffer.from(message).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+// Send a ticket reply through the Gmail API using the brand's connected OAuth
+// account — same authenticated inbox used for receiving, no app password
+// needed. Returns false (caller should fall back to sendBrandEmail) if this
+// brand has no Gmail OAuth connection.
+async function sendGmailApiReply(slug,ticket,subject,html,text){
+  const db=readBrandDB(slug);
+  const oauth=db.emailTicketing?.gmailOAuth;
+  if(!oauth?.refreshToken)return false;
+  const{google}=require('googleapis');
+  const client=_gmailOAuthClient();
+  client.setCredentials({access_token:oauth.accessToken,refresh_token:oauth.refreshToken});
+  client.on('tokens',(tokens)=>{
+    if(tokens.access_token){
+      const d2=readBrandDB(slug);
+      if(d2.emailTicketing?.gmailOAuth)d2.emailTicketing.gmailOAuth.accessToken=tokens.access_token;
+      if(tokens.refresh_token&&d2.emailTicketing?.gmailOAuth)d2.emailTicketing.gmailOAuth.refreshToken=tokens.refresh_token;
+      writeBrandDB(slug,d2);
+    }
+  });
+  const gmail=google.gmail({version:'v1',auth:client});
+  const owner=readOwner();
+  const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+  const brandName=brand.name||'Support';
+  const lastIncoming=[...(ticket.thread||[])].reverse().find(m=>m.type==='incoming'&&m.messageId);
+  const raw=_buildGmailRawMessage({
+    from:`"${brandName}" <${oauth.email}>`,
+    to:ticket.from,
+    subject,
+    html,
+    text,
+    inReplyTo:lastIncoming?.messageId||'',
+    references:(ticket.messageIds||[]).filter(Boolean).join(' ')
+  });
+  await gmail.users.messages.send({userId:'me',requestBody:{raw,threadId:ticket.gmailThreadId||undefined}});
+  return true;
 }
 
 // Get Gmail OAuth status for Settings UI
