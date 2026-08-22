@@ -1675,7 +1675,10 @@ app.post('/api/call',async(req,res)=>{
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
         const replySubject=`Re: [${brandName}] ${ticket.subject}`;
-        const replyHtml=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:${brandColor};padding:16px 24px;display:flex;align-items:center;gap:12px;"><div style="font-size:13px;font-weight:700;color:#fff;">${brandName} Support</div><div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);">${ticketId}</div></div><div style="padding:24px 28px;"><p style="color:#374151;font-size:14px;line-height:1.7;white-space:pre-wrap;margin:0 0 20px;">${replyText}</p><hr style="border:none;border-top:1px solid #f0f2f5;margin:0 0 16px;"><p style="color:#9ca3af;font-size:12px;margin:0;">Reply to this email to continue the conversation &nbsp;·&nbsp; Ref: ${ticketId}</p></div></div></body></html>`;
+        const replyHtml=`<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#202124;">
+<div style="white-space:pre-wrap;">${replyText}</div>
+<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e8eaed;font-size:12px;color:#5f6368;">${brandName} Support &nbsp;·&nbsp; Ref: ${ticketId}<br>Reply to this email to continue the conversation.</div>
+</div>`;
         // Prefer sending through the brand's connected Gmail OAuth account (same
         // authenticated inbox used for receiving, properly threaded) — fall back
         // to brand/owner SMTP if this brand has no Gmail Push connection or it fails.
