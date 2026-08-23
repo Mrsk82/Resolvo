@@ -19400,7 +19400,7 @@ const App = {
               </div>
               <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
                 <input type="checkbox" id="wa_enabled" ${cfg.enabled?'checked':''} style="opacity:0;width:0;height:0;">
-                <span onclick="this.previousElementSibling.click();this.style.background=this.previousElementSibling.checked?'#25D366':'#374151';" style="position:absolute;inset:0;border-radius:24px;background:${cfg.enabled?'#25D366':'#374151'};transition:background .2s;display:flex;align-items:center;padding:0 3px;">
+                <span id="wa_toggle_track" style="position:absolute;inset:0;border-radius:24px;background:${cfg.enabled?'#25D366':'#374151'};transition:background .2s;display:flex;align-items:center;padding:0 3px;pointer-events:none;">
                   <span style="width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;transform:${cfg.enabled?'translateX(20px)':'translateX(0)'};display:block;" id="wa_toggle_knob"></span>
                 </span>
               </label>
@@ -19450,8 +19450,10 @@ const App = {
       // Toggle knob animation
       var cb = document.getElementById('wa_enabled');
       var knob = document.getElementById('wa_toggle_knob');
+      var track = document.getElementById('wa_toggle_track');
       if (cb && knob) cb.addEventListener('change', function() {
         knob.style.transform = this.checked ? 'translateX(20px)' : 'translateX(0)';
+        if (track) track.style.background = this.checked ? '#25D366' : '#374151';
       });
     },
 
