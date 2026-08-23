@@ -181,7 +181,7 @@ const OWNER_PATH=path.join(__dirname,'data','owner.json'),BRANDS_DIR=path.join(_
 const fs_init=require('fs');
 if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
 app.use(helmet({contentSecurityPolicy:false})); // security headers (CSP off — inline scripts in SPA)
-app.use(cors());app.use(express.json({limit:'20mb'}));
+app.use(cors());app.use(express.json({limit:'20mb'}));app.use(express.urlencoded({extended:false,limit:'20mb'})); // Twilio webhooks (WhatsApp) post as form-urlencoded, not JSON
 app.use(express.static(path.join(__dirname,'public')));
 app.use(monitorReq); // Layer 2 — slow request tracker
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
@@ -8290,7 +8290,7 @@ function _normalizeWaNumber(n){return String(n||'').replace(/^whatsapp:/i,'').re
 app.post('/api/whatsapp/webhook',async(req,res)=>{
   // Standard Twilio WhatsApp webhook
   const{From,To,Body,ProfileName,WaId}=req.body;
-  if(!From||!Body)return res.status(200).send('<Response></Response>');
+  if(!From||!Body){console.log('[WhatsApp] Webhook received but missing From/Body — payload:',JSON.stringify(req.body));return res.status(200).send('<Response></Response>');}
   const toNorm=_normalizeWaNumber(To);
   // Find the brand whose connected WhatsApp number this message was sent to —
   // each brand can now connect its own Twilio number, not a single global one.
