@@ -8303,6 +8303,7 @@ function _normalizeWaNumber(n){return String(n||'').replace(/^whatsapp:/i,'').re
 app.post('/api/whatsapp/webhook',async(req,res)=>{
   // Standard Twilio WhatsApp webhook
   const{From,To,Body,ProfileName,WaId}=req.body;
+  console.log(`[WhatsApp] Inbound webhook: From=${From} To=${To} WaId=${WaId} Body=${JSON.stringify(Body)}`);
   if(!From||!Body){console.log('[WhatsApp] Webhook received but missing From/Body — payload:',JSON.stringify(req.body));return res.status(200).send('<Response></Response>');}
   const toNorm=_normalizeWaNumber(To);
   // Find the brand whose connected WhatsApp number this message was sent to —
@@ -8332,6 +8333,7 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       break;
     }catch(e){console.error('[WhatsApp]',e.message);}
   }
+  if(!handled)console.log(`[WhatsApp] No active brand matched To=${To} (normalized ${toNorm}) — message dropped`);
   res.status(200).send('<Response></Response>');
 });
 
