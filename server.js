@@ -1648,9 +1648,22 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
       const ticket=db.tickets[idx];
+      // WhatsApp tickets go out via Twilio, not email — send first so a failure
+      // (e.g. Twilio not configured) is reported instead of silently no-op'ing.
+      if(!isNote&&ticket.channel==='whatsapp'){
+        const waCfg=db.whatsappConfig||{};
+        const accountSid=waCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
+        const authToken=waCfg.authToken||process.env.TWILIO_AUTH_TOKEN;
+        const fromNumber=waCfg.number||process.env.TWILIO_WHATSAPP_FROM;
+        if(!accountSid||!authToken||!fromNumber)return{success:false,error:'Twilio not configured for this brand. Connect WhatsApp in Settings first.'};
+        try{
+          const twilio=require('twilio')(accountSid,authToken);
+          await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:replyText});
+        }catch(e){return{success:false,error:'WhatsApp send failed: '+e.message};}
+      }
       const msgId=generateId('MSG');
       const now=nowIST();
-      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote};
+      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote&&ticket.channel!=='whatsapp',channel:ticket.channel==='whatsapp'?'whatsapp':undefined};
       db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push(msg);
       db.tickets[idx].lastActivity=now;
       if(db.tickets[idx].status==='new'&&!isNote)db.tickets[idx].status='open';
@@ -1671,7 +1684,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:isNote?'note_added':'reply_sent',by:su.email,byName:su.name||su.email,at:now,detail:replyText.substring(0,120)});
       wDB(db);
-      if(!isNote&&ticket.from){
+      if(!isNote&&ticket.from&&ticket.channel!=='whatsapp'){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
         const replySubject=`Re: [${brandName}] ${ticket.subject}`;
@@ -8320,32 +8333,6 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
     }catch(e){console.error('[WhatsApp]',e.message);}
   }
   res.status(200).send('<Response></Response>');
-});
-
-// WhatsApp reply from agent
-app.post('/api/tickets/:id/whatsapp-reply',(req,res)=>{
-  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
-  const db=readBrandDB(su.brandSlug);
-  if(!featEnabled(db,'whatsapp'))return res.json({success:false,error:'Feature not enabled'});
-  // Prefer this brand's own connected Twilio account; fall back to the
-  // platform-wide .env credentials (e.g. for a shared sandbox during testing).
-  const waCfg=db.whatsappConfig||{};
-  const accountSid=waCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
-  const authToken=waCfg.authToken||process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber=waCfg.number||process.env.TWILIO_WHATSAPP_FROM;
-  if(!accountSid||!authToken||!fromNumber)return res.json({success:false,error:'Twilio not configured for this brand. Connect WhatsApp in Settings first.'});
-  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
-  if(!ticket||ticket.channel!=='whatsapp')return res.json({success:false,error:'Not a WhatsApp ticket'});
-  const{message}=req.body;if(!message)return res.json({success:false,error:'message required'});
-  // Send via Twilio
-  const twilio=require('twilio')(accountSid,authToken);
-  twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:message})
-    .then(()=>{
-      const idx=(db.tickets||[]).findIndex(t=>t.id===ticket.id);
-      if(idx>=0){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:su.email,fromName:su.name||su.email,body:message,timestamp:nowIST(),channel:'whatsapp'});writeBrandDB(su.brandSlug,db);}
-      res.json({success:true});
-    })
-    .catch(e=>res.json({success:false,error:e.message}));
 });
 
 // Voice Note Tickets (portal: upload audio blob, transcribe, create ticket)
