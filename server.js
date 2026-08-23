@@ -2716,8 +2716,14 @@ app.post('/api/call',async(req,res)=>{
       wDB(db);return{success:true,issueId};
     },
     getEmailTicketingConfig:()=>{
-      if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();const c=db.emailTicketing||{};
+      if(su.role!=='Admin'){
+        // Non-admins can see whether the inbox is connected, but not the
+        // credentials — this only used to return a flat "Admin only" error,
+        // which made the ticket inbox wrongly show "not connected" for every
+        // non-admin agent even when email ticketing was fully working.
+        return{success:true,config:{enabled:!!c.enabled,user:c.user||'',host:c.host?'••••••••':''}};
+      }
       return{success:true,config:{...c,pass:c.pass?'••••••••':''}};
     },
     resetEmailCrawlDate:()=>{
