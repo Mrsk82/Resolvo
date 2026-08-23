@@ -19407,11 +19407,16 @@ const App = {
             </div>
           </div>
 
-          <!-- WhatsApp number -->
+          <!-- Twilio credentials (per-brand — each brand connects its own account) -->
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:8px;">Your WhatsApp Business Number</label>
-            <input id="wa_number" class="form-input" value="${self._esc(cfg.number||'')}" placeholder="+91XXXXXXXXXX" style="width:100%;box-sizing:border-box;font-family:var(--font-mono);font-size:14px;">
-            <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Enter in international format. Must match the number registered in your Twilio WhatsApp Sandbox.</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:14px;">Your Twilio Account</div>
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Account SID</label>
+            <input id="wa_sid" class="form-input" value="${self._esc(cfg.accountSid||'')}" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" style="width:100%;box-sizing:border-box;font-family:var(--font-mono);font-size:13px;margin-bottom:14px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Auth Token</label>
+            <input id="wa_token" type="password" class="form-input" value="" placeholder="${cfg.hasAuthToken?'••••••••••••••••  (leave blank to keep existing)':'Your Twilio Auth Token'}" style="width:100%;box-sizing:border-box;font-family:var(--font-mono);font-size:13px;margin-bottom:14px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">WhatsApp Number</label>
+            <input id="wa_number" class="form-input" value="${self._esc(cfg.number||'')}" placeholder="+14155238886" style="width:100%;box-sizing:border-box;font-family:var(--font-mono);font-size:14px;">
+            <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">International format. This is your own Sandbox or WhatsApp Business number from Twilio — not shared with other brands.</div>
           </div>
 
           <!-- Webhook URL -->
@@ -19425,16 +19430,14 @@ const App = {
 
           <!-- Twilio setup guide -->
           <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:18px;margin-bottom:20px;">
-            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;">📋 Twilio Setup (one-time)</div>
+            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;">📋 Twilio Setup (one-time, takes a few minutes)</div>
             <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-              <li style="font-size:12px;color:var(--text-secondary);">Sign up free at <strong>twilio.com</strong> → go to Messaging → Try WhatsApp</li>
-              <li style="font-size:12px;color:var(--text-secondary);">Copy your <strong>Account SID</strong>, <strong>Auth Token</strong>, and <strong>Sandbox number</strong></li>
-              <li style="font-size:12px;color:var(--text-secondary);">Add to your VPS <code style="background:var(--bg-elevated);padding:1px 5px;border-radius:3px;">.env</code>:<br>
-                <code style="background:var(--bg-elevated);padding:4px 8px;border-radius:4px;display:block;margin-top:4px;font-size:11px;">TWILIO_ACCOUNT_SID=ACxxxxxxx<br>TWILIO_AUTH_TOKEN=xxxxxxx<br>TWILIO_WHATSAPP_FROM=+14155238886</code>
-              </li>
-              <li style="font-size:12px;color:var(--text-secondary);">In Twilio Sandbox settings → paste the Webhook URL above as <strong>When a message comes in</strong></li>
-              <li style="font-size:12px;color:var(--text-secondary);">Enter your number above → click Save → done ✅</li>
+              <li style="font-size:12px;color:var(--text-secondary);">Sign up free at <strong>twilio.com</strong> → go to Messaging → Try WhatsApp (or connect a real WhatsApp Business number for production)</li>
+              <li style="font-size:12px;color:var(--text-secondary);">Copy your <strong>Account SID</strong>, <strong>Auth Token</strong>, and <strong>WhatsApp number</strong> into the fields above → Save</li>
+              <li style="font-size:12px;color:var(--text-secondary);">In Twilio's WhatsApp Sandbox/Sender settings → paste the Webhook URL above as <strong>When a message comes in</strong></li>
+              <li style="font-size:12px;color:var(--text-secondary);">Done ✅ — no server access needed, this is fully self-serve per brand</li>
             </ol>
+            ${cfg.usingPlatformDefault?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(99,102,241,.15);font-size:11px;color:var(--text-dim);">ℹ️ No credentials saved yet for this brand — currently falling back to the platform's shared test account, if one is configured.</div>`:''}
           </div>
 
           <!-- Save button -->
@@ -19474,7 +19477,9 @@ const App = {
       var token = localStorage.getItem('tt_session_token');
       var enabled = document.getElementById('wa_enabled')?.checked || false;
       var number = document.getElementById('wa_number')?.value?.trim() || '';
-      var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number }) }).then(x => x.json()).catch(() => ({ success: false }));
+      var accountSid = document.getElementById('wa_sid')?.value?.trim() || '';
+      var authToken = document.getElementById('wa_token')?.value?.trim() || '';
+      var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number, accountSid, authToken }) }).then(x => x.json()).catch(() => ({ success: false }));
       if (r && r.success) { App.showToast('WhatsApp settings saved ✓', 'success'); App.renderWhatsAppSettings(); }
       else App.showToast('Save failed: ' + (r && r.error || 'Unknown error'), 'error');
     },

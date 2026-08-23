@@ -6400,14 +6400,27 @@ app.get('/api/whatsapp/config',(req,res)=>{
   const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
   const db=readBrandDB(su.brandSlug);
   const cfg=db.whatsappConfig||{};
-  res.json({success:true,config:{enabled:!!cfg.enabled,number:cfg.number||'',webhookUrl:`${BASE_URL}/api/whatsapp/webhook`}});
+  res.json({success:true,config:{
+    enabled:!!cfg.enabled,number:cfg.number||'',
+    accountSid:cfg.accountSid||'',
+    hasAuthToken:!!cfg.authToken,
+    usingPlatformDefault:!(cfg.accountSid&&cfg.authToken), // true if falling back to global .env Twilio creds
+    webhookUrl:`${BASE_URL}/api/whatsapp/webhook`
+  }});
 });
 
 app.post('/api/whatsapp/config',(req,res)=>{
   const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
-  const{enabled,number}=req.body;
+  const{enabled,number,accountSid,authToken}=req.body;
   const db=readBrandDB(su.brandSlug);
-  db.whatsappConfig={enabled:!!enabled,number:(number||'').trim()};
+  const existing=db.whatsappConfig||{};
+  db.whatsappConfig={
+    enabled:!!enabled,
+    number:(number||'').trim(),
+    accountSid:(accountSid!==undefined?(accountSid||'').trim():existing.accountSid||''),
+    // keep existing token if a masked placeholder comes back unchanged
+    authToken:(authToken&&!authToken.startsWith('•'))?authToken.trim():(existing.authToken||'')
+  };
   // also write to features so webhook handler picks it up
   db.features=db.features||{};
   db.features.whatsapp=!!enabled;
@@ -8263,11 +8276,18 @@ app.post('/api/owner/changelogs',ownerOnly,async(req,res)=>{
 });
 
 // ── WhatsApp Ticket Inbox (Twilio webhook) ────────────────────────────────
+// Strip "whatsapp:" prefix and non-digit/plus chars so numbers from Twilio
+// (e.g. "whatsapp:+14155238886") and from Settings (e.g. "+1 415 523 8886")
+// compare equal regardless of formatting.
+function _normalizeWaNumber(n){return String(n||'').replace(/^whatsapp:/i,'').replace(/[^\d+]/g,'');}
+
 app.post('/api/whatsapp/webhook',async(req,res)=>{
   // Standard Twilio WhatsApp webhook
-  const{From,Body,ProfileName,WaId}=req.body;
+  const{From,To,Body,ProfileName,WaId}=req.body;
   if(!From||!Body)return res.status(200).send('<Response></Response>');
-  // Find brand configured for this WhatsApp number
+  const toNorm=_normalizeWaNumber(To);
+  // Find the brand whose connected WhatsApp number this message was sent to —
+  // each brand can now connect its own Twilio number, not a single global one.
   const owner=readOwner();
   let handled=false;
   for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
@@ -8275,6 +8295,7 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       const db=readBrandDB(brand.slug);
       if(!featEnabled(db,'whatsapp'))continue;
       if(!db.features?.whatsappNumber)continue;
+      if(toNorm&&_normalizeWaNumber(db.features.whatsappNumber)!==toNorm)continue;
       // Create or append to existing ticket from this WhatsApp number
       const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===WaId&&t.status==='open');
       const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
@@ -8300,13 +8321,19 @@ app.post('/api/tickets/:id/whatsapp-reply',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
   const db=readBrandDB(su.brandSlug);
   if(!featEnabled(db,'whatsapp'))return res.json({success:false,error:'Feature not enabled'});
-  if(!process.env.TWILIO_ACCOUNT_SID||!process.env.TWILIO_AUTH_TOKEN)return res.json({success:false,error:'Twilio not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM to .env'});
+  // Prefer this brand's own connected Twilio account; fall back to the
+  // platform-wide .env credentials (e.g. for a shared sandbox during testing).
+  const waCfg=db.whatsappConfig||{};
+  const accountSid=waCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
+  const authToken=waCfg.authToken||process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber=waCfg.number||process.env.TWILIO_WHATSAPP_FROM;
+  if(!accountSid||!authToken||!fromNumber)return res.json({success:false,error:'Twilio not configured for this brand. Connect WhatsApp in Settings first.'});
   const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
   if(!ticket||ticket.channel!=='whatsapp')return res.json({success:false,error:'Not a WhatsApp ticket'});
   const{message}=req.body;if(!message)return res.json({success:false,error:'message required'});
   // Send via Twilio
-  const twilio=require('twilio')(process.env.TWILIO_ACCOUNT_SID,process.env.TWILIO_AUTH_TOKEN);
-  twilio.messages.create({from:`whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,to:ticket.from,body:message})
+  const twilio=require('twilio')(accountSid,authToken);
+  twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:message})
     .then(()=>{
       const idx=(db.tickets||[]).findIndex(t=>t.id===ticket.id);
       if(idx>=0){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:su.email,fromName:su.name||su.email,body:message,timestamp:nowIST(),channel:'whatsapp'});writeBrandDB(su.brandSlug,db);}
