@@ -6104,6 +6104,13 @@ function startEmailPoller(slug) {
 
   const db = readBrandDB(slug);
   const config = db.emailTicketing;
+  // Gmail Push supersedes IMAP polling entirely for this brand — starting the
+  // poller alongside it just hammers Gmail with redundant password-auth logins
+  // (this is exactly what ran up 9000+ failures for konnect after connecting).
+  if (config?.gmailOAuth?.refreshToken) {
+    console.log(`[EmailPoller] Not started for ${slug} — Gmail Push is active, IMAP polling not needed`);
+    return;
+  }
   if (!config || !config.enabled || !config.host || !config.user || !config.pass) {
     console.log(`[EmailPoller] Not started for ${slug} — missing config`);
     return;
