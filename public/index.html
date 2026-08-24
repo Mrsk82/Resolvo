@@ -370,12 +370,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   padding: 1px 6px; border-radius: 4px; flex-shrink: 0;
 }
-.src-email    { background: #dbeafe; color: #1d4ed8; }
-.src-widget   { background: #dcfce7; color: #166534; }
-.src-whatsapp { background: #d1fae5; color: #065f46; }
-.src-api      { background: #f3e8ff; color: #6b21a8; }
-.src-manual   { background: #f1f5f9; color: #475569; }
-.src-slack    { background: #fef3c7; color: #92400e; }
+/* These previously used hardcoded light-theme pastels (light blue/green
+   backgrounds with dark text) which showed as bright, out-of-place boxes
+   against this app's dark surfaces. Now uses the same low-opacity-bg +
+   solid-text pattern as every other badge in the app. */
+.src-email    { background: rgba(37,99,235,.15);  color: #60A5FA; }
+.src-widget   { background: rgba(99,102,241,.15); color: #A5B4FC; }
+.src-whatsapp { background: rgba(37,211,102,.15); color: #25D366; }
+.src-api      { background: rgba(168,85,247,.15); color: #C4B5FD; }
+.src-manual   { background: var(--bg-elevated);   color: var(--text-dim); }
+.src-slack    { background: rgba(217,119,6,.15);  color: #F59E0B; }
 
 /* ══════════════════════════════════════════════════════════════
    TICKET DETAIL — IMPROVED UI
@@ -4790,6 +4794,23 @@ tr:hover .row-preview-btn { opacity: 1; }
 }
 .kbd-help-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
 
+/* Groups the topbar utility icons (shortcuts/palette/search/notifications) into
+   one visual cluster instead of 4 individually-boxed buttons standing side by
+   side — same click targets and behavior, just less visual noise in the topbar. */
+.topbar-icon-group {
+  display: flex; align-items: center; gap: 1px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 9px; padding: 2px; flex-shrink: 0;
+}
+.topbar-icon-group .notif-bell-btn,
+.topbar-icon-group .kbd-help-btn {
+  background: transparent; border: 1px solid transparent;
+}
+.topbar-icon-group .notif-bell-btn:hover,
+.topbar-icon-group .kbd-help-btn:hover {
+  background: var(--bg-hover, rgba(255,255,255,.07));
+}
+
 /* === INLINE EDIT === */
 .inline-edit-trigger {
   display: inline-flex; align-items: center; gap: 4px;
@@ -8081,45 +8102,48 @@ tbody tr.row-selected {
               &#x26A0; <span id="criticalBadgeCount">0</span> Critical
             </div>
 
-            <!-- Keyboard shortcut hint -->
-            <button class="kbd-help-btn" onclick="Keyboard && Keyboard._toggleKbdHelp()" title="Keyboard shortcuts (?)" data-tt="Shortcuts (?)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </button>
-
-            <!-- Command palette trigger -->
-            <button class="notif-bell-btn" onclick="CmdPalette && CmdPalette.open()" title="Command palette (Ctrl+P)" data-tt="Command palette">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-            </button>
-
-            <!-- Smart Search trigger -->
-            <button class="notif-bell-btn" onclick="Search.open()" title="Search (/) or Ctrl+Shift+F" aria-label="Open search">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-
-            <!-- SLA alert -->
-            <div class="notification-bell" id="slaAlert" style="display:none">
-              <span class="badge" id="slaCount">0</span>
-            </div>
-
-            <!-- Notification centre -->
-            <div class="notif-bell-wrap" id="notifWrap" style="position:relative">
-              <button class="notif-bell-btn" id="notifBellBtn" onclick="App._showNotifPanel();App._loadNotificationBell();" title="Notifications" aria-label="Toggle notifications panel" style="position:relative;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <span class="notif-count" id="notifCount" style="display:none">0</span>
+            <!-- Utility icons grouped into one visual cluster instead of standing separately -->
+            <div class="topbar-icon-group">
+              <!-- Keyboard shortcut hint -->
+              <button class="kbd-help-btn" onclick="Keyboard && Keyboard._toggleKbdHelp()" title="Keyboard shortcuts (?)" data-tt="Shortcuts (?)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </button>
-              <div class="notif-panel" id="notifPanel">
-                <div class="notif-panel-head">
-                  <span class="notif-panel-title">Notifications</span>
-                  <button class="notif-mark-all" onclick="Notif.markAllRead()" aria-label="Mark all read">Mark all read</button>
-                </div>
-                <div class="notif-list" id="notifList">
-                  <div class="notif-empty">
-                    <div class="notif-empty-icon">&#x1F514;</div>
-                    <div class="notif-empty-text">No notifications yet</div>
+
+              <!-- Command palette trigger -->
+              <button class="notif-bell-btn" onclick="CmdPalette && CmdPalette.open()" title="Command palette (Ctrl+P)" data-tt="Command palette">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </button>
+
+              <!-- Smart Search trigger -->
+              <button class="notif-bell-btn" onclick="Search.open()" title="Search (/) or Ctrl+Shift+F" aria-label="Open search">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </button>
+
+              <!-- SLA alert -->
+              <div class="notification-bell" id="slaAlert" style="display:none">
+                <span class="badge" id="slaCount">0</span>
+              </div>
+
+              <!-- Notification centre -->
+              <div class="notif-bell-wrap" id="notifWrap" style="position:relative">
+                <button class="notif-bell-btn" id="notifBellBtn" onclick="App._showNotifPanel();App._loadNotificationBell();" title="Notifications" aria-label="Toggle notifications panel" style="position:relative;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span class="notif-count" id="notifCount" style="display:none">0</span>
+                </button>
+                <div class="notif-panel" id="notifPanel">
+                  <div class="notif-panel-head">
+                    <span class="notif-panel-title">Notifications</span>
+                    <button class="notif-mark-all" onclick="Notif.markAllRead()" aria-label="Mark all read">Mark all read</button>
                   </div>
-                </div>
-                <div class="notif-footer">
-                  <span class="notif-footer-link" onclick="Notif.markAllRead()">Clear all</span>
+                  <div class="notif-list" id="notifList">
+                    <div class="notif-empty">
+                      <div class="notif-empty-icon">&#x1F514;</div>
+                      <div class="notif-empty-text">No notifications yet</div>
+                    </div>
+                  </div>
+                  <div class="notif-footer">
+                    <span class="notif-footer-link" onclick="Notif.markAllRead()">Clear all</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -15190,7 +15214,7 @@ const App = {
                   ${t.assignedTo?`<span style="font-size:10px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:'<span style="font-size:10px;color:var(--critical);font-weight:700;">⚠ Unassigned</span>'}
                   ${t.linkedIssueId?`<span style="font-size:10px;color:var(--status-ack);">🎫 ${t.linkedIssueId}</span>`:''}
                   <span style="font-size:10px;color:var(--text-dim);">💬 ${t.threadCount||1}</span>
-                  ${t.source&&t.source!=='email'?`<span class="ticket-source-badge src-${t.source||'email'}">${({widget:'🌐 Web',whatsapp:'💬 WhatsApp',api:'⚙ API',slack:'💬 Slack',manual:'✏ Manual',phone:'📞 Phone'})[t.source]||t.source}</span>`:''}
+                  ${(function(){var src=t.channel||t.source||'email';return src!=='email'?'<span class="ticket-source-badge src-'+src+'">'+(({widget:'🌐 Web',whatsapp:'💬 WhatsApp',api:'⚙ API',slack:'💬 Slack',manual:'✏ Manual',phone:'📞 Phone'})[src]||src)+'</span>':'';})()}
                 </div>
               </div>
               <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px;">

@@ -3092,7 +3092,7 @@ app.post('/api/call',async(req,res)=>{
           if(opts.status&&opts.status!=='all'&&t.status!==opts.status)return false;
           if(opts.priority&&opts.priority!=='all'&&t.priority!==opts.priority)return false;
           if(opts.agent&&opts.agent!=='all'&&t.assignedTo!==opts.agent)return false;
-          if(opts.source&&opts.source!=='all'&&t.source!==opts.source)return false;
+          if(opts.source&&opts.source!=='all'&&(t.channel||t.source)!==opts.source)return false;
           return true;
         });
         const mapTicket=t=>{
@@ -3116,7 +3116,7 @@ app.post('/api/call',async(req,res)=>{
           return{
             id:t.id,subject:t.subject,from:t.from,fromName:t.fromName||'',
             status:t.status,priority:t.priority||'',assignedTo:t.assignedTo||'',
-            team,closedBy,source:t.source||'email',
+            team,closedBy,source:t.channel||t.source||'email',
             createdDate:t.createdDate||t.createdAt||'',firstResponseDate,
             resolvedDate:t.resolvedDate||'',lastActivity:t.lastActivity||'',
             firstResponseMinutes:firstResponseMinutes!=null?firstResponseMinutes:'',
@@ -4145,7 +4145,7 @@ app.post('/api/call',async(req,res)=>{
       const resolvedToday=tickets.filter(t=>['resolved','closed'].includes(t.status)&&t.resolvedDate&&new Date(t.resolvedDate).getTime()>=dayStart).length;
       const frt=tickets.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
       const avgFirstResponseMin=frt.length?Math.round(frt.reduce((a,b)=>a+b,0)/frt.length):null;
-      const byChannel={};tickets.forEach(t=>{const c=t.source||'email';byChannel[c]=(byChannel[c]||0)+1;});
+      const byChannel={};tickets.forEach(t=>{const c=t.channel||t.source||'email';byChannel[c]=(byChannel[c]||0)+1;});
       const volume=[];for(let i=13;i>=0;i--){const day=new Date(nowMs-i*86400000).toISOString().split('T')[0];volume.push(tickets.filter(t=>(t.createdDate||'').startsWith(day)).length);}
       const surveys=db.csatSurveys||[];
       const leaderboard=users.map(u=>{
@@ -4637,7 +4637,7 @@ app.get('/api/export/:type',(req,res)=>{
         const thread=t.thread||[];
         const agentReplies=thread.filter(m=>m.type==='reply'&&m.from!==t.from).length;
         const incomingMsgs=thread.filter(m=>m.type==='incoming').length;
-        return[t.id,esc(t.subject),t.status,t.priority||'Medium',t.from||'',esc(t.fromName),t.assignedTo||'',(t.createdDate||'').substring(0,10),(t.lastActivity||'').substring(0,10),(t.resolvedDate||'').substring(0,10),thread.length,agentReplies,incomingMsgs,t.firstResponseMinutes??'',t.csatRating||'',t.csatScore??'',t.slaPaused?'Yes':'No',(t.tags||[]).join(';'),t.source||'email',t.linkedIssueId||'',t.parentId||''].join(',');
+        return[t.id,esc(t.subject),t.status,t.priority||'Medium',t.from||'',esc(t.fromName),t.assignedTo||'',(t.createdDate||'').substring(0,10),(t.lastActivity||'').substring(0,10),(t.resolvedDate||'').substring(0,10),thread.length,agentReplies,incomingMsgs,t.firstResponseMinutes??'',t.csatRating||'',t.csatScore??'',t.slaPaused?'Yes':'No',(t.tags||[]).join(';'),t.channel||t.source||'email',t.linkedIssueId||'',t.parentId||''].join(',');
       });
       csv=header+'\n'+rows.join('\n');
     } else if(type==='users'){
@@ -8881,7 +8881,7 @@ app.get('/api/:slug/dashboard/widget',(req,res)=>{
         data={total:inRange.length,confirmed:inRange.filter(a=>a.status==='confirmed').length,cancelled:inRange.filter(a=>a.status==='cancelled').length,reminderSent:inRange.filter(a=>a.reminderSent).length};
         break;}
       case'tickets_by_source':{
-        const src={};tickets.filter(t=>new Date(t.createdDate||t.createdAt)>=cutoff).forEach(t=>{const s=t.source||'manual';src[s]=(src[s]||0)+1;});
+        const src={};tickets.filter(t=>new Date(t.createdDate||t.createdAt)>=cutoff).forEach(t=>{const s=t.channel||t.source||'manual';src[s]=(src[s]||0)+1;});
         data={sources:Object.entries(src).map(([source,count])=>({source,count})).sort((a,b)=>b.count-a.count)};
         break;}
       case'agent_availability':{
@@ -8898,7 +8898,7 @@ app.get('/api/:slug/dashboard/widget',(req,res)=>{
         break;}
       case'unassigned_tickets':{
         const list=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).slice(0,10);
-        data={count:tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length,tickets:list.map(t=>({id:t.id,subject:t.subject,priority:t.priority,source:t.source,createdDate:t.createdDate||t.createdAt}))};
+        data={count:tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status)).length,tickets:list.map(t=>({id:t.id,subject:t.subject,priority:t.priority,source:t.channel||t.source,createdDate:t.createdDate||t.createdAt}))};
         break;}
       case'announcements':{
         const ann=(db.announcements||[]).filter(a=>a.active&&(!a.expiresAt||new Date(a.expiresAt)>now));
