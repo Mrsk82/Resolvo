@@ -380,6 +380,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .src-api      { background: rgba(168,85,247,.15); color: #C4B5FD; }
 .src-manual   { background: var(--bg-elevated);   color: var(--text-dim); }
 .src-slack    { background: rgba(217,119,6,.15);  color: #F59E0B; }
+.src-sms      { background: rgba(245,158,11,.15); color: #F59E0B; }
 
 /* ══════════════════════════════════════════════════════════════
    TICKET DETAIL — IMPROVED UI
@@ -15140,6 +15141,7 @@ const App = {
             {k:'email',    l:'Email',        dot:'#2563EB'},
             {k:'whatsapp', l:'WhatsApp',     dot:'#25D366'},
             {k:'widget',   l:'Web Widget',   dot:'#6366F1'},
+            {k:'sms',      l:'SMS',          dot:'#F59E0B'},
             {k:'manual',   l:'Manual',       dot:'#9CA3AF'},
           ].map(ch => { var c = ch.dot;
             var isActive = (self._ticketChannel||'all') === ch.k;
@@ -15219,7 +15221,7 @@ const App = {
                   ${t.assignedTo?`<span style="font-size:10px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:'<span style="font-size:10px;color:var(--critical);font-weight:700;">⚠ Unassigned</span>'}
                   ${t.linkedIssueId?`<span style="font-size:10px;color:var(--status-ack);">🎫 ${t.linkedIssueId}</span>`:''}
                   <span style="font-size:10px;color:var(--text-dim);">💬 ${t.threadCount||1}</span>
-                  ${(function(){var src=t.channel||t.source||'email';return src!=='email'?'<span class="ticket-source-badge src-'+src+'">'+(({widget:'🌐 Web',whatsapp:'💬 WhatsApp',api:'⚙ API',slack:'💬 Slack',manual:'✏ Manual',phone:'📞 Phone'})[src]||src)+'</span>':'';})()}
+                  ${(function(){var src=t.channel||t.source||'email';return src!=='email'?'<span class="ticket-source-badge src-'+src+'">'+(({widget:'🌐 Web',whatsapp:'💬 WhatsApp',api:'⚙ API',slack:'💬 Slack',manual:'✏ Manual',phone:'📞 Phone',sms:'📱 SMS'})[src]||src)+'</span>':'';})()}
                 </div>
               </div>
               <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
@@ -15566,6 +15568,8 @@ const App = {
               <button onclick="App._showCustomerHistory('${self._esc(t.from)}')" style="font-size:11px;color:var(--indigo,#6366F1);border:1px solid var(--indigo,#6366F1)44;border-radius:5px;padding:4px 8px;background:rgba(99,102,241,.08);cursor:pointer;" title="View customer history">📋 History</button>
             </div>
             <div id="stripeBillingPanel_${t.id}"></div>
+            <div id="hubspotContactPanel_${t.id}"></div>
+            <div id="razorpayPaymentPanel_${t.id}"></div>
           </div>
 
           <!-- Overview: SLA + Details merged -->
@@ -15702,6 +15706,36 @@ const App = {
     self._loadTicketCustomFields(ticketId, t);
     // Stripe billing context (silently does nothing if not connected / no match)
     self._loadStripeBilling(ticketId, t.from);
+    self._loadHubSpotContact(ticketId, t.from);
+    self._loadRazorpayPayment(ticketId, t.from);
+  },
+  _loadHubSpotContact: async function(ticketId, fromEmail) {
+    var panel = document.getElementById('hubspotContactPanel_'+ticketId);
+    if (!panel || !fromEmail || fromEmail.indexOf('@') === -1) return;
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/hubspot/contact?email='+encodeURIComponent(fromEmail), {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    var c = r && r.contact;
+    if (!c) return;
+    panel.innerHTML = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg-elevated);border-radius:8px;font-size:11px;">'+
+      '<div style="font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-size:9px;margin-bottom:4px;">🧡 HubSpot</div>'+
+      (c.lifecycleStage ? '<div>Lifecycle: <strong>'+App._esc(c.lifecycleStage)+'</strong></div>' : '')+
+      (c.leadStatus ? '<div>Lead status: <strong>'+App._esc(c.leadStatus)+'</strong></div>' : '')+
+      '<a href="'+App._esc(c.dashboardUrl)+'" target="_blank" rel="noopener" style="color:var(--accent);font-size:10px;">View in HubSpot →</a>'+
+    '</div>';
+  },
+  _loadRazorpayPayment: async function(ticketId, fromEmail) {
+    var panel = document.getElementById('razorpayPaymentPanel_'+ticketId);
+    if (!panel || !fromEmail || fromEmail.indexOf('@') === -1) return;
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/razorpay/payment?email='+encodeURIComponent(fromEmail), {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    var p = r && r.payment;
+    if (!p) return;
+    var statusColor = p.status==='captured' ? 'var(--low)' : p.status==='failed' ? 'var(--critical)' : 'var(--text-dim)';
+    panel.innerHTML = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg-elevated);border-radius:8px;font-size:11px;">'+
+      '<div style="font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-size:9px;margin-bottom:4px;">💰 Razorpay</div>'+
+      '<div>Last payment: <strong style="color:'+statusColor+';">'+App._esc(p.status)+'</strong> — '+App._esc(p.currency)+' '+App._esc(p.amount)+'</div>'+
+      '<a href="'+App._esc(p.dashboardUrl)+'" target="_blank" rel="noopener" style="color:var(--accent);font-size:10px;">View in Razorpay →</a>'+
+    '</div>';
   },
   _loadStripeBilling: async function(ticketId, fromEmail) {
     var panel = document.getElementById('stripeBillingPanel_'+ticketId);
@@ -16928,9 +16962,12 @@ const App = {
                 '<option value="jira"'+(st.EXTERNAL_API_TYPE==='jira'?' selected':'')+'>Jira (Atlassian)</option>'+
                 '<option value="servicenow"'+(st.EXTERNAL_API_TYPE==='servicenow'?' selected':'')+'>ServiceNow</option>'+
                 '<option value="github"'+(st.EXTERNAL_API_TYPE==='github'?' selected':'')+'>GitHub Issues</option>'+
+                '<option value="gitlab"'+(st.EXTERNAL_API_TYPE==='gitlab'?' selected':'')+'>GitLab</option>'+
+                '<option value="bitbucket"'+(st.EXTERNAL_API_TYPE==='bitbucket'?' selected':'')+'>Bitbucket</option>'+
+                '<option value="linear"'+(st.EXTERNAL_API_TYPE==='linear'?' selected':'')+'>Linear</option>'+
                 '<option value="custom"'+(st.EXTERNAL_API_TYPE==='custom'?' selected':'')+'>Custom REST API</option>'+
               '</select></div>'+
-              '<div class="form-group"><label class="form-label">Base URL</label><input id="apiBaseUrl" class="form-input" value="'+App._esc(st.EXTERNAL_API_BASE_URL||'')+'" placeholder="https://your-domain.atlassian.net"></div>'+
+              '<div class="form-group"><label class="form-label">Base URL</label><input id="apiBaseUrl" class="form-input" value="'+App._esc(st.EXTERNAL_API_BASE_URL||'')+'" placeholder="https://your-domain.atlassian.net (GitLab: leave blank for gitlab.com)"></div>'+
               '<div class="form-group"><label class="form-label">Username / Email</label><input id="apiUser" class="form-input" value="'+App._esc(st.EXTERNAL_API_USER||'')+'" placeholder="user@email.com"></div>'+
               '<div class="form-group"><label class="form-label">API Token / Password</label><input id="apiToken" class="form-input" type="password" placeholder="API token"></div>'+
               '<div class="form-group" id="apiProjectGroup"><label class="form-label">Project Key / Repo</label><input id="apiProject" class="form-input" value="'+App._esc(st.EXTERNAL_API_PROJECT_KEY||'')+'" placeholder="TECH or owner/repo"></div>'+
@@ -16973,6 +17010,22 @@ const App = {
             ]);
           })() +
           await (async function(){
+            var smsR = await fetch('/api/sms/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false,config:{}};});
+            var smsCfg = (smsR&&smsR.success&&smsR.config)?smsR.config:{enabled:false,number:'',webhookUrl:''};
+            return App._sSection('📱 SMS',[
+              App._sRow('Enable SMS Ticketing','Incoming SMS messages become tickets (via Twilio)',
+                '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sms_enabled" '+(smsCfg.enabled?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;color:var(--text-secondary);">'+(smsCfg.enabled?'Active':'Inactive')+'</span></label>'),
+              App._sRow('SMS Number','Your Twilio SMS-capable number, e.g. +1XXXXXXXXXX',
+                '<input id="sms_number" class="form-input" style="width:280px;font-family:var(--font-mono);" placeholder="+1XXXXXXXXXX" value="'+App._esc(smsCfg.number||'')+'">'),
+              App._sRow('Twilio Account SID / Auth Token','Leave blank to reuse the WhatsApp Twilio account, if connected',
+                '<input id="sms_sid" class="form-input" style="width:280px;margin-bottom:6px;" placeholder="Account SID (optional)" value="'+App._esc(smsCfg.accountSid||'')+'"><br>'+
+                '<input id="sms_token" class="form-input" type="password" style="width:280px;" placeholder="'+(smsCfg.hasAuthToken?'•••••••••••••••• (saved)':'Auth Token (optional)')+'">'),
+              App._sRow('Twilio Webhook URL','Paste in Twilio console → SMS → When a message comes in',
+                '<div style="display:flex;gap:6px;align-items:center;"><input class="form-input" readonly style="width:280px;font-family:var(--font-mono);font-size:11px;background:var(--bg-elevated);" value="'+App._esc(smsCfg.webhookUrl||'')+'"><button onclick="navigator.clipboard.writeText(\''+App._esc(smsCfg.webhookUrl||'')+'\').then(function(){App.showToast(\'Copied!\',\'success\');})" class="btn-secondary btn-sm">Copy</button></div>'),
+              '<div style="text-align:right;margin-top:12px;"><button onclick="App._saveSmsConfig()" class="btn-primary">Save SMS</button></div>'
+            ]);
+          })() +
+          await (async function(){
             var stR = await fetch('/api/stripe/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false};});
             var stCfg = (stR&&stR.success&&stR.config)?stR.config:{connected:false};
             return App._sSection('💳 Stripe',[
@@ -16984,6 +17037,36 @@ const App = {
                 (stCfg.connected?'<span style="font-size:11px;color:var(--low);">✓ Key saved</span>':'')+
               '</div>',
               '<div id="stripeResult" style="display:none;margin-top:10px;"></div>'
+            ]);
+          })() +
+          await (async function(){
+            var hsR = await fetch('/api/hubspot/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+            var hsCfg = (hsR&&hsR.success&&hsR.config)?hsR.config:{connected:false};
+            return App._sSection('🧡 HubSpot',[
+              App._sRow('Private App Access Token','Used to show contact/lifecycle stage on tickets.',
+                '<input id="hubspot_token" class="form-input" type="password" style="width:280px;" placeholder="'+(hsCfg.connected?'•••••••••••••••• (saved)':'pat-na1-...')+'">'),
+              '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">'+
+                '<button onclick="App._saveHubSpotConfig()" class="btn-primary btn-sm">💾 Save</button>'+
+                '<button onclick="App._testHubSpotConfig()" class="btn-secondary btn-sm">⟳ Test Connection</button>'+
+                (hsCfg.connected?'<span style="font-size:11px;color:var(--low);">✓ Token saved</span>':'')+
+              '</div>',
+              '<div id="hubspotResult" style="display:none;margin-top:10px;"></div>'
+            ]);
+          })() +
+          await (async function(){
+            var rzR = await fetch('/api/razorpay/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+            var rzCfg = (rzR&&rzR.success&&rzR.config)?rzR.config:{connected:false};
+            return App._sSection('💰 Razorpay',[
+              App._sRow('Key ID','From Razorpay Dashboard → Settings → API Keys',
+                '<input id="razorpay_key_id" class="form-input" style="width:280px;" placeholder="rzp_live_...">'),
+              App._sRow('Key Secret','Used to show payment status on tickets.',
+                '<input id="razorpay_key_secret" class="form-input" type="password" style="width:280px;" placeholder="'+(rzCfg.connected?'•••••••••••••••• (saved)':'Key secret')+'">'),
+              '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">'+
+                '<button onclick="App._saveRazorpayConfig()" class="btn-primary btn-sm">💾 Save</button>'+
+                '<button onclick="App._testRazorpayConfig()" class="btn-secondary btn-sm">⟳ Test Connection</button>'+
+                (rzCfg.connected?'<span style="font-size:11px;color:var(--low);">✓ Key saved</span>':'')+
+              '</div>',
+              '<div id="razorpayResult" style="display:none;margin-top:10px;"></div>'
             ]);
           })();
       }
@@ -20323,6 +20406,18 @@ const App = {
     if (btn) { btn.textContent = '⟳ Sync Issues From API'; btn.disabled = false; }
   },
 
+  _saveSmsConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var body = {
+      enabled: (document.getElementById('sms_enabled')||{}).checked||false,
+      number: (document.getElementById('sms_number')||{}).value||'',
+      accountSid: (document.getElementById('sms_sid')||{}).value||'',
+      authToken: (document.getElementById('sms_token')||{}).value||'',
+    };
+    var r = await fetch('/api/sms/config', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify(body)}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) { App.showToast('SMS settings saved', 'success'); App.renderUnifiedSettings('integrations'); }
+    else App.showToast('Failed to save', 'error');
+  },
   _disconnectCalendar: async function() {
     var tkn = localStorage.getItem('tt_session_token') || '';
     var r = await fetch('/api/calendar-oauth/disconnect', {method:'POST', headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
@@ -20341,6 +20436,41 @@ const App = {
     var el = document.getElementById('stripeResult');
     if (el) { el.style.display='block'; el.innerHTML = '<div style="padding:12px;background:var(--bg-elevated);border-radius:8px;font-size:13px;color:var(--text-muted);">Testing connection...</div>'; }
     var r = await fetch('/api/stripe/test', {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (el) {
+      if (r && r.success) el.innerHTML = '<div style="padding:12px;background:var(--low-dim);border:1px solid var(--low);border-radius:8px;font-size:13px;color:var(--low);">✓ '+App._esc(r.message)+'</div>';
+      else el.innerHTML = '<div style="padding:12px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;font-size:13px;color:var(--critical);">✗ '+App._esc((r&&r.error)||'Test failed')+'</div>';
+    }
+  },
+  _saveHubSpotConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var token = (document.getElementById('hubspot_token')||{}).value||'';
+    var r = await fetch('/api/hubspot/config', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({token:token})}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) { App.showToast('HubSpot token saved', 'success'); App.renderUnifiedSettings('integrations'); }
+    else App.showToast('Failed to save', 'error');
+  },
+  _testHubSpotConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var el = document.getElementById('hubspotResult');
+    if (el) { el.style.display='block'; el.innerHTML = '<div style="padding:12px;background:var(--bg-elevated);border-radius:8px;font-size:13px;color:var(--text-muted);">Testing connection...</div>'; }
+    var r = await fetch('/api/hubspot/test', {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (el) {
+      if (r && r.success) el.innerHTML = '<div style="padding:12px;background:var(--low-dim);border:1px solid var(--low);border-radius:8px;font-size:13px;color:var(--low);">✓ '+App._esc(r.message)+'</div>';
+      else el.innerHTML = '<div style="padding:12px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;font-size:13px;color:var(--critical);">✗ '+App._esc((r&&r.error)||'Test failed')+'</div>';
+    }
+  },
+  _saveRazorpayConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var keyId = (document.getElementById('razorpay_key_id')||{}).value||'';
+    var keySecret = (document.getElementById('razorpay_key_secret')||{}).value||'';
+    var r = await fetch('/api/razorpay/config', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({keyId:keyId,keySecret:keySecret})}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) { App.showToast('Razorpay keys saved', 'success'); App.renderUnifiedSettings('integrations'); }
+    else App.showToast('Failed to save', 'error');
+  },
+  _testRazorpayConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var el = document.getElementById('razorpayResult');
+    if (el) { el.style.display='block'; el.innerHTML = '<div style="padding:12px;background:var(--bg-elevated);border-radius:8px;font-size:13px;color:var(--text-muted);">Testing connection...</div>'; }
+    var r = await fetch('/api/razorpay/test', {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
     if (el) {
       if (r && r.success) el.innerHTML = '<div style="padding:12px;background:var(--low-dim);border:1px solid var(--low);border-radius:8px;font-size:13px;color:var(--low);">✓ '+App._esc(r.message)+'</div>';
       else el.innerHTML = '<div style="padding:12px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;font-size:13px;color:var(--critical);">✗ '+App._esc((r&&r.error)||'Test failed')+'</div>';
@@ -20365,18 +20495,24 @@ const App = {
     var tkn = localStorage.getItem('tt_session_token') || '';
     function apiGet(url) { return fetch(url, {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;}); }
 
-    var [settingsR, waR, calR, stripeR, emailR] = await Promise.all([
+    var [settingsR, waR, calR, stripeR, emailR, smsR, hubspotR, razorpayR] = await Promise.all([
       self.callAsync('getSettings'),
       apiGet('/api/whatsapp/config'),
       apiGet('/api/calendar/status'),
       apiGet('/api/stripe/config'),
       self.callAsync('getEmailTicketingConfig'),
+      apiGet('/api/sms/config'),
+      apiGet('/api/hubspot/config'),
+      apiGet('/api/razorpay/config'),
     ]);
     var st = (settingsR && settingsR.success) ? settingsR.settings : {};
     var waConnected = !!(waR && waR.success && waR.config && waR.config.enabled);
     var calConnected = !!(calR && calR.success && calR.connected);
     var stripeConnected = !!(stripeR && stripeR.success && stripeR.config && stripeR.config.connected);
     var emailConnected = !!(emailR && emailR.success && emailR.config && emailR.config.enabled);
+    var smsConnected = !!(smsR && smsR.success && smsR.config && smsR.config.enabled);
+    var hubspotConnected = !!(hubspotR && hubspotR.success && hubspotR.config && hubspotR.config.connected);
+    var razorpayConnected = !!(razorpayR && razorpayR.success && razorpayR.config && razorpayR.config.connected);
     var extType = st.EXTERNAL_API_TYPE || '';
     var slackConnected = !!st.SLACK_WEBHOOK_URL;
 
@@ -20389,19 +20525,19 @@ const App = {
         {key:'slack', icon:'💬', name:'Slack', status:slackConnected?'connected':'available', desc:'Post alerts to a Slack channel on ticket events.', goTo:'settings-integrations'},
         {key:'teams', icon:'👥', name:'Microsoft Teams', status:'soon', desc:'Post alerts and reply to tickets from Teams.'},
         {key:'whatsapp', icon:'💚', name:'WhatsApp', status:waConnected?'connected':'available', desc:'Receive WhatsApp messages as tickets, reply from Resolvo.', goTo:'whatsapp-settings'},
-        {key:'sms', icon:'📱', name:'SMS', status:'soon', desc:'Two-way SMS ticketing via a telephony provider.'},
+        {key:'sms', icon:'📱', name:'SMS', status:smsConnected?'connected':'available', desc:'Two-way SMS ticketing via Twilio.', goTo:'settings-integrations'},
       ],
       Engineering: [
         {key:'github', icon:'🐙', name:'GitHub', status:extType==='github'?'connected':'available', desc:'File engineering issues from tickets/automations directly into a repo.', goTo:'settings-integrations'},
-        {key:'gitlab', icon:'🦊', name:'GitLab', status:'soon', desc:'File issues into a GitLab project.'},
-        {key:'bitbucket', icon:'🪣', name:'Bitbucket', status:'soon', desc:'Link commits and issues from Bitbucket.'},
+        {key:'gitlab', icon:'🦊', name:'GitLab', status:extType==='gitlab'?'connected':'available', desc:'File issues into a GitLab project.', goTo:'settings-integrations'},
+        {key:'bitbucket', icon:'🪣', name:'Bitbucket', status:extType==='bitbucket'?'connected':'available', desc:'File issues into a Bitbucket repo.', goTo:'settings-integrations'},
         {key:'jira', icon:'🔷', name:'Jira', status:extType==='jira'?'connected':'available', desc:'File engineering issues into a Jira project.', goTo:'settings-integrations'},
-        {key:'linear', icon:'📐', name:'Linear', status:'soon', desc:'File engineering issues into a Linear team.'},
+        {key:'linear', icon:'📐', name:'Linear', status:extType==='linear'?'connected':'available', desc:'File engineering issues into a Linear team.', goTo:'settings-integrations'},
         {key:'servicenow', icon:'🛡', name:'ServiceNow', status:extType==='servicenow'?'connected':'available', desc:'File incidents into a ServiceNow instance.', goTo:'settings-integrations'},
       ],
       CRM: [
         {key:'salesforce', icon:'☁️', name:'Salesforce', status:'soon', desc:'Sync tickets and contacts with Salesforce.'},
-        {key:'hubspot', icon:'🧡', name:'HubSpot', status:'soon', desc:'Sync tickets and contacts with HubSpot.'},
+        {key:'hubspot', icon:'🧡', name:'HubSpot', status:hubspotConnected?'connected':'available', desc:'Show contact lifecycle stage on tickets.', goTo:'settings-integrations'},
       ],
       Meetings: [
         {key:'gcal', icon:'📅', name:'Google Calendar', status:calConnected?'connected':'available', desc:'Automation rules can schedule real meetings on your calendar.', goTo:'settings-integrations'},
@@ -20416,7 +20552,7 @@ const App = {
       ],
       Payments: [
         {key:'stripe', icon:'💳', name:'Stripe', status:stripeConnected?'connected':'available', desc:'Show billing/subscription status on tickets.', goTo:'settings-integrations'},
-        {key:'razorpay', icon:'💰', name:'Razorpay', status:'soon', desc:'Show payment status on tickets for Razorpay customers.'},
+        {key:'razorpay', icon:'💰', name:'Razorpay', status:razorpayConnected?'connected':'available', desc:'Show payment status on tickets for Razorpay customers.', goTo:'settings-integrations'},
       ],
       Storage: [
         {key:'gdrive', icon:'📁', name:'Google Drive', status:'soon', desc:'Attach Drive files to tickets.'},
@@ -27913,7 +28049,7 @@ App.renderNovaBentoDashboard = async function() {
   var maxVol = Math.max.apply(null, vol.concat([1]));
   var totalCh = Object.keys(ch).reduce(function(acc,k){return acc+ch[k];},0) || 1;
   var TRACK = 'var(--bg-elevated)', LINE = 'var(--border)';
-  var chMeta = {email:['\u2709\uFE0F Email','#2563EB'],whatsapp:['\uD83D\uDCAC WhatsApp','#0F6E56'],widget:['\uD83C\uDF10 Web','#534AB7'],portal:['\uD83C\uDF10 Portal','#185FA5'],api:['\u2699 API','#888780'],manual:['\u270F Manual','#888780'],phone:['\uD83D\uDCDE Phone','#534AB7']};
+  var chMeta = {email:['\u2709\uFE0F Email','#2563EB'],whatsapp:['\uD83D\uDCAC WhatsApp','#0F6E56'],widget:['\uD83C\uDF10 Web','#534AB7'],portal:['\uD83C\uDF10 Portal','#185FA5'],api:['\u2699 API','#888780'],manual:['\u270F Manual','#888780'],phone:['\uD83D\uDCDE Phone','#534AB7'],sms:['\uD83D\uDCF1 SMS','#F59E0B']};
   var frt = (sup.avgFirstResponseMin!=null) ? (sup.avgFirstResponseMin<60 ? sup.avgFirstResponseMin+'m' : Math.round(sup.avgFirstResponseMin/60*10)/10+'h') : '\u2014';
   var kpiIcons={
     'Open Tickets':'🎫','Unassigned':'⚠️','SLA Breached':'🔥','Resolved Today':'✅',

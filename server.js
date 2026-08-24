@@ -336,6 +336,7 @@ const KV_KEYS=[
   'tags','coAssignees','votes','timeLogs','watchers','reactions',
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
   'automationRules','integrations','calendarOAuth','stripeConfig',
+  'hubspotConfig','razorpayConfig','smsConfig',
 ];
 
 function _openDB(slug){
@@ -1662,9 +1663,20 @@ app.post('/api/call',async(req,res)=>{
           await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:replyText});
         }catch(e){return{success:false,error:'WhatsApp send failed: '+e.message};}
       }
+      if(!isNote&&ticket.channel==='sms'){
+        const smsCfg=db.smsConfig||{};
+        const accountSid=smsCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
+        const authToken=smsCfg.authToken||process.env.TWILIO_AUTH_TOKEN;
+        const fromNumber=smsCfg.number;
+        if(!accountSid||!authToken||!fromNumber)return{success:false,error:'Twilio not configured for SMS on this brand. Connect SMS in Settings first.'};
+        try{
+          const twilio=require('twilio')(accountSid,authToken);
+          await twilio.messages.create({from:_normalizeWaNumber(fromNumber),to:ticket.from,body:replyText});
+        }catch(e){return{success:false,error:'SMS send failed: '+e.message};}
+      }
       const msgId=generateId('MSG');
       const now=nowIST();
-      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote&&ticket.channel!=='whatsapp',channel:ticket.channel==='whatsapp'?'whatsapp':undefined};
+      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote&&!['whatsapp','sms'].includes(ticket.channel),channel:['whatsapp','sms'].includes(ticket.channel)?ticket.channel:undefined};
       db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push(msg);
       db.tickets[idx].lastActivity=now;
       if(db.tickets[idx].status==='new'&&!isNote)db.tickets[idx].status='open';
@@ -1685,7 +1697,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:isNote?'note_added':'reply_sent',by:su.email,byName:su.name||su.email,at:now,detail:replyText.substring(0,120)});
       wDB(db);
-      if(!isNote&&ticket.from&&ticket.channel!=='whatsapp'){
+      if(!isNote&&ticket.from&&!['whatsapp','sms'].includes(ticket.channel)){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
         const replySubject=`Re: [${brandName}] ${ticket.subject}`;
@@ -4777,6 +4789,28 @@ app.get('/api/external/sync',async(req,res)=>{
       const r=await axios.get(s.EXTERNAL_API_BASE_URL,{headers:s.EXTERNAL_API_TOKEN?{Authorization:`Bearer ${s.EXTERNAL_API_TOKEN}`}:{},timeout:10000});
       return res.json({success:true,message:'Connected to custom endpoint — received a response.',sample:typeof r.data==='object'?r.data:String(r.data).substring(0,200)});
     }
+    if(type==='gitlab'){
+      const project=s.EXTERNAL_API_PROJECT_KEY;
+      if(!project)return res.json({success:false,error:'Set the project as owner/repo or numeric project ID in Project Key / Repo.'});
+      const base=(s.EXTERNAL_API_BASE_URL||'https://gitlab.com').replace(/\/$/,'');
+      const r=await axios.get(`${base}/api/v4/projects/${encodeURIComponent(project)}/issues`,{params:{per_page:5,state:'opened'},headers:{'PRIVATE-TOKEN':s.EXTERNAL_API_TOKEN||''},timeout:10000});
+      return res.json({success:true,message:`Connected — found ${r.data.length} open issue(s) in ${project}.`,sample:r.data.slice(0,5).map(i=>({iid:i.iid,title:i.title,url:i.web_url}))});
+    }
+    if(type==='bitbucket'){
+      const repo=s.EXTERNAL_API_PROJECT_KEY;
+      if(!repo)return res.json({success:false,error:'Set the repo as workspace/repo-slug in Project Key / Repo.'});
+      const auth=Buffer.from(`${s.EXTERNAL_API_USER}:${s.EXTERNAL_API_TOKEN}`).toString('base64');
+      const r=await axios.get(`https://api.bitbucket.org/2.0/repositories/${repo}/issues`,{params:{pagelen:5},headers:{Authorization:`Basic ${auth}`,Accept:'application/json'},timeout:10000});
+      return res.json({success:true,message:`Connected — found ${(r.data.values||[]).length} issue(s) in ${repo}.`,sample:(r.data.values||[]).slice(0,5).map(i=>({id:i.id,title:i.title}))});
+    }
+    if(type==='linear'){
+      const r=await axios.post('https://api.linear.app/graphql',
+        {query:'query{ issues(first:5, filter:{state:{type:{neq:"completed"}}}){ nodes{ identifier title url } } }'},
+        {headers:{Authorization:s.EXTERNAL_API_TOKEN||'','Content-Type':'application/json'},timeout:10000});
+      if(r.data.errors)return res.json({success:false,error:r.data.errors[0].message});
+      const nodes=r.data.data.issues.nodes;
+      return res.json({success:true,message:`Connected — found ${nodes.length} open issue(s).`,sample:nodes.map(i=>({id:i.identifier,title:i.title,url:i.url}))});
+    }
     return res.json({success:false,error:'Unknown platform: '+type});
   }catch(e){
     const msg=e.response?`HTTP ${e.response.status}: ${JSON.stringify(e.response.data).substring(0,200)}`:e.message;
@@ -4820,6 +4854,40 @@ async function createExternalIssue(db,ticket){
         {short_description:ticket.subject,description:`Auto-created from Resolvo ticket ${ticket.id}`},
         {headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/json'},timeout:10000});
       return{externalId:r.data.result&&r.data.result.number,externalUrl:null,platform:'servicenow'};
+    }
+    if(type==='gitlab'){
+      const project=s.EXTERNAL_API_PROJECT_KEY;
+      if(!project)return null;
+      const base=(s.EXTERNAL_API_BASE_URL||'https://gitlab.com').replace(/\/$/,'');
+      const r=await axios.post(`${base}/api/v4/projects/${encodeURIComponent(project)}/issues`,
+        null,{params:{title:ticket.subject,description:`Auto-created from Resolvo ticket ${ticket.id}\n\n${(ticket.body||'').substring(0,1000)}`},
+        headers:{'PRIVATE-TOKEN':s.EXTERNAL_API_TOKEN||''},timeout:10000});
+      return{externalId:String(r.data.iid),externalUrl:r.data.web_url,platform:'gitlab'};
+    }
+    if(type==='bitbucket'){
+      const repo=s.EXTERNAL_API_PROJECT_KEY;
+      if(!repo)return null;
+      const auth=Buffer.from(`${s.EXTERNAL_API_USER}:${s.EXTERNAL_API_TOKEN}`).toString('base64');
+      const r=await axios.post(`https://api.bitbucket.org/2.0/repositories/${repo}/issues`,
+        {title:ticket.subject,content:{raw:`Auto-created from Resolvo ticket ${ticket.id}`,markup:'markdown'}},
+        {headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/json'},timeout:10000});
+      return{externalId:String(r.data.id),externalUrl:r.data.links&&r.data.links.html&&r.data.links.html.href,platform:'bitbucket'};
+    }
+    if(type==='linear'){
+      const teamKey=s.EXTERNAL_API_PROJECT_KEY;
+      if(!teamKey)return null;
+      const headers={Authorization:s.EXTERNAL_API_TOKEN||'','Content-Type':'application/json'};
+      const teamsRes=await axios.post('https://api.linear.app/graphql',
+        {query:'query{ teams{ nodes{ id key } } }'},{headers,timeout:10000});
+      const team=(teamsRes.data.data.teams.nodes||[]).find(t=>t.key===teamKey);
+      if(!team)return null;
+      const r=await axios.post('https://api.linear.app/graphql',
+        {query:'mutation($teamId:String!,$title:String!,$description:String){ issueCreate(input:{teamId:$teamId,title:$title,description:$description}){ success issue{ identifier url } } }',
+         variables:{teamId:team.id,title:ticket.subject,description:`Auto-created from Resolvo ticket ${ticket.id}`}},
+        {headers,timeout:10000});
+      const issue=r.data.data&&r.data.data.issueCreate&&r.data.data.issueCreate.issue;
+      if(!issue)return null;
+      return{externalId:issue.identifier,externalUrl:issue.url,platform:'linear'};
     }
   }catch(e){console.error('[ExternalIssue]',e.message);}
   return null;
@@ -6578,6 +6646,111 @@ app.get('/api/stripe/customer',async(req,res)=>{
   res.json({success:true,customer:info});
 });
 
+// ── HUBSPOT ──────────────────────────────────────────────────────────────
+// Single Private App access token — same pattern as Stripe, but for CRM
+// contact context instead of billing.
+app.get('/api/hubspot/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  res.json({success:true,config:{connected:!!db.hubspotConfig?.token}});
+});
+app.post('/api/hubspot/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const{token}=req.body;
+  const db=readBrandDB(su.brandSlug);
+  db.hubspotConfig=db.hubspotConfig||{};
+  if(token&&!token.startsWith('•'))db.hubspotConfig.token=token.trim();
+  else if(!token)delete db.hubspotConfig.token;
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+app.get('/api/hubspot/test',async(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const token=db.hubspotConfig?.token;
+  if(!token)return res.json({success:false,error:'No HubSpot access token saved yet.'});
+  try{
+    const axios=require('axios');
+    const r=await axios.get('https://api.hubapi.com/crm/v3/objects/contacts',{params:{limit:1},headers:{Authorization:`Bearer ${token}`},timeout:10000});
+    res.json({success:true,message:`Connected — ${r.data.total??'?'} total contact(s) in this HubSpot account.`});
+  }catch(e){
+    const msg=e.response?.data?.message||e.message;
+    res.json({success:false,error:'Connection failed — '+msg});
+  }
+});
+async function lookupHubSpotContact(db,email){
+  const token=db.hubspotConfig?.token;
+  if(!token||!email)return null;
+  const axios=require('axios');
+  try{
+    const r=await axios.get(`https://api.hubapi.com/crm/v3/objects/contacts/${encodeURIComponent(email)}`,
+      {params:{idProperty:'email',properties:'firstname,lastname,lifecyclestage,hs_lead_status'},headers:{Authorization:`Bearer ${token}`},timeout:10000});
+    const c=r.data;
+    return{contactId:c.id,lifecycleStage:c.properties?.lifecyclestage||null,leadStatus:c.properties?.hs_lead_status||null,dashboardUrl:`https://app.hubspot.com/contacts/${c.id}`};
+  }catch(e){if(e.response?.status!==404)console.error('[HubSpot] lookup failed:',e.response?.data?.message||e.message);return null;}
+}
+app.get('/api/hubspot/contact',async(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const info=await lookupHubSpotContact(db,req.query.email);
+  res.json({success:true,contact:info});
+});
+
+// ── RAZORPAY ─────────────────────────────────────────────────────────────
+// Key ID + Key Secret (Basic auth), same shape as Stripe for the connection
+// test. Razorpay's list APIs don't support filtering customers by email
+// directly, so the lookup does a bounded client-side scan — fine for the
+// common case, not a substitute for a real customer search API.
+app.get('/api/razorpay/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  res.json({success:true,config:{connected:!!db.razorpayConfig?.keySecret}});
+});
+app.post('/api/razorpay/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const{keyId,keySecret}=req.body;
+  const db=readBrandDB(su.brandSlug);
+  db.razorpayConfig=db.razorpayConfig||{};
+  if(keyId)db.razorpayConfig.keyId=keyId.trim();
+  if(keySecret&&!keySecret.startsWith('•'))db.razorpayConfig.keySecret=keySecret.trim();
+  else if(!keySecret)delete db.razorpayConfig.keySecret;
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+app.get('/api/razorpay/test',async(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const cfg=db.razorpayConfig||{};
+  if(!cfg.keyId||!cfg.keySecret)return res.json({success:false,error:'Save both Key ID and Key Secret first.'});
+  try{
+    const axios=require('axios');
+    const auth=Buffer.from(`${cfg.keyId}:${cfg.keySecret}`).toString('base64');
+    const r=await axios.get('https://api.razorpay.com/v1/payments',{params:{count:1},headers:{Authorization:`Basic ${auth}`},timeout:10000});
+    res.json({success:true,message:`Connected — API key is valid (${r.data.count} payment(s) returned in this page).`});
+  }catch(e){
+    const msg=e.response?.data?.error?.description||e.message;
+    res.json({success:false,error:'Connection failed — '+msg});
+  }
+});
+async function lookupRazorpayPayment(db,email){
+  const cfg=db.razorpayConfig||{};
+  if(!cfg.keyId||!cfg.keySecret||!email)return null;
+  const axios=require('axios');
+  try{
+    const auth=Buffer.from(`${cfg.keyId}:${cfg.keySecret}`).toString('base64');
+    const r=await axios.get('https://api.razorpay.com/v1/payments',{params:{count:100},headers:{Authorization:`Basic ${auth}`},timeout:10000});
+    const match=(r.data.items||[]).find(p=>p.email&&p.email.toLowerCase()===email.toLowerCase());
+    if(!match)return null;
+    return{paymentId:match.id,status:match.status,amount:(match.amount/100).toFixed(2),currency:match.currency,dashboardUrl:`https://dashboard.razorpay.com/app/payments/${match.id}`};
+  }catch(e){console.error('[Razorpay] lookup failed:',e.response?.data?.error?.description||e.message);return null;}
+}
+app.get('/api/razorpay/payment',async(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const info=await lookupRazorpayPayment(db,req.query.email);
+  res.json({success:true,payment:info});
+});
+
 // Pub/Sub push webhook — Google calls this the moment an email arrives
 // Must return 200 immediately or Google will retry
 app.post('/api/webhook/gmail-push',async(req,res)=>{
@@ -6759,6 +6932,34 @@ app.post('/api/whatsapp/config',(req,res)=>{
   db.features=db.features||{};
   db.features.whatsapp=!!enabled;
   db.features.whatsappNumber=(number||'').trim();
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+
+// ── SMS (Twilio) — same account/webhook pattern as WhatsApp, plain SMS number ──
+app.get('/api/sms/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const cfg=db.smsConfig||{};
+  res.json({success:true,config:{
+    enabled:!!cfg.enabled,number:cfg.number||'',
+    accountSid:cfg.accountSid||'',
+    hasAuthToken:!!cfg.authToken,
+    usingPlatformDefault:!(cfg.accountSid&&cfg.authToken),
+    webhookUrl:`${BASE_URL}/api/sms/webhook`
+  }});
+});
+app.post('/api/sms/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const{enabled,number,accountSid,authToken}=req.body;
+  const db=readBrandDB(su.brandSlug);
+  const existing=db.smsConfig||{};
+  db.smsConfig={
+    enabled:!!enabled,
+    number:(number||'').trim(),
+    accountSid:(accountSid!==undefined?(accountSid||'').trim():existing.accountSid||''),
+    authToken:(authToken&&!authToken.startsWith('•'))?authToken.trim():(existing.authToken||'')
+  };
   writeBrandDB(su.brandSlug,db);
   res.json({success:true});
 });
@@ -8911,6 +9112,40 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
     }catch(e){console.error('[WhatsApp]',e.message);}
   }
   if(!handled)console.log(`[WhatsApp] No active brand matched To=${To} (normalized ${toNorm}) — message dropped`);
+  res.status(200).send('<Response></Response>');
+});
+
+// ── SMS webhook (Twilio) — same shape/logic as WhatsApp, plain phone numbers ──
+app.post('/api/sms/webhook',async(req,res)=>{
+  const{From,To,Body,MessageSid}=req.body;
+  if(!From||!Body)return res.status(200).send('<Response></Response>');
+  const toNorm=_normalizeWaNumber(To);
+  const owner=readOwner();
+  let handled=false;
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      const smsCfg=db.smsConfig||{};
+      if(!smsCfg.enabled||!smsCfg.number)continue;
+      if(toNorm&&_normalizeWaNumber(smsCfg.number)!==toNorm)continue;
+      const existingIdx=(db.tickets||[]).findIndex(t=>t.channel==='sms'&&t.from===From&&t.status==='open');
+      const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
+      if(existingIdx>=0){
+        db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
+        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'incoming',from:From,fromName:From,body:Body,timestamp:nowIST(),channel:'sms'});
+        db.tickets[existingIdx].lastActivity=nowIST();
+      }else{
+        db.tickets=db.tickets||[];
+        db.tickets.unshift({id:ticketId,subject:`SMS: ${Body.substring(0,60)}`,body:Body,from:From,fromName:From,channel:'sms',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[{id:generateId('MSG'),type:'incoming',from:From,fromName:From,body:Body,timestamp:nowIST(),channel:'sms'}]});
+      }
+      writeBrandDB(brand.slug,db);
+      handled=true;
+      if(existingIdx<0)runAutomationRules(brand.slug,ticketId,'ticket_created').catch(()=>{});
+      console.log(`[SMS] Ticket ${ticketId} from ${From} (${brand.slug})`);
+      break;
+    }catch(e){console.error('[SMS]',e.message);}
+  }
+  if(!handled)console.log(`[SMS] No active brand matched To=${To} — message dropped`);
   res.status(200).send('<Response></Response>');
 });
 
