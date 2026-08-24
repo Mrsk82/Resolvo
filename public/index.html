@@ -15437,16 +15437,16 @@ const App = {
                 <h2 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${self._esc(t.subject)}</h2>
                 <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">From: <strong style="color:var(--text-secondary);">${self._esc(t.fromName||t.from)}</strong> &lt;${self._esc(t.from)}&gt;</div>
               </div>
-              <!-- Action buttons -->
+              <!-- Action buttons: Resolve is the one primary action; everything else is a consistent neutral/ghost button so the row doesn't compete for attention -->
               <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">
-                ${t.status!=='resolved'&&t.status!=='closed'?`<button onclick="App._ticketStatusAction('${t.id}','resolved')" style="background:var(--low-dim);color:var(--low);border:1px solid var(--low)44;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve</button>`:''}
-                ${t.status==='resolved'?`<button onclick="App._ticketStatusAction('${t.id}','closed')" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">Close</button>`:''}
-                ${t.status==='resolved'||t.status==='closed'?`<button onclick="App._ticketStatusAction('${t.id}','open')" style="background:var(--bg-elevated);color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">Reopen</button>`:''}
-                ${!t.assignedTo||t.assignedTo!==self.currentUser?.email?`<button onclick="App._takeTicket('${t.id}')" style="background:rgba(99,102,241,.15);color:#6366F1;border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">✋ Take</button>`:''}
-                <button onclick="App._showTransferTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Transfer to another agent">↗ Transfer</button>
-                ${self.currentUser&&self.currentUser.role==='Admin'?`<button onclick="App._bumpTicket('${t.id}')" style="background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>`:''}
-                ${self.currentUser&&self.currentUser.role==='Admin'&&t.assignedTo?`<button onclick="App._returnTicketToQueue('${t.id}')" style="background:var(--medium-dim);color:var(--medium);border:1px solid var(--medium)44;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;" title="Return to unassigned queue">↩ Unassign</button>`:''}
-                ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-accent);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;">🎫 Issue</button>`}
+                ${t.status!=='resolved'&&t.status!=='closed'?`<button onclick="App._ticketStatusAction('${t.id}','resolved')" style="background:var(--low);color:#fff;border:1px solid var(--low);border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve</button>`:''}
+                ${t.status==='resolved'?`<button onclick="App._ticketStatusAction('${t.id}','closed')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Close</button>`:''}
+                ${t.status==='resolved'||t.status==='closed'?`<button onclick="App._ticketStatusAction('${t.id}','open')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Reopen</button>`:''}
+                ${!t.assignedTo||t.assignedTo!==self.currentUser?.email?`<button onclick="App._takeTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">✋ Take</button>`:''}
+                <button onclick="App._showTransferTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Transfer to another agent">↗ Transfer</button>
+                ${self.currentUser&&self.currentUser.role==='Admin'?`<button onclick="App._bumpTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>`:''}
+                ${self.currentUser&&self.currentUser.role==='Admin'&&t.assignedTo?`<button onclick="App._returnTicketToQueue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Return to unassigned queue">↩ Unassign</button>`:''}
+                ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`}
               </div>
             </div>
           </div>
@@ -15500,11 +15500,21 @@ const App = {
         </div>
 
         <!-- RIGHT sidebar: ticket info -->
-        <div style="width:256px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
+        <div style="width:272px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
+          <style>
+            .tkt-sb-group{border-bottom:1px solid var(--border);}
+            .tkt-sb-group>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:13px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);user-select:none;}
+            .tkt-sb-group>summary::-webkit-details-marker{display:none;}
+            .tkt-sb-group>summary::before{content:'▸';font-size:9px;color:var(--text-dim);transition:transform .15s;display:inline-block;}
+            .tkt-sb-group[open]>summary::before{transform:rotate(90deg);}
+            .tkt-sb-group>summary:hover{color:var(--text-secondary);background:var(--bg-elevated);}
+            .tkt-sb-body{padding:0 16px 14px;}
+            .tkt-sb-subhead{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);margin:12px 0 8px;}
+            .tkt-sb-subhead:first-child{margin-top:0;}
+          </style>
 
           <!-- Customer info -->
           <div style="padding:16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">Customer</div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
               <div style="width:38px;height:38px;border-radius:50%;background:${sc}22;border:2px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${sc};flex-shrink:0;">${(t.fromName||t.from||'?').charAt(0).toUpperCase()}</div>
               <div><div style="font-size:13px;font-weight:700;color:var(--text-primary);">${self._esc(t.fromName||'Unknown')}</div>
@@ -15518,130 +15528,121 @@ const App = {
             </div>
           </div>
 
-          <!-- SLA + Time Bomb -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">SLA & Escalation</div>
-            ${t.slaPaused?`<div style="background:var(--medium-dim);border:1px solid var(--medium)44;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:8px;">⏸ SLA Paused — waiting for customer</div>`:''}
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
-              Created: <strong style="color:var(--text-secondary);">${App._fmtDT(t.createdDate)}</strong><br>
-              ${t.firstResponseMinutes!=null?`First Response: <strong style="color:${t.firstResponseMinutes<=60?'var(--low)':t.firstResponseMinutes<=240?'var(--medium)':'var(--critical)'};">${t.firstResponseMinutes<60?t.firstResponseMinutes+'m':Math.round(t.firstResponseMinutes/60*10)/10+'h'}</strong>`:'First Response: <span style="color:var(--text-dim);">Pending</span>'}
+          <!-- Overview: SLA + Details merged -->
+          <details class="tkt-sb-group" open>
+            <summary>Overview</summary>
+            <div class="tkt-sb-body">
+              ${t.slaPaused?`<div style="background:var(--medium-dim);border:1px solid var(--medium)44;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:8px;">⏸ SLA Paused — waiting for customer</div>`:''}
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+                ${t.firstResponseMinutes!=null?`First Response: <strong style="color:${t.firstResponseMinutes<=60?'var(--low)':t.firstResponseMinutes<=240?'var(--medium)':'var(--critical)'};">${t.firstResponseMinutes<60?t.firstResponseMinutes+'m':Math.round(t.firstResponseMinutes/60*10)/10+'h'}</strong>`:'First Response: <span style="color:var(--text-dim);">Pending</span>'}
+              </div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
+                ${!t.slaPaused?`<button onclick="App.callAsync('pauseTicketSLA','${t.id}').then(r=>{if(r&&r.success){App.showToast('SLA Paused','success');App.renderTicketDetail('${t.id}');}else App.showToast('Failed','error');})" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--medium)44;color:var(--medium);background:var(--medium-dim);cursor:pointer;">⏸ Pause SLA</button>`
+                :`<button onclick="App.callAsync('resumeTicketSLA','${t.id}').then(r=>{if(r&&r.success){App.showToast('SLA Resumed','success');App.renderTicketDetail('${t.id}');}else App.showToast('Failed','error');})" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--low)44;color:var(--low);background:var(--low-dim);cursor:pointer;">▶ Resume SLA</button>`}
+                <button onclick="App._showTicketTimeline('${t.id}')" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);color:var(--text-muted);background:var(--bg-elevated);cursor:pointer;">🧬 DNA</button>
+              </div>
+              ${[
+                ['Created', App._fmtDT(t.createdDate, true)],
+                ['Messages', (thread.length||0)],
+                ['Channel', t.channel==='whatsapp'?'WhatsApp':t.channel==='voice'?'Voice':(t.source||'Email')],
+                ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
+                ...(t.parentId?[['Parent', t.parentId]]:[]),
+              ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;"><span style="color:var(--text-muted);">${k}</span><span style="color:var(--text-secondary);">${v}</span></div>`).join('')}
             </div>
-            <div style="display:flex;gap:5px;flex-wrap:wrap;">
-              ${!t.slaPaused?`<button onclick="App.callAsync('pauseTicketSLA','${t.id}').then(r=>{if(r&&r.success){App.showToast('SLA Paused','success');App.renderTicketDetail('${t.id}');}else App.showToast('Failed','error');})" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--medium)44;color:var(--medium);background:var(--medium-dim);cursor:pointer;">⏸ Pause SLA</button>`
-              :`<button onclick="App.callAsync('resumeTicketSLA','${t.id}').then(r=>{if(r&&r.success){App.showToast('SLA Resumed','success');App.renderTicketDetail('${t.id}');}else App.showToast('Failed','error');})" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--low)44;color:var(--low);background:var(--low-dim);cursor:pointer;">▶ Resume SLA</button>`}
-              <button onclick="App._showTicketTimeline('${t.id}')" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);color:var(--text-muted);background:var(--bg-elevated);cursor:pointer;">🧬 DNA</button>
+          </details>
+
+          <!-- Classification & Assignment merged -->
+          <details class="tkt-sb-group" open id="classificationCard_${t.id}">
+            <summary>Classify &amp; Assign</summary>
+            <div class="tkt-sb-body">
+              <div style="margin-bottom:8px;">
+                <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Type</label>
+                <select id="tkt_type_${t.id}" onchange="App.callAsync('updateTicketField','${t.id}','type',this.value).then(function(){App.showToast('Type saved','success');})" class="form-select" style="font-size:12px;width:100%;">
+                  <option value="">— Select type —</option>
+                  ${(self._clsTypes||['Question','Incident','Problem','Feature Request','Billing','Other']).map(function(tp){return '<option value="'+tp+'"'+(t.type===tp?' selected':'')+'>'+tp+'</option>';}).join('')}
+                </select>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Disposition</label>
+                <select id="tkt_disp_${t.id}" onchange="App.callAsync('updateTicketField','${t.id}','disposition',this.value).then(function(){App.showToast('Disposition saved','success');})" class="form-select" style="font-size:12px;width:100%;">
+                  <option value="">— Select disposition —</option>
+                  ${(self._clsDispositions||['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam']).map(function(d){return '<option value="'+d+'"'+(t.disposition===d?' selected':'')+'>'+d+'</option>';}).join('')}
+                </select>
+              </div>
+              <div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Assigned To</label>
+                <select onchange="App.callAsync('assignTicket','${t.id}',this.value).then(()=>App.showToast('Assigned','success'))" class="form-select" style="font-size:12px;width:100%;">
+                  <option value="">Unassigned</option>
+                  ${allAgents.map(u=>`<option value="${u.email}" ${t.assignedTo===u.email?'selected':''}>${u.name||u.email}</option>`).join('')}
+                </select>
+              </div>
+              <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Priority</label>
+                <select onchange="App.callAsync('updateTicketPriority','${t.id}',this.value).then(()=>App.showToast('Priority updated','success'))" class="form-select" style="font-size:12px;width:100%;">
+                  ${['Critical','High','Medium','Low'].map(p=>`<option ${t.priority===p?'selected':''}>${p}</option>`).join('')}
+                </select>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <!-- Ticket details -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Details</div>
-            ${[
-              ['Created', App._fmtDT(t.createdDate, true)],
-              ['Messages', (thread.length||0)],
-              ['Source', t.source||'email'],
-              ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
-              ...(t.parentId?[['Parent', t.parentId]]:[]),
-            ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;"><span style="color:var(--text-muted);">${k}</span><span style="color:var(--text-secondary);">${v}</span></div>`).join('')}
-          </div>
+          <!-- Organize: watchers + links + tags + custom fields -->
+          <details class="tkt-sb-group">
+            <summary>Organize</summary>
+            <div class="tkt-sb-body">
+              <div class="tkt-sb-subhead">Watchers</div>
+              <div id="watchersPanel">
+                <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">${(t.watchers||[]).map(w=>`<span style="display:inline-block;background:var(--bg-elevated);padding:2px 8px;border-radius:12px;margin:2px;">${w.split('@')[0]}</span>`).join('')||'No watchers'}</div>
+                <button id="watchBtn" onclick="App._toggleWatch('${t.id}')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:${(t.watchers||[]).includes(self._currentUser?.email)?'var(--accent-dim)':'var(--bg-elevated)'};color:${(t.watchers||[]).includes(self._currentUser?.email)?'var(--accent)':'var(--text-muted)'};cursor:pointer;">${(t.watchers||[]).includes(self._currentUser?.email)?'👁 Watching':'+ Watch'}</button>
+              </div>
 
-          <!-- Classification -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);" id="classificationCard_${t.id}">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">🏷 Classification</div>
-            <div style="margin-bottom:8px;">
-              <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Type</label>
-              <select id="tkt_type_${t.id}" onchange="App.callAsync('updateTicketField','${t.id}','type',this.value).then(function(){App.showToast('Type saved','success');})" class="form-select" style="font-size:12px;width:100%;">
-                <option value="">— Select type —</option>
-                ${(self._clsTypes||['Question','Incident','Problem','Feature Request','Billing','Other']).map(function(tp){return '<option value="'+tp+'"'+(t.type===tp?' selected':'')+'>'+tp+'</option>';}).join('')}
-              </select>
+              <div class="tkt-sb-subhead">Linked Tickets</div>
+              ${t.parentId?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Parent: <span onclick="App.renderTicketDetail('${t.parentId}')" style="color:var(--accent);cursor:pointer;">${t.parentId}</span> <span onclick="App.callAsync('unlinkTicketParent','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="color:var(--critical);cursor:pointer;font-size:10px;">× unlink</span></div>`:''}
+              ${(t.children||[]).length?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Children: ${(t.children||[]).map(c=>`<span onclick="App.renderTicketDetail('${c}')" style="color:var(--accent);cursor:pointer;">${c}</span>`).join(', ')}</div>`:''}
+              <button onclick="App._linkTicketParent('${t.id}')" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">🔗 Link Parent</button>
+
+              <div class="tkt-sb-subhead">Tags</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
+                ${(t.tags||[]).map(tag=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent-dim);color:var(--accent);cursor:pointer;" onclick="App.callAsync('removeTicketTag','${t.id}','${tag}').then(()=>App.renderTicketDetail('${t.id}'))">${self._esc(tag)} ×</span>`).join('')||'<span style="font-size:11px;color:var(--text-dim);">No tags</span>'}
+              </div>
+              <input id="newTagInput" class="form-input" style="font-size:11px;padding:4px 8px;width:100%;" placeholder="Add tag + Enter..." onkeydown="if(event.key==='Enter'){App.callAsync('addTicketTag','${t.id}',this.value.trim()).then(()=>{App.renderTicketDetail('${t.id}')});event.preventDefault();}">
+
+              <div id="ticketCustomFieldsPanel"></div>
             </div>
-            <div>
-              <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Disposition</label>
-              <select id="tkt_disp_${t.id}" onchange="App.callAsync('updateTicketField','${t.id}','disposition',this.value).then(function(){App.showToast('Disposition saved','success');})" class="form-select" style="font-size:12px;width:100%;">
-                <option value="">— Select disposition —</option>
-                ${(self._clsDispositions||['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam']).map(function(d){return '<option value="'+d+'"'+(t.disposition===d?' selected':'')+'>'+d+'</option>';}).join('')}
-              </select>
+          </details>
+
+          <!-- Tasks: checklist + follow-up/promise/calendar -->
+          <details class="tkt-sb-group">
+            <summary>Tasks &amp; Follow-up</summary>
+            <div class="tkt-sb-body">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div class="tkt-sb-subhead" style="margin:0;">✅ Checklist</div>
+                ${(t.checklist||[]).length>0?`<span style="font-size:10px;color:var(--low);">${(t.checklist||[]).filter(c=>c.done).length}/${(t.checklist||[]).length} done</span>`:''}
+              </div>
+              <div id="checklistPanel">Loading...</div>
+
+              <div class="tkt-sb-subhead">Follow-up &amp; Promises</div>
+              ${t.followUpAt&&!t.followUpDone?`<div style="background:var(--medium-dim);border:1px solid var(--medium)33;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:6px;display:flex;justify-content:space-between;"><span>⏰ Follow-up: ${t.followUpAt}</span><button onclick="App.callAsync('markFollowUpDone','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--low);">Done ✓</button></div>`:''}
+              ${t.slaPromiseDate?`<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--accent);margin-bottom:6px;">📅 Promised by: ${t.slaPromiseDate.split('T')[0]}</div>`:''}
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button onclick="App._showFollowUpModal('${t.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">⏰ Follow-up</button>
+                <button onclick="App._showSLAPromiseModal('${t.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">📅 Promise</button>
+                <button onclick="App._showAgentCalendar()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">🗓 Calendar</button>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <!-- Assign & Priority -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Assignment</div>
-            <div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Assigned To</label>
-              <select onchange="App.callAsync('assignTicket','${t.id}',this.value).then(()=>App.showToast('Assigned','success'))" class="form-select" style="font-size:12px;width:100%;">
-                <option value="">Unassigned</option>
-                ${allAgents.map(u=>`<option value="${u.email}" ${t.assignedTo===u.email?'selected':''}>${u.name||u.email}</option>`).join('')}
-              </select>
+          <!-- AI & Automation -->
+          <details class="tkt-sb-group">
+            <summary>✦ AI &amp; Automation</summary>
+            <div class="tkt-sb-body">
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <button onclick="App._aiSummarize('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📋 Summarize ticket</button>
+                <button onclick="App._aiSmartReply('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-weight:600;">⚡ Smart Reply drafts</button>
+                <button onclick="App._aiClassify('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">🏷 Auto-classify &amp; tag</button>
+                <button onclick="App._aiSuggestKB('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📚 Suggest KB articles</button>
+              </div>
+              <div id="aiResult_${t.id}" style="margin-top:10px;"></div>
+              <div id="advFeaturesPanel" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
             </div>
-            <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Priority</label>
-              <select onchange="App.callAsync('updateTicketPriority','${t.id}',this.value).then(()=>App.showToast('Priority updated','success'))" class="form-select" style="font-size:12px;width:100%;">
-                ${['Critical','High','Medium','Low'].map(p=>`<option ${t.priority===p?'selected':''}>${p}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-
-          <!-- Watchers -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);" id="watchersPanel">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Watchers</div>
-            <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">${(t.watchers||[]).map(w=>`<span style="display:inline-block;background:var(--bg-elevated);padding:2px 8px;border-radius:12px;margin:2px;">${w.split('@')[0]}</span>`).join('')||'No watchers'}</div>
-            <button id="watchBtn" onclick="App._toggleWatch('${t.id}')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:${(t.watchers||[]).includes(self._currentUser?.email)?'var(--accent-dim)':'var(--bg-elevated)'};color:${(t.watchers||[]).includes(self._currentUser?.email)?'var(--accent)':'var(--text-muted)'};cursor:pointer;">${(t.watchers||[]).includes(self._currentUser?.email)?'👁 Watching':'+ Watch'}</button>
-          </div>
-
-          <!-- Parent / Child linking -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Linked Tickets</div>
-            ${t.parentId?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Parent: <span onclick="App.renderTicketDetail('${t.parentId}')" style="color:var(--accent);cursor:pointer;">${t.parentId}</span> <span onclick="App.callAsync('unlinkTicketParent','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="color:var(--critical);cursor:pointer;font-size:10px;">× unlink</span></div>`:''}
-            ${(t.children||[]).length?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Children: ${(t.children||[]).map(c=>`<span onclick="App.renderTicketDetail('${c}')" style="color:var(--accent);cursor:pointer;">${c}</span>`).join(', ')}</div>`:''}
-            <button onclick="App._linkTicketParent('${t.id}')" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">🔗 Link Parent</button>
-          </div>
-
-          <!-- Tags -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Tags</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
-              ${(t.tags||[]).map(tag=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent-dim);color:var(--accent);cursor:pointer;" onclick="App.callAsync('removeTicketTag','${t.id}','${tag}').then(()=>App.renderTicketDetail('${t.id}'))">${self._esc(tag)} ×</span>`).join('')||'<span style="font-size:11px;color:var(--text-dim);">No tags</span>'}
-            </div>
-            <input id="newTagInput" class="form-input" style="font-size:11px;padding:4px 8px;width:100%;" placeholder="Add tag + Enter..." onkeydown="if(event.key==='Enter'){App.callAsync('addTicketTag','${t.id}',this.value.trim()).then(()=>{App.renderTicketDetail('${t.id}')});event.preventDefault();}">
-          </div>
-
-          <!-- 🗂 CUSTOM FIELDS -->
-          <div id="ticketCustomFieldsPanel" style="padding:14px 16px;border-bottom:1px solid var(--border);"></div>
-
-          <!-- ✅ CHECKLIST (Feature 7) -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);">✅ Checklist</div>
-              ${(t.checklist||[]).length>0?`<span style="font-size:10px;color:var(--low);">${(t.checklist||[]).filter(c=>c.done).length}/${(t.checklist||[]).length} done</span>`:''}
-            </div>
-            <div id="checklistPanel">Loading...</div>
-          </div>
-
-          <!-- ⏰ FOLLOW-UP + 📅 PROMISE (Features 8 & 9) -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Actions</div>
-            ${t.followUpAt&&!t.followUpDone?`<div style="background:var(--medium-dim);border:1px solid var(--medium)33;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--medium);margin-bottom:6px;display:flex;justify-content:space-between;"><span>⏰ Follow-up: ${t.followUpAt}</span><button onclick="App.callAsync('markFollowUpDone','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--low);">Done ✓</button></div>`:''}
-            ${t.slaPromiseDate?`<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--accent);margin-bottom:6px;">📅 Promised by: ${t.slaPromiseDate.split('T')[0]}</div>`:''}
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button onclick="App._showFollowUpModal('${t.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">⏰ Follow-up</button>
-              <button onclick="App._showSLAPromiseModal('${t.id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">📅 Promise</button>
-              <button onclick="App._showAgentCalendar()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">🗓 Calendar</button>
-            </div>
-          </div>
-
-          <!-- ✦ AI ACTIONS — always visible -->
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">✦ AI Actions</div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <button onclick="App._aiSummarize('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📋 Summarize ticket</button>
-              <button onclick="App._aiSmartReply('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-weight:600;">⚡ Smart Reply drafts</button>
-              <button onclick="App._aiClassify('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">🏷 Auto-classify &amp; tag</button>
-              <button onclick="App._aiSuggestKB('${t.id}')" style="width:100%;text-align:left;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-weight:500;">📚 Suggest KB articles</button>
-            </div>
-            <div id="aiResult_${t.id}" style="margin-top:10px;"></div>
-          </div>
-
-          <!-- 🚀 ADVANCED FEATURES PANEL — only renders enabled ones -->
-          <div id="advFeaturesPanel" style="display:flex;flex-direction:column;"></div>
+          </details>
 
         </div>
       </div>`;
