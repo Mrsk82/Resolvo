@@ -6432,7 +6432,7 @@ app.get('/api/calendar-oauth/start',(req,res)=>{
   const client=_calendarOAuthClient();
   const url=client.generateAuthUrl({
     access_type:'offline',
-    scope:['https://www.googleapis.com/auth/calendar.events','https://www.googleapis.com/auth/calendar.readonly'],
+    scope:['https://www.googleapis.com/auth/calendar.events','https://www.googleapis.com/auth/calendar.readonly','https://www.googleapis.com/auth/userinfo.email'],
     state:su.brandSlug,
     prompt:'consent'
   });
