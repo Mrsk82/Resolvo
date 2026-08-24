@@ -70,13 +70,32 @@ upsert('tickets', 'TKT-DEMO0001', {
   createdAt: new Date().toISOString(),
   lastActivity: new Date().toISOString(),
   thread: [
-    { id: 'MSG-1', type: 'customer', from: 'whatsapp:+918286063819', fromName: 'Asif Shaikh', body: 'Hi test Twilio Integration', timestamp: new Date().toISOString(), channel: 'whatsapp' },
+    { id: 'MSG-1', type: 'incoming', from: 'whatsapp:+918286063819', fromName: 'Asif Shaikh', body: 'Hi test Twilio Integration', timestamp: new Date().toISOString(), channel: 'whatsapp' },
     { id: 'MSG-2', type: 'reply', from: 'admin@demo.local', fromName: 'Admin User', body: 'Hi thanks reached', timestamp: new Date().toISOString(), channel: 'whatsapp' }
   ]
 });
 
 setKv('features', { whatsapp: true, whatsappNumber: '+14155238886', aiTriage: true });
 setKv('whatsappConfig', { enabled: true, number: '+14155238886', accountSid: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', authToken: 'demo-token' });
+
+// Wide fixed-width marketing-style email, reproducing the "scattered" rendering bug
+var marketingHtml = '<table width="700" cellpadding="0" cellspacing="0" style="width:700px;background:#f3f4f6;"><tr><td style="padding:24px;"><p style="margin:0 0 12px;color:#374151;">Discover top features and the highest-rated tools.</p><table width="700" cellpadding="0" cellspacing="0"><tr><td style="padding:20px;background:#fff;border:1px solid #e5e7eb;"><img src="https://placehold.co/160x40?text=Capterra" width="160" height="40" style="display:block;"><a href="#" style="display:inline-block;margin-top:16px;padding:10px 28px;border:2px solid #2563eb;border-radius:24px;color:#2563eb;text-decoration:none;font-weight:700;">EXPLORE</a></td></tr></table></td></tr></table>';
+
+upsert('tickets', 'TKT-DEMO0002', {
+  id: 'TKT-DEMO0002',
+  subject: 'Overwhelmed by choice? Try these tools',
+  body: marketingHtml,
+  from: 'teamcapterra@e.capterra.com',
+  fromName: 'Team Capterra',
+  channel: 'email',
+  status: 'new',
+  priority: 'Medium',
+  createdAt: new Date().toISOString(),
+  lastActivity: new Date().toISOString(),
+  thread: [
+    { id: 'MSG-3', type: 'incoming', from: 'teamcapterra@e.capterra.com', fromName: 'Team Capterra', body: '', emailHtml: marketingHtml, timestamp: new Date().toISOString() }
+  ]
+});
 
 db.close();
 console.log('seeded demo brand + ticket at', BRAND_DIR);

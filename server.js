@@ -8321,11 +8321,11 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
       if(existingIdx>=0){
         db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
-        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'customer',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'});
+        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'});
         db.tickets[existingIdx].lastActivity=nowIST();
       }else{
         db.tickets=db.tickets||[];
-        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[]});
+        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[{id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'}]});
       }
       writeBrandDB(brand.slug,db);
       handled=true;
