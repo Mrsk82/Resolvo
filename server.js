@@ -1820,10 +1820,28 @@ app.post('/api/call',async(req,res)=>{
     getMTTRStats:()=>{const db=rDB(),r=(db.issues||[]).filter(i=>i.status==='Resolved'&&i.resolvedDate&&i.createdDate),t=r.length,avg=t>0?r.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/t:0;return{success:true,mttr:Math.round(avg*10)/10,total:t};},
     getRecurringPatterns:()=>{const db=rDB(),mc={};(db.issues||[]).forEach(i=>{if(i.module)mc[i.module]=(mc[i.module]||0)+1;});return{success:true,patterns:Object.entries(mc).filter(([,c])=>c>=3).map(([module,count])=>({module,count})).sort((a,b)=>b.count-a.count)};},
     getWorkloadData:()=>{const db=rDB();return{success:true,workload:(db.users||[]).filter(u=>u.role==='Developer'&&u.active).map(u=>{const a=(db.issues||[]).filter(i=>i.assignedTo===u.email&&!['Resolved','Release Required'].includes(i.status));return{email:u.email,name:u.name,count:a.length,maxTickets:u.maxTickets||10};})};},
-    getEscalationRules:()=>{const db=rDB();return{success:true,rules:db.escalationRules||[]};},
-    saveEscalationRule:r=>{const db=rDB();db.escalationRules=db.escalationRules||[];db.escalationRules.push({...r,id:generateId('ESC')});wDB(db);return{success:true};},
-    deleteEscalationRule:id=>{const db=rDB();db.escalationRules=(db.escalationRules||[]).filter(r=>r.id!==id);wDB(db);return{success:true};},
-    runEscalationCheck:()=>({success:true,escalated:0}),
+    // getEscalationRules/saveEscalationRule/deleteEscalationRule are defined
+    // once, properly, further down under "TICKET TIME BOMB" — duplicate stubs
+    // that lived here were dead code (same-object-literal keys, last wins).
+    runEscalationCheck:()=>{
+      const db=rDB();
+      const rules=(db.escalationRules||[]).filter(r=>r.enabled);
+      let escalated=0;
+      if(rules.length){
+        for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+          const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
+          const already=ticket.escalations||[];
+          for(const rule of rules){
+            if(ageHours>=rule.afterHours&&!already.includes(rule.id)){
+              executeEscalationAction(slug,ticket,rule,db);
+              escalated++;
+            }
+          }
+        }
+        if(escalated)wDB(db);
+      }
+      return{success:true,escalated};
+    },
     getRecurringTemplates:()=>{const db=rDB();return{success:true,templates:db.recurringTemplates||[]};},
     saveRecurringTemplate:t=>{const db=rDB();db.recurringTemplates=db.recurringTemplates||[];db.recurringTemplates.push({...t,id:generateId('TPL')});wDB(db);return{success:true};},
     deleteRecurringTemplate:id=>{const db=rDB();db.recurringTemplates=(db.recurringTemplates||[]).filter(t=>t.id!==id);wDB(db);return{success:true};},
@@ -4588,7 +4606,7 @@ app.post('/api/call',async(req,res)=>{
     deleteSlaPolicy:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.slaPolicies=(db.slaPolicies||[]).filter(p=>p.id!==id);wDB(db);return{success:true};},
 
     // Stubs
-    syncIssuesToCalendar:()=>({success:false,error:'Not available.'}),getCalendarStatus:()=>({success:true,configured:false}),getEmailTimeline:()=>({success:true,timeline:[]}),getEmailSummary:()=>({success:true,summary:null}),getEmailParticipants:()=>({success:true,participants:[]}),getInboundRules:()=>({success:true,rules:[]}),saveInboundRule:()=>({success:true}),deleteInboundRule:()=>({success:true}),exportIssueToPDF:()=>({success:false,error:'Use browser Print > Save as PDF.'}),exportDashboardReport:()=>({success:false,error:'Use browser print.'}),getAutoTagRules:()=>({success:true,rules:[]}),saveAutoTagRule:()=>({success:true}),deleteAutoTagRule:()=>({success:true}),checkDueDateReminders:()=>({success:true}),runSmartEscalation:()=>({success:true}),runEscalationCheck:()=>({success:true,escalated:0}),
+    syncIssuesToCalendar:()=>({success:false,error:'Not available.'}),getCalendarStatus:()=>({success:true,configured:false}),getEmailTimeline:()=>({success:true,timeline:[]}),getEmailSummary:()=>({success:true,summary:null}),getEmailParticipants:()=>({success:true,participants:[]}),getInboundRules:()=>({success:true,rules:[]}),saveInboundRule:()=>({success:true}),deleteInboundRule:()=>({success:true}),exportIssueToPDF:()=>({success:false,error:'Use browser Print > Save as PDF.'}),exportDashboardReport:()=>({success:false,error:'Use browser print.'}),getAutoTagRules:()=>({success:true,rules:[]}),saveAutoTagRule:()=>({success:true}),deleteAutoTagRule:()=>({success:true}),checkDueDateReminders:()=>({success:true}),runSmartEscalation:()=>({success:true}),
   };
 
   const ah=aH[fn];if(ah){try{return res.json(await ah(...args));}catch(e){return res.json({success:false,error:e.message});}}
@@ -7871,6 +7889,7 @@ app.get('/api/tickets/:id/mood',(req,res)=>{
 // ── Ticket Health Score ───────────────────────────────────────────────────
 function calcHealthScore(ticket,db){
   let score=100;
+  const reasons=[];
   const now=Date.now();
   const created=new Date(ticket.createdAt||ticket.createdDate||now).getTime();
   const last=new Date(ticket.lastActivity||ticket.createdAt||now).getTime();
@@ -7882,11 +7901,13 @@ function calcHealthScore(ticket,db){
   const slaHours=(db.slaConfig||{})[(ticket.priority||'medium').toLowerCase()]||48;
   const slaPct=Math.min(1,(now-created)/(slaHours*3600000));
   score-=slaPct*35;// up to -35 for SLA
+  if(slaPct>=0.75)reasons.push(`Close to SLA breach (${Math.round(slaPct*100)}% of ${slaHours}h used)`);
   score-=Math.min(25,ageSince*2);// up to -25 for silence
-  score-=reopens*10;// -10 per reopen
-  if(sentiment<40)score-=15;
-  if(ageTotal>7)score-=10;
-  return Math.max(0,Math.round(score));
+  if(ageSince>=8)reasons.push(`No activity for ${ageSince}h`);
+  if(reopens>0){score-=reopens*10;reasons.push(`Reopened ${reopens} time${reopens>1?'s':''}`);}
+  if(sentiment<40){score-=15;reasons.push('Negative customer sentiment detected');}
+  if(ageTotal>7){score-=10;reasons.push(`Ticket is ${ageTotal} days old`);}
+  return{score:Math.max(0,Math.round(score)),reasons};
 }
 
 app.get('/api/tickets/:id/health',(req,res)=>{
@@ -7895,7 +7916,8 @@ app.get('/api/tickets/:id/health',(req,res)=>{
   if(!featEnabled(db,'ticketHealthScore'))return res.json({success:false,error:'Feature not enabled'});
   const ticket=(db.tickets||[]).find(t=>t.id===req.params.id);
   if(!ticket)return res.json({success:false,error:'Not found'});
-  res.json({success:true,score:calcHealthScore(ticket,db),ticketId:ticket.id});
+  const h=calcHealthScore(ticket,db);
+  res.json({success:true,score:h.score,reasons:h.reasons,ticketId:ticket.id});
 });
 
 app.get('/api/tickets/health-all',(req,res)=>{
@@ -7903,7 +7925,7 @@ app.get('/api/tickets/health-all',(req,res)=>{
   const db=readBrandDB(su.brandSlug);
   if(!featEnabled(db,'ticketHealthScore'))return res.json({success:false,error:'Feature not enabled'});
   const open=(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status));
-  const scored=open.map(t=>({id:t.id,subject:t.subject,health:calcHealthScore(t,db),priority:t.priority,assignedTo:t.assignedTo,status:t.status})).sort((a,b)=>a.health-b.health);
+  const scored=open.map(t=>{const h=calcHealthScore(t,db);return{id:t.id,subject:t.subject,health:h.score,reasons:h.reasons,priority:t.priority,assignedTo:t.assignedTo,status:t.status};}).sort((a,b)=>a.health-b.health);
   res.json({success:true,tickets:scored});
 });
 
@@ -8068,6 +8090,67 @@ setInterval(async()=>{
   }
 },24*60*60*1000);
 
+// ── Escalation Rules (background job) ──────────────────────────────────────
+// Rules could previously be created/deleted from Settings but were never
+// actually evaluated anywhere — this is the missing execution engine.
+function executeEscalationAction(slug,ticket,rule,db){
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+  switch(rule.action){
+    case'reassign':{
+      const newAgent=autoAssignAgent(db,{subject:ticket.subject,from:ticket.from,priority:ticket.priority});
+      if(newAgent)ticket.assignedTo=newAgent;
+      break;
+    }
+    case'bump_priority':{
+      const order=['Low','Medium','High','Critical'];
+      const cur=order.indexOf(ticket.priority||'Medium');
+      if(cur>=0&&cur<order.length-1)ticket.priority=order[cur+1];
+      break;
+    }
+    case'mark_escalated':{
+      ticket.status='escalated';
+      break;
+    }
+    case'notify':
+    default:{
+      const notifyTo=rule.notifyEmail||brand.majorAdminEmail;
+      if(notifyTo){
+        sendBrandEmail(slug,notifyTo,`⏰ Escalation: ${ticket.id} — ${rule.name}`,
+          `<p>Ticket <strong>${ticket.id}</strong> — ${sanitize(ticket.subject||'')} has been open for over ${rule.afterHours}h and triggered escalation rule "${sanitize(rule.name||'')}".</p><p><a href="${BASE_URL}">Open Resolvo →</a></p>`,
+          `Ticket ${ticket.id} escalated: ${rule.name}`).catch(()=>{});
+      }
+      break;
+    }
+  }
+  ticket.escalations=ticket.escalations||[];
+  ticket.escalations.push(rule.id);
+  ticket.timeline=ticket.timeline||[];
+  ticket.timeline.push({event:'escalated',by:'system',byName:'Automation',at:nowIST(),detail:`Rule "${rule.name}" fired (${rule.action})`});
+}
+setInterval(async()=>{
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      const rules=(db.escalationRules||[]).filter(r=>r.enabled);
+      if(!rules.length)continue;
+      let changed=false;
+      for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+        const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
+        const already=ticket.escalations||[];
+        for(const rule of rules){
+          if(ageHours>=rule.afterHours&&!already.includes(rule.id)){
+            executeEscalationAction(brand.slug,ticket,rule,db);
+            changed=true;
+            console.log(`[Escalation] ${ticket.id} → rule "${rule.name}" fired (${rule.action}) (${brand.slug})`);
+          }
+        }
+      }
+      if(changed)writeBrandDB(brand.slug,db);
+    }catch(e){console.error('[Escalation]',e.message);}
+  }
+},15*60*1000);// every 15 minutes
+
 // ── AI Feature Endpoints ──────────────────────────────────────────────────
 // Legacy /api/ai/* per-feature routes removed (referenced undefined brandModule). AI runs via /api/call.
 app.get('/api/ai/status',(req,res)=>{
@@ -8107,7 +8190,7 @@ app.delete('/api/ai/key',(req,res)=>{
 app.get('/api/burnout-scores',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
   const db=readBrandDB(su.brandSlug);
-  if(!featEnabled(db,'agentBurnoutScore'))return res.json({success:false,error:'Feature not enabled'});
+  if(!featEnabled(db,'agentBurnout'))return res.json({success:false,error:'Feature not enabled'});
   if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
   const now=Date.now();const weekAgo=now-7*86400000;
   const agents=(db.users||[]).filter(u=>u.active&&u.role!=='Admin');
@@ -8254,7 +8337,7 @@ app.get('/api/tickets/:id/triage',(req,res)=>{
 app.get('/api/canned-suggest',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
   const db=readBrandDB(su.brandSlug);
-  if(!featEnabled(db,'aiCannedResponses'))return res.json({success:false,error:'Feature not enabled'});
+  if(!featEnabled(db,'aiCannedSuggest'))return res.json({success:false,error:'Feature not enabled'});
   const q=(req.query.q||'').toLowerCase();
   if(q.length<3)return res.json({success:true,suggestions:[]});
   const canned=db.cannedResponses||[];
@@ -8343,7 +8426,7 @@ app.post('/api/voice-ticket',async(req,res)=>{
   const{brandSlug,customerEmail,customerName,transcript}=req.body;
   if(!brandSlug||!transcript)return res.json({success:false,error:'brandSlug and transcript required'});
   const db=readBrandDB(brandSlug);
-  if(!featEnabled(db,'voiceNoteTickets'))return res.json({success:false,error:'Feature not enabled'});
+  if(!featEnabled(db,'voiceTickets'))return res.json({success:false,error:'Feature not enabled'});
   const ticketId=generateId('TKT');
   db.tickets=db.tickets||[];
   db.tickets.unshift({id:ticketId,subject:`Voice note: ${transcript.substring(0,60)}`,body:transcript,from:customerEmail||'voice-unknown',fromName:customerName||'Voice Customer',channel:'voice',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[]});

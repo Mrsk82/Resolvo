@@ -15728,15 +15728,23 @@ const App = {
     var self = this;
     var panel = document.getElementById('advFeaturesPanel');
     if (!panel) return;
-    var ff = self.featureFlags || {};
     var tkn = localStorage.getItem('tt_session_token') || '';
-    var html = '';
 
     // Helper: fetch JSON with token
     async function apiFetch(url) {
       try { return await fetch(url, {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}); }
       catch(e) { return null; }
     }
+
+    // self.featureFlags is the tier-based *_ENABLED gating system (QUEUE_ENABLED,
+    // KANBAN_ENABLED, ...) — a totally different config object from the per-brand
+    // "Advanced Features" toggles below (moodTimeline, aiTriage, ...), which live
+    // in db.features via /api/features. Every check below was reading the wrong
+    // object, so none of these cards could ever turn on regardless of the Advanced
+    // Features settings. The two key sets don't overlap, so merging is safe.
+    var advFeatures = await apiFetch('/api/features');
+    var ff = Object.assign({}, self.featureFlags || {}, (advFeatures && advFeatures.features) || {});
+    var html = '';
 
     // ── COLLISION DETECTION ──────────────────────────────────────────────────
     if (ff.collisionDetection === true || ff.collisionDetection === 'true') {
@@ -15784,10 +15792,13 @@ const App = {
         '</div>';
       if (trRes && trRes.triage) {
         var tr = trRes.triage;
+        var sentColor = tr.sentiment==='negative'?'var(--critical)':tr.sentiment==='positive'?'var(--low)':'var(--text-dim)';
         trHtml += '<div style="font-size:11px;color:var(--text-secondary);line-height:1.7;">'+
-          (tr.suggestedPriority ? '<div>Priority: <strong style="color:var(--accent);">'+tr.suggestedPriority+'</strong></div>' : '')+
-          (tr.suggestedAssignee ? '<div>Assign to: <strong>'+App._esc(tr.suggestedAssignee)+'</strong></div>' : '')+
-          (tr.summary ? '<div style="margin-top:4px;font-size:10px;color:var(--text-dim);">'+App._esc(tr.summary)+'</div>' : '')+
+          (tr.priority ? '<div>Priority: <strong style="color:var(--accent);">'+App._esc(tr.priority)+'</strong></div>' : '')+
+          (tr.category ? '<div>Category: <strong>'+App._esc(tr.category)+'</strong></div>' : '')+
+          (tr.sentiment ? '<div>Sentiment: <strong style="color:'+sentColor+';">'+App._esc(tr.sentiment)+'</strong></div>' : '')+
+          ((tr.tags||[]).length ? '<div style="margin-top:2px;">'+tr.tags.map(function(t){return '<span style="font-size:10px;background:var(--accent-dim);color:var(--accent);padding:1px 6px;border-radius:4px;margin-right:3px;">'+App._esc(t)+'</span>';}).join('')+'</div>' : '')+
+          (tr.suggestedReply ? '<div style="margin-top:4px;font-size:10px;color:var(--text-dim);">💡 '+App._esc(tr.suggestedReply)+'</div>' : '')+
         '</div>';
       } else {
         trHtml += '<div style="font-size:11px;color:var(--text-dim);">No triage yet — click Run to analyse with AI.</div>';
@@ -15866,8 +15877,8 @@ const App = {
     // ── MOOD TIMELINE ────────────────────────────────────────────────────────
     if (ff.moodTimeline === true || ff.moodTimeline === 'true') {
       var moodRes = await apiFetch('/api/tickets/'+ticketId+'/mood');
-      if (moodRes && moodRes.timeline && moodRes.timeline.length) {
-        var pts = moodRes.timeline;
+      if (moodRes && moodRes.points && moodRes.points.length) {
+        var pts = moodRes.points;
         var avg = Math.round(pts.reduce(function(s,p){return s+p.score;},0)/pts.length);
         var moodClr = avg>=70?'var(--low)':avg>=40?'var(--medium)':'var(--critical)';
         html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;">'+
@@ -15998,13 +16009,24 @@ const App = {
     var tkn = localStorage.getItem('tt_session_token')||'';
     var el = document.getElementById('rootCauseResult_'+ticketId);
     if (el) el.innerHTML = '<span style="color:var(--text-dim);">Generating...</span>';
-    var r = await fetch('/api/root-cause-report', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({ticketId:ticketId})}).then(function(r){return r.json();}).catch(function(){return null;});
+    // The backend does a cross-ticket keyword pattern search (not a single-ticket
+    // AI analysis), so derive a search keyword from this ticket's subject.
+    var tRes = await App.callAsync('getTicketById', ticketId);
+    var subject = (tRes && tRes.ticket && tRes.ticket.subject) || '';
+    var stopwords = ['the','and','for','with','from','your','you','have','has','this','that','are','was','were','not','but','can','will','please','issue','ticket','help','need','about'];
+    var keyword = (subject.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(function(w){return w.length>3 && stopwords.indexOf(w)===-1;}))[0];
+    if (!keyword) { if (el) el.innerHTML = '<span style="color:var(--text-dim);">Subject too short/generic to search for a pattern.</span>'; return; }
+    var r = await fetch('/api/root-cause-report', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({keyword:keyword, days:30})}).then(function(r){return r.json();}).catch(function(){return null;});
     if (r && r.success && el) {
+      var rep = r.report;
       el.innerHTML = '<div style="background:var(--bg-elevated);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--text-secondary);line-height:1.6;">'+
-        (r.report.rootCause?'<strong>Root Cause:</strong> '+App._esc(r.report.rootCause)+'<br>':'')+
-        (r.report.fix?'<strong>Fix:</strong> '+App._esc(r.report.fix)+'<br>':'')+
-        (r.report.prevention?'<strong>Prevention:</strong> '+App._esc(r.report.prevention):'')+'</div>';
-    } else if (el) el.innerHTML = '<span style="color:var(--critical);">Failed — check Gemini API key</span>';
+        '<div><strong>Keyword:</strong> "'+App._esc(rep.keyword)+'" — '+rep.ticketCount+' ticket(s) in '+App._esc(rep.dateRange)+'</div>'+
+        '<div style="margin-top:4px;"><strong>Status breakdown:</strong> '+Object.keys(rep.statusBreakdown).map(function(k){return k+': '+rep.statusBreakdown[k];}).join(', ')+'</div>'+
+        '<div style="margin-top:2px;"><strong>Affected customers:</strong> '+rep.affectedCustomers+'</div>'+
+      '</div>';
+    } else if (el) {
+      el.innerHTML = '<span style="color:var(--text-dim);">'+App._esc((r&&r.error)||('No related tickets found for keyword "'+keyword+'" in the last 30 days.'))+'</span>';
+    }
   },
 
   _clipTicket: async function(ticketId) {
@@ -17011,15 +17033,13 @@ const App = {
           {key:'ticketHealthScore',   icon:'💚', label:'Ticket Health Score',         desc:'Real-time health score (0–100) per ticket based on age, SLA status, response gaps, and sentiment.'},
           {key:'promisedCallback',    icon:'📞', label:'Promised Callback Tracker',   desc:'Log callback promises on tickets and get alerted before the promised time passes.'},
           {key:'moodStamp',           icon:'🎯', label:'Post-ticket Mood Stamp',      desc:'Agent marks customer mood after closing a ticket (Happy / Neutral / Upset) for trend tracking.'},
-          {key:'silenceDetection',    icon:'🔇', label:'Silence Detection',           desc:'Auto-detect tickets where the customer has gone silent for 48h and send a gentle follow-up.'},
-          {key:'smartAutoClose',      icon:'🤖', label:'Smart Auto-close Suggest',    desc:'AI drafts a closing message for long-idle resolved tickets — one click to confirm and close.'},
+          {key:'silenceDetection',    icon:'🔇', label:'Silence Detection',           desc:'Auto-detect tickets where the customer has gone silent and send a gentle follow-up.', configKey:'silenceHours', configLabel:'Hours of silence before follow-up', configDefault:48},
+          {key:'smartAutoClose',      icon:'🤖', label:'Smart Auto-close Suggest',    desc:'AI drafts a closing message for long-idle resolved tickets — one click to confirm and close.', configKey:'autoCloseDays', configLabel:'Days idle before suggesting close', configDefault:5},
           {key:'agentBurnout',        icon:'🔥', label:'Agent Burnout Score',         desc:'Monitor agent workload and flag burnout risk based on ticket volume, overdue counts, and response time.'},
           {key:'rootCauseReport',     icon:'🔍', label:'Root Cause Report',           desc:'One-click report generator that analyses a ticket and produces a structured root cause analysis.'},
           {key:'ticketClipboard',     icon:'📋', label:'Ticket Clipboard',            desc:'Clip important tickets to a quick-access clipboard visible across the team.'},
           {key:'aiTriage',            icon:'🧠', label:'AI Ticket Triage',            desc:'Gemini AI reads each new ticket and suggests priority, category, and the best agent to assign.'},
           {key:'aiCannedSuggest',     icon:'💡', label:'AI Canned Response Suggest',  desc:'AI suggests matching canned responses as the agent starts typing a reply.'},
-          {key:'changelogPublisher',  icon:'📣', label:'Internal Changelog Publisher',desc:'Publish internal release notes / changelogs and email all brand admins automatically.'},
-          {key:'whatsappInbox',       icon:'💬', label:'WhatsApp Ticket Inbox',       desc:'Receive WhatsApp messages as tickets and reply from inside Resolvo (requires Twilio).'},
           {key:'voiceTickets',        icon:'🎙', label:'Voice Note Tickets',          desc:'Agents can record a voice note that is transcribed and attached to a ticket automatically.'},
         ];
         async function _toggleAdvFeature(key, val) {
@@ -17029,6 +17049,14 @@ const App = {
           else App.showToast('Failed to save — check console','error');
         }
         App._toggleAdvFeature = _toggleAdvFeature;
+        App._saveAdvFeatureConfig = async function(configKey) {
+          var val = parseInt(document.getElementById('advcfg_'+configKey).value, 10);
+          if (!val || val < 1) { App.showToast('Enter a number greater than 0', 'warning'); return; }
+          var tkn = localStorage.getItem('tt_session_token')||'';
+          var res = await fetch('/api/features', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({[configKey]:val})}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+          if (res && res.success) App.showToast('Saved', 'success');
+          else App.showToast('Failed to save', 'error');
+        };
         content =
           App._sSection('🚀 Advanced Features',[
             '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:16px;">'+
@@ -17037,18 +17065,25 @@ const App = {
             '<div style="display:flex;flex-direction:column;gap:6px;">'+
               ADVANCED.map(function(f){
                 var on = af[f.key] === true || af[f.key] === 'true';
-                return '<div style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);transition:background .12s;">'+
-                  '<span style="font-size:22px;width:28px;text-align:center;flex-shrink:0;">'+f.icon+'</span>'+
-                  '<div style="flex:1;min-width:0;">'+
-                    '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+f.label+'</div>'+
-                    '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'+f.desc+'</div>'+
-                  '</div>'+
-                  '<label style="display:flex;align-items:center;gap:7px;flex-shrink:0;cursor:pointer;" title="'+(on?'Click to disable':'Click to enable')+'">'+
-                    '<span style="font-size:11px;font-weight:700;color:'+(on?'var(--low)':'var(--text-dim)')+';">'+(on?'ON':'OFF')+'</span>'+
-                    '<div onclick="App._toggleAdvFeature(\''+f.key+'\','+(!on)+')" style="width:38px;height:21px;border-radius:11px;background:'+(on?'var(--accent)':'var(--bg-card)')+';border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;transition:all .2s;">'+
-                      '<div style="position:absolute;top:2px;left:'+(on?'17px':'2px')+';width:15px;height:15px;border-radius:50%;background:'+(on?'#fff':'var(--text-dim)')+';transition:left .2s;"></div>'+
+                return '<div style="display:flex;flex-direction:column;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);transition:background .12s;">'+
+                  '<div style="display:flex;align-items:center;gap:14px;padding:12px 14px;">'+
+                    '<span style="font-size:22px;width:28px;text-align:center;flex-shrink:0;">'+f.icon+'</span>'+
+                    '<div style="flex:1;min-width:0;">'+
+                      '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">'+f.label+'</div>'+
+                      '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'+f.desc+'</div>'+
                     '</div>'+
-                  '</label>'+
+                    '<label style="display:flex;align-items:center;gap:7px;flex-shrink:0;cursor:pointer;" title="'+(on?'Click to disable':'Click to enable')+'">'+
+                      '<span style="font-size:11px;font-weight:700;color:'+(on?'var(--low)':'var(--text-dim)')+';">'+(on?'ON':'OFF')+'</span>'+
+                      '<div onclick="App._toggleAdvFeature(\''+f.key+'\','+(!on)+')" style="width:38px;height:21px;border-radius:11px;background:'+(on?'var(--accent)':'var(--bg-card)')+';border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';position:relative;cursor:pointer;transition:all .2s;">'+
+                        '<div style="position:absolute;top:2px;left:'+(on?'17px':'2px')+';width:15px;height:15px;border-radius:50%;background:'+(on?'#fff':'var(--text-dim)')+';transition:left .2s;"></div>'+
+                      '</div>'+
+                    '</label>'+
+                  '</div>'+
+                  (on && f.configKey ? '<div style="display:flex;align-items:center;gap:8px;padding:0 14px 12px 64px;">'+
+                    '<label style="font-size:11px;color:var(--text-muted);">'+f.configLabel+'</label>'+
+                    '<input id="advcfg_'+f.configKey+'" type="number" min="1" value="'+(af[f.configKey]||f.configDefault)+'" style="width:70px;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);">'+
+                    '<button onclick="App._saveAdvFeatureConfig(\''+f.configKey+'\')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;">Save</button>'+
+                  '</div>' : '')+
                 '</div>';
               }).join('')+
             '</div>'
@@ -17281,18 +17316,20 @@ const App = {
       else if (tid === 'escalation') {
         var escData = await self.callAsync('getEscalationRules');
         var escRules = (escData && escData.rules) || [];
+        var ACTION_LABELS = {notify:'📧 Notify by email',reassign:'🔀 Reassign (round robin)',bump_priority:'⬆ Bump priority',mark_escalated:'🚨 Mark as Escalated'};
         content =
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
-            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">🚨 Escalation Rules (Time Bomb)</h3><p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Auto-escalate tickets that have been open too long.</p></div>'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">🚨 Escalation Rules</h3><p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Auto-escalate tickets that have been open too long — checked every 15 minutes in the background.</p></div>'+
             '<button onclick="App._showEscalationRuleEditor(null)" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Rule</button>'+
           '</div>'+
+          '<div style="margin-bottom:16px;"><button onclick="App.callAsync(\'runEscalationCheck\').then(function(r){App.showToast(r&&r.success?(r.escalated+\' ticket(s) escalated\'):\'Failed\',r&&r.success?\'success\':\'error\');})" style="font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">▶ Run check now</button></div>'+
           (escRules.length===0?'<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text-dim);">No escalation rules yet. Add one to auto-escalate aging tickets.</div>':
           '<div style="display:flex;flex-direction:column;gap:10px;">'+
             escRules.map(function(r){
               return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;">'+
                 '<div style="flex:1;">'+
                   '<div style="font-size:14px;font-weight:700;color:var(--text-primary);">'+App._esc(r.name)+'</div>'+
-                  '<div style="font-size:12px;color:var(--text-dim);">After <strong>'+r.afterHours+'h</strong> → '+App._esc(r.action||'notify')+(r.notifyEmail?' to '+App._esc(r.notifyEmail):'')+'</div>'+
+                  '<div style="font-size:12px;color:var(--text-dim);">After <strong>'+r.afterHours+'h</strong> → '+(ACTION_LABELS[r.action]||App._esc(r.action||'notify'))+(r.action==='notify'&&r.notifyEmail?' to '+App._esc(r.notifyEmail):'')+'</div>'+
                 '</div>'+
                 '<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:'+(r.enabled?'var(--low-dim)':'var(--bg-elevated)')+';color:'+(r.enabled?'var(--low)':'var(--text-dim)')+';">'+(r.enabled?'Active':'Off')+'</span>'+
                 '<button onclick="App.callAsync(\'deleteEscalationRule\',\''+r.id+'\').then(function(res){if(res&&res.success){App.showToast(\'Deleted\',\'success\');App.renderUnifiedSettings(\'escalation\');}else App.showToast(\'Failed\',\'error\');})" class="btn-danger btn-sm">Delete</button>'+
@@ -18367,8 +18404,13 @@ const App = {
       <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
         <div><label class="form-label">Rule Name *</label><input id="esc_name" class="form-input" placeholder="e.g. 2h no response alert"></div>
         <div><label class="form-label">Trigger After (hours)</label><input id="esc_hours" class="form-input" type="number" min="1" value="2" placeholder="e.g. 2"></div>
-        <div><label class="form-label">Action</label><select id="esc_action" class="form-select"><option value="notify">Notify by email</option><option value="reassign">Reassign ticket</option></select></div>
-        <div><label class="form-label">Notify Email</label><input id="esc_email" class="form-input" placeholder="manager@company.com"></div>
+        <div><label class="form-label">Action</label><select id="esc_action" class="form-select" onchange="document.getElementById('esc_email_row').style.display=this.value==='notify'?'block':'none'">
+          <option value="notify">Notify by email</option>
+          <option value="reassign">Reassign to another agent (round robin)</option>
+          <option value="bump_priority">Bump priority up one level</option>
+          <option value="mark_escalated">Mark ticket as Escalated</option>
+        </select></div>
+        <div id="esc_email_row"><label class="form-label">Notify Email</label><input id="esc_email" class="form-input" placeholder="manager@company.com"></div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
