@@ -11756,7 +11756,7 @@ const App = {
       case 'email-ticketing': this.renderEmailTicketing(); break;
       case 'whatsapp-settings': this.renderWhatsAppSettings(); break;
       case 'api-integration': this.renderAPIIntegration(); break;
-      case 'integrations': this.renderIntegrations(); break;
+      case 'integrations': this.renderUnifiedSettings('integrations'); break; // legacy renderIntegrations() duplicated this with a fake Calendar Sync section (getCalendarStatus/syncIssuesToCalendar were hardcoded stubs) — consolidated to the one real, working page
       case 'leaderboard': this.renderLeaderboard(); break;
       case 'cfd': this.renderCFD(); break;
       case 'forecast': this.renderForecast(); break;
@@ -15560,6 +15560,7 @@ const App = {
               <button onclick="App._addTicketCC('${t.id}')" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:4px 8px;background:none;cursor:pointer;">+ CC</button>
               <button onclick="App._showCustomerHistory('${self._esc(t.from)}')" style="font-size:11px;color:var(--indigo,#6366F1);border:1px solid var(--indigo,#6366F1)44;border-radius:5px;padding:4px 8px;background:rgba(99,102,241,.08);cursor:pointer;" title="View customer history">📋 History</button>
             </div>
+            <div id="stripeBillingPanel_${t.id}"></div>
           </div>
 
           <!-- Overview: SLA + Details merged -->
@@ -15693,6 +15694,22 @@ const App = {
     self._loadAdvancedTicketPanels(ticketId, t);
     // Load custom fields panel
     self._loadTicketCustomFields(ticketId, t);
+    // Stripe billing context (silently does nothing if not connected / no match)
+    self._loadStripeBilling(ticketId, t.from);
+  },
+  _loadStripeBilling: async function(ticketId, fromEmail) {
+    var panel = document.getElementById('stripeBillingPanel_'+ticketId);
+    if (!panel || !fromEmail || fromEmail.indexOf('@') === -1) return;
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/stripe/customer?email='+encodeURIComponent(fromEmail), {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    var c = r && r.customer;
+    if (!c) return; // not connected, or no matching Stripe customer — stay silent
+    var statusColor = c.pastDue ? 'var(--critical)' : (c.subscriptionStatus==='active' ? 'var(--low)' : 'var(--text-dim)');
+    panel.innerHTML = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg-elevated);border-radius:8px;font-size:11px;">'+
+      '<div style="font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-size:9px;margin-bottom:4px;">💳 Billing</div>'+
+      (c.subscriptionStatus ? '<div>Subscription: <strong style="color:'+statusColor+';">'+App._esc(c.subscriptionStatus)+(c.pastDue?' ⚠ PAST DUE':'')+'</strong></div>' : '<div style="color:var(--text-dim);">No active subscription</div>')+
+      '<a href="'+App._esc(c.dashboardUrl)+'" target="_blank" rel="noopener" style="color:var(--accent);font-size:10px;">View in Stripe →</a>'+
+    '</div>';
   },
 
   _loadTicketCustomFields: async function(ticketId, t) {
@@ -16937,6 +16954,31 @@ const App = {
                 '<div style="display:flex;gap:6px;align-items:center;"><input class="form-input" readonly style="width:280px;font-family:var(--font-mono);font-size:11px;background:var(--bg-elevated);" value="'+App._esc(waCfg2.webhookUrl||'')+'"><button onclick="navigator.clipboard.writeText(\''+App._esc(waCfg2.webhookUrl||'')+'\').then(function(){App.showToast(\'Copied!\',\'success\');})" class="btn-secondary btn-sm">Copy</button></div>'),
               '<div style="text-align:right;margin-top:12px;"><button onclick="App._saveWhatsAppInteg2()" class="btn-primary" style="background:#25D366;border-color:#25D366;">Save WhatsApp</button></div>'
             ]);
+          })() +
+          await (async function(){
+            var calR = await fetch('/api/calendar/status',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+            var cal = (calR&&calR.success)?calR:{connected:false,email:null};
+            return App._sSection('📅 Google Calendar',[
+              cal.connected ?
+                App._sRow('Status','Connected — automation rules can schedule meetings on this calendar',
+                  '<span style="font-size:12px;color:var(--low);font-weight:700;">✓ '+App._esc(cal.email)+'</span> <button onclick="App._disconnectCalendar()" class="btn-danger btn-sm" style="margin-left:10px;">Disconnect</button>')
+                : App._sRow('Status','Not connected',
+                  '<a href="/api/calendar-oauth/start?token='+encodeURIComponent(localStorage.getItem('tt_session_token')||'')+'" class="btn-primary btn-sm">Connect Google Calendar</a>')
+            ]);
+          })() +
+          await (async function(){
+            var stR = await fetch('/api/stripe/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+            var stCfg = (stR&&stR.success&&stR.config)?stR.config:{connected:false};
+            return App._sSection('💳 Stripe',[
+              App._sRow('Secret API Key','Used to show billing/subscription status on tickets. Never leaves this server.',
+                '<input id="stripe_key" class="form-input" type="password" style="width:280px;" placeholder="'+(stCfg.connected?'•••••••••••••••• (saved)':'sk_live_...')+'">'),
+              '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">'+
+                '<button onclick="App._saveStripeConfig()" class="btn-primary btn-sm">💾 Save</button>'+
+                '<button onclick="App._testStripeConfig()" class="btn-secondary btn-sm">⟳ Test Connection</button>'+
+                (stCfg.connected?'<span style="font-size:11px;color:var(--low);">✓ Key saved</span>':'')+
+              '</div>',
+              '<div id="stripeResult" style="display:none;margin-top:10px;"></div>'
+            ]);
           })();
       }
       else if (tid === 'team') {
@@ -17345,7 +17387,7 @@ const App = {
         var autoData = await self.callAsync('getAutomationRules');
         var autoRules = (autoData && autoData.rules) || [];
         var TRIGGER_LABELS = {ticket_created:'🎫 New ticket created',priority_changed:'⬆ Priority changes',status_changed:'🔄 Status changes',sentiment_drop:'😟 Sentiment falls below',ticket_age:'⏰ Ticket open longer than'};
-        var ACTION_LABELS2 = {assign_agent:'Assign agent',notify_email:'Notify by email',notify_slack:'Post Slack alert',change_priority:'Change priority',change_status:'Change status',add_tag:'Add tag',create_issue:'Create engineering issue',send_ack:'Send acknowledgement',create_task:'Create follow-up task'};
+        var ACTION_LABELS2 = {assign_agent:'Assign agent',notify_email:'Notify by email',notify_slack:'Post Slack alert',change_priority:'Change priority',change_status:'Change status',add_tag:'Add tag',create_issue:'Create engineering issue',send_ack:'Send acknowledgement',create_task:'Create follow-up task',schedule_meeting:'Schedule meeting'};
         function describeTrigger(t) {
           t = t || {};
           var base = TRIGGER_LABELS[t.type] || t.type || '—';
@@ -18509,6 +18551,7 @@ const App = {
     {value:'create_issue', label:'Create engineering issue'},
     {value:'send_ack', label:'Send acknowledgement email'},
     {value:'create_task', label:'Create follow-up task'},
+    {value:'schedule_meeting', label:'Schedule calendar meeting'},
   ],
   _showAutomationRuleEditor: async function(id) {
     var self = this;
@@ -18634,6 +18677,9 @@ const App = {
           extra = '<input class="form-input" style="flex:1;" placeholder="Message to send to customer" value="'+App._esc(a.message||'')+'" onchange="App._autoDraft.actions['+i+'].message=this.value">';
         } else if (a.type==='create_task') {
           extra = '<input class="form-input" style="flex:1;" placeholder="Task text" value="'+App._esc(a.value||'')+'" onchange="App._autoDraft.actions['+i+'].value=this.value">';
+        } else if (a.type==='schedule_meeting') {
+          extra = '<input class="form-input" style="flex:1;" placeholder="Meeting title (optional)" value="'+App._esc(a.summary||'')+'" onchange="App._autoDraft.actions['+i+'].summary=this.value">'+
+            '<input class="form-input" type="number" style="width:100px;" placeholder="30" value="'+(a.durationMinutes||30)+'" onchange="App._autoDraft.actions['+i+'].durationMinutes=parseInt(this.value)||30"> <span style="font-size:11px;color:var(--text-dim);white-space:nowrap;">min, requires Calendar connected</span>';
         }
         return '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">'+typeSelect+extra+
           '<button type="button" onclick="App._autoRemoveAction('+i+')" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:16px;padding:0 4px;">×</button>'+
@@ -20263,6 +20309,30 @@ const App = {
       if (resultEl) resultEl.innerHTML = '<div style="padding:12px;background:var(--critical-dim);border-radius:var(--radius);font-size:13px;color:var(--critical);">✗ ' + e.message + '</div>';
     }
     if (btn) { btn.textContent = '⟳ Sync Issues From API'; btn.disabled = false; }
+  },
+
+  _disconnectCalendar: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/calendar-oauth/disconnect', {method:'POST', headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) { App.showToast('Google Calendar disconnected', 'success'); App.renderUnifiedSettings('integrations'); }
+    else App.showToast('Failed to disconnect', 'error');
+  },
+  _saveStripeConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var key = (document.getElementById('stripe_key')||{}).value||'';
+    var r = await fetch('/api/stripe/config', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({secretKey:key})}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) { App.showToast('Stripe key saved', 'success'); App.renderUnifiedSettings('integrations'); }
+    else App.showToast('Failed to save', 'error');
+  },
+  _testStripeConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var el = document.getElementById('stripeResult');
+    if (el) { el.style.display='block'; el.innerHTML = '<div style="padding:12px;background:var(--bg-elevated);border-radius:8px;font-size:13px;color:var(--text-muted);">Testing connection...</div>'; }
+    var r = await fetch('/api/stripe/test', {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (el) {
+      if (r && r.success) el.innerHTML = '<div style="padding:12px;background:var(--low-dim);border:1px solid var(--low);border-radius:8px;font-size:13px;color:var(--low);">✓ '+App._esc(r.message)+'</div>';
+      else el.innerHTML = '<div style="padding:12px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;font-size:13px;color:var(--critical);">✗ '+App._esc((r&&r.error)||'Test failed')+'</div>';
+    }
   },
 
   renderIntegrations: async function() {

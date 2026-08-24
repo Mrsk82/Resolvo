@@ -335,7 +335,7 @@ const KV_KEYS=[
   'commits','peerReviews','emailThreads','inboundRules','aiHistory',
   'tags','coAssignees','votes','timeLogs','watchers','reactions',
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
-  'automationRules','integrations',
+  'automationRules','integrations','calendarOAuth','stripeConfig',
 ];
 
 function _openDB(slug){
@@ -6412,6 +6412,166 @@ app.post('/api/gmail-oauth/disconnect',async(req,res)=>{
   res.json({success:true,message:'Gmail disconnected. IMAP poll restarted if credentials exist.'});
 });
 
+// ── GOOGLE CALENDAR ──────────────────────────────────────────────────────
+// Reuses the same Google Cloud OAuth client (Client ID/Secret) as Gmail
+// Push, but with its own callback route and token storage (db.calendarOAuth)
+// so it's a fully independent connection — connecting/disconnecting Calendar
+// can never affect the already-working Gmail Push integration.
+function _calendarOAuthClient(){
+  return new (require('googleapis').google.auth.OAuth2)(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${BASE_URL}/api/calendar-oauth/callback`
+  );
+}
+app.get('/api/calendar-oauth/start',(req,res)=>{
+  if(req.query.token&&!req.headers['x-session-token'])req.headers['x-session-token']=req.query.token;
+  const su=getSessionUser(req);
+  if(!su||su.role!=='Admin')return res.status(403).send('Admin only');
+  if(!process.env.GOOGLE_CLIENT_ID)return res.status(500).send('GOOGLE_CLIENT_ID not set in .env');
+  const client=_calendarOAuthClient();
+  const url=client.generateAuthUrl({
+    access_type:'offline',
+    scope:['https://www.googleapis.com/auth/calendar.events','https://www.googleapis.com/auth/calendar.readonly'],
+    state:su.brandSlug,
+    prompt:'consent'
+  });
+  res.redirect(url);
+});
+app.get('/api/calendar-oauth/callback',async(req,res)=>{
+  const{code,state:slug,error}=req.query;
+  if(error)return res.redirect(`/?toast=${encodeURIComponent('Google Calendar OAuth denied: '+error)}&toastType=error`);
+  if(!code||!slug)return res.send('Missing code or state');
+  try{
+    const{google}=require('googleapis');
+    const client=_calendarOAuthClient();
+    const{tokens}=await client.getToken(code);
+    client.setCredentials(tokens);
+    const oauth2=google.oauth2({version:'v2',auth:client});
+    const profile=await oauth2.userinfo.get();
+    const email=profile.data.email;
+    const db=readBrandDB(slug);
+    db.calendarOAuth={accessToken:tokens.access_token,refreshToken:tokens.refresh_token,email,connectedAt:nowIST()};
+    writeBrandDB(slug,db);
+    console.log(`[Calendar] OAuth connected for ${slug} — ${email}`);
+    res.redirect(`/?toast=${encodeURIComponent('Google Calendar connected as '+email)}&toastType=success`);
+  }catch(e){
+    console.error('[Calendar] OAuth callback error:',e.message);
+    res.redirect(`/?toast=${encodeURIComponent('Calendar OAuth failed: '+e.message)}&toastType=error`);
+  }
+});
+app.post('/api/calendar-oauth/disconnect',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  delete db.calendarOAuth;
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+app.get('/api/calendar/status',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const c=db.calendarOAuth;
+  res.json({success:true,connected:!!c?.refreshToken,email:c?.email||null});
+});
+// Creates a real Google Calendar event on the connected brand's calendar;
+// auto-refreshes the access token the same way Gmail Push does. Returns
+// null (caller decides how to degrade) if Calendar isn't connected.
+async function createCalendarEvent(db,slug,{summary,description,startTime,durationMinutes,attendeeEmail}){
+  const oauth=db.calendarOAuth;
+  if(!oauth?.refreshToken)return null;
+  const{google}=require('googleapis');
+  const client=_calendarOAuthClient();
+  client.setCredentials({access_token:oauth.accessToken,refresh_token:oauth.refreshToken});
+  client.on('tokens',(tokens)=>{
+    try{
+      const d2=readBrandDB(slug);
+      if(d2.calendarOAuth){
+        if(tokens.access_token)d2.calendarOAuth.accessToken=tokens.access_token;
+        if(tokens.refresh_token)d2.calendarOAuth.refreshToken=tokens.refresh_token;
+        writeBrandDB(slug,d2);
+      }
+    }catch(e){}
+  });
+  const calendar=google.calendar({version:'v3',auth:client});
+  const start=startTime?new Date(startTime):new Date(Date.now()+3600000);
+  const end=new Date(start.getTime()+(durationMinutes||30)*60000);
+  const event={
+    summary:summary||'Follow-up',
+    description:description||'',
+    start:{dateTime:start.toISOString()},
+    end:{dateTime:end.toISOString()},
+    attendees:attendeeEmail?[{email:attendeeEmail}]:undefined,
+  };
+  const r=await calendar.events.insert({calendarId:'primary',requestBody:event,sendUpdates:attendeeEmail?'all':'none'});
+  return{eventId:r.data.id,htmlLink:r.data.htmlLink};
+}
+
+// ── STRIPE ───────────────────────────────────────────────────────────────
+// Single-API-key integration: surfaces a customer's billing status (plan,
+// last payment, past-due flag) on their ticket so agents don't have to
+// leave Resolvo to check billing before replying.
+app.get('/api/stripe/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const c=db.stripeConfig||{};
+  res.json({success:true,config:{connected:!!c.secretKey,hasKey:!!c.secretKey}});
+});
+app.post('/api/stripe/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const{secretKey}=req.body;
+  const db=readBrandDB(su.brandSlug);
+  db.stripeConfig=db.stripeConfig||{};
+  if(secretKey&&!secretKey.startsWith('•'))db.stripeConfig.secretKey=secretKey.trim();
+  else if(!secretKey)delete db.stripeConfig.secretKey;
+  db.stripeConfig.connectedAt=nowIST();
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+app.get('/api/stripe/test',async(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const key=db.stripeConfig?.secretKey;
+  if(!key)return res.json({success:false,error:'No Stripe secret key saved yet.'});
+  try{
+    const axios=require('axios');
+    const r=await axios.get('https://api.stripe.com/v1/balance',{headers:{Authorization:`Bearer ${key}`},timeout:10000});
+    const avail=(r.data.available||[]).map(b=>`${(b.amount/100).toFixed(2)} ${b.currency.toUpperCase()}`).join(', ');
+    res.json({success:true,message:`Connected — available balance: ${avail||'0'}.`});
+  }catch(e){
+    const msg=e.response?.data?.error?.message||e.message;
+    res.json({success:false,error:'Connection failed — '+msg});
+  }
+});
+// Looks up a Stripe customer by email for the ticket sidebar. Returns null
+// (not an error) when no customer matches — that's an expected, common case.
+async function lookupStripeCustomer(db,email){
+  const key=db.stripeConfig?.secretKey;
+  if(!key||!email)return null;
+  const axios=require('axios');
+  try{
+    const cRes=await axios.get('https://api.stripe.com/v1/customers',{params:{email,limit:1},headers:{Authorization:`Bearer ${key}`},timeout:10000});
+    const customer=(cRes.data.data||[])[0];
+    if(!customer)return null;
+    const subRes=await axios.get('https://api.stripe.com/v1/subscriptions',{params:{customer:customer.id,limit:1},headers:{Authorization:`Bearer ${key}`},timeout:10000});
+    const sub=(subRes.data.data||[])[0];
+    return{
+      customerId:customer.id,
+      email:customer.email,
+      livemode:customer.livemode,
+      subscriptionStatus:sub?sub.status:null,
+      pastDue:sub?sub.status==='past_due':false,
+      currentPeriodEnd:sub?new Date(sub.current_period_end*1000).toISOString():null,
+      dashboardUrl:`https://dashboard.stripe.com/${customer.livemode?'':'test/'}customers/${customer.id}`,
+    };
+  }catch(e){console.error('[Stripe] lookup failed:',e.response?.data?.error?.message||e.message);return null;}
+}
+app.get('/api/stripe/customer',async(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const info=await lookupStripeCustomer(db,req.query.email);
+  res.json({success:true,customer:info});
+});
+
 // Pub/Sub push webhook — Google calls this the moment an email arrives
 // Must return 200 immediately or Google will retry
 app.post('/api/webhook/gmail-push',async(req,res)=>{
@@ -8377,6 +8537,18 @@ async function executeAutomationAction(slug,ticket,action,db){
     case'create_task':{
       ticket.checklist=ticket.checklist||[];
       ticket.checklist.push({id:generateId('CHK'),text:action.value||'Follow up',done:false,createdAt:nowIST()});
+      break;
+    }
+    case'schedule_meeting':{
+      try{
+        const ev=await createCalendarEvent(db,slug,{
+          summary:action.summary||`Follow-up: ${ticket.subject}`,
+          description:`Auto-scheduled from Resolvo ticket ${ticket.id}`,
+          durationMinutes:action.durationMinutes||30,
+          attendeeEmail:ticket.from&&ticket.from.includes('@')?ticket.from:undefined,
+        });
+        if(ev)ticket.scheduledMeeting=ev;
+      }catch(e){console.error('[Automation] schedule_meeting failed:',e.message);}
       break;
     }
   }
