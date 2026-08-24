@@ -18666,7 +18666,13 @@ const App = {
           (a.mode==='specific' ? '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].agentEmail=this.value">'+
             '<option value="">— choose —</option>'+(self._autoDraftAgents||[]).map(function(u){return '<option value="'+u.email+'"'+(a.agentEmail===u.email?' selected':'')+'>'+App._esc(u.name||u.email)+'</option>';}).join('')+'</select>' : '');
         } else if (a.type==='notify_email') {
-          extra = '<input class="form-input" style="flex:1;" placeholder="manager@company.com (blank = brand admin)" value="'+App._esc(a.to||'')+'" onchange="App._autoDraft.actions['+i+'].to=this.value">';
+          var isCust = a.to==='customer';
+          extra = '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].to=(this.value===\'customer\'?\'customer\':\'\');App._autoRenderActions()">'+
+            '<option value="internal"'+(!isCust?' selected':'')+'>Internal address…</option>'+
+            '<option value="customer"'+(isCust?' selected':'')+'>Customer (who raised the ticket)</option>'+
+          '</select>'+
+          (isCust ? '<input class="form-input" style="flex:1;" placeholder="Message to the customer" value="'+App._esc(a.message||'')+'" onchange="App._autoDraft.actions['+i+'].message=this.value">'
+            : '<input class="form-input" style="flex:1;" placeholder="manager@company.com (blank = brand admin)" value="'+App._esc(a.to||'')+'" onchange="App._autoDraft.actions['+i+'].to=this.value">');
         } else if (a.type==='change_priority') {
           extra = '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].value=this.value">'+['Critical','High','Medium','Low'].map(function(p){return '<option value="'+p+'"'+(a.value===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>';
         } else if (a.type==='change_status') {

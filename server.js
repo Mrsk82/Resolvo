@@ -3024,9 +3024,12 @@ app.post('/api/call',async(req,res)=>{
             if(ageHours>=(rule.trigger.afterHours||24)&&!already.includes(rule.id)){
               const conds=rule.conditions||[];
               if(conds.length&&!conds.every(c=>evaluateAutomationCondition(c,ticket)))continue;
-              for(const action of(rule.actions||[]))await executeAutomationAction(slug,ticket,action,db);
+              const results=[];
+              for(const action of(rule.actions||[])){const r=await executeAutomationAction(slug,ticket,action,db);if(r)results.push(r);}
               rule.firedCount=(rule.firedCount||0)+1;rule.lastFiredAt=nowIST();
               ticket.automationFired=ticket.automationFired||[];ticket.automationFired.push(rule.id);
+              ticket.timeline=ticket.timeline||[];
+              ticket.timeline.push({event:'automation_fired',by:'system',byName:'Automation',at:nowIST(),detail:`Rule "${rule.name}" fired: ${results.join('; ')}`});
               fired++;
             }
           }
@@ -8469,6 +8472,9 @@ function evaluateAutomationCondition(cond,ticket){
     default:return false;
   }
 }
+// Returns a short human-readable description of what it actually did, so
+// the ticket timeline can log a real per-action breakdown instead of just
+// "N action(s))" — e.g. "Emailed asif@konnectinsights.com; Scheduled meeting".
 async function executeAutomationAction(slug,ticket,action,db){
   const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
   switch(action.type){
@@ -8486,30 +8492,42 @@ async function executeAutomationAction(slug,ticket,action,db){
         const newAgent=autoAssignAgent(db,{subject:ticket.subject,from:ticket.from,priority:ticket.priority});
         if(newAgent)ticket.assignedTo=newAgent;
       }
-      break;
+      return ticket.assignedTo?`Assigned to ${ticket.assignedTo}`:'Assign agent found no available agent';
     }
     case'notify_email':{
-      const to=action.to||brand.majorAdminEmail;
-      if(to)await sendBrandEmail(slug,to,`🤖 Automation: ${ticket.id} — ${action.label||'Rule triggered'}`,
-        `<p>Ticket <strong>${ticket.id}</strong> — ${sanitize(ticket.subject||'')} triggered an automation rule.</p><p><a href="${BASE_URL}">Open Resolvo →</a></p>`,
-        `Automation triggered on ${ticket.id}`).catch(()=>{});
-      break;
+      // action.to==='customer' targets whoever raised the ticket; otherwise a
+      // fixed internal address (manager/team inbox) — these need very
+      // different copy, since one goes to a paying customer.
+      const isCustomer=action.to==='customer';
+      const to=isCustomer?ticket.from:(action.to||brand.majorAdminEmail);
+      if(!to)return 'Notify email skipped — no recipient';
+      if(isCustomer){
+        const msg=action.message||'We wanted to give you an update on your support request.';
+        await sendBrandEmail(slug,to,action.subject||`Update on your request — ${ticket.id}`,
+          `<p>Hi ${sanitize(ticket.fromName||'there')},</p><p>${sanitize(msg)}</p><p style="color:#9ca3af;font-size:12px;">Ref: ${ticket.id}</p>`,
+          msg).catch(()=>{});
+      }else{
+        await sendBrandEmail(slug,to,`🤖 Automation: ${ticket.id} — ${action.label||'Rule triggered'}`,
+          `<p>Ticket <strong>${ticket.id}</strong> — ${sanitize(ticket.subject||'')} triggered an automation rule.</p><p><a href="${BASE_URL}">Open Resolvo →</a></p>`,
+          `Automation triggered on ${ticket.id}`).catch(()=>{});
+      }
+      return `Emailed ${to}`;
     }
     case'notify_slack':{
       await sendSlackAlert(slug,'newCritical',ticket).catch(()=>{});
-      break;
+      return 'Posted Slack alert';
     }
     case'change_priority':{
       if(action.value)ticket.priority=action.value;
-      break;
+      return action.value?`Priority → ${action.value}`:'Change priority skipped — no value set';
     }
     case'change_status':{
       if(action.value)ticket.status=action.value;
-      break;
+      return action.value?`Status → ${action.value}`:'Change status skipped — no value set';
     }
     case'add_tag':{
       if(action.value){ticket.tags=ticket.tags||[];if(!ticket.tags.includes(action.value))ticket.tags.push(action.value);}
-      break;
+      return action.value?`Tagged "${action.value}"`:'Add tag skipped — no value set';
     }
     case'create_issue':{
       // If Jira/GitHub/ServiceNow is connected (Settings → Integrations), file
@@ -8517,27 +8535,27 @@ async function executeAutomationAction(slug,ticket,action,db){
       const ext=db.settings&&db.settings.EXTERNAL_API_TYPE?await createExternalIssue(db,ticket):null;
       if(ext){
         ticket.externalIssue=ext;
+        return `Created ${ext.platform} issue ${ext.externalId}`;
       }else{
         const issueId=generateIssueId(slug);
         db.issues=db.issues||[];
         db.issues.push({id:issueId,title:`[Auto] ${ticket.subject}`,description:`Auto-created from ticket ${ticket.id} by automation rule.`,status:'Open',priority:ticket.priority||'Medium',module:'Support',raisedBy:'automation',createdDate:nowIST(),tags:['automation']});
         ticket.linkedIssueId=issueId;
+        return `Created internal issue ${issueId}`;
       }
-      break;
     }
     case'send_ack':{
-      if(ticket.from){
-        const msg=action.message||'Thanks for reaching out — a member of our team will be with you shortly.';
-        await sendBrandEmail(slug,ticket.from,`Re: ${ticket.subject}`,
-          `<p>Hi ${sanitize(ticket.fromName||'there')},</p><p>${sanitize(msg)}</p><p style="color:#9ca3af;font-size:12px;">Ref: ${ticket.id}</p>`,
-          msg).catch(()=>{});
-      }
-      break;
+      if(!ticket.from)return 'Send acknowledgement skipped — no customer email';
+      const msg=action.message||'Thanks for reaching out — a member of our team will be with you shortly.';
+      await sendBrandEmail(slug,ticket.from,`Re: ${ticket.subject}`,
+        `<p>Hi ${sanitize(ticket.fromName||'there')},</p><p>${sanitize(msg)}</p><p style="color:#9ca3af;font-size:12px;">Ref: ${ticket.id}</p>`,
+        msg).catch(()=>{});
+      return `Sent acknowledgement to ${ticket.from}`;
     }
     case'create_task':{
       ticket.checklist=ticket.checklist||[];
       ticket.checklist.push({id:generateId('CHK'),text:action.value||'Follow up',done:false,createdAt:nowIST()});
-      break;
+      return `Added task "${action.value||'Follow up'}"`;
     }
     case'schedule_meeting':{
       try{
@@ -8547,10 +8565,11 @@ async function executeAutomationAction(slug,ticket,action,db){
           durationMinutes:action.durationMinutes||30,
           attendeeEmail:ticket.from&&ticket.from.includes('@')?ticket.from:undefined,
         });
-        if(ev)ticket.scheduledMeeting=ev;
-      }catch(e){console.error('[Automation] schedule_meeting failed:',e.message);}
-      break;
+        if(ev){ticket.scheduledMeeting=ev;return'Scheduled calendar meeting';}
+        return'Schedule meeting skipped — Google Calendar not connected';
+      }catch(e){console.error('[Automation] schedule_meeting failed:',e.message);return'Schedule meeting failed: '+e.message;}
     }
+    default:return null;
   }
 }
 async function runAutomationRules(slug,ticketId,eventType){
@@ -8577,11 +8596,12 @@ async function runAutomationRules(slug,ticketId,eventType){
     for(const rule of rules){
       const conds=rule.conditions||[];
       if(conds.length&&!conds.every(c=>evaluateAutomationCondition(c,ticket)))continue;
-      for(const action of(rule.actions||[]))await executeAutomationAction(slug,ticket,action,db);
+      const results=[];
+      for(const action of(rule.actions||[])){const r=await executeAutomationAction(slug,ticket,action,db);if(r)results.push(r);}
       rule.firedCount=(rule.firedCount||0)+1;
       rule.lastFiredAt=nowIST();
       ticket.timeline=ticket.timeline||[];
-      ticket.timeline.push({event:'automation_fired',by:'system',byName:'Automation',at:nowIST(),detail:`Rule "${rule.name}" fired (${(rule.actions||[]).length} action(s))`});
+      ticket.timeline.push({event:'automation_fired',by:'system',byName:'Automation',at:nowIST(),detail:`Rule "${rule.name}" fired: ${results.join('; ')}`});
       console.log(`[Automation] ${ticket.id} → rule "${rule.name}" fired (${eventType})`);
       changed=true;
     }
@@ -8605,9 +8625,12 @@ setInterval(async()=>{
           if(ageHours>=(rule.trigger.afterHours||24)&&!already.includes(rule.id)){
             const conds=rule.conditions||[];
             if(conds.length&&!conds.every(c=>evaluateAutomationCondition(c,ticket)))continue;
-            for(const action of(rule.actions||[]))await executeAutomationAction(brand.slug,ticket,action,db);
+            const results=[];
+            for(const action of(rule.actions||[])){const r=await executeAutomationAction(brand.slug,ticket,action,db);if(r)results.push(r);}
             rule.firedCount=(rule.firedCount||0)+1;rule.lastFiredAt=nowIST();
             ticket.automationFired=ticket.automationFired||[];ticket.automationFired.push(rule.id);
+            ticket.timeline=ticket.timeline||[];
+            ticket.timeline.push({event:'automation_fired',by:'system',byName:'Automation',at:nowIST(),detail:`Rule "${rule.name}" fired: ${results.join('; ')}`});
             changed=true;
             console.log(`[Automation] ${ticket.id} → rule "${rule.name}" fired (ticket_age) (${brand.slug})`);
           }
