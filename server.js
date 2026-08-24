@@ -6504,9 +6504,12 @@ async function createCalendarEvent(db,slug,{summary,description,startTime,durati
     start:{dateTime:start.toISOString()},
     end:{dateTime:end.toISOString()},
     attendees:attendeeEmail?[{email:attendeeEmail}]:undefined,
+    // Auto-generate a Google Meet link — free given Calendar OAuth already
+    // exists, so "Google Meet" ships as a real integration, not a stub.
+    conferenceData:{createRequest:{requestId:generateId('MEET'),conferenceSolutionKey:{type:'hangoutsMeet'}}},
   };
-  const r=await calendar.events.insert({calendarId:'primary',requestBody:event,sendUpdates:attendeeEmail?'all':'none'});
-  return{eventId:r.data.id,htmlLink:r.data.htmlLink};
+  const r=await calendar.events.insert({calendarId:'primary',requestBody:event,conferenceDataVersion:1,sendUpdates:attendeeEmail?'all':'none'});
+  return{eventId:r.data.id,htmlLink:r.data.htmlLink,meetLink:r.data.hangoutLink||null};
 }
 
 // ── STRIPE ───────────────────────────────────────────────────────────────
@@ -8565,7 +8568,7 @@ async function executeAutomationAction(slug,ticket,action,db){
           durationMinutes:action.durationMinutes||30,
           attendeeEmail:ticket.from&&ticket.from.includes('@')?ticket.from:undefined,
         });
-        if(ev){ticket.scheduledMeeting=ev;return'Scheduled calendar meeting';}
+        if(ev){ticket.scheduledMeeting=ev;return ev.meetLink?'Scheduled calendar meeting with Google Meet link':'Scheduled calendar meeting';}
         return'Schedule meeting skipped — Google Calendar not connected';
       }catch(e){console.error('[Automation] schedule_meeting failed:',e.message);return'Schedule meeting failed: '+e.message;}
     }

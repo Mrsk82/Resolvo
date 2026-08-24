@@ -7911,6 +7911,10 @@ tbody tr.row-selected {
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="12" rx="1"/><rect x="17" y="3" width="4" height="15" rx="1"/></svg></span>
               <span class="nav-text">Kanban Board</span>
             </a>
+            <a href="#" class="nav-item" data-page="integration-marketplace" data-tooltip="Integrations">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+              <span class="nav-text">Integrations</span>
+            </a>
           </div>
 
           <!-- REPORTS — visible to all -->
@@ -11757,6 +11761,7 @@ const App = {
       case 'whatsapp-settings': this.renderWhatsAppSettings(); break;
       case 'api-integration': this.renderAPIIntegration(); break;
       case 'integrations': this.renderUnifiedSettings('integrations'); break; // legacy renderIntegrations() duplicated this with a fake Calendar Sync section (getCalendarStatus/syncIssuesToCalendar were hardcoded stubs) — consolidated to the one real, working page
+      case 'integration-marketplace': this.renderIntegrationMarketplace(); break;
       case 'leaderboard': this.renderLeaderboard(); break;
       case 'cfd': this.renderCFD(); break;
       case 'forecast': this.renderForecast(); break;
@@ -15583,6 +15588,7 @@ const App = {
                 ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
                 ...(t.parentId?[['Parent', t.parentId]]:[]),
                 ...(t.externalIssue?[['External Issue', t.externalIssue.externalUrl?`<a href="${self._esc(t.externalIssue.externalUrl)}" target="_blank" rel="noopener" style="color:var(--accent);">${self._esc(t.externalIssue.platform)} #${self._esc(t.externalIssue.externalId)}</a>`:`${self._esc(t.externalIssue.platform)} #${self._esc(t.externalIssue.externalId)}`]]:[]),
+                ...(t.scheduledMeeting?[['Meeting', `<a href="${self._esc(t.scheduledMeeting.htmlLink)}" target="_blank" rel="noopener" style="color:var(--accent);">Calendar event</a>`+(t.scheduledMeeting.meetLink?` · <a href="${self._esc(t.scheduledMeeting.meetLink)}" target="_blank" rel="noopener" style="color:var(--accent);">Meet link</a>`:'')]]:[]),
               ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;"><span style="color:var(--text-muted);">${k}</span><span style="color:var(--text-secondary);">${v}</span></div>`).join('')}
             </div>
           </details>
@@ -20339,6 +20345,117 @@ const App = {
       if (r && r.success) el.innerHTML = '<div style="padding:12px;background:var(--low-dim);border:1px solid var(--low);border-radius:8px;font-size:13px;color:var(--low);">✓ '+App._esc(r.message)+'</div>';
       else el.innerHTML = '<div style="padding:12px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;font-size:13px;color:var(--critical);">✗ '+App._esc((r&&r.error)||'Test failed')+'</div>';
     }
+  },
+
+  // ── INTEGRATION MARKETPLACE ─────────────────────────────────────────────
+  // A discovery gallery, separate from the detailed config screens in
+  // Settings → Integrations. Only providers with a real, working backend
+  // show a Connect/Manage flow — everything else is honestly labeled
+  // "Coming Soon" rather than pretending to save credentials that do
+  // nothing (the exact anti-pattern found and fixed elsewhere this session).
+  _marketplaceGoTo: function(route) {
+    if (route === 'settings-integrations') App.renderUnifiedSettings('integrations');
+    else App.navigate(route);
+  },
+  renderIntegrationMarketplace: async function() {
+    var self = this;
+    self.setPage('Integrations', 'Workflow / Integrations');
+    var area = document.getElementById('contentArea');
+    area.innerHTML = App._skeleton(4, 'table');
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    function apiGet(url) { return fetch(url, {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;}); }
+
+    var [settingsR, waR, calR, stripeR, emailR] = await Promise.all([
+      self.callAsync('getSettings'),
+      apiGet('/api/whatsapp/config'),
+      apiGet('/api/calendar/status'),
+      apiGet('/api/stripe/config'),
+      self.callAsync('getEmailTicketingConfig'),
+    ]);
+    var st = (settingsR && settingsR.success) ? settingsR.settings : {};
+    var waConnected = !!(waR && waR.success && waR.config && waR.config.enabled);
+    var calConnected = !!(calR && calR.success && calR.connected);
+    var stripeConnected = !!(stripeR && stripeR.success && stripeR.config && stripeR.config.connected);
+    var emailConnected = !!(emailR && emailR.success && emailR.config && emailR.config.enabled);
+    var extType = st.EXTERNAL_API_TYPE || '';
+    var slackConnected = !!st.SLACK_WEBHOOK_URL;
+
+    // key: unique id. status: 'connected' | 'available' | 'soon'.
+    // goTo: what "Manage"/"Connect" navigates to.
+    var PROVIDERS = {
+      Communication: [
+        {key:'gmail', icon:'📧', name:'Gmail', status:emailConnected?'connected':'available', desc:'Turn incoming emails into tickets automatically.', goTo:'email-ticketing'},
+        {key:'outlook', icon:'📨', name:'Outlook', status:'soon', desc:'Microsoft 365 email as a ticket channel.'},
+        {key:'slack', icon:'💬', name:'Slack', status:slackConnected?'connected':'available', desc:'Post alerts to a Slack channel on ticket events.', goTo:'settings-integrations'},
+        {key:'teams', icon:'👥', name:'Microsoft Teams', status:'soon', desc:'Post alerts and reply to tickets from Teams.'},
+        {key:'whatsapp', icon:'💚', name:'WhatsApp', status:waConnected?'connected':'available', desc:'Receive WhatsApp messages as tickets, reply from Resolvo.', goTo:'whatsapp-settings'},
+        {key:'sms', icon:'📱', name:'SMS', status:'soon', desc:'Two-way SMS ticketing via a telephony provider.'},
+      ],
+      Engineering: [
+        {key:'github', icon:'🐙', name:'GitHub', status:extType==='github'?'connected':'available', desc:'File engineering issues from tickets/automations directly into a repo.', goTo:'settings-integrations'},
+        {key:'gitlab', icon:'🦊', name:'GitLab', status:'soon', desc:'File issues into a GitLab project.'},
+        {key:'bitbucket', icon:'🪣', name:'Bitbucket', status:'soon', desc:'Link commits and issues from Bitbucket.'},
+        {key:'jira', icon:'🔷', name:'Jira', status:extType==='jira'?'connected':'available', desc:'File engineering issues into a Jira project.', goTo:'settings-integrations'},
+        {key:'linear', icon:'📐', name:'Linear', status:'soon', desc:'File engineering issues into a Linear team.'},
+        {key:'servicenow', icon:'🛡', name:'ServiceNow', status:extType==='servicenow'?'connected':'available', desc:'File incidents into a ServiceNow instance.', goTo:'settings-integrations'},
+      ],
+      CRM: [
+        {key:'salesforce', icon:'☁️', name:'Salesforce', status:'soon', desc:'Sync tickets and contacts with Salesforce.'},
+        {key:'hubspot', icon:'🧡', name:'HubSpot', status:'soon', desc:'Sync tickets and contacts with HubSpot.'},
+      ],
+      Meetings: [
+        {key:'gcal', icon:'📅', name:'Google Calendar', status:calConnected?'connected':'available', desc:'Automation rules can schedule real meetings on your calendar.', goTo:'settings-integrations'},
+        {key:'mscal', icon:'🗓', name:'Microsoft Calendar', status:'soon', desc:'Schedule meetings on Outlook/Microsoft 365 calendars.'},
+        {key:'zoom', icon:'🎥', name:'Zoom', status:'soon', desc:'Auto-create Zoom meeting links for scheduled calls.'},
+        {key:'gmeet', icon:'📹', name:'Google Meet', status:calConnected?'connected':'available', desc:'Meet links are auto-generated on every calendar meeting Resolvo schedules.', goTo:'settings-integrations'},
+      ],
+      Analytics: [
+        {key:'powerbi', icon:'📊', name:'Power BI', status:'soon', desc:'Push ticket/SLA data into a Power BI dataset.'},
+        {key:'looker', icon:'📈', name:'Looker Studio', status:'soon', desc:'Feed reporting data into Looker Studio.'},
+        {key:'tableau', icon:'📉', name:'Tableau', status:'soon', desc:'Feed reporting data into Tableau.'},
+      ],
+      Payments: [
+        {key:'stripe', icon:'💳', name:'Stripe', status:stripeConnected?'connected':'available', desc:'Show billing/subscription status on tickets.', goTo:'settings-integrations'},
+        {key:'razorpay', icon:'💰', name:'Razorpay', status:'soon', desc:'Show payment status on tickets for Razorpay customers.'},
+      ],
+      Storage: [
+        {key:'gdrive', icon:'📁', name:'Google Drive', status:'soon', desc:'Attach Drive files to tickets.'},
+        {key:'onedrive', icon:'☁️', name:'OneDrive', status:'soon', desc:'Attach OneDrive files to tickets.'},
+        {key:'dropbox', icon:'📦', name:'Dropbox', status:'soon', desc:'Attach Dropbox files to tickets.'},
+      ],
+    };
+
+    var connectedCount = Object.values(PROVIDERS).flat().filter(function(p){return p.status==='connected';}).length;
+
+    function card(p) {
+      var badge = p.status==='connected' ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--low-dim);color:var(--low);">✓ Connected</span>'
+        : p.status==='available' ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--bg-elevated);color:var(--text-dim);">Not connected</span>'
+        : '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--medium-dim);color:var(--medium);">Coming soon</span>';
+      var btn = p.status==='soon' ? '<button disabled style="width:100%;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:not-allowed;">Coming Soon</button>'
+        : '<button onclick="App._marketplaceGoTo(\''+p.goTo+'\')" style="width:100%;font-size:12px;padding:7px 10px;border-radius:7px;border:1px solid var(--border-accent);background:var(--accent-dim);color:var(--accent);cursor:pointer;font-weight:600;">'+(p.status==='connected'?'Manage':'Connect')+'</button>';
+      return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;">'+
+          '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:20px;">'+p.icon+'</span><span style="font-size:13px;font-weight:700;color:var(--text-primary);">'+p.name+'</span></div>'+
+          badge+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--text-dim);flex:1;line-height:1.5;">'+p.desc+'</div>'+
+        btn+
+      '</div>';
+    }
+
+    var html = '<div style="margin-bottom:18px;">'+
+      '<h2 style="margin:0 0 4px;font-size:18px;font-weight:800;color:var(--text-primary);">🧩 Integration Marketplace</h2>'+
+      '<p style="margin:0;font-size:12px;color:var(--text-dim);">'+connectedCount+' connected · Connect the tools your team already uses.</p>'+
+    '</div>';
+    Object.keys(PROVIDERS).forEach(function(cat) {
+      html += '<div style="margin-bottom:22px;">'+
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">'+cat+'</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">'+
+          PROVIDERS[cat].map(card).join('')+
+        '</div>'+
+      '</div>';
+    });
+    area.innerHTML = html;
   },
 
   renderIntegrations: async function() {
