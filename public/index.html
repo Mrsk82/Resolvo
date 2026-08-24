@@ -15581,6 +15581,7 @@ const App = {
                 ['Channel', t.channel==='whatsapp'?'WhatsApp':t.channel==='voice'?'Voice':(t.source||'Email')],
                 ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
                 ...(t.parentId?[['Parent', t.parentId]]:[]),
+                ...(t.externalIssue?[['External Issue', t.externalIssue.externalUrl?`<a href="${self._esc(t.externalIssue.externalUrl)}" target="_blank" rel="noopener" style="color:var(--accent);">${self._esc(t.externalIssue.platform)} #${self._esc(t.externalIssue.externalId)}</a>`:`${self._esc(t.externalIssue.platform)} #${self._esc(t.externalIssue.externalId)}`]]:[]),
               ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;"><span style="color:var(--text-muted);">${k}</span><span style="color:var(--text-secondary);">${v}</span></div>`).join('')}
             </div>
           </details>
@@ -16579,6 +16580,7 @@ const App = {
       {id:'status-management', label:'Ticket Statuses', group:'Workflow'},
       {id:'issue-form',    label:'Issue Form Builder',  group:'Workflow', requires:'ISSUE_TEMPLATES_ENABLED'},
       {id:'escalation',    label:'Escalation Rules',    group:'Workflow'},
+      {id:'automation',    label:'⚡ Automation Rules',  group:'Workflow'},
       {id:'recurring-tkt', label:'Recurring Tickets',   group:'Workflow'},
       {id:'approval-rules',label:'Approval Workflows',  group:'Workflow', requires:'APPROVAL_WORKFLOWS_ENABLED'},
       // ── CONTENT ──
@@ -17336,6 +17338,52 @@ const App = {
               '</div>';
             }).join('')+
           '</div>');
+      }
+
+      // ── AUTOMATION RULES (WHEN → IF → THEN engine) ────────────────────────
+      else if (tid === 'automation') {
+        var autoData = await self.callAsync('getAutomationRules');
+        var autoRules = (autoData && autoData.rules) || [];
+        var TRIGGER_LABELS = {ticket_created:'🎫 New ticket created',priority_changed:'⬆ Priority changes',status_changed:'🔄 Status changes',sentiment_drop:'😟 Sentiment falls below',ticket_age:'⏰ Ticket open longer than'};
+        var ACTION_LABELS2 = {assign_agent:'Assign agent',notify_email:'Notify by email',notify_slack:'Post Slack alert',change_priority:'Change priority',change_status:'Change status',add_tag:'Add tag',create_issue:'Create engineering issue',send_ack:'Send acknowledgement',create_task:'Create follow-up task'};
+        function describeTrigger(t) {
+          t = t || {};
+          var base = TRIGGER_LABELS[t.type] || t.type || '—';
+          if (t.type==='priority_changed'&&t.value) return base+' to <strong>'+App._esc(t.value)+'</strong>';
+          if (t.type==='status_changed'&&t.value) return base+' to <strong>'+App._esc(t.value)+'</strong>';
+          if (t.type==='sentiment_drop') return base+' <strong>'+(t.value??40)+'</strong>';
+          if (t.type==='ticket_age') return base+' <strong>'+(t.afterHours||24)+'h</strong>';
+          return base;
+        }
+        content =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">⚡ Automation Rules</h3><p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">WHEN something happens, optionally IF conditions match, THEN run one or more actions automatically.</p></div>'+
+            '<button onclick="App._showAutomationRuleEditor(null)" class="btn-primary" style="font-size:12px;padding:7px 16px;white-space:nowrap;">+ New Rule</button>'+
+          '</div>'+
+          '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:16px;">'+
+            'Event-based rules (ticket created, priority/status change, sentiment) fire immediately. "Ticket open longer than" rules are checked every 15 minutes.'+
+          '</div>'+
+          (autoRules.length===0?'<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text-dim);">No automation rules yet. Try: "WHEN priority = Critical → assign senior agent + notify manager".</div>':
+          '<div style="display:flex;flex-direction:column;gap:10px;">'+
+            autoRules.map(function(r){
+              return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;">'+
+                '<div style="display:flex;align-items:center;gap:12px;">'+
+                  '<div style="flex:1;min-width:0;">'+
+                    '<div style="font-size:14px;font-weight:700;color:var(--text-primary);">'+App._esc(r.name)+'</div>'+
+                    '<div style="font-size:12px;color:var(--text-dim);margin-top:2px;">WHEN '+describeTrigger(r.trigger)+
+                      ((r.conditions||[]).length?' <strong>IF</strong> '+r.conditions.length+' condition(s)':'')+
+                      ' <strong>THEN</strong> '+(r.actions||[]).map(function(a){return ACTION_LABELS2[a.type]||a.type;}).join(', ')+
+                    '</div>'+
+                    '<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">Fired '+(r.firedCount||0)+' time(s)'+(r.lastFiredAt?' · last: '+App._relTime(r.lastFiredAt):'')+'</div>'+
+                  '</div>'+
+                  '<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:'+(r.enabled?'var(--low-dim)':'var(--bg-elevated)')+';color:'+(r.enabled?'var(--low)':'var(--text-dim)')+';white-space:nowrap;">'+(r.enabled?'Active':'Off')+'</span>'+
+                  '<button onclick="App._showAutomationRuleEditor(\''+r.id+'\')" class="btn-secondary btn-sm">Edit</button>'+
+                  '<button onclick="App.callAsync(\'deleteAutomationRule\',\''+r.id+'\').then(function(res){if(res&&res.success){App.showToast(\'Deleted\',\'success\');App.renderUnifiedSettings(\'automation\');}else App.showToast(\'Failed\',\'error\');})" class="btn-danger btn-sm">Delete</button>'+
+                '</div>'+
+              '</div>';
+            }).join('')+
+          '</div>');
+        self._automationRulesCache = autoRules;
       }
 
       // ── RECURRING TICKETS ────────────────────────────────────────────────────
@@ -18428,6 +18476,180 @@ const App = {
     var r = await App.callAsync('saveEscalationRule',{name,afterHours:hours,action,notifyEmail,enabled:true});
     if (r&&r.success) { App.showToast('Saved','success'); document.querySelectorAll('.modal-overlay').forEach(m=>m.remove()); App.renderUnifiedSettings('escalation'); }
     else App.showToast('Failed','error');
+  },
+
+  // ── AUTOMATION RULE EDITOR (WHEN → IF → THEN) ────────────────────────────
+  _AUTO_TRIGGERS: [
+    {value:'ticket_created', label:'New ticket is created'},
+    {value:'priority_changed', label:'Ticket priority changes to…'},
+    {value:'status_changed', label:'Ticket status changes to…'},
+    {value:'sentiment_drop', label:'Customer sentiment falls below…'},
+    {value:'ticket_age', label:'Ticket has been open longer than…'},
+  ],
+  _AUTO_COND_FIELDS: [
+    {value:'isVIP', label:'Customer is VIP'},
+    {value:'priority', label:'Priority'},
+    {value:'status', label:'Status'},
+    {value:'channel', label:'Channel'},
+    {value:'tags', label:'Tags contain'},
+    {value:'customerDomain', label:'Customer email domain'},
+    {value:'assignedTo', label:'Assigned to'},
+  ],
+  _AUTO_COND_OPS: [
+    {value:'equals', label:'equals'}, {value:'not_equals', label:'does not equal'},
+    {value:'contains', label:'contains'}, {value:'is_true', label:'is true'}, {value:'is_false', label:'is false'},
+  ],
+  _AUTO_ACTIONS: [
+    {value:'assign_agent', label:'Assign agent'},
+    {value:'notify_email', label:'Notify by email'},
+    {value:'notify_slack', label:'Post Slack alert'},
+    {value:'change_priority', label:'Change priority to'},
+    {value:'change_status', label:'Change status to'},
+    {value:'add_tag', label:'Add tag'},
+    {value:'create_issue', label:'Create engineering issue'},
+    {value:'send_ack', label:'Send acknowledgement email'},
+    {value:'create_task', label:'Create follow-up task'},
+  ],
+  _showAutomationRuleEditor: async function(id) {
+    var self = this;
+    var existing = (self._automationRulesCache||[]).find(function(r){return r.id===id;});
+    self._autoDraft = existing ? JSON.parse(JSON.stringify(existing)) : {id:null, name:'', enabled:true, trigger:{type:'ticket_created'}, conditions:[], actions:[]};
+    var usersR = await self.callAsync('getUsers', true);
+    self._autoDraftAgents = (usersR && usersR.users) || [];
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:560px;max-height:85vh;overflow-y:auto;">'+
+      '<div class="modal-header"><span class="modal-title">⚡ Automation Rule</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">'+
+        '<div><label class="form-label">Rule Name *</label><input id="auto_name" class="form-input" placeholder="e.g. VIP Critical Escalation" value="'+App._esc(self._autoDraft.name)+'"></div>'+
+        '<div><label class="form-label" style="color:var(--accent);">WHEN</label><div id="auto_trigger_box"></div></div>'+
+        '<div><label class="form-label" style="color:var(--medium);">IF (optional — leave empty to always run)</label><div id="auto_conditions_box"></div><button type="button" class="btn-secondary btn-sm" onclick="App._autoAddCondition()" style="margin-top:6px;">+ Add Condition</button></div>'+
+        '<div><label class="form-label" style="color:var(--low);">THEN</label><div id="auto_actions_box"></div><button type="button" class="btn-secondary btn-sm" onclick="App._autoAddAction()" style="margin-top:6px;">+ Add Action</button></div>'+
+      '</div>'+
+      '<div class="modal-footer">'+
+        '<button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'+
+        '<button class="btn-primary" onclick="App._saveAutomationRule()">Save Rule</button>'+
+      '</div>'+
+    '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    self._autoRenderTrigger();
+    self._autoRenderConditions();
+    self._autoRenderActions();
+  },
+  _autoRenderTrigger: function() {
+    var self = this; var t = self._autoDraft.trigger || {type:'ticket_created'};
+    var box = document.getElementById('auto_trigger_box'); if (!box) return;
+    var typeSelect = '<select id="auto_trigger_type" class="form-select" style="width:100%;margin-bottom:6px;" onchange="App._autoTriggerTypeChanged(this.value)">'+
+      self._AUTO_TRIGGERS.map(function(tr){return '<option value="'+tr.value+'"'+(t.type===tr.value?' selected':'')+'>'+tr.label+'</option>';}).join('')+
+    '</select>';
+    var extra = '';
+    if (t.type==='priority_changed') extra = '<select id="auto_trigger_value" class="form-select" style="width:100%;">'+['Critical','High','Medium','Low'].map(function(p){return '<option value="'+p+'"'+(t.value===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>';
+    else if (t.type==='status_changed') extra = '<select id="auto_trigger_value" class="form-select" style="width:100%;">'+(self._customStatuses||[{id:'new',label:'New'},{id:'open',label:'Open'},{id:'pending',label:'Pending'},{id:'escalated',label:'Escalated'},{id:'resolved',label:'Resolved'},{id:'closed',label:'Closed'}]).map(function(s){return '<option value="'+s.id+'"'+(t.value===s.id?' selected':'')+'>'+(s.label||s.id)+'</option>';}).join('')+'</select>';
+    else if (t.type==='sentiment_drop') extra = '<input id="auto_trigger_value" type="number" class="form-input" style="width:100%;" placeholder="40" value="'+(t.value!=null?t.value:40)+'">';
+    else if (t.type==='ticket_age') extra = '<input id="auto_trigger_value" type="number" class="form-input" style="width:100%;" placeholder="24" value="'+(t.afterHours!=null?t.afterHours:24)+'"> <span style="font-size:11px;color:var(--text-dim);">hours</span>';
+    box.innerHTML = typeSelect + extra;
+  },
+  _autoTriggerTypeChanged: function(type) {
+    this._autoDraft.trigger = {type:type};
+    this._autoRenderTrigger();
+  },
+  _autoSyncTriggerFromDOM: function() {
+    var t = this._autoDraft.trigger || {}; t.type = document.getElementById('auto_trigger_type')?.value || t.type;
+    var valEl = document.getElementById('auto_trigger_value');
+    if (valEl) {
+      if (t.type==='ticket_age') t.afterHours = parseFloat(valEl.value)||24;
+      else if (t.type==='sentiment_drop') t.value = parseFloat(valEl.value)||40;
+      else t.value = valEl.value;
+    }
+    this._autoDraft.trigger = t;
+  },
+  _autoAddCondition: function() {
+    this._autoDraft.conditions = this._autoDraft.conditions || [];
+    this._autoDraft.conditions.push({field:'isVIP', op:'is_true', value:''});
+    this._autoRenderConditions();
+  },
+  _autoRemoveCondition: function(idx) {
+    this._autoDraft.conditions.splice(idx,1);
+    this._autoRenderConditions();
+  },
+  _autoRenderConditions: function() {
+    var self = this; var box = document.getElementById('auto_conditions_box'); if (!box) return;
+    var conds = self._autoDraft.conditions || [];
+    box.innerHTML = conds.length===0 ? '<div style="font-size:11px;color:var(--text-dim);">No conditions — rule always runs when the trigger fires.</div>' :
+      conds.map(function(c, i){
+        return '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">'+
+          '<select class="form-select" style="flex:1;" onchange="App._autoDraft.conditions['+i+'].field=this.value">'+self._AUTO_COND_FIELDS.map(function(f){return '<option value="'+f.value+'"'+(c.field===f.value?' selected':'')+'>'+f.label+'</option>';}).join('')+'</select>'+
+          '<select class="form-select" style="flex:1;" onchange="App._autoDraft.conditions['+i+'].op=this.value">'+self._AUTO_COND_OPS.map(function(o){return '<option value="'+o.value+'"'+(c.op===o.value?' selected':'')+'>'+o.label+'</option>';}).join('')+'</select>'+
+          '<input class="form-input" style="flex:1;" placeholder="value" value="'+App._esc(c.value||'')+'" onchange="App._autoDraft.conditions['+i+'].value=this.value">'+
+          '<button type="button" onclick="App._autoRemoveCondition('+i+')" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:16px;padding:0 4px;">×</button>'+
+        '</div>';
+      }).join('');
+  },
+  // Action rows render a <select> that visually shows its first option as
+  // selected (native browser behavior) even when the underlying draft object
+  // has no value for that field yet — so if the admin never touches a
+  // dropdown, "what's shown" and "what gets saved" silently diverge. Setting
+  // real defaults here (matching what's visually pre-selected) closes that gap.
+  _autoActionDefaults: function(type) {
+    if (type==='assign_agent') return {mode:'least_loaded'};
+    if (type==='change_priority') return {value:'Critical'};
+    if (type==='change_status') return {value:(this._customStatuses&&this._customStatuses[0]&&this._customStatuses[0].id)||'open'};
+    return {};
+  },
+  _autoAddAction: function() {
+    this._autoDraft.actions = this._autoDraft.actions || [];
+    this._autoDraft.actions.push(Object.assign({type:'notify_email'}, this._autoActionDefaults('notify_email')));
+    this._autoRenderActions();
+  },
+  _autoRemoveAction: function(idx) {
+    this._autoDraft.actions.splice(idx,1);
+    this._autoRenderActions();
+  },
+  _autoActionTypeChanged: function(idx, type) {
+    this._autoDraft.actions[idx] = Object.assign({type:type}, this._autoActionDefaults(type));
+    this._autoRenderActions();
+  },
+  _autoRenderActions: function() {
+    var self = this; var box = document.getElementById('auto_actions_box'); if (!box) return;
+    var actions = self._autoDraft.actions || [];
+    box.innerHTML = actions.length===0 ? '<div style="font-size:11px;color:var(--critical);">Add at least one action.</div>' :
+      actions.map(function(a, i){
+        var typeSelect = '<select class="form-select" style="flex:1;" onchange="App._autoActionTypeChanged('+i+',this.value)">'+self._AUTO_ACTIONS.map(function(t){return '<option value="'+t.value+'"'+(a.type===t.value?' selected':'')+'>'+t.label+'</option>';}).join('')+'</select>';
+        var extra = '';
+        if (a.type==='assign_agent') {
+          extra = '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].mode=this.value;App._autoRenderActions()">'+
+            '<option value="least_loaded"'+(a.mode==='least_loaded'||!a.mode?' selected':'')+'>Least-loaded agent</option>'+
+            '<option value="roundrobin"'+(a.mode==='roundrobin'?' selected':'')+'>Round robin (queue)</option>'+
+            '<option value="specific"'+(a.mode==='specific'?' selected':'')+'>Specific agent…</option>'+
+          '</select>'+
+          (a.mode==='specific' ? '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].agentEmail=this.value">'+
+            '<option value="">— choose —</option>'+(self._autoDraftAgents||[]).map(function(u){return '<option value="'+u.email+'"'+(a.agentEmail===u.email?' selected':'')+'>'+App._esc(u.name||u.email)+'</option>';}).join('')+'</select>' : '');
+        } else if (a.type==='notify_email') {
+          extra = '<input class="form-input" style="flex:1;" placeholder="manager@company.com (blank = brand admin)" value="'+App._esc(a.to||'')+'" onchange="App._autoDraft.actions['+i+'].to=this.value">';
+        } else if (a.type==='change_priority') {
+          extra = '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].value=this.value">'+['Critical','High','Medium','Low'].map(function(p){return '<option value="'+p+'"'+(a.value===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>';
+        } else if (a.type==='change_status') {
+          extra = '<select class="form-select" style="flex:1;" onchange="App._autoDraft.actions['+i+'].value=this.value">'+(self._customStatuses||[{id:'open',label:'Open'},{id:'escalated',label:'Escalated'},{id:'resolved',label:'Resolved'}]).map(function(s){return '<option value="'+s.id+'"'+(a.value===s.id?' selected':'')+'>'+(s.label||s.id)+'</option>';}).join('')+'</select>';
+        } else if (a.type==='add_tag') {
+          extra = '<input class="form-input" style="flex:1;" placeholder="e.g. churn-risk" value="'+App._esc(a.value||'')+'" onchange="App._autoDraft.actions['+i+'].value=this.value">';
+        } else if (a.type==='send_ack') {
+          extra = '<input class="form-input" style="flex:1;" placeholder="Message to send to customer" value="'+App._esc(a.message||'')+'" onchange="App._autoDraft.actions['+i+'].message=this.value">';
+        } else if (a.type==='create_task') {
+          extra = '<input class="form-input" style="flex:1;" placeholder="Task text" value="'+App._esc(a.value||'')+'" onchange="App._autoDraft.actions['+i+'].value=this.value">';
+        }
+        return '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">'+typeSelect+extra+
+          '<button type="button" onclick="App._autoRemoveAction('+i+')" style="background:none;border:none;color:var(--critical);cursor:pointer;font-size:16px;padding:0 4px;">×</button>'+
+        '</div>';
+      }).join('');
+  },
+  _saveAutomationRule: async function() {
+    var self = this;
+    self._autoSyncTriggerFromDOM();
+    var name = document.getElementById('auto_name')?.value?.trim();
+    if (!name) { App.showToast('Name required', 'warning'); return; }
+    if (!(self._autoDraft.actions||[]).length) { App.showToast('Add at least one action', 'warning'); return; }
+    var payload = {id:self._autoDraft.id, name:name, enabled:self._autoDraft.enabled!==false, trigger:self._autoDraft.trigger, conditions:self._autoDraft.conditions||[], actions:self._autoDraft.actions||[]};
+    var r = await self.callAsync('saveAutomationRule', payload);
+    if (r && r.success) { App.showToast('Saved', 'success'); document.querySelectorAll('.modal-overlay').forEach(function(m){m.remove();}); App.renderUnifiedSettings('automation'); }
+    else App.showToast('Failed', 'error');
   },
 
   // ── TICKET TEMPLATE EDITOR ───────────────────────────────────────────────────

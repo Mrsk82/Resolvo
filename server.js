@@ -335,6 +335,7 @@ const KV_KEYS=[
   'commits','peerReviews','emailThreads','inboundRules','aiHistory',
   'tags','coAssignees','votes','timeLogs','watchers','reactions',
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
+  'automationRules','integrations',
 ];
 
 function _openDB(slug){
@@ -1973,6 +1974,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline.push({event:'status_changed',by:su.email,byName:su.name||su.email,at:now,detail:`${prevStatus} → ${status}`});
       wDB(db);
       if(sCfg.isTerminal||sCfg.triggersCsat){sendSlackAlert(slug,'resolved',db.tickets[idx]).catch(()=>{});}
+      runAutomationRules(slug,ticketId,'status_changed').catch(()=>{});
       const ticket=db.tickets[idx];
       // Send 1-click CSAT — fires on statuses with triggersCsat=true (respects csatConfig)
       const csatCfg=rDB().csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'};
@@ -2067,7 +2069,9 @@ app.post('/api/call',async(req,res)=>{
     updateTicketPriority:(ticketId,priority)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      db.tickets[idx].priority=priority;db.tickets[idx].lastActivity=nowIST();wDB(db);return{success:true};
+      db.tickets[idx].priority=priority;db.tickets[idx].lastActivity=nowIST();wDB(db);
+      runAutomationRules(slug,ticketId,'priority_changed').catch(()=>{});
+      return{success:true};
     },
     assignTicket:(ticketId,agentEmail)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
@@ -2993,6 +2997,46 @@ app.post('/api/call',async(req,res)=>{
     deleteEscalationRule:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.escalationRules=(db.escalationRules||[]).filter(r=>r.id!==id);wDB(db);return{success:true};},
 
     // ══════════════════════════════════════════════════════════════════════
+    // AUTOMATION ENGINE v2 — general WHEN (trigger) → IF (conditions) → THEN
+    // (chained actions) rule system. Complements the simpler ticket-age-only
+    // Escalation Rules above with event-based triggers and multi-step actions.
+    // ══════════════════════════════════════════════════════════════════════
+    getAutomationRules:()=>{const db=rDB();return{success:true,rules:db.automationRules||[]};},
+    saveAutomationRule:(rule)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.automationRules=db.automationRules||[];
+      const id=rule.id||generateId('AUTO');
+      const idx=db.automationRules.findIndex(r=>r.id===id);
+      if(idx>=0)db.automationRules[idx]={...db.automationRules[idx],...rule,id};
+      else db.automationRules.push({...rule,id,firedCount:0,lastFiredAt:null,createdAt:nowIST()});
+      wDB(db);return{success:true,id};
+    },
+    deleteAutomationRule:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.automationRules=(db.automationRules||[]).filter(r=>r.id!==id);wDB(db);return{success:true};},
+    runAutomationCheck:async()=>{
+      const db=rDB();
+      const rules=(db.automationRules||[]).filter(r=>r.enabled&&r.trigger?.type==='ticket_age');
+      let fired=0;
+      if(rules.length){
+        for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+          const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
+          for(const rule of rules){
+            const already=ticket.automationFired||[];
+            if(ageHours>=(rule.trigger.afterHours||24)&&!already.includes(rule.id)){
+              const conds=rule.conditions||[];
+              if(conds.length&&!conds.every(c=>evaluateAutomationCondition(c,ticket)))continue;
+              for(const action of(rule.actions||[]))await executeAutomationAction(slug,ticket,action,db);
+              rule.firedCount=(rule.firedCount||0)+1;rule.lastFiredAt=nowIST();
+              ticket.automationFired=ticket.automationFired||[];ticket.automationFired.push(rule.id);
+              fired++;
+            }
+          }
+        }
+        if(fired)wDB(db);
+      }
+      return{success:true,fired};
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
     // FEATURE 2: LIVE COLLABORATION — Typing indicator
     // ══════════════════════════════════════════════════════════════════════
     setTypingState:(ticketId)=>{
@@ -3219,6 +3263,7 @@ app.post('/api/call',async(req,res)=>{
       };
       db.tickets=db.tickets||[];db.tickets.unshift(ticket);
       wDB(db);
+      runAutomationRules(slug,id,'ticket_created').catch(()=>{});
       return{success:true,ticketId:id};
     },
 
@@ -4693,7 +4738,89 @@ app.get('/api/export/:type',(req,res)=>{
   }catch(e){console.error('[Export]',e);res.status(500).send('Export error: '+e.message);}
 });
 app.post('/api/restore',(req,res)=>{const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.status(403).json({error:'Admin only'});try{writeBrandDB(su.brandSlug,req.body);res.json({success:true});}catch(e){res.json({success:false,error:e.message});}});
-app.get('/api/external/sync',async(req,res)=>res.json({success:false,error:'Configure in Admin > API Integration.'}));
+app.get('/api/external/sync',async(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  if(su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const db=readBrandDB(su.brandSlug);
+  const s=db.settings||{};
+  const type=s.EXTERNAL_API_TYPE;
+  if(!type)return res.json({success:false,error:'Select a platform first.'});
+  const axios=require('axios');
+  try{
+    if(type==='github'){
+      const repo=s.EXTERNAL_API_PROJECT_KEY;
+      if(!repo)return res.json({success:false,error:'Set the repo as owner/repo in Project Key / Repo.'});
+      const ghHeaders={Accept:'application/vnd.github+json'};if(s.EXTERNAL_API_TOKEN)ghHeaders.Authorization=`token ${s.EXTERNAL_API_TOKEN}`;
+      const r=await axios.get(`https://api.github.com/repos/${repo}/issues`,{params:{per_page:5,state:'open'},headers:ghHeaders,timeout:10000});
+      return res.json({success:true,message:`Connected — found ${r.data.length} open issue(s) in ${repo}.`,sample:r.data.slice(0,5).map(i=>({number:i.number,title:i.title,url:i.html_url}))});
+    }
+    if(type==='jira'){
+      if(!s.EXTERNAL_API_BASE_URL)return res.json({success:false,error:'Set your Jira site Base URL first.'});
+      const base=s.EXTERNAL_API_BASE_URL.replace(/\/$/,'');
+      const auth=Buffer.from(`${s.EXTERNAL_API_USER}:${s.EXTERNAL_API_TOKEN}`).toString('base64');
+      const jql=s.EXTERNAL_API_PROJECT_KEY?`project=${s.EXTERNAL_API_PROJECT_KEY}`:'';
+      const r=await axios.get(`${base}/rest/api/3/search`,{params:{jql,maxResults:5},headers:{Authorization:`Basic ${auth}`,Accept:'application/json'},timeout:10000});
+      return res.json({success:true,message:`Connected — found ${r.data.total} issue(s)${s.EXTERNAL_API_PROJECT_KEY?' in '+s.EXTERNAL_API_PROJECT_KEY:''}.`,sample:(r.data.issues||[]).slice(0,5).map(i=>({key:i.key,summary:i.fields&&i.fields.summary}))});
+    }
+    if(type==='servicenow'){
+      if(!s.EXTERNAL_API_BASE_URL)return res.json({success:false,error:'Set your ServiceNow instance Base URL first.'});
+      const base=s.EXTERNAL_API_BASE_URL.replace(/\/$/,'');
+      const auth=Buffer.from(`${s.EXTERNAL_API_USER}:${s.EXTERNAL_API_TOKEN}`).toString('base64');
+      const r=await axios.get(`${base}/api/now/table/incident`,{params:{sysparm_limit:5},headers:{Authorization:`Basic ${auth}`,Accept:'application/json'},timeout:10000});
+      return res.json({success:true,message:`Connected — found ${(r.data.result||[]).length} incident(s).`,sample:(r.data.result||[]).slice(0,5).map(i=>({number:i.number,short_description:i.short_description}))});
+    }
+    if(type==='custom'){
+      if(!s.EXTERNAL_API_BASE_URL)return res.json({success:false,error:'Set a Base URL first.'});
+      const r=await axios.get(s.EXTERNAL_API_BASE_URL,{headers:s.EXTERNAL_API_TOKEN?{Authorization:`Bearer ${s.EXTERNAL_API_TOKEN}`}:{},timeout:10000});
+      return res.json({success:true,message:'Connected to custom endpoint — received a response.',sample:typeof r.data==='object'?r.data:String(r.data).substring(0,200)});
+    }
+    return res.json({success:false,error:'Unknown platform: '+type});
+  }catch(e){
+    const msg=e.response?`HTTP ${e.response.status}: ${JSON.stringify(e.response.data).substring(0,200)}`:e.message;
+    return res.json({success:false,error:'Connection failed — '+msg});
+  }
+});
+
+// Creates an issue in the connected external tracker (Jira/GitHub/ServiceNow),
+// used by the automation engine's "Create engineering issue" action when an
+// external integration is configured; returns null (caller falls back to an
+// internal Resolvo issue) if nothing is connected or the call fails.
+async function createExternalIssue(db,ticket){
+  const s=db.settings||{};
+  const type=s.EXTERNAL_API_TYPE;
+  if(!type)return null;
+  const axios=require('axios');
+  try{
+    if(type==='github'){
+      const repo=s.EXTERNAL_API_PROJECT_KEY;
+      if(!repo)return null;
+      const r=await axios.post(`https://api.github.com/repos/${repo}/issues`,
+        {title:ticket.subject,body:`Auto-created from Resolvo ticket **${ticket.id}**\n\n${(ticket.body||'').substring(0,1000)}`},
+        {headers:{Authorization:`token ${s.EXTERNAL_API_TOKEN}`,Accept:'application/vnd.github+json'},timeout:10000});
+      return{externalId:String(r.data.number),externalUrl:r.data.html_url,platform:'github'};
+    }
+    if(type==='jira'){
+      if(!s.EXTERNAL_API_BASE_URL||!s.EXTERNAL_API_PROJECT_KEY)return null;
+      const base=s.EXTERNAL_API_BASE_URL.replace(/\/$/,'');
+      const auth=Buffer.from(`${s.EXTERNAL_API_USER}:${s.EXTERNAL_API_TOKEN}`).toString('base64');
+      const r=await axios.post(`${base}/rest/api/3/issue`,
+        {fields:{project:{key:s.EXTERNAL_API_PROJECT_KEY},summary:ticket.subject,issuetype:{name:'Task'},
+          description:{type:'doc',version:1,content:[{type:'paragraph',content:[{type:'text',text:`Auto-created from Resolvo ticket ${ticket.id}`}]}]}}},
+        {headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/json'},timeout:10000});
+      return{externalId:r.data.key,externalUrl:`${base}/browse/${r.data.key}`,platform:'jira'};
+    }
+    if(type==='servicenow'){
+      if(!s.EXTERNAL_API_BASE_URL)return null;
+      const base=s.EXTERNAL_API_BASE_URL.replace(/\/$/,'');
+      const auth=Buffer.from(`${s.EXTERNAL_API_USER}:${s.EXTERNAL_API_TOKEN}`).toString('base64');
+      const r=await axios.post(`${base}/api/now/table/incident`,
+        {short_description:ticket.subject,description:`Auto-created from Resolvo ticket ${ticket.id}`},
+        {headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/json'},timeout:10000});
+      return{externalId:r.data.result&&r.data.result.number,externalUrl:null,platform:'servicenow'};
+    }
+  }catch(e){console.error('[ExternalIssue]',e.message);}
+  return null;
+}
 
 // ── Base URL management (owner can update without restarting server) ───────────
 app.get('/api/owner/base-url',ownerOnly,(req,res)=>{
@@ -5803,6 +5930,10 @@ async function createTicketFromEmail(slug, emailData) {
 
   // Slack alert for new critical tickets
   if(ticket.priority==='Critical'){sendSlackAlert(slug,'newCritical',ticket).catch(()=>{});}
+
+  // Automation engine — event-based rules (ticket_created, and sentiment_drop
+  // since sentimentScore is only computed here at email-creation time)
+  runAutomationRules(slug,ticketId,'ticket_created').catch(()=>{});
 
   // Check auto-resolve rules
   try {
@@ -8151,6 +8282,170 @@ setInterval(async()=>{
   }
 },15*60*1000);// every 15 minutes
 
+// ── AUTOMATION ENGINE v2 ─────────────────────────────────────────────────
+// WHEN (trigger) → IF (conditions, AND-combined) → THEN (chained actions).
+// Event-based triggers (ticket_created/priority_changed/status_changed) fire
+// immediately via runAutomationRules() calls at each mutation site below.
+// The ticket_age trigger is cron-swept like Escalation Rules above.
+function evaluateAutomationCondition(cond,ticket){
+  const{field,op,value}=cond;
+  let actual;
+  switch(field){
+    case'isVIP':actual=ticket.isVIP||(ticket.tags||[]).includes('VIP');break;
+    case'priority':actual=ticket.priority||'Medium';break;
+    case'status':actual=ticket.status||'new';break;
+    case'channel':actual=ticket.channel||ticket.source||'email';break;
+    case'tags':actual=ticket.tags||[];break;
+    case'customerDomain':actual=(ticket.from||'').split('@')[1]||'';break;
+    case'assignedTo':actual=ticket.assignedTo||'';break;
+    default:actual=undefined;
+  }
+  switch(op){
+    case'equals':return String(actual).toLowerCase()===String(value).toLowerCase();
+    case'not_equals':return String(actual).toLowerCase()!==String(value).toLowerCase();
+    case'contains':return Array.isArray(actual)?actual.map(String).map(s=>s.toLowerCase()).includes(String(value).toLowerCase()):String(actual).toLowerCase().includes(String(value).toLowerCase());
+    case'is_true':return actual===true;
+    case'is_false':return actual===false;
+    default:return false;
+  }
+}
+async function executeAutomationAction(slug,ticket,action,db){
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+  switch(action.type){
+    case'assign_agent':{
+      if(action.mode==='specific'&&action.agentEmail){
+        ticket.assignedTo=action.agentEmail;
+      }else if(action.mode==='least_loaded'){
+        const agents=(db.users||[]).filter(u=>u.active&&['Admin','CS'].includes(u.role));
+        if(agents.length){
+          const withLoad=agents.map(u=>({u,load:(db.tickets||[]).filter(t=>t.assignedTo===u.email&&!['resolved','closed'].includes(t.status)).length}));
+          withLoad.sort((a,b)=>a.load-b.load);
+          ticket.assignedTo=withLoad[0].u.email;
+        }
+      }else{
+        const newAgent=autoAssignAgent(db,{subject:ticket.subject,from:ticket.from,priority:ticket.priority});
+        if(newAgent)ticket.assignedTo=newAgent;
+      }
+      break;
+    }
+    case'notify_email':{
+      const to=action.to||brand.majorAdminEmail;
+      if(to)await sendBrandEmail(slug,to,`🤖 Automation: ${ticket.id} — ${action.label||'Rule triggered'}`,
+        `<p>Ticket <strong>${ticket.id}</strong> — ${sanitize(ticket.subject||'')} triggered an automation rule.</p><p><a href="${BASE_URL}">Open Resolvo →</a></p>`,
+        `Automation triggered on ${ticket.id}`).catch(()=>{});
+      break;
+    }
+    case'notify_slack':{
+      await sendSlackAlert(slug,'newCritical',ticket).catch(()=>{});
+      break;
+    }
+    case'change_priority':{
+      if(action.value)ticket.priority=action.value;
+      break;
+    }
+    case'change_status':{
+      if(action.value)ticket.status=action.value;
+      break;
+    }
+    case'add_tag':{
+      if(action.value){ticket.tags=ticket.tags||[];if(!ticket.tags.includes(action.value))ticket.tags.push(action.value);}
+      break;
+    }
+    case'create_issue':{
+      // If Jira/GitHub/ServiceNow is connected (Settings → Integrations), file
+      // it there; otherwise fall back to an internal Resolvo issue.
+      const ext=db.settings&&db.settings.EXTERNAL_API_TYPE?await createExternalIssue(db,ticket):null;
+      if(ext){
+        ticket.externalIssue=ext;
+      }else{
+        const issueId=generateIssueId(slug);
+        db.issues=db.issues||[];
+        db.issues.push({id:issueId,title:`[Auto] ${ticket.subject}`,description:`Auto-created from ticket ${ticket.id} by automation rule.`,status:'Open',priority:ticket.priority||'Medium',module:'Support',raisedBy:'automation',createdDate:nowIST(),tags:['automation']});
+        ticket.linkedIssueId=issueId;
+      }
+      break;
+    }
+    case'send_ack':{
+      if(ticket.from){
+        const msg=action.message||'Thanks for reaching out — a member of our team will be with you shortly.';
+        await sendBrandEmail(slug,ticket.from,`Re: ${ticket.subject}`,
+          `<p>Hi ${sanitize(ticket.fromName||'there')},</p><p>${sanitize(msg)}</p><p style="color:#9ca3af;font-size:12px;">Ref: ${ticket.id}</p>`,
+          msg).catch(()=>{});
+      }
+      break;
+    }
+    case'create_task':{
+      ticket.checklist=ticket.checklist||[];
+      ticket.checklist.push({id:generateId('CHK'),text:action.value||'Follow up',done:false,createdAt:nowIST()});
+      break;
+    }
+  }
+}
+async function runAutomationRules(slug,ticketId,eventType){
+  try{
+    const db=readBrandDB(slug);
+    const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+    if(!ticket)return;
+    // sentiment_drop has no dedicated mutation hook — sentimentScore is only
+    // computed at email-ticket creation time, so check it alongside ticket_created
+    const rules=(db.automationRules||[]).filter(r=>{
+      if(!r.enabled)return false;
+      const t=r.trigger||{};
+      if(t.type===eventType){
+        // WHEN priority/status changes TO a specific value (e.g. "WHEN priority = Critical")
+        if(t.type==='priority_changed'&&t.value&&ticket.priority!==t.value)return false;
+        if(t.type==='status_changed'&&t.value&&ticket.status!==t.value)return false;
+        return true;
+      }
+      if(eventType==='ticket_created'&&t.type==='sentiment_drop'&&ticket.sentimentScore!=null&&ticket.sentimentScore<(t.value??40))return true;
+      return false;
+    });
+    if(!rules.length)return;
+    let changed=false;
+    for(const rule of rules){
+      const conds=rule.conditions||[];
+      if(conds.length&&!conds.every(c=>evaluateAutomationCondition(c,ticket)))continue;
+      for(const action of(rule.actions||[]))await executeAutomationAction(slug,ticket,action,db);
+      rule.firedCount=(rule.firedCount||0)+1;
+      rule.lastFiredAt=nowIST();
+      ticket.timeline=ticket.timeline||[];
+      ticket.timeline.push({event:'automation_fired',by:'system',byName:'Automation',at:nowIST(),detail:`Rule "${rule.name}" fired (${(rule.actions||[]).length} action(s))`});
+      console.log(`[Automation] ${ticket.id} → rule "${rule.name}" fired (${eventType})`);
+      changed=true;
+    }
+    if(changed)writeBrandDB(slug,db);
+  }catch(e){console.error('[Automation]',e.message);}
+}
+// Ticket-age trigger — periodic sweep (event-based triggers fire immediately
+// via runAutomationRules() calls at each mutation site instead of polling).
+setInterval(async()=>{
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      const rules=(db.automationRules||[]).filter(r=>r.enabled&&r.trigger?.type==='ticket_age');
+      if(!rules.length)continue;
+      let changed=false;
+      for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+        const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
+        for(const rule of rules){
+          const already=ticket.automationFired||[];
+          if(ageHours>=(rule.trigger.afterHours||24)&&!already.includes(rule.id)){
+            const conds=rule.conditions||[];
+            if(conds.length&&!conds.every(c=>evaluateAutomationCondition(c,ticket)))continue;
+            for(const action of(rule.actions||[]))await executeAutomationAction(brand.slug,ticket,action,db);
+            rule.firedCount=(rule.firedCount||0)+1;rule.lastFiredAt=nowIST();
+            ticket.automationFired=ticket.automationFired||[];ticket.automationFired.push(rule.id);
+            changed=true;
+            console.log(`[Automation] ${ticket.id} → rule "${rule.name}" fired (ticket_age) (${brand.slug})`);
+          }
+        }
+      }
+      if(changed)writeBrandDB(brand.slug,db);
+    }catch(e){console.error('[Automation]',e.message);}
+  }
+},15*60*1000);
+
 // ── AI Feature Endpoints ──────────────────────────────────────────────────
 // Legacy /api/ai/* per-feature routes removed (referenced undefined brandModule). AI runs via /api/call.
 app.get('/api/ai/status',(req,res)=>{
@@ -8412,6 +8707,7 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       }
       writeBrandDB(brand.slug,db);
       handled=true;
+      if(existingIdx<0)runAutomationRules(brand.slug,ticketId,'ticket_created').catch(()=>{});
       console.log(`[WhatsApp] Ticket ${ticketId} from ${From} (${brand.slug})`);
       break;
     }catch(e){console.error('[WhatsApp]',e.message);}
