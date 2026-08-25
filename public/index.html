@@ -381,6 +381,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .src-manual   { background: var(--bg-elevated);   color: var(--text-dim); }
 .src-slack    { background: rgba(217,119,6,.15);  color: #F59E0B; }
 .src-sms      { background: rgba(245,158,11,.15); color: #F59E0B; }
+.src-call     { background: rgba(37,99,235,.15);  color: #60A5FA; }
 
 /* ══════════════════════════════════════════════════════════════
    TICKET DETAIL — IMPROVED UI
@@ -15142,6 +15143,7 @@ const App = {
             {k:'whatsapp', l:'WhatsApp',     dot:'#25D366'},
             {k:'widget',   l:'Web Widget',   dot:'#6366F1'},
             {k:'sms',      l:'SMS',          dot:'#F59E0B'},
+            {k:'call',     l:'Call',         dot:'#2563EB'},
             {k:'manual',   l:'Manual',       dot:'#9CA3AF'},
           ].map(ch => { var c = ch.dot;
             var isActive = (self._ticketChannel||'all') === ch.k;
@@ -15221,7 +15223,7 @@ const App = {
                   ${t.assignedTo?`<span style="font-size:10px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:'<span style="font-size:10px;color:var(--critical);font-weight:700;">⚠ Unassigned</span>'}
                   ${t.linkedIssueId?`<span style="font-size:10px;color:var(--status-ack);">🎫 ${t.linkedIssueId}</span>`:''}
                   <span style="font-size:10px;color:var(--text-dim);">💬 ${t.threadCount||1}</span>
-                  ${(function(){var src=t.channel||t.source||'email';return src!=='email'?'<span class="ticket-source-badge src-'+src+'">'+(({widget:'🌐 Web',whatsapp:'💬 WhatsApp',api:'⚙ API',slack:'💬 Slack',manual:'✏ Manual',phone:'📞 Phone',sms:'📱 SMS'})[src]||src)+'</span>':'';})()}
+                  ${(function(){var src=t.channel||t.source||'email';return src!=='email'?'<span class="ticket-source-badge src-'+src+'">'+(({widget:'🌐 Web',whatsapp:'💬 WhatsApp',api:'⚙ API',slack:'💬 Slack',manual:'✏ Manual',phone:'📞 Phone',sms:'📱 SMS',call:'📞 Call'})[src]||src)+'</span>':'';})()}
                 </div>
               </div>
               <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
@@ -15485,6 +15487,7 @@ const App = {
                 ${t.status==='resolved'||t.status==='closed'?`<button onclick="App._ticketStatusAction('${t.id}','open')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Reopen</button>`:''}
                 ${!t.assignedTo||t.assignedTo!==self.currentUser?.email?`<button onclick="App._takeTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">✋ Take</button>`:''}
                 <button onclick="App._showTransferTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Transfer to another agent">↗ Transfer</button>
+                ${(t.customerPhone||['whatsapp','sms','call'].includes(t.channel))?`<button onclick="App._clickToCall('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Call this customer">📞 Call</button>`:''}
                 ${self.currentUser&&self.currentUser.role==='Admin'?`<button onclick="App._bumpTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>`:''}
                 ${self.currentUser&&self.currentUser.role==='Admin'&&t.assignedTo?`<button onclick="App._returnTicketToQueue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Return to unassigned queue">↩ Unassign</button>`:''}
                 ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`}
@@ -17023,6 +17026,44 @@ const App = {
               App._sRow('Twilio Webhook URL','Paste in Twilio console → SMS → When a message comes in',
                 '<div style="display:flex;gap:6px;align-items:center;"><input class="form-input" readonly style="width:280px;font-family:var(--font-mono);font-size:11px;background:var(--bg-elevated);" value="'+App._esc(smsCfg.webhookUrl||'')+'"><button onclick="navigator.clipboard.writeText(\''+App._esc(smsCfg.webhookUrl||'')+'\').then(function(){App.showToast(\'Copied!\',\'success\');})" class="btn-secondary btn-sm">Copy</button></div>'),
               '<div style="text-align:right;margin-top:12px;"><button onclick="App._saveSmsConfig()" class="btn-primary">Save SMS</button></div>'
+            ]);
+          })() +
+          await (async function(){
+            var callR = await fetch('/api/calling/config',{headers:{'x-session-token':localStorage.getItem('tt_session_token')}}).then(function(r){return r.json();}).catch(function(){return {success:false};});
+            var callCfg = (callR&&callR.success&&callR.config)?callR.config:{provider:'',enabled:false};
+            var prov = callCfg.provider||'';
+            function grp(id, show, inner) { return '<div id="'+id+'" style="display:'+(show?'block':'none')+';margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'+inner+'</div>'; }
+            return App._sSection('📞 Calling / Telephony',[
+              '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Click-to-call and missed-call-to-ticket. MyOperator/Knowlarity field names vary by account — if the webhook doesn\'t create tickets, check the server log for the raw payload and let support adjust it.</div>',
+              App._sRow('Enable Calling','Turn on inbound call-to-ticket + click-to-call',
+                '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="call_enabled" '+(callCfg.enabled?'checked':'')+' style="width:16px;height:16px;"><span style="font-size:12px;color:var(--text-secondary);">'+(callCfg.enabled?'Active':'Inactive')+'</span></label>'),
+              App._sRow('Provider','',
+                '<select id="call_provider" class="form-select" style="width:220px;" onchange="App._callProviderChange()">'+
+                  '<option value="">— Select —</option>'+
+                  '<option value="twilio"'+(prov==='twilio'?' selected':'')+'>Twilio Voice</option>'+
+                  '<option value="exotel"'+(prov==='exotel'?' selected':'')+'>Exotel</option>'+
+                  '<option value="myoperator"'+(prov==='myoperator'?' selected':'')+'>MyOperator</option>'+
+                  '<option value="knowlarity"'+(prov==='knowlarity'?' selected':'')+'>Knowlarity</option>'+
+                '</select>'),
+              grp('call_fields_twilio', prov==='twilio',
+                '<div class="form-group"><label class="form-label">Twilio Number (caller ID)</label><input id="call_twilio_number" class="form-input" style="width:260px;" placeholder="+1XXXXXXXXXX" value="'+App._esc(callCfg.twilioNumber||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">Account SID (optional — reuses WhatsApp/SMS Twilio account if blank)</label><input id="call_twilio_sid" class="form-input" style="width:260px;" value="'+App._esc(callCfg.twilioAccountSid||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">Auth Token (optional)</label><input id="call_twilio_token" class="form-input" type="password" style="width:260px;" placeholder="'+(callCfg.hasTwilioToken?'•••••••••••••••• (saved)':'')+'"></div>'),
+              grp('call_fields_exotel', prov==='exotel',
+                '<div class="form-group"><label class="form-label">Exotel Number (Exophone)</label><input id="call_exotel_number" class="form-input" style="width:260px;" value="'+App._esc(callCfg.exotelNumber||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">Account SID</label><input id="call_exotel_sid" class="form-input" style="width:260px;" value="'+App._esc(callCfg.exotelSid||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">API Key</label><input id="call_exotel_key" class="form-input" style="width:260px;" value="'+App._esc(callCfg.exotelApiKey||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">API Token</label><input id="call_exotel_token" class="form-input" type="password" style="width:260px;" placeholder="'+(callCfg.hasExotelToken?'•••••••••••••••• (saved)':'')+'"></div>'),
+              grp('call_fields_myoperator', prov==='myoperator',
+                '<div class="form-group"><label class="form-label">MyOperator Number</label><input id="call_myop_number" class="form-input" style="width:260px;" value="'+App._esc(callCfg.myoperatorNumber||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">Company ID</label><input id="call_myop_company" class="form-input" style="width:260px;" value="'+App._esc(callCfg.myoperatorCompanyId||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">API Key</label><input id="call_myop_key" class="form-input" type="password" style="width:260px;" placeholder="'+(callCfg.hasMyOperatorKey?'•••••••••••••••• (saved)':'')+'"></div>'),
+              grp('call_fields_knowlarity', prov==='knowlarity',
+                '<div class="form-group"><label class="form-label">Knowlarity Number</label><input id="call_know_number" class="form-input" style="width:260px;" value="'+App._esc(callCfg.knowlarityNumber||'')+'"></div>'+
+                '<div class="form-group"><label class="form-label">API Key</label><input id="call_know_key" class="form-input" type="password" style="width:260px;" placeholder="'+(callCfg.hasKnowlarityKey?'•••••••••••••••• (saved)':'')+'"></div>'),
+              App._sRow('Inbound Webhook URL','Paste in your provider\'s dashboard → call events / webhook settings',
+                '<div style="display:flex;gap:6px;align-items:center;"><input class="form-input" readonly style="width:280px;font-family:var(--font-mono);font-size:11px;background:var(--bg-elevated);" value="'+App._esc(callCfg.webhookUrl||'')+'"><button onclick="navigator.clipboard.writeText(\''+App._esc(callCfg.webhookUrl||'')+'\').then(function(){App.showToast(\'Copied!\',\'success\');})" class="btn-secondary btn-sm">Copy</button></div>'),
+              '<div style="text-align:right;margin-top:12px;"><button onclick="App._saveCallingConfig()" class="btn-primary">Save Calling</button></div>'
             ]);
           })() +
           await (async function(){
@@ -20406,6 +20447,39 @@ const App = {
     if (btn) { btn.textContent = '⟳ Sync Issues From API'; btn.disabled = false; }
   },
 
+  _clickToCall: async function(ticketId) {
+    var savedNumber = localStorage.getItem('tt_agent_phone') || '';
+    var agentNumber = prompt('Your phone number (we\'ll call you first, then connect you to the customer):', savedNumber);
+    if (!agentNumber) return;
+    localStorage.setItem('tt_agent_phone', agentNumber);
+    App.showToast('Calling ' + agentNumber + '...', 'info');
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var r = await fetch('/api/calling/click-to-call', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify({ticketId:ticketId, agentNumber:agentNumber})}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) App.showToast(r.message || 'Call started', 'success');
+    else App.showToast('Call failed: ' + ((r && r.error) || 'unknown error'), 'error');
+  },
+  _callProviderChange: function() {
+    var prov = (document.getElementById('call_provider')||{}).value||'';
+    ['twilio','exotel','myoperator','knowlarity'].forEach(function(p) {
+      var el = document.getElementById('call_fields_'+p);
+      if (el) el.style.display = (p===prov) ? 'block' : 'none';
+    });
+  },
+  _saveCallingConfig: async function() {
+    var tkn = localStorage.getItem('tt_session_token') || '';
+    var val = function(id) { return (document.getElementById(id)||{}).value||''; };
+    var body = {
+      provider: val('call_provider'),
+      enabled: (document.getElementById('call_enabled')||{}).checked||false,
+      twilioNumber: val('call_twilio_number'), twilioAccountSid: val('call_twilio_sid'), twilioAuthToken: val('call_twilio_token'),
+      exotelNumber: val('call_exotel_number'), exotelSid: val('call_exotel_sid'), exotelApiKey: val('call_exotel_key'), exotelApiToken: val('call_exotel_token'),
+      myoperatorNumber: val('call_myop_number'), myoperatorCompanyId: val('call_myop_company'), myoperatorApiKey: val('call_myop_key'),
+      knowlarityNumber: val('call_know_number'), knowlarityApiKey: val('call_know_key'),
+    };
+    var r = await fetch('/api/calling/config', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':tkn}, body:JSON.stringify(body)}).then(function(r){return r.json();}).catch(function(){return null;});
+    if (r && r.success) { App.showToast('Calling settings saved', 'success'); App.renderUnifiedSettings('integrations'); }
+    else App.showToast('Failed to save', 'error');
+  },
   _saveSmsConfig: async function() {
     var tkn = localStorage.getItem('tt_session_token') || '';
     var body = {
@@ -20495,7 +20569,7 @@ const App = {
     var tkn = localStorage.getItem('tt_session_token') || '';
     function apiGet(url) { return fetch(url, {headers:{'x-session-token':tkn}}).then(function(r){return r.json();}).catch(function(){return null;}); }
 
-    var [settingsR, waR, calR, stripeR, emailR, smsR, hubspotR, razorpayR] = await Promise.all([
+    var [settingsR, waR, calR, stripeR, emailR, smsR, hubspotR, razorpayR, callingR] = await Promise.all([
       self.callAsync('getSettings'),
       apiGet('/api/whatsapp/config'),
       apiGet('/api/calendar/status'),
@@ -20504,6 +20578,7 @@ const App = {
       apiGet('/api/sms/config'),
       apiGet('/api/hubspot/config'),
       apiGet('/api/razorpay/config'),
+      apiGet('/api/calling/config'),
     ]);
     var st = (settingsR && settingsR.success) ? settingsR.settings : {};
     var waConnected = !!(waR && waR.success && waR.config && waR.config.enabled);
@@ -20513,6 +20588,7 @@ const App = {
     var smsConnected = !!(smsR && smsR.success && smsR.config && smsR.config.enabled);
     var hubspotConnected = !!(hubspotR && hubspotR.success && hubspotR.config && hubspotR.config.connected);
     var razorpayConnected = !!(razorpayR && razorpayR.success && razorpayR.config && razorpayR.config.connected);
+    var callingProvider = (callingR && callingR.success && callingR.config && callingR.config.enabled) ? callingR.config.provider : '';
     var extType = st.EXTERNAL_API_TYPE || '';
     var slackConnected = !!st.SLACK_WEBHOOK_URL;
 
@@ -20558,6 +20634,12 @@ const App = {
         {key:'gdrive', icon:'📁', name:'Google Drive', status:'soon', desc:'Attach Drive files to tickets.'},
         {key:'onedrive', icon:'☁️', name:'OneDrive', status:'soon', desc:'Attach OneDrive files to tickets.'},
         {key:'dropbox', icon:'📦', name:'Dropbox', status:'soon', desc:'Attach Dropbox files to tickets.'},
+      ],
+      Calling: [
+        {key:'twiliovoice', icon:'📞', name:'Twilio Voice', status:callingProvider==='twilio'?'connected':'available', desc:'Click-to-call and missed-call-to-ticket via Twilio.', goTo:'settings-integrations'},
+        {key:'exotel', icon:'📞', name:'Exotel', status:callingProvider==='exotel'?'connected':'available', desc:'Click-to-call and call-to-ticket via Exotel.', goTo:'settings-integrations'},
+        {key:'myoperator', icon:'📞', name:'MyOperator', status:callingProvider==='myoperator'?'connected':'available', desc:'Click-to-call and call-to-ticket via MyOperator.', goTo:'settings-integrations'},
+        {key:'knowlarity', icon:'📞', name:'Knowlarity', status:callingProvider==='knowlarity'?'connected':'available', desc:'Click-to-call and call-to-ticket via Knowlarity.', goTo:'settings-integrations'},
       ],
     };
 
@@ -28049,7 +28131,7 @@ App.renderNovaBentoDashboard = async function() {
   var maxVol = Math.max.apply(null, vol.concat([1]));
   var totalCh = Object.keys(ch).reduce(function(acc,k){return acc+ch[k];},0) || 1;
   var TRACK = 'var(--bg-elevated)', LINE = 'var(--border)';
-  var chMeta = {email:['\u2709\uFE0F Email','#2563EB'],whatsapp:['\uD83D\uDCAC WhatsApp','#0F6E56'],widget:['\uD83C\uDF10 Web','#534AB7'],portal:['\uD83C\uDF10 Portal','#185FA5'],api:['\u2699 API','#888780'],manual:['\u270F Manual','#888780'],phone:['\uD83D\uDCDE Phone','#534AB7'],sms:['\uD83D\uDCF1 SMS','#F59E0B']};
+  var chMeta = {email:['\u2709\uFE0F Email','#2563EB'],whatsapp:['\uD83D\uDCAC WhatsApp','#0F6E56'],widget:['\uD83C\uDF10 Web','#534AB7'],portal:['\uD83C\uDF10 Portal','#185FA5'],api:['\u2699 API','#888780'],manual:['\u270F Manual','#888780'],phone:['\uD83D\uDCDE Phone','#534AB7'],sms:['\uD83D\uDCF1 SMS','#F59E0B'],call:['\uD83D\uDCDE Call','#2563EB']};
   var frt = (sup.avgFirstResponseMin!=null) ? (sup.avgFirstResponseMin<60 ? sup.avgFirstResponseMin+'m' : Math.round(sup.avgFirstResponseMin/60*10)/10+'h') : '\u2014';
   var kpiIcons={
     'Open Tickets':'🎫','Unassigned':'⚠️','SLA Breached':'🔥','Resolved Today':'✅',

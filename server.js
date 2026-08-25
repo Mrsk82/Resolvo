@@ -336,7 +336,7 @@ const KV_KEYS=[
   'tags','coAssignees','votes','timeLogs','watchers','reactions',
   'pinnedIssues','postMortems','auditTrail','announcements','teams',
   'automationRules','integrations','calendarOAuth','stripeConfig',
-  'hubspotConfig','razorpayConfig','smsConfig',
+  'hubspotConfig','razorpayConfig','smsConfig','callingConfig',
 ];
 
 function _openDB(slug){
@@ -9146,6 +9146,142 @@ app.post('/api/sms/webhook',async(req,res)=>{
     }catch(e){console.error('[SMS]',e.message);}
   }
   if(!handled)console.log(`[SMS] No active brand matched To=${To} — message dropped`);
+  res.status(200).send('<Response></Response>');
+});
+
+// ── CALLING / TELEPHONY ──────────────────────────────────────────────────
+// One config shape covers 4 providers (Twilio Voice, Exotel, MyOperator,
+// Knowlarity) since they all follow the same pattern: click-to-call via a
+// REST API call, and inbound/missed-call events via a webhook you paste
+// into that provider's dashboard. Twilio Voice is verified against a real
+// account (reuses the same Twilio credentials as WhatsApp/SMS). Exotel's
+// shape is well-documented and stable. MyOperator and Knowlarity are
+// smaller providers with less standardized public docs — built to their
+// commonly-documented webhook/click-to-call shape, but the exact field
+// names may differ by account/API version. If a webhook doesn't create a
+// ticket, check the "[Calling]" log line for the raw payload it received
+// and the field names can be adjusted from there.
+app.get('/api/calling/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const db=readBrandDB(su.brandSlug);
+  const c=db.callingConfig||{};
+  res.json({success:true,config:{
+    provider:c.provider||'',enabled:!!c.enabled,
+    hasTwilioToken:!!c.twilioAuthToken,twilioAccountSid:c.twilioAccountSid||'',twilioNumber:c.twilioNumber||'',
+    hasExotelToken:!!c.exotelApiToken,exotelSid:c.exotelSid||'',exotelApiKey:c.exotelApiKey||'',exotelNumber:c.exotelNumber||'',
+    hasMyOperatorKey:!!c.myoperatorApiKey,myoperatorCompanyId:c.myoperatorCompanyId||'',myoperatorNumber:c.myoperatorNumber||'',
+    hasKnowlarityKey:!!c.knowlarityApiKey,knowlarityNumber:c.knowlarityNumber||'',
+    webhookUrl:`${BASE_URL}/api/calling/webhook`
+  }});
+});
+app.post('/api/calling/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
+  const b=req.body;const db=readBrandDB(su.brandSlug);
+  const existing=db.callingConfig||{};
+  const keep=(v,prev)=>(v&&!String(v).startsWith('•'))?String(v).trim():(prev||'');
+  db.callingConfig={
+    provider:b.provider||'',enabled:!!b.enabled,
+    twilioAccountSid:keep(b.twilioAccountSid,existing.twilioAccountSid),twilioAuthToken:keep(b.twilioAuthToken,existing.twilioAuthToken),twilioNumber:(b.twilioNumber||'').trim(),
+    exotelSid:keep(b.exotelSid,existing.exotelSid),exotelApiKey:keep(b.exotelApiKey,existing.exotelApiKey),exotelApiToken:keep(b.exotelApiToken,existing.exotelApiToken),exotelNumber:(b.exotelNumber||'').trim(),
+    myoperatorApiKey:keep(b.myoperatorApiKey,existing.myoperatorApiKey),myoperatorCompanyId:(b.myoperatorCompanyId||'').trim(),myoperatorNumber:(b.myoperatorNumber||'').trim(),
+    knowlarityApiKey:keep(b.knowlarityApiKey,existing.knowlarityApiKey),knowlarityNumber:(b.knowlarityNumber||'').trim(),
+  };
+  writeBrandDB(su.brandSlug,db);
+  res.json({success:true});
+});
+// Click-to-call: agent's own phone rings first, then bridges to the customer
+// once the agent picks up (standard cloud-telephony "connect" pattern).
+app.post('/api/calling/click-to-call',async(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});
+  const{ticketId,agentNumber}=req.body;
+  if(!agentNumber)return res.json({success:false,error:'Your phone number is required to receive the connecting call.'});
+  const db=readBrandDB(su.brandSlug);
+  const cfg=db.callingConfig||{};
+  const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+  if(!ticket)return res.json({success:false,error:'Ticket not found'});
+  const customerNumber=ticket.customerPhone||_normalizeWaNumber(ticket.from||'');
+  if(!customerNumber||!/^\+?\d{7,15}$/.test(customerNumber))return res.json({success:false,error:'No usable phone number on this ticket.'});
+  const axios=require('axios');
+  try{
+    if(cfg.provider==='twilio'){
+      const sid=cfg.twilioAccountSid||process.env.TWILIO_ACCOUNT_SID;
+      const token=cfg.twilioAuthToken||process.env.TWILIO_AUTH_TOKEN;
+      const from=cfg.twilioNumber;
+      if(!sid||!token||!from)return res.json({success:false,error:'Twilio Voice not configured.'});
+      const twilio=require('twilio')(sid,token);
+      const call=await twilio.calls.create({from,to:agentNumber,twiml:`<Response><Dial callerId="${from}">${customerNumber}</Dial></Response>`});
+      return res.json({success:true,callId:call.sid,message:`Calling ${agentNumber} now — you'll be connected to the customer once you answer.`});
+    }
+    if(cfg.provider==='exotel'){
+      if(!cfg.exotelSid||!cfg.exotelApiKey||!cfg.exotelApiToken||!cfg.exotelNumber)return res.json({success:false,error:'Exotel not configured.'});
+      const auth=Buffer.from(`${cfg.exotelApiKey}:${cfg.exotelApiToken}`).toString('base64');
+      const r=await axios.post(`https://api.exotel.com/v1/Accounts/${cfg.exotelSid}/Calls/connect.json`,
+        new URLSearchParams({From:agentNumber,To:customerNumber,CallerId:cfg.exotelNumber}),
+        {headers:{Authorization:`Basic ${auth}`},timeout:10000});
+      return res.json({success:true,callId:r.data.Call&&r.data.Call.Sid,message:`Calling ${agentNumber} now — you'll be connected once you answer.`});
+    }
+    if(cfg.provider==='myoperator'){
+      if(!cfg.myoperatorApiKey||!cfg.myoperatorNumber)return res.json({success:false,error:'MyOperator not configured.'});
+      const r=await axios.post('https://app.myoperator.co/api/v1/click_to_call',
+        {agent_number:agentNumber,customer_number:customerNumber,company_id:cfg.myoperatorCompanyId,number:cfg.myoperatorNumber},
+        {headers:{'X-API-KEY':cfg.myoperatorApiKey,'Content-Type':'application/json'},timeout:10000});
+      return res.json({success:true,message:`Calling ${agentNumber} now.`,raw:r.data});
+    }
+    if(cfg.provider==='knowlarity'){
+      if(!cfg.knowlarityApiKey||!cfg.knowlarityNumber)return res.json({success:false,error:'Knowlarity not configured.'});
+      const r=await axios.post('https://kpi.knowlarity.com/Basic/v1/account/call/makecall',
+        {k_number:cfg.knowlarityNumber,agent_number:agentNumber,customer_number:customerNumber},
+        {headers:{'x-api-key':cfg.knowlarityApiKey,'Content-Type':'application/json'},timeout:10000});
+      return res.json({success:true,message:`Calling ${agentNumber} now.`,raw:r.data});
+    }
+    return res.json({success:false,error:'No calling provider connected. Set one up in Settings → Integrations.'});
+  }catch(e){
+    const msg=e.response?`HTTP ${e.response.status}: ${JSON.stringify(e.response.data).substring(0,200)}`:e.message;
+    res.json({success:false,error:'Call failed — '+msg});
+  }
+});
+// Inbound call events — one webhook URL per brand, works for whichever
+// provider is connected. Twilio/Exotel field names are well-established;
+// MyOperator/Knowlarity try several commonly-seen field name variants.
+app.post('/api/calling/webhook',async(req,res)=>{
+  const b=req.body;
+  console.log('[Calling] Webhook payload:',JSON.stringify(b).substring(0,500));
+  const from=b.From||b.CallFrom||b.caller_number||b.caller_id||b.customer_number;
+  const to=b.To||b.CallTo||b.receiver_number||b.did_number||b.number;
+  const callId=b.CallSid||b.call_id||b.CallUUID||b.id||generateId('CALL');
+  const status=b.CallStatus||b.Status||b.call_type||b.type||'unknown';
+  const recordingUrl=b.RecordingUrl||b.recording_url||b.recording||null;
+  const duration=b.CallDuration||b.duration||b.call_duration||null;
+  if(!from){console.log('[Calling] Webhook missing caller number — payload did not match any known field names');return res.status(200).send('<Response></Response>');}
+  const toNorm=_normalizeWaNumber(to||'');
+  const owner=readOwner();
+  let handled=false;
+  for(const brand of(owner.brands||[]).filter(b2=>b2.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);
+      const cfg=db.callingConfig||{};
+      if(!cfg.enabled||!cfg.provider)continue;
+      const myNumber=cfg.twilioNumber||cfg.exotelNumber||cfg.myoperatorNumber||cfg.knowlarityNumber||'';
+      if(toNorm&&myNumber&&_normalizeWaNumber(myNumber)!==toNorm)continue;
+      const existingIdx=(db.tickets||[]).findIndex(t=>t.channel==='call'&&t.from===from&&t.status==='open');
+      const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
+      const summary=`Call ${status}${duration?` (${duration}s)`:''}${recordingUrl?` — recording: ${recordingUrl}`:''}`;
+      if(existingIdx>=0){
+        db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
+        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'incoming',from,fromName:from,body:summary,timestamp:nowIST(),channel:'call'});
+        db.tickets[existingIdx].lastActivity=nowIST();
+      }else{
+        db.tickets=db.tickets||[];
+        db.tickets.unshift({id:ticketId,subject:`Call: ${status} from ${from}`,body:summary,from,fromName:from,channel:'call',callId,status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[{id:generateId('MSG'),type:'incoming',from,fromName:from,body:summary,timestamp:nowIST(),channel:'call'}]});
+      }
+      writeBrandDB(brand.slug,db);
+      handled=true;
+      if(existingIdx<0)runAutomationRules(brand.slug,ticketId,'ticket_created').catch(()=>{});
+      console.log(`[Calling] Ticket ${ticketId} — ${status} call from ${from} (${brand.slug})`);
+      break;
+    }catch(e){console.error('[Calling]',e.message);}
+  }
+  if(!handled)console.log(`[Calling] No active brand matched To=${to} — call event dropped`);
   res.status(200).send('<Response></Response>');
 });
 
