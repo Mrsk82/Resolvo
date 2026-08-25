@@ -804,6 +804,8 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
       <button class="feat-tab" data-tab="sla">SLA Tracking</button>
       <button class="feat-tab" data-tab="ai">AI Replies</button>
       <button class="feat-tab" data-tab="whatsapp">WhatsApp</button>
+      <button class="feat-tab" data-tab="automation">Automation</button>
+      <button class="feat-tab" data-tab="integrations">Integrations</button>
       <button class="feat-tab" data-tab="analytics">Analytics</button>
       <button class="feat-tab" data-tab="booking">Booking</button>
       <button class="feat-tab" data-tab="csat">CSAT</button>
@@ -994,6 +996,82 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
       </div>
     </div>
 
+    <!-- AUTOMATION -->
+    <div class="feat-pane" id="tab-automation">
+      <div class="feat-info reveal">
+        <div class="feat-tag">⚡ Automation · NEW</div>
+        <h3>When this happens,<br>do all of that — automatically.</h3>
+        <p>Build real WHEN → IF → THEN rules, not just one canned auto-reply. A single rule can assign the right agent, notify a manager, bump priority, file an engineering issue, send an acknowledgement, and schedule a follow-up meeting — all from one ticket event, with zero manual steps.</p>
+        <ul class="feat-bullets">
+          <li>Triggers: ticket created, priority/status changed, or aged past N hours</li>
+          <li>Conditions: VIP customer, channel, tags, domain — combine as many as you need</li>
+          <li>Chained actions: assign, notify, escalate, tag, create issue, email the customer, schedule a meeting</li>
+          <li>Every firing logged on the ticket — see exactly what ran and who it reached</li>
+          <li>No code, no Zapier subscription — built into every plan</li>
+        </ul>
+      </div>
+      <div class="feat-ui reveal d1">
+        <div class="feat-ui-bar">
+          <div class="fudot" style="background:#FF5F57"></div>
+          <div class="fudot" style="background:#FFBD2E"></div>
+          <div class="fudot" style="background:#28CA42"></div>
+        </div>
+        <div class="feat-ui-body">
+          <div class="fu-row"><div class="fu-label">Automation Rules</div><div class="fu-badge-green">3 active</div></div>
+          <div class="fu-ticket-item" style="align-items:flex-start;flex-direction:column;gap:8px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#CBD5E1;">🚨 Critical VIP Escalation</div>
+            <div style="font-size:11px;color:var(--ink4);line-height:1.7;">
+              <strong style="color:#A5B4FC;">WHEN</strong> ticket created &nbsp;<strong style="color:#A5B4FC;">IF</strong> priority = Critical AND customer = VIP<br>
+              <strong style="color:#6EE7B7;">THEN</strong> assign senior agent · notify manager · file engineering issue · send acknowledgement
+            </div>
+            <div style="display:flex;gap:6px;margin-top:4px;"><span class="mk-badge b-critical">Fired 12× today</span></div>
+          </div>
+          <div class="fu-ticket-item" style="align-items:flex-start;flex-direction:column;gap:8px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#CBD5E1;">💔 Churn-Risk Alert</div>
+            <div style="font-size:11px;color:var(--ink4);line-height:1.7;">
+              <strong style="color:#A5B4FC;">WHEN</strong> sentiment drops below 40 &nbsp;
+              <strong style="color:#6EE7B7;">THEN</strong> tag "at-risk" · notify account manager · create follow-up task
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INTEGRATIONS -->
+    <div class="feat-pane" id="tab-integrations">
+      <div class="feat-info reveal">
+        <div class="feat-tag">🧩 Integrations · NEW</div>
+        <h3>Connects to the tools<br>you already run on.</h3>
+        <p>Resolvo isn't an island. Gmail, Slack, WhatsApp, SMS, and real cloud calling for support conversations. GitHub, GitLab, Bitbucket, Jira, Linear, and ServiceNow to file engineering issues straight from a ticket. Google Calendar with auto-generated Meet links. Stripe, Razorpay, and HubSpot for billing and CRM context — right on the ticket.</p>
+        <ul class="feat-bullets">
+          <li>15 working integrations across communication, engineering, CRM, meetings, and payments</li>
+          <li>Cloud calling: Twilio, Exotel, MyOperator, Knowlarity — click-to-call and missed-call-to-ticket</li>
+          <li>One click to connect, no engineering time required</li>
+          <li>Automation rules can trigger any connected integration</li>
+        </ul>
+      </div>
+      <div class="feat-ui reveal d1">
+        <div class="feat-ui-bar">
+          <div class="fudot" style="background:#FF5F57"></div>
+          <div class="fudot" style="background:#FFBD2E"></div>
+          <div class="fudot" style="background:#28CA42"></div>
+        </div>
+        <div class="feat-ui-body">
+          <div class="fu-row"><div class="fu-label">Integration Marketplace</div><div class="fu-badge-green">15 connected</div></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;">
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">📧</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">Gmail</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">💬</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">Slack</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">💚</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">WhatsApp</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">📞</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">Calling</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">🐙</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">GitHub</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">🔷</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">Jira</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">📅</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">Calendar</div></div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;"><div style="font-size:18px;">💳</div><div style="font-size:9px;color:var(--ink4);margin-top:4px;">Stripe</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ANALYTICS -->
     <div class="feat-pane" id="tab-analytics">
       <div class="feat-info reveal">
@@ -1131,7 +1209,7 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
   <div class="w">
     <div class="section-head reveal">
       <div class="section-chip">Everything included</div>
-      <h2 class="section-h">10 powerful features. One flat price.</h2>
+      <h2 class="section-h">14 powerful features. One flat price.</h2>
       <p class="section-sub">No add-ons. No per-seat pricing surprises. No feature gating. Everything your support team needs is in every plan.</p>
     </div>
     <div class="features-grid">
@@ -1193,9 +1271,22 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
         <div class="feat-card-desc">Every customer has a profile — all their tickets, purchase history, and notes in one place. Know your customer before you pick up the conversation.</div>
       </div>
       <div class="feat-card reveal d3">
-        <div class="feat-card-icon" style="background:#FFF7ED;">📨</div>
-        <div class="feat-card-title">Daily Digest & Automation</div>
-        <div class="feat-card-desc">Automated follow-up emails, SLA escalations, daily summaries, and appointment reminders. Support that runs itself so your team can focus on hard problems.</div>
+        <div class="feat-card-icon" style="background:#FFF7ED;">⚡</div>
+        <div class="feat-card-title">Automation Engine</div>
+        <div class="feat-card-desc">Real WHEN → IF → THEN rules — one ticket event can assign an agent, notify a manager, file an issue, and schedule a meeting. Not just an auto-reply.</div>
+        <div class="feat-card-tag">NEW</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-card-icon" style="background:#EFF6FF;">🧩</div>
+        <div class="feat-card-title">Integration Marketplace</div>
+        <div class="feat-card-desc">Gmail, Slack, WhatsApp, SMS, GitHub, Jira, Google Calendar, Stripe, HubSpot, Razorpay, and cloud calling (Twilio, Exotel, MyOperator) — 15 working connections, one click each.</div>
+        <div class="feat-card-tag">NEW</div>
+      </div>
+      <div class="feat-card reveal d1">
+        <div class="feat-card-icon" style="background:#F0FDF4;">📞</div>
+        <div class="feat-card-title">Cloud Calling</div>
+        <div class="feat-card-desc">Click-to-call from any ticket, missed calls auto-become tickets. Works with Twilio, Exotel, MyOperator, and Knowlarity — built for how Indian teams actually take calls.</div>
+        <div class="feat-card-tag">NEW</div>
       </div>
     </div>
   </div>
@@ -1264,6 +1355,8 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
           <tr><td class="feat-col">CSAT scoring</td><td class="hi"><span class="ck">✓</span> Included</td><td>Included</td><td>Included</td></tr>
           <tr><td class="feat-col">Multi-brand in one account</td><td class="hi"><span class="ck">✓</span> Yes</td><td>Enterprise only</td><td>Enterprise only</td></tr>
           <tr><td class="feat-col">Issue tracker built-in</td><td class="hi"><span class="ck">✓</span> Yes</td><td><span class="cx">✗</span> No</td><td><span class="cx">✗</span> No</td></tr>
+          <tr><td class="feat-col">Indian cloud telephony (MyOperator, Exotel...)</td><td class="hi"><span class="ck">✓</span> Native</td><td><span class="cx">✗</span> Not built-in</td><td><span class="cx">✗</span> Not built-in</td></tr>
+          <tr><td class="feat-col">Automation rules with chained actions</td><td class="hi"><span class="ck">✓</span> Included</td><td>Higher plans only</td><td>Higher plans only</td></tr>
         </tbody>
       </table>
     </div>
