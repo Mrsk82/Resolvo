@@ -9959,6 +9959,24 @@ const App = {
     }
   },
 
+  // Toggles one owner-dashboard dropdown menu open, closing any others, and
+  // wires a one-shot outside-click listener to close it again.
+  _toggleOwnerMenu: function(id) {
+    document.querySelectorAll('.owner-dropdown-menu').forEach(function(el) { if (el.id !== id) el.style.display = 'none'; });
+    var el = document.getElementById(id);
+    if (!el) return;
+    var willShow = el.style.display === 'none' || !el.style.display;
+    el.style.display = willShow ? 'block' : 'none';
+    if (willShow) {
+      setTimeout(function() {
+        var closeHandler = function(e) {
+          if (!el.contains(e.target)) { el.style.display = 'none'; document.removeEventListener('click', closeHandler); }
+        };
+        document.addEventListener('click', closeHandler);
+      }, 0);
+    }
+  },
+
   // ── OWNER DASHBOARD ──────────────────────────────────────────────────────────
   _launchOwnerDashboard: async function() {
     // Hide brand app, show owner view
@@ -9975,13 +9993,14 @@ const App = {
     ownerEl.innerHTML = '<div style="padding:24px;max-width:1200px;margin:0 auto;"><p style="color:var(--text-muted);font-size:13px;">Loading owner dashboard...</p></div>';
 
     const token = localStorage.getItem('tt_session_token') || '';
-    const [statsRes, healthRes, analyticsRes, onboardRes, trialRes, recsRes] = await Promise.all([
+    const [statsRes, healthRes, analyticsRes, onboardRes, trialRes, recsRes, historyRes] = await Promise.all([
       fetch('/api/owner/stats', { headers: { 'x-session-token': token } }).then(r => r.json()),
       fetch('/api/owner/brand-health', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,scores:[]})),
       fetch('/api/owner/cross-brand-analytics', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,brands:[]})),
       fetch('/api/owner/onboarding-scores', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,scores:[]})),
       fetch('/api/owner/trial-status', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,trials:[]})),
-      fetch('/api/owner/tier-recommendations', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,recommendations:[]}))
+      fetch('/api/owner/tier-recommendations', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,recommendations:[]})),
+      fetch('/api/owner/health-history', { headers: { 'x-session-token': token } }).then(r => r.json()).catch(()=>({success:false,history:{}}))
     ]);
     if (!statsRes.success) { ownerEl.innerHTML = '<div style="padding:40px;color:var(--critical);">Session expired. <a href="/" style="color:var(--accent)">Reload</a></div>'; return; }
 
@@ -9990,23 +10009,21 @@ const App = {
     const onboardScores = (onboardRes.success && onboardRes.scores) ? onboardRes.scores : [];
     const trials = (trialRes.success && trialRes.trials) ? trialRes.trials : [];
     const tierRecs = (recsRes.success && recsRes.recommendations) ? recsRes.recommendations : [];
-
-    // Helper to get health for a brand
-    const getHealth = (slug) => { const h = healthScores.find(s=>s.slug===slug); return h ? h.health : null; };
-    const getGradeColor = (g) => ({A:'var(--low)',B:'#84cc16',C:'var(--accent)',D:'var(--high)',F:'var(--critical)'}[g]||'var(--text-dim)');
-    const getOnboard = (slug) => { const o = onboardScores.find(s=>s.slug===slug); return o ? o.score : null; };
+    const historyBySlug = (historyRes.success && historyRes.history) ? historyRes.history : {};
 
     const s = statsRes.stats;
     const brands = statsRes.brandStats || [];
-    const tierColors = { Enterprise: '#f5a623', Pro: '#74b9ff', Free: '#636e72', Trial: '#2ed573' };
-    const statusColors = { active: '#2ed573', suspended: '#ff4757', trial: '#f5a623' };
 
-    // Alert banners for trials and recs
+    // Shared mutable state for the sortable/searchable/selectable brands table
+    App._ob = {
+      brands, healthScores, onboardScores, tierRecs, historyBySlug, token,
+      sortKey: 'name', sortDir: 1, search: '', selected: new Set()
+    };
+
+    // Notifications (bell) — built from data already fetched above, no extra requests
     const trialAlerts = trials.filter(t=>t.expiringSoon||t.expired);
-    const alertBannerHtml = [
-      trialAlerts.length>0?`<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;"><div>⏰ <strong style="color:#92400E;">${trialAlerts.length} trial${trialAlerts.length>1?'s':''}</strong> expiring soon: ${trialAlerts.map(t=>'<strong>'+App._esc(t.name)+'</strong> ('+t.daysLeft+'d)').join(', ')}</div><button onclick="App._ownerShowTrials()" style="background:#F59E0B;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">Manage</button></div>`:'',
-      tierRecs.length>0?`<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;color:var(--text-secondary);">⬆ <strong style="color:var(--accent);">${tierRecs.length} brand${tierRecs.length>1?'s':''}</strong> ready for tier upgrade based on usage</div><button onclick="App._ownerShowRecommendations()" style="background:var(--accent);color:#0D0E14;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">Review →</button></div>`:''
-    ].filter(Boolean).join('');
+    const atRiskBrands = healthScores.filter(s=>s.health<65 && s.health>0);
+    const notifCount = trialAlerts.length + atRiskBrands.length + tierRecs.length;
 
     let html = `
       <!-- Owner Header -->
@@ -10019,26 +10036,78 @@ const App = {
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="font-size:12px;color:var(--text-muted);">👤 ${statsRes.owner.name}</span>
-            <button onclick="App._showBaseUrlUpdater()" id="urlBtn" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🔗 URL</button>
-            <button onclick="App._ownerBulkAnnounce()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">📢 Announce</button>
-            <button onclick="App._showOwnerCRM()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">👥 Prospect CRM</button>
-            <button onclick="App._showReferralManager()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🎁 Referrals</button>
-            <a href="/marketing-content.html" target="_blank" style="background:none;border:1px solid rgba(16,185,129,.4);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--low);cursor:pointer;text-decoration:none;">📣 Marketing Kit</a>
-            <button onclick="App._ownerCrossSearch()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🔍 Search All</button>
-            <button onclick="App._ownerShowSLALeague()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🏆 SLA Table</button>
-            <button onclick="App._ownerShowBilling()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">💳 Billing</button>
+            <div style="position:relative;">
+              <button onclick="App._toggleOwnerMenu('notifMenu')" style="position:relative;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text-muted);cursor:pointer;">🔔${notifCount>0?`<span style="position:absolute;top:-4px;right:-4px;background:var(--critical);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:1px 4px;min-width:14px;text-align:center;">${notifCount}</span>`:''}</button>
+              <div id="notifMenu" class="owner-dropdown-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.3);min-width:280px;max-height:400px;overflow-y:auto;z-index:200;">
+                ${notifCount===0?`<div style="padding:24px;text-align:center;font-size:12px;color:var(--text-dim);">✓ No alerts right now</div>`:`
+                  ${trialAlerts.map(t=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="App._toggleOwnerMenu('notifMenu');App._ownerShowTrials()"><div style="font-size:12px;font-weight:700;color:#F59E0B;">⏰ Trial expiring</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${App._esc(t.name)} — ${t.daysLeft}d left</div></div>`).join('')}
+                  ${atRiskBrands.map(b=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="App._toggleOwnerMenu('notifMenu');App._ownerEnterBrand('${b.slug}')"><div style="font-size:12px;font-weight:700;color:var(--critical);">❤️ Health at risk</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${App._esc(b.name)} — score ${b.health} (${b.grade})</div></div>`).join('')}
+                  ${tierRecs.map(r=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="App._toggleOwnerMenu('notifMenu');App._ownerShowRecommendations()"><div style="font-size:12px;font-weight:700;color:var(--accent);">⬆ Upgrade ready</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${App._esc(r.name)} — ${App._esc(r.reasons?.[0]||'usage-based')}</div></div>`).join('')}
+                `}
+              </div>
+            </div>
+            <div style="position:relative;">
+              <button onclick="App._toggleOwnerMenu('toolsMenu')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">🛠 Tools ▾</button>
+              <div id="toolsMenu" class="owner-dropdown-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.3);min-width:190px;z-index:200;overflow:hidden;">
+                ${[
+                  ['🔗','Base URL',"App._showBaseUrlUpdater()"],
+                  ['📢','Announce',"App._ownerBulkAnnounce()"],
+                  ['👥','Prospect CRM',"App._showOwnerCRM()"],
+                  ['🎁','Referrals',"App._showReferralManager()"],
+                  ['🔍','Search All Brands',"App._ownerCrossSearch()"],
+                  ['🏆','SLA Table',"App._ownerShowSLALeague()"],
+                  ['💳','Billing',"App._ownerShowBilling()"],
+                ].map(([icon,label,fn])=>`<button onclick="${fn};App._toggleOwnerMenu('toolsMenu')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">${icon} ${label}</button>`).join('')}
+                <a href="/marketing-content.html" target="_blank" style="display:block;padding:9px 14px;font-size:12px;color:var(--low);cursor:pointer;text-decoration:none;border-top:1px solid var(--border);" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">📣 Marketing Kit</a>
+              </div>
+            </div>
             <button onclick="App._ownerCreateBrand()" style="background:var(--accent);color:#0d0e14;border:none;border-radius:6px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;">+ New Brand</button>
             <button onclick="App._logout()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-muted);cursor:pointer;">Sign Out</button>
           </div>
         </div>
       </div>
-      <div style="max-width:1400px;margin:0 auto;padding:24px;">
+
+      <div style="max-width:1400px;margin:0 auto;padding:24px;display:flex;gap:24px;align-items:flex-start;">
+
+        <!-- Sidebar nav -->
+        <div style="width:190px;flex-shrink:0;position:sticky;top:84px;">
+          ${[
+            {group:null,items:[
+              {icon:'📊',label:'Overview',fn:"document.getElementById('ownerOverviewSection').scrollIntoView({behavior:'smooth'})"},
+              {icon:'🏢',label:'Brands',fn:"document.getElementById('ownerBrandsSection').scrollIntoView({behavior:'smooth'})"},
+            ]},
+            {group:'Revenue & Growth',items:[
+              {icon:'📊',label:'MRR Dashboard',fn:'App._ownerShowMRR()'},
+              {icon:'⚠️',label:'Churn Risk',fn:'App._ownerShowChurnRisk()'},
+              {icon:'👥',label:'Cohort Analysis',fn:'App._ownerShowCohorts()'},
+            ]},
+            {group:'Operations & Health',items:[
+              {icon:'🖥',label:'DB Monitor',fn:'App._ownerShowDBMonitor()'},
+              {icon:'🔧',label:'Maintenance Mode',fn:'App._ownerToggleMaintenance()'},
+              {icon:'🔐',label:'Sessions',fn:'App._ownerShowSessions()'},
+              {icon:'🛡',label:'Security Monitor',fn:'App._ownerShowSecurity()'},
+              {icon:'📡',label:'Activity Feed',fn:'App._ownerShowActivityFeed()'},
+              {icon:'🗑',label:'Data Retention',fn:'App._ownerShowRetention()'},
+            ]},
+            {group:'Support & Account',items:[
+              {icon:'📬',label:'Support Inbox',fn:'App._ownerShowSupportInbox()'},
+              {icon:'⚙',label:'Bulk Config Push',fn:'App._ownerBulkConfigPush()'},
+              {icon:'🧑‍💼',label:'Owner Profile',fn:'App._ownerShowProfile()'},
+            ]},
+          ].map(section=>`
+            ${section.group?`<div style="font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px 10px;">${section.group}</div>`:''}
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              ${section.items.map(a=>`<button onclick="${a.fn}" style="display:flex;align-items:center;gap:9px;text-align:left;background:none;border:none;border-radius:7px;padding:8px 10px;font-size:12.5px;font-weight:600;color:var(--text-secondary);cursor:pointer;width:100%;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'"><span style="font-size:14px;">${a.icon}</span>${a.label}</button>`).join('')}
+            </div>`).join('')}
+        </div>
+
+        <!-- Main content -->
+        <div style="flex:1;min-width:0;">
 
       <div id="urlWarningBanner"></div>
-      ${alertBannerHtml}
 
       <!-- Global Stats -->
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px;">
+      <div id="ownerOverviewSection" style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px;">
         ${[
           ['🏢','Brands',s.brands,'workspaces'],
           ['👥','Users',s.users,'total active'],
@@ -10056,76 +10125,46 @@ const App = {
       </div>
 
       <!-- Brands Table — Enhanced -->
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px;">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div id="ownerBrandsSection" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px;">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <h2 style="margin:0;font-size:14px;font-weight:700;color:var(--text-primary);">All Brands</h2>
+          <input id="ownerBrandSearch" placeholder="Search brands…" oninput="App._ob.search=this.value;App._ownerRenderBrandsTable()" style="flex:1;max-width:220px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);">
           <div style="display:flex;gap:6px;">
+            <button onclick="App._ownerExportBrandsCSV()" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">⬇ Export CSV</button>
             <button onclick="App._ownerShowOnboarding()" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">📋 Onboarding</button>
             <button onclick="App._ownerShowUsageHeatmap()" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">🔥 Feature Usage</button>
             <button onclick="App._ownerShowComparison()" style="font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">📊 Compare</button>
           </div>
         </div>
+        <div id="ownerBulkBar"></div>
+        <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr style="background:var(--bg-elevated);">
-            <th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Brand</th>
-            <th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Tier</th>
-            <th style="padding:9px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Health</th>
-            <th style="padding:9px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Setup</th>
-            <th style="padding:9px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Users</th>
-            <th style="padding:9px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Open</th>
-            <th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Active</th>
+            <th style="padding:9px 10px;width:28px;"><input type="checkbox" onchange="App._ownerToggleSelectAll(this.checked)"></th>
+            ${[['name','Brand'],['tier','Tier'],['health','Health'],['setup','Setup'],['users','Users'],['open','Open'],['active','Active']].map(([key,label])=>
+              `<th onclick="App._ownerSortBy('${key}')" style="padding:9px 14px;text-align:${key==='name'||key==='active'?'left':'center'};font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;cursor:pointer;user-select:none;">${label}${App._ob.sortKey===key?(App._ob.sortDir===1?' ▲':' ▼'):''}</th>`
+            ).join('')}
+            <th style="padding:9px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Trend</th>
             <th style="padding:9px 14px;text-align:right;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Actions</th>
           </tr></thead>
-          <tbody>`;
+          <tbody id="ownerBrandsTableBody"></tbody>
+        </table>
+        </div>
+      </div>
 
-    brands.forEach(b => {
-      const lastActive = b.lastActive ? new Date(b.lastActive).toLocaleDateString() : 'Never';
-      const health = getHealth(b.slug);
-      const healthColor = health===null?'var(--text-dim)':health>=80?'var(--low)':health>=65?'#84cc16':health>=50?'var(--accent)':health>=35?'var(--high)':'var(--critical)';
-      const grade = healthScores.find(s=>s.slug===b.slug)?.grade || '?';
-      const onboard = getOnboard(b.slug);
-      const hasRec = tierRecs.find(r=>r.slug===b.slug);
-      html += `<tr style="border-top:1px solid var(--border);" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
-        <td style="padding:11px 14px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:${(statusColors[b.status]||'#636e72')};flex-shrink:0;"></div>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${App._esc(b.name)}</div>
-              <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-mono);">${b.slug}</div>
-            </div>
-          </div>
-        </td>
-        <td style="padding:11px 14px;">
-          <div style="display:flex;align-items:center;gap:5px;">
-            <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${(tierColors[b.tier]||'#636e72')}22;color:${tierColors[b.tier]||'#636e72'}">${b.tier||'Free'}</span>
-            ${hasRec?`<span title="${hasRec.reasons[0]||''}" style="font-size:10px;color:var(--accent);cursor:help;">⬆</span>`:''}
-          </div>
-        </td>
-        <td style="padding:11px 14px;text-align:center;">
-          ${health!==null?`<div style="display:inline-flex;align-items:center;gap:4px;"><span style="font-size:13px;font-weight:800;color:${healthColor};">${health}</span><span style="font-size:11px;font-weight:700;color:${getGradeColor(grade)};">${grade}</span></div>`:'<span style="color:var(--text-dim);">—</span>'}
-        </td>
-        <td style="padding:11px 14px;text-align:center;">
-          ${onboard!==null?`<div style="display:flex;align-items:center;gap:6px;justify-content:center;"><div style="width:40px;background:var(--bg-elevated);border-radius:3px;height:6px;overflow:hidden;"><div style="width:${onboard}%;height:100%;background:${onboard>=80?'var(--low)':onboard>=50?'var(--accent)':'var(--high)'};border-radius:3px;"></div></div><span style="font-size:11px;color:var(--text-dim);">${onboard}%</span></div>`:'—'}
-        </td>
-        <td style="padding:11px 14px;text-align:center;font-size:13px;font-weight:700;color:var(--text-primary);">${b.users}</td>
-        <td style="padding:11px 14px;text-align:center;"><span style="font-size:13px;font-weight:700;color:${b.open>0?'var(--accent)':'var(--text-dim)'};">${b.open}</span></td>
-        <td style="padding:11px 14px;font-size:11px;color:var(--text-muted);">${lastActive}</td>
-        <td style="padding:11px 14px;text-align:right;">
-          <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">
-            <button onclick="App._ownerEnterBrand('${b.slug}')" style="background:var(--accent);color:#0d0e14;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">Enter →</button>
-            <button onclick="App._ownerManageFeatures('${b.slug}','${App._esc(b.name)}')" style="background:var(--bg-elevated);color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">⚡</button>
-            <button onclick="App._ownerCloneConfig('${b.slug}')" title="Clone this brand's config to another brand" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">📋</button>
-            <button onclick="App._ownerShowCRMNotes('${b.slug}','${App._esc(b.name)}')" title="CRM Notes" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">🗒</button>
-            <button onclick="App._ownerShowInvoice('${b.slug}')" title="Generate Invoice" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">🧾</button>
-            <button onclick="App._ownerEditBrand('${b.slug}','${App._esc(b.name)}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">Edit</button>
-            <button onclick="App._ownerSuspendBrand('${b.slug}','${b.status}')" style="background:var(--critical-dim);color:var(--critical);border:1px solid var(--critical-dim);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">${b.status==='active'?'🔒':'♻'}</button>
-          </div>
-        </td>
-      </tr>`;
-    });
+    <div style="margin-top:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-primary);">📋 Owner Audit Log</h3>
+        <span style="font-size:11px;color:var(--text-dim);">Last 20 actions</span>
+      </div>
+      <div id="owner-audit-log"><div style="padding:20px;text-align:center;color:var(--text-dim);font-size:13px;">Loading...</div></div>
+    </div>
 
-    if (!brands.length) html += '<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--text-dim);">No brands yet. Click "+ New Brand" to create the first one.</td></tr>';
-    html += '</tbody></table></div>';
+        </div><!-- /main content -->
+      </div><!-- /flex row -->`;
+
+    ownerEl.innerHTML = html;
+    App._ownerRenderBrandsTable();
 
     // Check BASE_URL and show warning if still localhost
     fetch('/api/owner/base-url', { headers: { 'x-session-token': token } })
@@ -10145,9 +10184,6 @@ const App = {
             </div>
             <button onclick="App._showBaseUrlUpdater()" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Fix Now →</button>
           </div>`;
-          // Also highlight the URL button in header
-          const urlBtn = document.getElementById('urlBtn');
-          if (urlBtn) { urlBtn.style.background = '#fef3c7'; urlBtn.style.color = '#92400e'; urlBtn.style.borderColor = '#f59e0b'; }
         } else {
           bannerEl.innerHTML = `<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:12px;color:#065f46;"><span>✓</span> Email links pointing to: <code style="background:#a7f3d0;padding:1px 6px;border-radius:4px;">${url}</code></div>`;
         }
@@ -10172,35 +10208,6 @@ const App = {
         }).join('');
       }).catch(() => {});
 
-    html += `<div style="margin-top:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-        <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-primary);">📋 Owner Audit Log</h3>
-        <span style="font-size:11px;color:var(--text-dim);">Last 20 actions</span>
-      </div>
-      <div id="owner-audit-log"><div style="padding:20px;text-align:center;color:var(--text-dim);font-size:13px;">Loading...</div></div>
-    </div>
-
-    <!-- Quick Actions Grid -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:20px;">
-      ${[
-        {icon:'📊',label:'MRR Dashboard',fn:'_ownerShowMRR'},
-        {icon:'⚠️',label:'Churn Risk',fn:'_ownerShowChurnRisk'},
-        {icon:'👥',label:'Cohort Analysis',fn:'_ownerShowCohorts'},
-        {icon:'🖥',label:'DB Monitor',fn:'_ownerShowDBMonitor'},
-        {icon:'🔧',label:'Maintenance Mode',fn:'_ownerToggleMaintenance'},
-        {icon:'🔐',label:'Sessions',fn:'_ownerShowSessions'},
-        {icon:'📡',label:'Activity Feed',fn:'_ownerShowActivityFeed'},
-        {icon:'⚙',label:'Bulk Config Push',fn:'_ownerBulkConfigPush'},
-        {icon:'🛡',label:'Security Monitor',fn:'_ownerShowSecurity'},
-        {icon:'🗑',label:'Data Retention',fn:'_ownerShowRetention'},
-        {icon:'📬',label:'Support Inbox',fn:'_ownerShowSupportInbox'},
-        {icon:'🧑‍💼',label:'Owner Profile',fn:'_ownerShowProfile'},
-      ].map(a=>`<button onclick="App.${a.fn}()" style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all .15s;width:100%;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'"><div style="font-size:22px;margin-bottom:6px;">${a.icon}</div><div style="font-size:12px;font-weight:600;color:var(--text-secondary);">${a.label}</div></button>`).join('')}
-    </div>`;
-
-    html += '</div>'; // close main container
-    ownerEl.innerHTML = html;
-
     // Load platform info in footer
     fetch('/api/owner/platform-info', { headers: { 'x-session-token': token } }).then(r=>r.json()).then(info=>{
       if (info.success) {
@@ -10210,6 +10217,139 @@ const App = {
         ownerEl.appendChild(footer);
       }
     }).catch(()=>{});
+  },
+
+  // Renders (and re-renders on sort/search/select) the sortable, searchable,
+  // multi-select brands table body + the bulk-action bar above it.
+  _ownerRenderBrandsTable: function() {
+    const ob = App._ob;
+    const tierColors = { Enterprise: '#f5a623', Pro: '#74b9ff', Free: '#636e72', Trial: '#2ed573' };
+    const statusColors = { active: '#2ed573', suspended: '#ff4757', trial: '#f5a623' };
+    const getHealth = (slug) => { const h = ob.healthScores.find(s=>s.slug===slug); return h ? h.health : null; };
+    const getGradeColor = (g) => ({A:'var(--low)',B:'#84cc16',C:'var(--accent)',D:'var(--high)',F:'var(--critical)'}[g]||'var(--text-dim)');
+    const getOnboard = (slug) => { const o = ob.onboardScores.find(s=>s.slug===slug); return o ? o.score : null; };
+
+    let list = ob.brands.filter(b => !ob.search || (b.name||'').toLowerCase().includes(ob.search.toLowerCase()) || (b.slug||'').toLowerCase().includes(ob.search.toLowerCase()));
+    const sortVal = (b) => {
+      if (ob.sortKey==='health') return getHealth(b.slug) ?? -1;
+      if (ob.sortKey==='setup') return getOnboard(b.slug) ?? -1;
+      if (ob.sortKey==='active') return b.lastActive ? new Date(b.lastActive).getTime() : 0;
+      return b[ob.sortKey] ?? '';
+    };
+    list = list.slice().sort((a,b) => {
+      const av = sortVal(a), bv = sortVal(b);
+      if (typeof av === 'string') return av.localeCompare(bv) * ob.sortDir;
+      return (av - bv) * ob.sortDir;
+    });
+
+    const body = document.getElementById('ownerBrandsTableBody');
+    if (!body) return;
+    if (!list.length) { body.innerHTML = `<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--text-dim);">${ob.brands.length?'No brands match your search.':'No brands yet. Click "+ New Brand" to create the first one.'}</td></tr>`; }
+    else {
+      body.innerHTML = list.map(b => {
+        const lastActive = b.lastActive ? new Date(b.lastActive).toLocaleDateString() : 'Never';
+        const health = getHealth(b.slug);
+        const healthColor = health===null?'var(--text-dim)':health>=80?'var(--low)':health>=65?'#84cc16':health>=50?'var(--accent)':health>=35?'var(--high)':'var(--critical)';
+        const grade = ob.healthScores.find(s=>s.slug===b.slug)?.grade || '?';
+        const onboard = getOnboard(b.slug);
+        const hasRec = ob.tierRecs.find(r=>r.slug===b.slug);
+        const hist = ob.historyBySlug[b.slug]||[];
+        return `<tr style="border-top:1px solid var(--border);" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+        <td style="padding:11px 10px;"><input type="checkbox" ${ob.selected.has(b.slug)?'checked':''} onchange="App._ownerToggleBrandSelect('${b.slug}',this.checked)"></td>
+        <td style="padding:11px 14px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${(statusColors[b.status]||'#636e72')};flex-shrink:0;"></div>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${App._esc(b.name)}</div>
+              <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-mono);">${b.slug}</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding:11px 14px;text-align:center;">
+          <div style="display:flex;align-items:center;gap:5px;justify-content:center;">
+            <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${(tierColors[b.tier]||'#636e72')}22;color:${tierColors[b.tier]||'#636e72'}">${b.tier||'Free'}</span>
+            ${hasRec?`<span title="${App._esc(hasRec.reasons?.[0]||'')}" style="font-size:10px;color:var(--accent);cursor:help;">⬆</span>`:''}
+          </div>
+        </td>
+        <td style="padding:11px 14px;text-align:center;">
+          ${health!==null?`<div style="display:inline-flex;align-items:center;gap:4px;"><span style="font-size:13px;font-weight:800;color:${healthColor};">${health}</span><span style="font-size:11px;font-weight:700;color:${getGradeColor(grade)};">${grade}</span></div>`:'<span style="color:var(--text-dim);">—</span>'}
+        </td>
+        <td style="padding:11px 14px;text-align:center;">
+          ${onboard!==null?`<div style="display:flex;align-items:center;gap:6px;justify-content:center;"><div style="width:40px;background:var(--bg-elevated);border-radius:3px;height:6px;overflow:hidden;"><div style="width:${onboard}%;height:100%;background:${onboard>=80?'var(--low)':onboard>=50?'var(--accent)':'var(--high)'};border-radius:3px;"></div></div><span style="font-size:11px;color:var(--text-dim);">${onboard}%</span></div>`:'—'}
+        </td>
+        <td style="padding:11px 14px;text-align:center;font-size:13px;font-weight:700;color:var(--text-primary);">${b.users}</td>
+        <td style="padding:11px 14px;text-align:center;"><span style="font-size:13px;font-weight:700;color:${b.open>0?'var(--accent)':'var(--text-dim)'};">${b.open}</span></td>
+        <td style="padding:11px 14px;font-size:11px;color:var(--text-muted);">${lastActive}</td>
+        <td style="padding:11px 14px;text-align:center;">${App._ownerSparkline(hist)}</td>
+        <td style="padding:11px 14px;text-align:right;">
+          <div style="display:flex;gap:4px;justify-content:flex-end;position:relative;">
+            <button onclick="App._ownerEnterBrand('${b.slug}')" style="background:var(--accent);color:#0d0e14;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">Enter →</button>
+            <button onclick="App._ownerEditBrand('${b.slug}','${App._esc(b.name)}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">Edit</button>
+            <button onclick="App._toggleOwnerMenu('rowMenu_${b.slug}')" style="background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;">⋯</button>
+            <div id="rowMenu_${b.slug}" class="owner-dropdown-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.3);min-width:170px;z-index:200;overflow:hidden;text-align:left;">
+              <button onclick="App._ownerManageFeatures('${b.slug}','${App._esc(b.name)}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">⚡ Feature Overrides</button>
+              <button onclick="App._ownerCloneConfig('${b.slug}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">📋 Clone Config</button>
+              <button onclick="App._ownerShowCRMNotes('${b.slug}','${App._esc(b.name)}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">🗒 CRM Notes</button>
+              <button onclick="App._ownerShowInvoice('${b.slug}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">🧾 Generate Invoice</button>
+              <button onclick="App._ownerSuspendBrand('${b.slug}','${b.status}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;border-top:1px solid var(--border);font-size:12px;color:var(--critical);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">${b.status==='active'?'🔒 Suspend Brand':'♻ Reactivate Brand'}</button>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+      }).join('');
+    }
+
+    const bar = document.getElementById('ownerBulkBar');
+    if (bar) {
+      bar.innerHTML = ob.selected.size ? `<div style="padding:10px 18px;background:var(--accent-dim);border-bottom:1px solid var(--border-accent);display:flex;align-items:center;gap:12px;">
+        <span style="font-size:12px;font-weight:700;color:var(--accent);">${ob.selected.size} selected</span>
+        <button onclick="App._ownerBulkAnnounce(Array.from(App._ob.selected))" style="background:var(--accent);color:#0d0e14;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">📢 Announce to Selected</button>
+        <button onclick="App._ownerBulkConfigPush(Array.from(App._ob.selected))" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">⚙ Push Config to Selected</button>
+        <button onclick="App._ownerToggleSelectAll(false)" style="background:none;border:none;color:var(--text-dim);font-size:12px;cursor:pointer;margin-left:auto;">✕ Clear</button>
+      </div>` : '';
+    }
+  },
+
+  _ownerSparkline: function(hist) {
+    if (!hist || hist.length < 2) return `<span style="font-size:10px;color:var(--text-dim);">collecting…</span>`;
+    const pts = hist.slice(-14);
+    const w = 60, h = 20, max = 100, min = 0;
+    const step = w / (pts.length - 1);
+    const path = pts.map((p,i) => `${i*step},${h - (p.health/max)*h}`).join(' ');
+    const last = pts[pts.length-1].health, first = pts[0].health;
+    const color = last >= first ? 'var(--low)' : 'var(--critical)';
+    return `<svg width="${w}" height="${h}" style="display:inline-block;vertical-align:middle;"><polyline points="${path}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+  },
+
+  _ownerSortBy: function(key) {
+    if (App._ob.sortKey === key) App._ob.sortDir *= -1;
+    else { App._ob.sortKey = key; App._ob.sortDir = 1; }
+    App._launchOwnerDashboard(); // header arrows live in the static header html, simplest to re-render fully
+  },
+
+  _ownerToggleBrandSelect: function(slug, checked) {
+    if (checked) App._ob.selected.add(slug); else App._ob.selected.delete(slug);
+    App._ownerRenderBrandsTable();
+  },
+
+  _ownerToggleSelectAll: function(checked) {
+    if (checked) App._ob.brands.forEach(b => App._ob.selected.add(b.slug));
+    else App._ob.selected.clear();
+    App._ownerRenderBrandsTable();
+  },
+
+  _ownerExportBrandsCSV: function() {
+    const ob = App._ob;
+    const getHealth = (slug) => { const h = ob.healthScores.find(s=>s.slug===slug); return h ? h.health : ''; };
+    const rows = [['Name','Slug','Tier','Status','Health','Users','Open Issues','Last Active']];
+    ob.brands.forEach(b => rows.push([b.name, b.slug, b.tier||'Free', b.status, getHealth(b.slug), b.users, b.open, b.lastActive||'']));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'resolvo-brands-' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
   },
 
   // ── MRR DASHBOARD ─────────────────────────────────────────────────────────────
@@ -10592,15 +10732,17 @@ const App = {
   },
 
   // ── BULK CONFIG PUSH ──────────────────────────────────────────────────────────
-  _ownerBulkConfigPush: function() {
+  _ownerBulkConfigPush: function(slugs) {
+    App._pendingBulkSlugs = (Array.isArray(slugs) && slugs.length) ? slugs : null;
+    var scoped = App._pendingBulkSlugs;
     var html='<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:460px">'+
       '<div class="modal-header"><span class="modal-title">⚙ Bulk Config Push</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
       '<div class="modal-body">'+
-        '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Apply a setting change to multiple brands at once.</div>'+
+        '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+(scoped?('Apply a setting change to the <strong>'+scoped.length+' selected brand'+(scoped.length>1?'s':'')+'</strong>.'):'Apply a setting change to multiple brands at once.')+'</div>'+
         '<div style="display:grid;gap:12px;">'+
           '<div class="form-group"><label class="form-label">Setting Key</label><select id="bcp_key" class="form-select"><option value="DUPLICATE_DETECTION_ENABLED">Duplicate Detection</option><option value="AUTO_ASSIGN_ENABLED">Auto Assignment</option><option value="AI_ENABLED">AI Features</option><option value="ANNOUNCEMENT_BAR_ENABLED">Announcement Bar</option><option value="BULK_ACTIONS_ENABLED">Bulk Actions</option></select></div>'+
           '<div class="form-group"><label class="form-label">Value</label><select id="bcp_value" class="form-select"><option value="true">true</option><option value="false">false</option></select></div>'+
-          '<div class="form-group"><label class="form-label">Apply to</label><select id="bcp_scope" class="form-select"><option value="all">All Active Brands</option><option value="pro">Pro Brands Only</option><option value="enterprise">Enterprise Brands Only</option></select></div>'+
+          (scoped?'':'<div class="form-group"><label class="form-label">Apply to</label><select id="bcp_scope" class="form-select"><option value="all">All Active Brands</option><option value="pro">Pro Brands Only</option><option value="enterprise">Enterprise Brands Only</option></select></div>')+
         '</div>'+
       '</div>'+
       '<div class="modal-footer"><button class="btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button><button class="btn-primary" onclick="App._submitBulkConfig()">Apply to Brands</button></div>'+
@@ -10611,10 +10753,12 @@ const App = {
   _submitBulkConfig: async function() {
     var key=(document.getElementById('bcp_key')||{}).value;
     var value=(document.getElementById('bcp_value')||{}).value;
-    var scope=(document.getElementById('bcp_scope')||{}).value;
+    var scopeEl=document.getElementById('bcp_scope');
+    var scope=scopeEl?scopeEl.value:undefined;
+    var slugs=App._pendingBulkSlugs||undefined;
     var token=localStorage.getItem('tt_session_token')||'';
-    var r=await fetch('/api/owner/bulk-config',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({key,value:value==='true',scope})}).then(x=>x.json()).catch(()=>({success:false}));
-    if(r&&r.success){document.querySelector('.modal-overlay')?.remove();App.showToast('✓ Applied to '+r.updated+' brands','success');}
+    var r=await fetch('/api/owner/bulk-config',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({key,value:value==='true',scope,slugs})}).then(x=>x.json()).catch(()=>({success:false}));
+    if(r&&r.success){document.querySelector('.modal-overlay')?.remove();App.showToast('✓ Applied to '+r.updated+' brands','success');App._pendingBulkSlugs=null;if(App._ob){App._ob.selected.clear();App._ownerRenderBrandsTable();}}
     else App.showToast('Failed: '+(r&&r.error||'unknown'),'error');
   },
 
@@ -11137,11 +11281,13 @@ const App = {
   },
 
   // ── BULK ANNOUNCEMENT ────────────────────────────────────────────────────────
-  _ownerBulkAnnounce: function() {
+  _ownerBulkAnnounce: function(slugs) {
+    App._pendingBulkSlugs = (Array.isArray(slugs) && slugs.length) ? slugs : null;
+    var scoped = App._pendingBulkSlugs;
     var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:520px">'+
-      '<div class="modal-header"><span class="modal-title">📢 Announce to All Major Admins</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-header"><span class="modal-title">📢 Announce to '+(scoped?('Selected ('+scoped.length+')'):'All Major Admins')+'</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
       '<div class="modal-body">'+
-        '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Sends email to ALL active brand admins + posts as in-app announcement in each brand.</div>'+
+        '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+(scoped?('Sends email + in-app announcement to the <strong>'+scoped.length+' selected brand'+(scoped.length>1?'s':'')+'</strong>.'):'Sends email to ALL active brand admins + posts as in-app announcement in each brand.')+'</div>'+
         '<div style="display:grid;gap:12px;">'+
           '<div class="form-group"><label class="form-label">Subject *</label><input id="ann_subject" class="form-input" placeholder="Platform maintenance on Sunday 2am"></div>'+
           '<div class="form-group"><label class="form-label">Message *</label><textarea id="ann_message" class="form-textarea" style="min-height:100px;" placeholder="Dear Admin, we will be performing scheduled maintenance..."></textarea></div>'+
@@ -11162,10 +11308,13 @@ const App = {
     var btn = document.getElementById('annSendBtn');
     if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
     var token = localStorage.getItem('tt_session_token')||'';
-    var r = await fetch('/api/owner/bulk-announce', {method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({subject,message,type})}).then(x=>x.json()).catch(()=>({success:false}));
+    var slugs = App._pendingBulkSlugs||undefined;
+    var r = await fetch('/api/owner/bulk-announce', {method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({subject,message,type,slugs})}).then(x=>x.json()).catch(()=>({success:false}));
     if (r && r.success) {
       document.querySelector('.modal-overlay')?.remove();
       App.showToast('✓ Sent to '+r.sent+' admins'+(r.failed>0?' ('+r.failed+' failed)':''), 'success');
+      App._pendingBulkSlugs=null;
+      if (App._ob) { App._ob.selected.clear(); App._ownerRenderBrandsTable(); }
     } else App.showToast('Failed: '+(r&&r.error||'unknown'),'error');
   },
 

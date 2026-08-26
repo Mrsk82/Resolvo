@@ -805,34 +805,60 @@ app.get('/api/owner/cross-brand-analytics',ownerOnly,(req,res)=>{
 });
 
 // 2. BRAND HEALTH SCORES
+function computeBrandHealth(b){
+  const now=new Date();
+  if(b.status!=='active')return{slug:b.slug,name:b.name,tier:b.tier,accentColor:b.accentColor,health:0,grade:'F',reasons:['Brand is suspended'],goods:[]};
+  try{
+    const db=readBrandDB(b.slug);const issues=db.issues||[];const users=db.users||[];const tickets=db.tickets||[];
+    let score=100,reasons=[],goods=[];
+    const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
+    const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
+    const activeUsers=users.filter(u=>u.active).length;
+    const lastActiveDays=b.lastActive?(now-new Date(b.lastActive))/86400000:999;
+    // Deductions
+    if(breached.length>0){score-=Math.min(25,breached.length*5);reasons.push(`${breached.length} SLA breach${breached.length>1?'es':''}`);}
+    if(open.filter(i=>i.priority==='Critical').length>0){score-=15;reasons.push('Active critical issues');}
+    if(lastActiveDays>14){score-=10;reasons.push('No activity in 14+ days');}
+    if(activeUsers<2){score-=10;reasons.push('Less than 2 active users');}
+    if(!db.emailTicketing?.enabled&&tickets.length===0){score-=5;reasons.push('Email ticketing not set up');}
+    // Bonuses
+    if(breached.length===0&&open.length>0){goods.push('100% SLA compliance');}
+    if(activeUsers>=5){goods.push(`${activeUsers} active users`);}
+    if(tickets.filter(t=>t.status==='resolved'||t.status==='closed').length>5){goods.push('Active ticket resolution');}
+    score=Math.max(0,Math.min(100,score));
+    const grade=score>=80?'A':score>=65?'B':score>=50?'C':score>=35?'D':'F';
+    return{slug:b.slug,name:b.name,tier:b.tier,accentColor:b.accentColor,health:score,grade,reasons,goods,openIssues:open.length,slaBreached:breached.length,activeUsers,lastActiveDays:Math.round(lastActiveDays)};
+  }catch(e){return{slug:b.slug,name:b.name,tier:b.tier,health:0,grade:'F',reasons:['Data unavailable'],goods:[]};}
+}
+
 app.get('/api/owner/brand-health',ownerOnly,(req,res)=>{
-  const owner=readOwner();const now=new Date();
-  const scores=(owner.brands||[]).map(b=>{
-    if(b.status!=='active')return{...b,health:0,grade:'F',reasons:['Brand is suspended']};
-    try{
-      const db=readBrandDB(b.slug);const issues=db.issues||[];const users=db.users||[];const tickets=db.tickets||[];
-      let score=100,reasons=[],goods=[];
-      const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-      const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
-      const activeUsers=users.filter(u=>u.active).length;
-      const lastActiveDays=b.lastActive?(now-new Date(b.lastActive))/86400000:999;
-      // Deductions
-      if(breached.length>0){score-=Math.min(25,breached.length*5);reasons.push(`${breached.length} SLA breach${breached.length>1?'es':''}`);}
-      if(open.filter(i=>i.priority==='Critical').length>0){score-=15;reasons.push('Active critical issues');}
-      if(lastActiveDays>14){score-=10;reasons.push('No activity in 14+ days');}
-      if(activeUsers<2){score-=10;reasons.push('Less than 2 active users');}
-      if(!db.emailTicketing?.enabled&&tickets.length===0){score-=5;reasons.push('Email ticketing not set up');}
-      // Bonuses
-      if(breached.length===0&&open.length>0){goods.push('100% SLA compliance');}
-      if(activeUsers>=5){goods.push(`${activeUsers} active users`);}
-      if(tickets.filter(t=>t.status==='resolved'||t.status==='closed').length>5){goods.push('Active ticket resolution');}
-      score=Math.max(0,Math.min(100,score));
-      const grade=score>=80?'A':score>=65?'B':score>=50?'C':score>=35?'D':'F';
-      return{slug:b.slug,name:b.name,tier:b.tier,accentColor:b.accentColor,health:score,grade,reasons,goods,openIssues:open.length,slaBreached:breached.length,activeUsers,lastActiveDays:Math.round(lastActiveDays)};
-    }catch(e){return{slug:b.slug,name:b.name,tier:b.tier,health:0,grade:'F',reasons:['Data unavailable'],goods:[]};}
-  }).sort((a,b)=>a.health-b.health);
+  const owner=readOwner();
+  const scores=(owner.brands||[]).map(computeBrandHealth).sort((a,b)=>a.health-b.health);
   res.json({success:true,scores,critical:scores.filter(s=>s.health<40).length,atRisk:scores.filter(s=>s.health<65).length});
 });
+
+// Daily health snapshot — powers the trend sparkline. Capped to the last 90 days per brand.
+app.get('/api/owner/health-history',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  res.json({success:true,history:owner.healthHistory||{}});
+});
+function snapshotBrandHealth(){
+  try{
+    const owner=readOwner();
+    owner.healthHistory=owner.healthHistory||{};
+    const today=nowIST().split('T')[0];
+    for(const b of(owner.brands||[])){
+      const h=computeBrandHealth(b);
+      const arr=owner.healthHistory[b.slug]=owner.healthHistory[b.slug]||[];
+      if(arr.length&&arr[arr.length-1].date===today){arr[arr.length-1].health=h.health;}
+      else{arr.push({date:today,health:h.health});}
+      if(arr.length>90)owner.healthHistory[b.slug]=arr.slice(-90);
+    }
+    writeOwner(owner);
+  }catch(e){console.error('[health-snapshot] failed:',e.message);}
+}
+setInterval(snapshotBrandHealth,24*60*60*1000);
+setTimeout(snapshotBrandHealth,10000);
 
 // 3. FEATURE USAGE HEATMAP
 app.get('/api/owner/feature-usage',ownerOnly,(req,res)=>{
@@ -852,10 +878,11 @@ app.get('/api/owner/feature-usage',ownerOnly,(req,res)=>{
 
 // 4. BULK OWNER ANNOUNCEMENT — email all Major Admins
 app.post('/api/owner/bulk-announce',ownerOnly,async(req,res)=>{
-  const{subject,message,type}=req.body;
+  const{subject,message,type,slugs}=req.body;
   if(!subject||!message)return res.json({success:false,error:'subject and message required'});
   const owner=readOwner();let sent=0,failed=0;
   for(const b of(owner.brands||[])){
+    if(Array.isArray(slugs)&&slugs.length&&!slugs.includes(b.slug))continue;
     if(b.status!=='active'||!b.majorAdminEmail)continue;
     try{
       await sendEmail(b.majorAdminEmail,`[Resolvo Platform] ${subject}`,
@@ -871,7 +898,8 @@ app.post('/api/owner/bulk-announce',ownerOnly,async(req,res)=>{
     }catch(e){failed++;}
   }
   ownerAuditLog(readOwner(),'bulk_announcement',{subject,sentTo:sent,failed},req.owner.email);const o=readOwner();ownerAuditLog(o,'bulk_announcement',{subject,sent,failed},req.owner.email);writeOwner(o);
-  res.json({success:true,sent,failed,total:(owner.brands||[]).filter(b=>b.status==='active').length});
+  const targetSet=(owner.brands||[]).filter(b=>(!Array.isArray(slugs)||!slugs.length||slugs.includes(b.slug))&&b.status==='active');
+  res.json({success:true,sent,failed,total:targetSet.length});
 });
 
 // 5. CROSS-BRAND SEARCH
@@ -1217,16 +1245,19 @@ app.get('/api/owner/activity-feed',ownerOnly,(req,res)=>{
 
 // Bulk Config Push — apply a setting change to ALL brands
 app.post('/api/owner/bulk-config',ownerOnly,(req,res)=>{
-  const{key,value,scope}=req.body;// scope: 'all' | 'pro' | 'enterprise'
+  const{key,value,scope,slugs}=req.body;// scope: 'all' | 'pro' | 'enterprise' (ignored when slugs given)
   if(!key||value===undefined)return res.json({success:false,error:'key and value required'});
   const owner=readOwner();let updated=0;
   for(const b of(owner.brands||[])){
     if(b.status!=='active')continue;
-    if(scope==='pro'&&b.tier!=='Pro')continue;
-    if(scope==='enterprise'&&b.tier!=='Enterprise')continue;
+    if(Array.isArray(slugs)&&slugs.length){if(!slugs.includes(b.slug))continue;}
+    else{
+      if(scope==='pro'&&b.tier!=='Pro')continue;
+      if(scope==='enterprise'&&b.tier!=='Enterprise')continue;
+    }
     try{const db=readBrandDB(b.slug);db.settings=db.settings||{};db.settings[key]=value;writeBrandDB(b.slug,db);updated++;}catch(e){}
   }
-  ownerAuditLog(owner,'bulk_config_push',{key,value,scope,updated},req.owner.email);writeOwner(owner);
+  ownerAuditLog(owner,'bulk_config_push',{key,value,scope,slugs,updated},req.owner.email);writeOwner(owner);
   res.json({success:true,updated});
 });
 
