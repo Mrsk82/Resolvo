@@ -1504,7 +1504,7 @@ app.post('/api/owner/brands',ownerOnly,async(req,res)=>{
   fs.mkdirSync(path.join(BRANDS_DIR,cs),{recursive:true});
   const ip=majorAdminPassword||majorAdminEmail.split('@')[0]+'123';
   writeBrandDB(cs,defaultBrandDB(name,majorAdminEmail,majorAdminName,ip));
-  const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#f5a623',theme:theme||'midnight',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:nowIST(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
+  const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#f5a623',theme:theme||'spark',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:nowIST(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
   owner.brands=owner.brands||[];owner.brands.push(brand);ownerAuditLog(owner,'brand_created',{brandSlug:cs,brandName:name},req.owner.email);writeOwner(owner);
   await sendEmail(majorAdminEmail,`Your ${name} TechTrack Platform is Ready`,majorAdminWelcomeHTML({email:majorAdminEmail,name:majorAdminName||majorAdminEmail.split('@')[0]},name,accentColor,ip,BASE_URL),`Platform: ${BASE_URL} | Email: ${majorAdminEmail} | Pass: ${ip}`);
   res.json({success:true,brand,initialPassword:ip});
@@ -5034,7 +5034,7 @@ app.post('/api/signup',async(req,res)=>{
   const isPro=proCats.includes((category||'').toLowerCase());
   if(isPro){bdb.bookingConfig={enabled:true,title:'Book an Appointment',slotDuration:30,buffer:15,workingHours:{}};bdb.plan={tier:'free',appointmentLimit:250};}
   writeBrandDB(finalSlug,bdb);
-  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
+  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'spark',status:'active',tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
   ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null},owner.email);
   // Track referral if ref code provided

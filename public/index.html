@@ -598,6 +598,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   Spark — Sprinklr × Freshdesk blend
+   Light analytics-polish canvas, indigo-violet accent, soft rounded
+   cards, friendly whitespace-forward density.
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="spark"] {
+  --bg-base: #f6f7fb; --bg-surface: #ffffff; --bg-card: #ffffff;
+  --bg-elevated: #f1f3f9; --bg-hover: #ececfa;
+  --accent: #4f46e5; --accent-dim: rgba(79,70,229,0.1); --accent-glow: rgba(79,70,229,0.28);
+  --text-primary: #111827; --text-secondary: #4b5563; --text-muted: #6b7280; --text-dim: #9ca3af;
+  --border: rgba(0,0,0,0.08); --border-accent: rgba(79,70,229,0.3);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-accent: 0 4px 14px rgba(79,70,229,0.16);
+  --critical: #dc2626; --critical-dim: rgba(220,38,38,0.1);
+  --high: #ea580c; --high-dim: rgba(234,88,12,0.1);
+  --medium: #d97706; --medium-dim: rgba(217,119,6,0.1);
+  --low: #16a34a; --low-dim: rgba(22,163,74,0.1);
+  --status-open: #7c3aed; --status-ack: #4f46e5; --status-progress: #d97706;
+  --status-testing: #db2777; --status-resolved: #16a34a; --status-closed: #6b7280; --status-blocked: #dc2626;
+  --radius: 10px; --radius-lg: 14px;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', 'Courier New', monospace;
+}
+[data-theme="spark"] body,
+[data-theme="spark"] h1,[data-theme="spark"] h2,[data-theme="spark"] h3,
+[data-theme="spark"] h4,[data-theme="spark"] h5,[data-theme="spark"] h6,
+[data-theme="spark"] p,[data-theme="spark"] span,[data-theme="spark"] a,
+[data-theme="spark"] button,[data-theme="spark"] input,[data-theme="spark"] select,
+[data-theme="spark"] textarea,[data-theme="spark"] label,[data-theme="spark"] td,
+[data-theme="spark"] th,[data-theme="spark"] li,[data-theme="spark"] div {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+[data-theme="spark"] code,[data-theme="spark"] pre,[data-theme="spark"] kbd {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+}
+/* Sprinklr-style card lift: soft shadow instead of a flat border on primary content cards */
+[data-theme="spark"] .ticket-card,[data-theme="spark"] .kanban-card,[data-theme="spark"] .modal,
+[data-theme="spark"] .stat-card,[data-theme="spark"] .card {
+  box-shadow: var(--shadow);
+}
+
+/* ═══════════════════════════════════════════════════════════════
    UIUX — Konnect Insights Style
    Clean light professional: white sidebar · blue accent · crisp cards
    ═══════════════════════════════════════════════════════════════ */
@@ -9230,7 +9271,7 @@ const AI = {
 // ============================================================
 
 const Themes = {
-  THEMES: ['midnight','arctic','forest','sunset','ocean','slate','uiux'],
+  THEMES: ['midnight','arctic','forest','sunset','ocean','slate','uiux','spark'],
   LABELS: {
     midnight: 'Midnight',
     arctic:   'Arctic Light',
@@ -9239,21 +9280,27 @@ const Themes = {
     ocean:    'Ocean',
     slate:    'Slate Pro',
     uiux:     'UIUX',
+    spark:    'Spark (Sprinklr × Freshdesk)',
     neon:     'Neon',
     rosegold: 'Rose Gold',
     nova:     '✦ Nova',
     clarity:  '⬡ Clarity'
   },
   ICONS: {
-    midnight:'■', arctic:'○', forest:'▲', sunset:'●', ocean:'□', slate:'◆', uiux:'◈',
+    midnight:'■', arctic:'○', forest:'▲', sunset:'●', ocean:'□', slate:'◆', uiux:'◈', spark:'✧',
     neon:'◉', rosegold:'◇', nova:'✦', clarity:'⬡'
   },
 
   current: 'midnight',
 
   init() {
-    const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('tt_theme')) || 'midnight';
-    this.apply(saved, false);
+    // Only apply a personal override if the user actually picked one via the
+    // theme switcher before — otherwise leave whatever _applyBrandCustomization
+    // already set (the brand's configured theme) alone instead of stomping it
+    // with a hardcoded 'midnight' fallback.
+    const saved = typeof localStorage !== 'undefined' && localStorage.getItem('tt_theme');
+    if (saved) { this.apply(saved, false); }
+    else { this.current = document.documentElement.getAttribute('data-theme') || 'midnight'; }
   },
 
   set(name, el) {
@@ -10983,7 +11030,7 @@ const App = {
               <div class="form-group"><label class="form-label">Initial Password</label><input id="nb_admin_pass" class="form-input" placeholder="Auto-generated if blank"></div>
               <div class="form-group" style="border-top:1px solid var(--border);padding-top:14px;grid-column:1/-1;margin-top:2px;"><label class="form-label" style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Branding</label></div>
               <div class="form-group"><label class="form-label">Accent Color</label><div style="display:flex;gap:8px;align-items:center;"><input id="nb_color" type="color" value="#f5a623" style="width:40px;height:36px;border:none;border-radius:6px;cursor:pointer;background:none;"><input id="nb_color_hex" class="form-input" value="#f5a623" style="font-family:var(--font-mono);flex:1" oninput="document.getElementById('nb_color').value=this.value"></div></div>
-              <div class="form-group"><label class="form-label">Theme</label><select id="nb_theme" class="form-select"><option value="midnight">Midnight</option><option value="arctic">Arctic Light</option><option value="uiux">UIUX</option><option value="forest">Forest</option><option value="ocean">Ocean</option><option value="slate">Slate Pro</option></select></div>
+              <div class="form-group"><label class="form-label">Theme</label><select id="nb_theme" class="form-select"><option value="spark">Spark (Sprinklr × Freshdesk)</option><option value="midnight">Midnight</option><option value="arctic">Arctic Light</option><option value="uiux">UIUX</option><option value="forest">Forest</option><option value="ocean">Ocean</option><option value="slate">Slate Pro</option></select></div>
               <div class="form-group" style="grid-column:1/-1"><label class="form-label">Logo URL (optional)</label><input id="nb_logo" class="form-input" placeholder="https://..."></div>
               <div style="grid-column:1/-1;background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--text-secondary);">✉ Welcome email with credentials will be sent to the Major Admin if email is enabled in .env</div>
             </div>
@@ -11196,7 +11243,7 @@ const App = {
             <div style="display:grid;gap:12px;">
               <div class="form-group"><label class="form-label">Tier</label><select id="eb_tier" class="form-select"><option>Free</option><option>Pro</option><option>Enterprise</option><option>Trial</option></select></div>
               <div class="form-group"><label class="form-label">Accent Color</label><input id="eb_color" type="color" value="#f5a623" style="width:100%;height:36px;border:none;border-radius:6px;cursor:pointer;"></div>
-              <div class="form-group"><label class="form-label">Theme</label><select id="eb_theme" class="form-select"><option value="midnight">Midnight</option><option value="arctic">Arctic Light</option><option value="uiux">UIUX</option><option value="forest">Forest</option><option value="ocean">Ocean</option><option value="slate">Slate Pro</option></select></div>
+              <div class="form-group"><label class="form-label">Theme</label><select id="eb_theme" class="form-select"><option value="spark">Spark (Sprinklr × Freshdesk)</option><option value="midnight">Midnight</option><option value="arctic">Arctic Light</option><option value="uiux">UIUX</option><option value="forest">Forest</option><option value="ocean">Ocean</option><option value="slate">Slate Pro</option></select></div>
               <div class="form-group"><label class="form-label">Logo URL</label><input id="eb_logo" class="form-input" placeholder="https://..."></div>
               <div class="form-group"><label class="form-label">Max Users</label><input id="eb_maxusers" type="number" class="form-input" value="20"></div>
             </div>
@@ -11682,6 +11729,7 @@ const App = {
             </div>
             <div class="form-group"><label class="form-label">Theme</label>
               <select id="fw_theme" class="form-select">
+                <option value="spark" ${user.brandTheme==='spark'?'selected':''}>Spark (Sprinklr × Freshdesk)</option>
                 <option value="midnight" ${user.brandTheme==='midnight'?'selected':''}>Midnight (Dark)</option>
                 <option value="uiux" ${user.brandTheme==='uiux'?'selected':''}>UIUX (Clean Light)</option>
                 <option value="arctic" ${user.brandTheme==='arctic'?'selected':''}>Arctic Light</option>
