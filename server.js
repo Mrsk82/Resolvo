@@ -7151,8 +7151,27 @@ async function _processGmailHistory(slug,newHistoryId){
     }
     console.log(`[GmailPush] ${slug}: ${msgIds.length} new message(s) via history`);
     const processedSet=new Set(_openDB(slug).prepare('SELECT id FROM processed_email_ids').pluck().all());
+    // Self-loop guard: the platform emails its own monitor alerts (SLOW/ERROR/
+    // CRASH) to the owner's inbox, which is often the SAME inbox connected
+    // here for email ticketing. Without this, every alert email re-triggers
+    // this webhook, and processing it (full raw fetch + parse) can itself be
+    // slow enough to fire ANOTHER alert — a self-sustaining loop. A cheap
+    // metadata-only fetch (no body, no attachments) lets us recognize and
+    // skip self-sent / blocklisted senders before paying for the expensive
+    // raw fetch + mailparser pass.
+    const blockList=(db.emailTicketing?.senderBlocklist||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    const selfAddr=(oauth.email||'').toLowerCase();
     for(const msgId of msgIds){
       try{
+        const meta=await gmail.users.messages.get({userId:'me',id:msgId,format:'metadata',metadataHeaders:['From']});
+        const fromHeader=(meta.data.payload?.headers||[]).find(h=>h.name==='From');
+        const fromLow=(fromHeader?.value||'').toLowerCase();
+        const isSelf=selfAddr&&fromLow.includes(selfAddr);
+        const isBlocked=blockList.some(b=>fromLow.includes(b));
+        if(isSelf||isBlocked){
+          console.log(`[GmailPush] ${slug}: skipped self/blocklisted sender (metadata-only, no raw fetch): ${fromHeader?.value||'unknown'}`);
+          continue;
+        }
         const msgData=await gmail.users.messages.get({userId:'me',id:msgId,format:'raw'});
         const raw=Buffer.from(msgData.data.raw,'base64url').toString('utf-8');
         const parsed=await simpleParser(raw);
