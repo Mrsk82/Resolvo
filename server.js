@@ -10,6 +10,23 @@ require('dotenv').config();
 // arrives, long after the module finishes loading.
 const Social=require('./integrations/social');
 const SOCIAL_CHANNELS=['instagram','facebook','telegram','youtube','linkedin','x'];
+// Unified lexicon-based sentiment analyzer (no AI/LLM call) — replaces three
+// previously-separate, inconsistent keyword scorers that used to exist here.
+const{analyzeSentiment:_analyzeSentimentNLP}=require('./integrations/sentiment');
+// Applies the analyzer to a ticket, sets sentimentLevel/sentimentScore, and
+// auto-escalates on strongly negative sentiment — the one place this logic
+// lives now, called from every channel's new-ticket path.
+function tagTicketSentiment(ticket,text){
+  const r=_analyzeSentimentNLP(text||'');
+  ticket.sentimentScore=r.score;
+  ticket.sentimentLevel=r.level;
+  if(r.level==='negative'&&r.score<=15){
+    ticket.priority='Critical';
+    ticket.autoEscalated=true;
+    console.log(`[Sentiment] Auto-escalated ${ticket.id} — score ${r.score}, comparative ${r.comparative}`);
+  }
+  return r;
+}
 const socialGateway=Social.createSocialGateway({
   readBrandDB:(...a)=>readBrandDB(...a),
   writeBrandDB:(...a)=>writeBrandDB(...a),
@@ -2284,23 +2301,8 @@ app.post('/api/call',async(req,res)=>{
 
     // 3. SENTIMENT ANALYSIS — score tickets/comments for frustration level
     analyzeSentiment:(text)=>{
-      const t=(text||'').toLowerCase();
-      const angry=['extremely frustrated','very disappointed','unacceptable','cancel','lawsuit','terrible','worst','useless','incompetent','disgusting','ridiculous','pathetic','waste of money','refund','escalate','manager','ceo','going viral','twitter','review'];
-      const worried=['frustrated','disappointed','unhappy','concerned','issue','still broken','been waiting','urgent','asap','deadline','client is asking','affecting revenue','losing customers','critical'];
-      const neutral=['thanks','please','hello','hi','regards','appreciate','kindly','help'];
-      const happyW=['thank you','great','excellent','resolved','working','perfect','happy','pleased','satisfied'];
-      let score=50;
-      angry.forEach(w=>{if(t.includes(w))score-=8;});
-      worried.forEach(w=>{if(t.includes(w))score-=3;});
-      neutral.forEach(w=>{if(t.includes(w))score+=2;});
-      happyW.forEach(w=>{if(t.includes(w))score+=5;});
-      // Caps and exclamation boost anger
-      const caps=(text.match(/[A-Z]{3,}/g)||[]).length;
-      const excl=(text.match(/!/g)||[]).length;
-      score-=(caps*2+excl*1.5);
-      score=Math.max(0,Math.min(100,Math.round(score)));
-      const level=score<25?'critical':score<45?'angry':score<65?'worried':score<80?'neutral':'happy';
-      return{success:true,score,level,shouldEscalate:score<35};
+      const r=_analyzeSentimentNLP(text||'');
+      return{success:true,score:r.score,level:r.level,shouldEscalate:r.level==='negative'&&r.score<=15};
     },
 
     // 4. CUSTOMER HEALTH SCORE — per email address
@@ -5632,7 +5634,9 @@ app.post('/api/widget/:slug/submit',(req,res)=>{
     botReply=botRule.response;
     thread.push({id:generateId('MSG'),type:'reply',from:'bot',fromName:'Auto-Reply Bot',body:botRule.response,timestamp:nowIST(),botHandled:true});
   }
-  db.tickets.unshift({id:ticketId,subject:'Website Feedback: '+message.substring(0,60),from:email,fromName:email,status:botRule?'resolved':'new',priority:'Medium',createdDate:now,lastActivity:now,source:'widget',tags:['widget'],botHandled:!!botRule,thread});
+  const widgetTicket={id:ticketId,subject:'Website Feedback: '+message.substring(0,60),from:email,fromName:email,status:botRule?'resolved':'new',priority:'Medium',createdDate:now,lastActivity:now,source:'widget',tags:['widget'],botHandled:!!botRule,thread};
+  tagTicketSentiment(widgetTicket,message);
+  db.tickets.unshift(widgetTicket);
   writeBrandDB(slug,db);
   res.json({success:true,ticketId,botReply});
 });
@@ -6327,25 +6331,7 @@ async function createTicketFromEmail(slug, emailData) {
   // Sentiment analysis on incoming email — strip HTML first to avoid CSS/tag noise
   const rawBody = emailData.text || emailData.html || '';
   const body = rawBody.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s{2,}/g,' ').trim();
-  const t = body.toLowerCase();
-  const angryWords = ['extremely frustrated','very disappointed','unacceptable','cancel my','cancel subscription','lawsuit','terrible','worst','useless','disgusting','ridiculous','pathetic','waste of money','refund','escalate'];
-  const worriedWords = ['frustrated','disappointed','unhappy','concerned','urgent','asap','deadline','critical','losing customers'];
-  let sentimentScore = 60;
-  angryWords.forEach(w => { if(t.includes(w)) sentimentScore -= 8; });
-  worriedWords.forEach(w => { if(t.includes(w)) sentimentScore -= 3; });
-  // Only count caps/exclamation marks in short bodies (long HTML stripped may still have noise)
-  const caps = body.length < 5000 ? (body.match(/[A-Z]{3,}/g)||[]).length : 0;
-  const excl = body.length < 5000 ? (body.match(/!/g)||[]).length : 0;
-  sentimentScore -= (caps * 2 + excl * 1.5);
-  sentimentScore = Math.max(0, Math.min(100, Math.round(sentimentScore)));
-  ticket.sentimentScore = sentimentScore;
-  ticket.sentimentLevel = sentimentScore < 25 ? 'critical' : sentimentScore < 45 ? 'angry' : sentimentScore < 65 ? 'worried' : 'neutral';
-  // Auto-escalate if very angry
-  if (sentimentScore < 30) {
-    ticket.priority = 'Critical';
-    ticket.autoEscalated = true;
-    console.log(`[Sentiment] Auto-escalated ${ticketId} — sentiment score: ${sentimentScore}`);
-  }
+  tagTicketSentiment(ticket, body);
 
   db.tickets = db.tickets || [];
   db.tickets.push(ticket);
@@ -8764,14 +8750,11 @@ app.get('/api/tickets/:id/replay',(req,res)=>{
 });
 
 // ── Mood / sentiment analysis ─────────────────────────────────────────────
+// Kept as a thin wrapper (same signature: text -> number) so mood-timeline
+// and health-score callers don't need to change — both now share the exact
+// same lexicon/negation/intensifier logic as ticket creation.
 function scoreSentiment(text){
-  const t=(text||'').toLowerCase();
-  const neg=['angry','furious','terrible','awful','horrible','worst','useless','broken','failed','pathetic','waste','scam','fraud','disgusting','unacceptable','disappointed','disaster','ridiculous','hate','never again'];
-  const pos=['thanks','thank you','great','excellent','wonderful','amazing','fantastic','perfect','helpful','awesome','love','appreciate','brilliant','outstanding','best'];
-  let score=50;
-  neg.forEach(w=>{if(t.includes(w))score-=12;});
-  pos.forEach(w=>{if(t.includes(w))score+=10;});
-  return Math.max(0,Math.min(100,score));
+  return _analyzeSentimentNLP(text||'').score;
 }
 
 app.get('/api/tickets/:id/mood',(req,res)=>{
@@ -9554,7 +9537,9 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
         db.tickets=db.tickets||[];
         const thread=[{id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'}];
         if(botRule)thread.push({id:generateId('MSG'),type:'reply',from:'bot',fromName:'Auto-Reply Bot',body:botRule.response,timestamp:nowIST(),channel:'whatsapp',botHandled:true});
-        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:botRule?'resolved':'open',botHandled:!!botRule,priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread});
+        const waTicket={id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:botRule?'resolved':'open',botHandled:!!botRule,priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread};
+        tagTicketSentiment(waTicket,Body);
+        db.tickets.unshift(waTicket);
       }
       writeBrandDB(brand.slug,db);
       handled=true;
@@ -9715,7 +9700,9 @@ app.post('/api/sms/webhook',async(req,res)=>{
         db.tickets[existingIdx].lastActivity=nowIST();
       }else{
         db.tickets=db.tickets||[];
-        db.tickets.unshift({id:ticketId,subject:`SMS: ${Body.substring(0,60)}`,body:Body,from:From,fromName:From,channel:'sms',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[{id:generateId('MSG'),type:'incoming',from:From,fromName:From,body:Body,timestamp:nowIST(),channel:'sms'}]});
+        const smsTicket={id:ticketId,subject:`SMS: ${Body.substring(0,60)}`,body:Body,from:From,fromName:From,channel:'sms',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[{id:generateId('MSG'),type:'incoming',from:From,fromName:From,body:Body,timestamp:nowIST(),channel:'sms'}]};
+        tagTicketSentiment(smsTicket,Body);
+        db.tickets.unshift(smsTicket);
       }
       writeBrandDB(brand.slug,db);
       handled=true;

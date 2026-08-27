@@ -98,14 +98,22 @@ function createSocialGateway(deps) {
     } else {
       ticketId = generateId('TKT');
       const subject = `${capabilityLabel(msg.channel)}: ${(msg.message_text || msg.event_type).substring(0, 60)}`;
-      db.tickets.unshift({
+      const newTicket = {
         id: ticketId, subject, from, fromName: msg.sender_name || msg.sender_username || from,
         channel: msg.channel, channelAccountId: msg.channel_account_id,
         status: 'new', priority: 'Medium',
         createdDate: nowIST(), lastActivity: nowIST(),
         tags: [msg.channel],
         thread: [threadEntry],
-      });
+      };
+      // Same lexicon-based analyzer every other channel uses — one sentiment
+      // engine for the whole app, not a social-specific reimplementation.
+      const { analyzeSentiment } = require('../sentiment');
+      const s = analyzeSentiment(msg.message_text || '');
+      newTicket.sentimentScore = s.score;
+      newTicket.sentimentLevel = s.level;
+      if (s.level === 'negative' && s.score <= 15) newTicket.priority = 'Critical';
+      db.tickets.unshift(newTicket);
     }
 
     writeBrandDB(slug, db);

@@ -15418,6 +15418,7 @@ const App = {
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;opacity:.75;">
                   ${!['resolved','closed'].includes(t.status)?`<span style="font-size:9px;color:${ageColor};">${ageLabel}</span>`:''}
+                  ${t.sentimentLevel&&t.sentimentLevel!=='neutral'?`<span title="Sentiment: ${t.sentimentLevel} (${t.sentimentScore}/100)" style="font-size:9px;color:${t.sentimentLevel==='negative'?'var(--critical)':'var(--low)'};">${t.sentimentLevel==='negative'?'😟':'🙂'}</span>`:''}
                   ${t.assignedTo?`<span style="font-size:9px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:''}
                   ${t.linkedIssueId?`<span style="font-size:9px;color:var(--text-dim);">🎫 ${t.linkedIssueId}</span>`:''}
                   <span style="font-size:9px;color:var(--text-dim);">💬 ${t.threadCount||1}</span>
@@ -15796,6 +15797,7 @@ const App = {
                 ['Created', App._fmtDT(t.createdDate, true)],
                 ['Messages', (thread.length||0)],
                 ['Channel', t.channel==='whatsapp'?'WhatsApp':t.channel==='voice'?'Voice':(t.source||'Email')],
+                ...(t.sentimentLevel?[['Sentiment', ({positive:'🙂 Positive',negative:'😟 Negative',neutral:'😐 Neutral'}[t.sentimentLevel]||t.sentimentLevel)+' <span style="color:var(--text-dim);font-size:11px;">('+(t.sentimentScore!=null?t.sentimentScore:'—')+'/100)</span>'+(t.autoEscalated?' <span style="color:var(--critical);font-size:10px;font-weight:700;">⚡ auto-escalated</span>':'')]]:[]),
                 ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
                 ...(t.parentId?[['Parent', t.parentId]]:[]),
                 ...(t.externalIssue?[['External Issue', t.externalIssue.externalUrl?`<a href="${self._esc(t.externalIssue.externalUrl)}" target="_blank" rel="noopener" style="color:var(--accent);">${self._esc(t.externalIssue.platform)} #${self._esc(t.externalIssue.externalId)}</a>`:`${self._esc(t.externalIssue.platform)} #${self._esc(t.externalIssue.externalId)}`]]:[]),
