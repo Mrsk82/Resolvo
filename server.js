@@ -1,6 +1,34 @@
 // TechTrack — Multi-Tenant SaaS Server
 process.env.TZ='Asia/Kolkata'; // all new Date() and cron schedules run on IST
 require('dotenv').config();
+// Social Channels & Unified Social Inbox — see integrations/social/*.
+// Instantiated once at module load; safe to reference hoisted function
+// declarations (readBrandDB, writeBrandDB, generateId, nowIST,
+// runAutomationRules) here even though they're defined further down the
+// file, since function declarations are hoisted for the whole module before
+// any code runs and the gateway isn't actually invoked until a real request
+// arrives, long after the module finishes loading.
+const Social=require('./integrations/social');
+const SOCIAL_CHANNELS=['instagram','facebook','telegram','youtube','linkedin','x'];
+const socialGateway=Social.createSocialGateway({
+  readBrandDB:(...a)=>readBrandDB(...a),
+  writeBrandDB:(...a)=>writeBrandDB(...a),
+  generateId:(...a)=>generateId(...a),
+  nowIST:(...a)=>nowIST(...a),
+  runAutomationRules:(...a)=>runAutomationRules(...a),
+});
+// Section 27 — audit log for every social-channel action. Reuses the
+// existing db.auditTrail field (already in KV_KEYS, already read by the
+// audit-log views) rather than inventing a parallel log.
+function _socialAudit(slug,user,action,detail){
+  try{
+    const db=readBrandDB(slug);
+    db.auditTrail=db.auditTrail||[];
+    db.auditTrail.push({timestamp:nowIST(),action,user,tenant:slug,status:detail&&detail.error?'error':'ok',...detail});
+    if(db.auditTrail.length>2000)db.auditTrail=db.auditTrail.slice(-2000);
+    writeBrandDB(slug,db);
+  }catch(e){console.error('[SocialAudit] failed to log:',e.message);}
+}
 // IST timestamp — use instead of nowIST() everywhere
 function nowIST(){const d=new Date();const off=d.getTimezoneOffset();const ist=new Date(d.getTime()-off*60000);return ist.toISOString().replace('Z','+05:30');}
 
@@ -181,7 +209,7 @@ const OWNER_PATH=path.join(__dirname,'data','owner.json'),BRANDS_DIR=path.join(_
 const fs_init=require('fs');
 if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
 app.use(helmet({contentSecurityPolicy:false})); // security headers (CSP off — inline scripts in SPA)
-app.use(cors());app.use(express.json({limit:'20mb'}));app.use(express.urlencoded({extended:false,limit:'20mb'})); // Twilio webhooks (WhatsApp) post as form-urlencoded, not JSON
+app.use(cors());app.use(express.json({limit:'20mb',verify:(req,_res,buf)=>{req.rawBody=buf;}}));app.use(express.urlencoded({extended:false,limit:'20mb'})); // Twilio webhooks (WhatsApp) post as form-urlencoded, not JSON. rawBody is kept for Meta webhook signature verification (integrations/social/meta-shared.js).
 app.use(express.static(path.join(__dirname,'public')));
 app.use(monitorReq); // Layer 2 — slow request tracker
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
@@ -1705,9 +1733,35 @@ app.post('/api/call',async(req,res)=>{
           await twilio.messages.create({from:_normalizeWaNumber(fromNumber),to:ticket.from,body:replyText});
         }catch(e){return{success:false,error:'SMS send failed: '+e.message};}
       }
+      // Social channels — universal reply interface (Section 16): the ticket
+      // engine never touches a platform API directly, it hands off to the
+      // matching adapter's sendMessage(). Section 17: outbound status stored
+      // on the thread message below (platformMessageId/deliveryStatus).
+      let socialSendResult=null;
+      if(!isNote&&SOCIAL_CHANNELS.includes(ticket.channel)){
+        const account=(db.socialAccounts||[]).find(a=>a.platform===ticket.channel&&a.platformAccountId===ticket.channelAccountId);
+        if(!account)return{success:false,error:`${ticket.channel} account is disconnected. Reconnect it in Settings → Social Channels to reply.`};
+        const senderId=String(ticket.from||'').split(':').slice(1).join(':'); // "instagram:123" -> "123"
+        const lastIncoming=(ticket.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0];
+        const isCommentThread=lastIncoming&&lastIncoming.social&&['COMMENT','COMMENT_REPLY'].includes(lastIncoming.social.event_type);
+        try{
+          const accessToken=Social.decryptSecret(account.accessTokenRef);
+          if(ticket.channel==='telegram'){
+            socialSendResult=await Social.adapters.telegram.sendMessage({botToken:accessToken,chatId:senderId,text:replyText});
+          }else if(ticket.channel==='instagram'){
+            socialSendResult=await Social.adapters.instagram.sendMessage({accessToken,conversationType:isCommentThread?'comment':'dm',targetId:isCommentThread?lastIncoming.social.message_id:senderId,text:replyText});
+          }else if(ticket.channel==='facebook'){
+            socialSendResult=await Social.adapters.facebook.sendMessage({pageAccessToken:accessToken,conversationType:isCommentThread?'comment':'dm',targetId:isCommentThread?lastIncoming.social.message_id:senderId,text:replyText});
+          }else{
+            return{success:false,error:`Replying on ${ticket.channel} is not yet available — see capability-matrix.js.`};
+          }
+          if(socialSendResult.status==='FAILED')return{success:false,error:`${ticket.channel} send failed: `+(socialSendResult.error||'unknown error')};
+        }catch(e){return{success:false,error:`${ticket.channel} send failed: `+e.message};}
+      }
       const msgId=generateId('MSG');
       const now=nowIST();
-      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote&&!['whatsapp','sms'].includes(ticket.channel),channel:['whatsapp','sms'].includes(ticket.channel)?ticket.channel:undefined};
+      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel),channel:['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)?ticket.channel:undefined,
+        ...(socialSendResult?{platformMessageId:socialSendResult.platformMessageId,deliveryStatus:socialSendResult.status}:{})};
       db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push(msg);
       db.tickets[idx].lastActivity=now;
       if(db.tickets[idx].status==='new'&&!isNote)db.tickets[idx].status='open';
@@ -1728,7 +1782,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:isNote?'note_added':'reply_sent',by:su.email,byName:su.name||su.email,at:now,detail:replyText.substring(0,120)});
       wDB(db);
-      if(!isNote&&ticket.from&&!['whatsapp','sms'].includes(ticket.channel)){
+      if(!isNote&&ticket.from&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
         const replySubject=`Re: [${brandName}] ${ticket.subject}`;
@@ -1965,7 +2019,10 @@ app.post('/api/call',async(req,res)=>{
     getTickets:(filters)=>{
       const gate=requireFeature(ff,'EMAIL_TICKETING_ENABLED');if(gate)return gate;
       const db=rDB();
-      let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.lastActivity||b.createdDate)-new Date(a.lastActivity||a.createdDate));
+      // Default order is by when the ticket/email arrived (createdDate), NOT
+      // lastActivity — a reply on an old ticket shouldn't jump it above a
+      // ticket that arrived more recently but hasn't been touched yet.
+      let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate));
       if(filters){
         // My Queue filter — assigned to current user, not resolved/closed
         // Case-insensitive match to handle any email casing differences
@@ -1979,7 +2036,24 @@ app.post('/api/call',async(req,res)=>{
         if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
-        if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}
+        if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||(t.priority||'').toLowerCase().includes(q)||(t.sentimentLevel||'').toLowerCase().includes(q));}
+        // Sort — 'newest' (default) already applied above; re-sort for the other modes
+        if(filters.sort&&filters.sort!=='newest'){
+          if(filters.sort==='oldest')tickets=tickets.slice().sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+          else if(filters.sort==='priority'){
+            const rank={Critical:0,High:1,Medium:2,Low:3};
+            tickets=tickets.slice().sort((a,b)=>(rank[a.priority]??4)-(rank[b.priority]??4)||new Date(b.createdDate)-new Date(a.createdDate));
+          }else if(filters.sort==='sla'){
+            // No formal SLA deadline on tickets (unlike issues) — use the same
+            // age-based risk proxy already shown on each row: oldest open ticket first.
+            const isOpen=t=>!['resolved','closed'].includes(t.status);
+            tickets=tickets.slice().sort((a,b)=>{
+              const ao=isOpen(a),bo=isOpen(b);
+              if(ao!==bo)return ao?-1:1;
+              return new Date(a.createdDate)-new Date(b.createdDate);
+            });
+          }
+        }
       }
       // Server-side pagination: send only the requested page (counts still computed over all)
       const total=tickets.length;
@@ -3039,6 +3113,136 @@ app.post('/api/call',async(req,res)=>{
     getEscalationRules:()=>{const db=rDB();return{success:true,rules:db.escalationRules||[]};},
     deleteEscalationRule:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.escalationRules=(db.escalationRules||[]).filter(r=>r.id!==id);wDB(db);return{success:true};},
 
+    // ── No-code FAQ auto-responder bot (WhatsApp + Web Widget) ────────────────
+    getBotRules:()=>{const db=rDB();return{success:true,rules:db.botRules||[]};},
+    saveBotRule:(rule)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.botRules=db.botRules||[];
+      const id=rule.id||generateId('BOT');
+      const clean={id,enabled:rule.enabled!==false,keywords:(rule.keywords||[]).map(k=>k.trim()).filter(Boolean),response:rule.response||'',channels:rule.channels&&rule.channels.length?rule.channels:['widget']};
+      const idx=db.botRules.findIndex(r=>r.id===id);
+      if(idx>=0)db.botRules[idx]=clean;else db.botRules.push({...clean,createdAt:nowIST()});
+      wDB(db);return{success:true,id};
+    },
+    deleteBotRule:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.botRules=(db.botRules||[]).filter(r=>r.id!==id);wDB(db);return{success:true};},
+    getBotStats:()=>{
+      const db=rDB();
+      const handled=(db.tickets||[]).filter(t=>t.botHandled);
+      return{success:true,totalHandled:handled.length,byChannel:{whatsapp:handled.filter(t=>t.channel==='whatsapp').length,widget:handled.filter(t=>t.source==='widget'||t.channel==='widget').length}};
+    },
+
+    // ── SOCIAL CHANNELS & UNIFIED SOCIAL INBOX ──────────────────────────────
+    // db.socialAccounts: [{id,platform,platformAccountId,accountName,username,
+    //   accountType,accessTokenRef,refreshTokenRef,tokenExpiry,connectionStatus,
+    //   webhookStatus,lastEventAt,connectedBy,createdAt,updatedAt}]
+    // Tokens are encrypted at rest (integrations/social/crypto.js) and are
+    // stripped out of every response below — Section 7: never return tokens
+    // through normal API responses, even to an authenticated admin's own UI.
+    getSocialCapabilities:()=>({success:true,capabilities:Social.CAPABILITIES}),
+    getSocialAccounts:()=>{
+      const db=rDB();
+      const accounts=(db.socialAccounts||[]).map(a=>{
+        const{accessTokenRef,refreshTokenRef,...safe}=a;
+        return{...safe,hasToken:!!accessTokenRef,tokenExpired:a.tokenExpiry?new Date(a.tokenExpiry)<new Date():false};
+      });
+      return{success:true,accounts};
+    },
+    // Telegram is the one platform connected with a per-tenant credential
+    // (a bot token from @BotFather) rather than OAuth against a shared
+    // Resolvo app — see integrations/social/whatsapp-adapter.js and
+    // capability-matrix.js for why Instagram/Facebook/YouTube/LinkedIn/X
+    // instead use a shared app (INSTAGRAM_APP_ID etc. in .env).
+    connectTelegramBot:async(botToken)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!botToken||!botToken.trim())return{success:false,error:'Bot token is required'};
+      try{
+        const bot=await Social.adapters.telegram.getBotInfo(botToken.trim());
+        const secretToken=require('crypto').randomBytes(24).toString('hex');
+        const webhookUrl=`${BASE_URL}/api/webhooks/telegram/${su.brandSlug}`;
+        await Social.adapters.telegram.setWebhook(botToken.trim(),webhookUrl,secretToken);
+        const db=rDB();
+        db.socialAccounts=(db.socialAccounts||[]).filter(a=>a.platform!=='telegram');
+        db.socialAccounts.push({
+          id:generateId('SOC'),platform:'telegram',platformAccountId:String(bot.id),
+          accountName:bot.first_name||bot.username,username:bot.username,accountType:'bot',
+          accessTokenRef:Social.encryptSecret(botToken.trim()),refreshTokenRef:null,tokenExpiry:null,
+          webhookSecretRef:Social.encryptSecret(secretToken),
+          connectionStatus:'connected',webhookStatus:'active',lastEventAt:null,
+          connectedBy:su.email,createdAt:nowIST(),updatedAt:nowIST(),
+        });
+        wDB(db);
+        _socialAudit(slug,su.email,'account_connected',{platform:'telegram',account:bot.username});
+        return{success:true,account:{platform:'telegram',username:bot.username,name:bot.first_name}};
+      }catch(e){
+        _socialAudit(slug,su.email,'account_connect_failed',{platform:'telegram',error:e.message});
+        return{success:false,error:e.message.includes('Unauthorized')?'Invalid bot token — copy it again from @BotFather.':e.message};
+      }
+    },
+    // OAuth platforms (Instagram/Facebook/YouTube/LinkedIn/X) — returns the
+    // consent URL for the frontend to redirect to; the actual token exchange
+    // happens in the /api/social-oauth/:platform/callback route (needs a
+    // real app registered on that platform — see .env.example).
+    startSocialOAuth:(platform)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const state=Buffer.from(JSON.stringify({slug,by:su.email,ts:Date.now()})).toString('base64url');
+      const redirectUri=`${BASE_URL}/api/social-oauth/${platform}/callback`;
+      try{
+        if(platform==='instagram'){
+          const{INSTAGRAM_APP_ID}=process.env;
+          if(!INSTAGRAM_APP_ID)return{success:false,error:'INSTAGRAM_APP_ID is not configured on this server — see .env.example.'};
+          return{success:true,url:Social.adapters.instagram.getAuthUrl({appId:INSTAGRAM_APP_ID,redirectUri,state})};
+        }
+        if(platform==='facebook'){
+          const{FACEBOOK_APP_ID}=process.env;
+          if(!FACEBOOK_APP_ID)return{success:false,error:'FACEBOOK_APP_ID is not configured on this server — see .env.example.'};
+          return{success:true,url:Social.adapters.facebook.getAuthUrl({appId:FACEBOOK_APP_ID,redirectUri,state})};
+        }
+        if(platform==='youtube'){
+          const{YOUTUBE_CLIENT_ID}=process.env;
+          if(!YOUTUBE_CLIENT_ID)return{success:false,error:'YOUTUBE_CLIENT_ID is not configured on this server — see .env.example.'};
+          return{success:true,url:Social.adapters.youtube.getAuthUrl({clientId:YOUTUBE_CLIENT_ID,redirectUri,state})};
+        }
+        if(platform==='linkedin'){
+          const{LINKEDIN_CLIENT_ID}=process.env;
+          if(!LINKEDIN_CLIENT_ID)return{success:false,error:'LINKEDIN_CLIENT_ID is not configured on this server — see .env.example.'};
+          return{success:true,url:Social.adapters.linkedin.getAuthUrl({clientId:LINKEDIN_CLIENT_ID,redirectUri,state})};
+        }
+        if(platform==='x'){
+          const{X_CLIENT_ID}=process.env;
+          if(!X_CLIENT_ID)return{success:false,error:'X_CLIENT_ID is not configured on this server — see .env.example.'};
+          const pkce=Social.adapters.x.generatePkcePair();
+          global._xPkceVerifiers=global._xPkceVerifiers||{};global._xPkceVerifiers[state]=pkce.verifier;
+          return{success:true,url:Social.adapters.x.getAuthUrl({clientId:X_CLIENT_ID,redirectUri,state,codeChallenge:pkce.challenge})};
+        }
+        return{success:false,error:'Unknown platform: '+platform};
+      }catch(e){return{success:false,error:e.message};}
+    },
+    disconnectSocialAccount:(id)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      const account=(db.socialAccounts||[]).find(a=>a.id===id);
+      if(!account)return{success:false,error:'Not found'};
+      if(account.platform==='telegram'){
+        try{Social.adapters.telegram.deleteWebhook(Social.decryptSecret(account.accessTokenRef)).catch(()=>{});}catch(e){}
+      }
+      db.socialAccounts=(db.socialAccounts||[]).filter(a=>a.id!==id);
+      wDB(db);
+      _socialAudit(slug,su.email,'account_disconnected',{platform:account.platform,account:account.username});
+      return{success:true};
+    },
+    testSocialConnection:async(id)=>{
+      const db=rDB();
+      const account=(db.socialAccounts||[]).find(a=>a.id===id);
+      if(!account)return{success:false,error:'Not found'};
+      try{
+        if(account.platform==='telegram'){
+          const info=await Social.adapters.telegram.getBotInfo(Social.decryptSecret(account.accessTokenRef));
+          return{success:true,ok:true,detail:'Bot @'+info.username+' is reachable'};
+        }
+        return{success:false,error:'Test not yet implemented for '+account.platform+' — OAuth platforms require a connected app to test against.'};
+      }catch(e){return{success:true,ok:false,detail:e.message};}
+    },
+
     // ══════════════════════════════════════════════════════════════════════
     // AUTOMATION ENGINE v2 — general WHEN (trigger) → IF (conditions) → THEN
     // (chained actions) rule system. Complements the simpler ticket-age-only
@@ -3271,6 +3475,20 @@ app.post('/api/call',async(req,res)=>{
     },
     getCSATConfig:()=>{const db=rDB();return{success:true,config:db.csatConfig||{enabled:true,delayMinutes:0,skipAutomated:true,subject:'How did we do? — Quick feedback',message:'Hi! Your support request has been resolved. Was our response helpful?',fromName:'Support Team'}};},
     saveCSATConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.csatConfig=config;wDB(db);return{success:true};},
+    // ── NPS (relationship) surveys — periodic, distinct from post-resolution CSAT ──
+    getNPSConfig:()=>{const db=rDB();return{success:true,config:db.npsConfig||{enabled:false,intervalDays:90,subject:'Quick question about your experience',message:'On a scale of 0-10, how likely are you to recommend us to a friend or colleague?',fromName:'Support Team'}};},
+    saveNPSConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.npsConfig=config;wDB(db);return{success:true};},
+    getNPSResults:()=>{
+      const db=rDB();
+      const surveys=db.npsSurveys||[];
+      const responded=surveys.filter(s=>s.score!=null);
+      const promoters=responded.filter(s=>s.score>=9).length;
+      const passives=responded.filter(s=>s.score>=7&&s.score<=8).length;
+      const detractors=responded.filter(s=>s.score<=6).length;
+      const npsScore=responded.length?Math.round(((promoters-detractors)/responded.length)*100):null;
+      return{success:true,total:surveys.length,responded:responded.length,promoters,passives,detractors,npsScore,
+        recent:responded.slice().sort((a,b)=>new Date(b.respondedAt)-new Date(a.respondedAt)).slice(0,10).map(s=>({email:s.customerEmail,score:s.score,comment:s.comment,respondedAt:s.respondedAt}))};
+    },
     getOOOConfig:()=>{const db=rDB();return{success:true,config:db.oooConfig||{enabled:false,message:'We are currently out of office. We will respond within 24 hours.',startDate:'',endDate:'',expectedResponseHours:24}};},
     saveOOOConfig:(config)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
@@ -3572,6 +3790,39 @@ app.post('/api/call',async(req,res)=>{
       return{success:true,position:pos>=0?pos+1:null,total:open.length};
     },
 
+    // ── SHIFT SCHEDULING + ADHERENCE (basic WFM) ───────────────────────────
+    // db.shifts: [{id, agentEmail, dayOfWeek(0=Sun..6=Sat), startTime:'HH:MM', endTime:'HH:MM'}]
+    // Real forecasting (predicting future ticket volume) is out of scope —
+    // this covers the schedule + "is anyone missing right now" adherence check.
+    getShifts:()=>{const db=rDB();return{success:true,shifts:db.shifts||[]};},
+    saveShift:(shift)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!shift.agentEmail||shift.dayOfWeek==null||!shift.startTime||!shift.endTime)return{success:false,error:'Agent, day, and times are required'};
+      const db=rDB();db.shifts=db.shifts||[];
+      const id=shift.id||generateId('SHIFT');
+      const clean={id,agentEmail:shift.agentEmail,dayOfWeek:parseInt(shift.dayOfWeek),startTime:shift.startTime,endTime:shift.endTime};
+      const idx=db.shifts.findIndex(s=>s.id===id);
+      if(idx>=0)db.shifts[idx]=clean;else db.shifts.push(clean);
+      wDB(db);return{success:true,id};
+    },
+    deleteShift:(id)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.shifts=(db.shifts||[]).filter(s=>s.id!==id);wDB(db);return{success:true};},
+    // Who SHOULD be online right now per schedule, vs who actually is
+    getShiftAdherence:()=>{
+      const db=rDB();
+      const now=new Date();
+      const nowIST_str=nowIST(); // e.g. 2026-08-26T16:51:10.412+05:30 — use IST wall-clock consistently
+      const nowDate=new Date(nowIST_str);
+      const dow=nowDate.getDay();
+      const hhmm=nowDate.toTimeString().slice(0,5);
+      const scheduledNow=(db.shifts||[]).filter(s=>s.dayOfWeek===dow&&s.startTime<=hhmm&&hhmm<s.endTime);
+      const rows=scheduledNow.map(s=>{
+        const user=(db.users||[]).find(u=>u.email===s.agentEmail);
+        const status=user?(user.availabilityStatus||'available'):'unknown';
+        return{agentEmail:s.agentEmail,name:user?(user.name||user.email):s.agentEmail,shift:s.startTime+'–'+s.endTime,status,adherent:status==='available'};
+      });
+      return{success:true,dayOfWeek:dow,time:hhmm,scheduled:rows.length,adherent:rows.filter(r=>r.adherent).length,rows};
+    },
+
     // ── FEATURE 4: AGENT AVAILABILITY STATUS ───────────────────────────────
     // DB CHANGE: adds user.availabilityStatus — backward safe
     setAgentStatus:(status)=>{
@@ -3611,10 +3862,12 @@ app.post('/api/call',async(req,res)=>{
       }))};
     },
 
-    // ── FEATURE 3: CUSTOMER TICKET HISTORY ────────────────────────────────
+    // ── FEATURE 3: CUSTOMER TICKET HISTORY (cross-channel via linked identity) ──
     getCustomerHistory:(email)=>{
       const db=rDB();
-      const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===email.toLowerCase());
+      const linked=_linkedIdentifiersFor(db,email);
+      const profile=_findCustomerProfile(db,email);
+      const tickets=(db.tickets||[]).filter(t=>t.from&&linked.includes(_normalizeIdentifier(t.from)));
       const resolved=tickets.filter(t=>t.status==='resolved'||t.status==='closed');
       const csatScores=tickets.filter(t=>t.csatScore!=null).map(t=>t.csatScore);
       const avgCSAT=csatScores.length?Math.round(csatScores.reduce((a,b)=>a+b,0)/csatScores.length):null;
@@ -3626,13 +3879,54 @@ app.post('/api/call',async(req,res)=>{
       const fromLow=email.toLowerCase();
       const isVIP=(vip.emails||[]).some(e=>fromLow===e.toLowerCase())||(vip.domains||[]).some(d=>fromLow.endsWith('@'+d.toLowerCase()));
       return{success:true,
-        email,totalTickets:tickets.length,resolvedTickets:resolved.length,
+        email,linkedIdentifiers:linked,profileId:profile?profile.id:null,
+        totalTickets:tickets.length,resolvedTickets:resolved.length,
         openTickets:tickets.filter(t=>!['resolved','closed'].includes(t.status)).length,
         avgCSAT,avgFirstResponseMinutes:avgFRT,isVIP,
         lastContact:tickets.length?tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate))[0].createdDate:null,
-        recentTickets:tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate)).slice(0,5).map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,csatRating:t.csatRating})),
+        recentTickets:tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate)).slice(0,5).map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,csatRating:t.csatRating,channel:t.channel||'email'})),
         notes
       };
+    },
+
+    // Link two identifiers (e.g. an email + a WhatsApp number) as the same
+    // real customer, so history/notes/VIP status unify across channels.
+    // Merges existing profiles if both identifiers already belong to different ones.
+    linkCustomerIdentity:(identifierA,identifierB)=>{
+      if(su.role!=='Admin'&&su.role!=='Agent')return{success:false,error:'Not permitted'};
+      const db=rDB();
+      const a=_normalizeIdentifier(identifierA),b=_normalizeIdentifier(identifierB);
+      if(!a||!b||a===b)return{success:false,error:'Two different identifiers are required'};
+      db.customerProfiles=db.customerProfiles||[];
+      const typeOf=v=>v.includes('@')?'email':'phone';
+      const profA=db.customerProfiles.find(p=>(p.identifiers||[]).some(i=>i.value===a));
+      const profB=db.customerProfiles.find(p=>(p.identifiers||[]).some(i=>i.value===b));
+      if(profA&&profB&&profA.id!==profB.id){
+        // Merge B into A, dedupe by value
+        const seen=new Set(profA.identifiers.map(i=>i.value));
+        for(const i of profB.identifiers)if(!seen.has(i.value)){profA.identifiers.push(i);seen.add(i.value);}
+        db.customerProfiles=db.customerProfiles.filter(p=>p.id!==profB.id);
+      }else if(profA&&!profB){
+        profA.identifiers.push({value:b,type:typeOf(b)});
+      }else if(profB&&!profA){
+        profB.identifiers.push({value:a,type:typeOf(a)});
+      }else if(!profA&&!profB){
+        db.customerProfiles.push({id:generateId('CUST'),identifiers:[{value:a,type:typeOf(a)},{value:b,type:typeOf(b)}],createdAt:nowIST(),linkedBy:su.email});
+      }
+      // else: already linked to the same profile — no-op
+      wDB(db);
+      return{success:true,linkedIdentifiers:_linkedIdentifiersFor(db,a)};
+    },
+    unlinkCustomerIdentity:(identifier)=>{
+      if(su.role!=='Admin'&&su.role!=='Agent')return{success:false,error:'Not permitted'};
+      const db=rDB();
+      const norm=_normalizeIdentifier(identifier);
+      const profile=(db.customerProfiles||[]).find(p=>(p.identifiers||[]).some(i=>i.value===norm));
+      if(!profile)return{success:false,error:'Not linked to anything'};
+      profile.identifiers=profile.identifiers.filter(i=>i.value!==norm);
+      if(profile.identifiers.length<2)db.customerProfiles=db.customerProfiles.filter(p=>p.id!==profile.id);
+      wDB(db);
+      return{success:true};
     },
 
     // ── FEATURE 8: CUSTOMER INTERNAL NOTES ────────────────────────────────
@@ -5012,6 +5306,31 @@ app.get('/csat-ticket',(req,res)=>{
   }catch(e){return res.send('<html><body><p>Invalid link.</p></body></html>');}
 });
 
+// Relationship NPS survey response (0-10 scale) — separate from post-resolution CSAT
+app.get('/nps',(req,res)=>{
+  const{token,score}=req.query;
+  if(!token)return res.send('<html><body><p>Invalid survey link.</p></body></html>');
+  try{
+    const payload=JSON.parse(Buffer.from(token,'base64url').toString('utf8'));
+    const{slug,surveyId}=payload;
+    const db=readBrandDB(slug);
+    db.npsSurveys=db.npsSurveys||[];
+    const idx=db.npsSurveys.findIndex(s=>s.id===surveyId);
+    if(idx===-1)return res.send('<html><body><p>Survey not found or expired.</p></body></html>');
+    const s=db.npsSurveys[idx];
+    if(score!=null&&s.score==null){
+      const n=Math.max(0,Math.min(10,parseInt(score,10)));
+      s.score=n;s.respondedAt=nowIST();
+      writeBrandDB(slug,db);
+    }
+    const already=s.score!=null&&score==null;
+    const category=s.score>=9?'promoter':s.score>=7?'passive':'detractor';
+    const emoji={promoter:'🤩',passive:'🙂',detractor:'😕'}[category];
+    const msg={promoter:'Thank you! So glad you\'d recommend us.',passive:'Thanks for the feedback — we\'ll keep improving.',detractor:'Thanks for being honest — we\'ll work to do better.'}[category];
+    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Thank You</title></head><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;"><div style="max-width:400px;text-align:center;background:#fff;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,.08);"><div style="font-size:52px;margin-bottom:16px;">${already?'✅':emoji}</div><h2 style="margin:0 0 10px;font-size:22px;font-weight:800;color:#111827;">${already?'Already recorded!':msg}</h2><p style="color:#6b7280;font-size:14px;margin:10px 0 0;">${already?'Your response was already recorded.':'You rated us <strong>'+s.score+'/10</strong>.'}</p><p style="color:#9ca3af;font-size:12px;margin:24px 0 0;">Powered by Resolvo</p></div></body></html>`);
+  }catch(e){return res.send('<html><body><p>Invalid link.</p></body></html>');}
+});
+
 // ── PUBLIC SELF-SIGNUP (no auth — creates trial brand) ─────────────────────
 app.post('/api/signup',async(req,res)=>{
   const{name,email,company,password,ref,category}=req.body;
@@ -5305,9 +5624,17 @@ app.post('/api/widget/:slug/submit',(req,res)=>{
   const db=readBrandDB(slug);
   const ticketId=generateTicketId(slug);const now=nowIST();
   db.tickets=db.tickets||[];
-  db.tickets.unshift({id:ticketId,subject:'Website Feedback: '+message.substring(0,60),from:email,fromName:email,status:'new',priority:'Medium',createdDate:now,lastActivity:now,source:'widget',tags:['widget'],thread:[{id:generateId('MSG'),type:'incoming',from:email,fromName:email,body:`${message}\n\n---\nPage: ${url||'unknown'}\nBrowser: ${(userAgent||'').substring(0,80)}`,timestamp:now}]});
+  const thread=[{id:generateId('MSG'),type:'incoming',from:email,fromName:email,body:`${message}\n\n---\nPage: ${url||'unknown'}\nBrowser: ${(userAgent||'').substring(0,80)}`,timestamp:now}];
+  // No-code FAQ bot — auto-answers matching keywords instantly, no human needed
+  const botRule=matchBotRule(db,message,'widget');
+  let botReply=null;
+  if(botRule){
+    botReply=botRule.response;
+    thread.push({id:generateId('MSG'),type:'reply',from:'bot',fromName:'Auto-Reply Bot',body:botRule.response,timestamp:nowIST(),botHandled:true});
+  }
+  db.tickets.unshift({id:ticketId,subject:'Website Feedback: '+message.substring(0,60),from:email,fromName:email,status:botRule?'resolved':'new',priority:'Medium',createdDate:now,lastActivity:now,source:'widget',tags:['widget'],botHandled:!!botRule,thread});
   writeBrandDB(slug,db);
-  res.json({success:true,ticketId});
+  res.json({success:true,ticketId,botReply});
 });
 // Reset password page — serve index.html so SPA handles the token
 app.get('/reset-password',(req,res)=>res.sendFile('index.html',{root:path.join(__dirname,'public')}));
@@ -7460,6 +7787,51 @@ function runBackgroundJobs(){
       }catch(e){}
     }
   });
+  // Relationship NPS surveys — periodic (not per-ticket like CSAT), daily at 11am.
+  // Sends to each distinct customer at most once per npsConfig.intervalDays,
+  // capped per brand per run so it can't mass-email everyone in one go.
+  cron.schedule('0 11 * * *',async()=>{
+    const owner=readOwner();
+    const DAILY_CAP=20;
+    for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+      try{
+        const db=readBrandDB(brand.slug);
+        const cfg=db.npsConfig;
+        if(!cfg||!cfg.enabled)continue;
+        const intervalMs=(cfg.intervalDays||90)*86400000;
+        const now=Date.now();
+        db.npsSurveys=db.npsSurveys||[];
+        // One customer per normalized email identifier, using their most recent ticket for contact info
+        const byCustomer=new Map();
+        for(const t of (db.tickets||[])){
+          if(!t.from||!t.from.includes('@'))continue; // NPS via email only for now
+          const norm=_normalizeIdentifier(t.from);
+          const existing=byCustomer.get(norm);
+          if(!existing||new Date(t.createdDate)>new Date(existing.createdDate))byCustomer.set(norm,t);
+        }
+        let sentThisRun=0;
+        for(const[emailNorm,ticket]of byCustomer){
+          if(sentThisRun>=DAILY_CAP)break;
+          const linked=_linkedIdentifiersFor(db,emailNorm);
+          const priorSurveys=db.npsSurveys.filter(s=>linked.includes(_normalizeIdentifier(s.customerEmail)));
+          const lastSent=priorSurveys.length?Math.max(...priorSurveys.map(s=>new Date(s.sentAt).getTime())):0;
+          if(now-lastSent<intervalMs)continue;
+          const surveyId=generateId('NPS');
+          const token=Buffer.from(JSON.stringify({slug:brand.slug,surveyId})).toString('base64url');
+          const surveyUrl=n=>`${BASE_URL}/nps?token=${token}&score=${n}`;
+          const scoreLinks=Array.from({length:11},(_,n)=>`<a href="${surveyUrl(n)}" style="display:inline-block;width:28px;height:28px;line-height:28px;margin:2px;text-align:center;background:${n<=6?'#FEE2E2':n<=8?'#FEF3C7':'#DCFCE7'};color:${n<=6?'#DC2626':n<=8?'#D97706':'#16A34A'};border-radius:6px;text-decoration:none;font-weight:700;font-size:13px;">${n}</a>`).join('');
+          const html=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:32px 16px;"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:14px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.08);"><p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 16px;">${cfg.message||'On a scale of 0-10, how likely are you to recommend us to a friend or colleague?'}</p><div style="text-align:center;margin-bottom:8px;">${scoreLinks}</div><div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:4px;"><span>Not likely</span><span>Very likely</span></div></div></body></html>`;
+          try{
+            await sendBrandEmail(brand.slug,ticket.from,cfg.subject||'Quick question about your experience',html,'Rate us 0-10: '+surveyUrl('N'));
+            db.npsSurveys.push({id:surveyId,customerEmail:ticket.from,brandSlug:brand.slug,sentAt:nowIST(),score:null,comment:null,respondedAt:null});
+            sentThisRun++;
+          }catch(e){}
+        }
+        if(sentThisRun>0){writeBrandDB(brand.slug,db);console.log(`[NPS] Sent ${sentThisRun} survey(s) for ${brand.slug}`);}
+      }catch(e){console.error(`[NPS] Error for ${brand.slug}:`,e.message);}
+    }
+  });
+
   // 24-hour advance appointment reminders — runs daily at 8am
   cron.schedule('0 8 * * *',async()=>{
     const owner=readOwner();
@@ -8696,6 +9068,8 @@ function evaluateAutomationCondition(cond,ticket){
     case'tags':actual=ticket.tags||[];break;
     case'customerDomain':actual=(ticket.from||'').split('@')[1]||'';break;
     case'assignedTo':actual=ticket.assignedTo||'';break;
+    case'sentiment':actual=ticket.sentimentLevel||'neutral';break;
+    case'messageContains':actual=((ticket.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0]||{}).body||ticket.subject||'';break;
     default:actual=undefined;
   }
   switch(op){
@@ -9108,6 +9482,48 @@ app.post('/api/owner/changelogs',ownerOnly,async(req,res)=>{
 // compare equal regardless of formatting.
 function _normalizeWaNumber(n){return String(n||'').replace(/^whatsapp:/i,'').replace(/[^\d+]/g,'');}
 
+// ── No-code FAQ auto-responder bot ────────────────────────────────────────
+// Rule-based keyword matching, deployable to channels Resolvo actually has
+// (WhatsApp, Web Widget). Not a full conversational/visual-flow builder, and
+// not deployable to Facebook/Instagram — those aren't integrated channels here.
+// db.botRules: [{id,enabled,keywords:[string],response,channels:['whatsapp','widget']}]
+function matchBotRule(db,text,channel){
+  const rules=(db.botRules||[]).filter(r=>r.enabled&&(r.channels||[]).includes(channel));
+  const lower=String(text||'').toLowerCase();
+  for(const rule of rules){
+    if((rule.keywords||[]).some(k=>k.trim()&&lower.includes(k.toLowerCase().trim())))return rule;
+  }
+  return null;
+}
+
+// ── Cross-channel customer identity ───────────────────────────────────────
+// A ticket's `from` is a raw channel address: an email for Email/Widget
+// tickets, "whatsapp:+91..." or a bare "+91..." for WhatsApp/SMS/Call. Phone
+// forms already normalize to the same value via _normalizeWaNumber, so
+// WhatsApp+SMS+Call from one real number unify for free. Email and phone are
+// different namespaces though — those need an explicit link, stored in
+// db.customerProfiles: [{id, identifiers:[{value,type}], createdAt}].
+const _SOCIAL_ID_PREFIX=/^(instagram|facebook|telegram|youtube|linkedin|x):/i;
+function _normalizeIdentifier(raw){
+  const s=String(raw||'').trim();
+  // Social platform identifiers ("instagram:17841...") are neither an email
+  // nor a phone number — pass through unchanged rather than letting
+  // _normalizeWaNumber strip their non-digit characters.
+  if(_SOCIAL_ID_PREFIX.test(s))return s.toLowerCase();
+  if(s.includes('@')&&!/^whatsapp:/i.test(s))return s.toLowerCase();
+  return _normalizeWaNumber(s);
+}
+function _findCustomerProfile(db,identifier){
+  const norm=_normalizeIdentifier(identifier);
+  return (db.customerProfiles||[]).find(p=>(p.identifiers||[]).some(i=>i.value===norm));
+}
+// All identifiers linked to the same real person as `identifier` (including itself).
+function _linkedIdentifiersFor(db,identifier){
+  const profile=_findCustomerProfile(db,identifier);
+  if(profile)return profile.identifiers.map(i=>i.value);
+  return [_normalizeIdentifier(identifier)];
+}
+
 app.post('/api/whatsapp/webhook',async(req,res)=>{
   // Standard Twilio WhatsApp webhook
   const{From,To,Body,ProfileName,WaId}=req.body;
@@ -9127,18 +9543,32 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       // Create or append to existing ticket from this WhatsApp number
       const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===WaId&&t.status==='open');
       const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
+      // No-code FAQ bot — only on a brand-new conversation, so it doesn't
+      // interrupt an already-open human thread with the same customer
+      const botRule=existingIdx<0?matchBotRule(db,Body,'whatsapp'):null;
       if(existingIdx>=0){
         db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
         db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'});
         db.tickets[existingIdx].lastActivity=nowIST();
       }else{
         db.tickets=db.tickets||[];
-        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:'open',priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread:[{id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'}]});
+        const thread=[{id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'}];
+        if(botRule)thread.push({id:generateId('MSG'),type:'reply',from:'bot',fromName:'Auto-Reply Bot',body:botRule.response,timestamp:nowIST(),channel:'whatsapp',botHandled:true});
+        db.tickets.unshift({id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:botRule?'resolved':'open',botHandled:!!botRule,priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread});
       }
       writeBrandDB(brand.slug,db);
       handled=true;
       if(existingIdx<0)runAutomationRules(brand.slug,ticketId,'ticket_created').catch(()=>{});
-      console.log(`[WhatsApp] Ticket ${ticketId} from ${From} (${brand.slug})`);
+      if(botRule){
+        try{
+          const waCfg=db.whatsappConfig||{};
+          if(waCfg.accountSid&&waCfg.authToken&&waCfg.number){
+            const twilio=require('twilio')(waCfg.accountSid,waCfg.authToken);
+            await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(waCfg.number)}`,to:From,body:botRule.response});
+          }
+        }catch(e){console.error('[Bot] WhatsApp auto-reply send failed:',e.message);}
+      }
+      console.log(`[WhatsApp] Ticket ${ticketId} from ${From} (${brand.slug})${botRule?' — auto-resolved by bot':''}`);
       break;
     }catch(e){console.error('[WhatsApp]',e.message);}
   }
@@ -9146,6 +9576,124 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
   res.status(200).send('<Response></Response>');
 });
 
+// ══════════════════════════════════════════════════════════════════════════
+// SOCIAL CHANNELS WEBHOOK ENDPOINTS (Section 23)
+// Only platforms that genuinely support webhooks get a route here — YouTube/
+// LinkedIn/X are polling-only per capability-matrix.js, so a fake webhook
+// endpoint for them would just silently never fire. That's the point of the
+// capability matrix: mark unsupported rather than build something inert.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Telegram — one bot token per tenant, so the tenant slug is in the URL path
+// itself (Telegram doesn't send any tenant-identifying header).
+app.post('/api/webhooks/telegram/:slug',async(req,res)=>{
+  const{slug}=req.params;
+  res.sendStatus(200); // ack immediately — Telegram retries on non-200/timeout
+  try{
+    const db=readBrandDB(slug);
+    const account=(db.socialAccounts||[]).find(a=>a.platform==='telegram');
+    if(!account)return;
+    const expectedSecret=Social.decryptSecret(account.webhookSecretRef);
+    if(!Social.adapters.telegram.verifyWebhookSignature(req,expectedSecret)){
+      console.warn(`[Telegram] Rejected webhook for ${slug} — signature mismatch`);
+      _socialAudit(slug,'system','webhook_rejected',{platform:'telegram',error:'signature mismatch'});
+      return;
+    }
+    const receivedAt=new Date().toISOString();
+    const messages=Social.adapters.telegram.normalizeEvent(req.body,slug,account.platformAccountId,receivedAt);
+    for(const msg of messages){
+      const result=socialGateway.processEvent(slug,msg);
+      if(!result.duplicate){
+        account.lastEventAt=nowIST();
+        _socialAudit(slug,'system','message_received',{platform:'telegram',ticketId:result.ticketId,event_type:msg.event_type});
+      }
+    }
+    if(messages.length){const db2=readBrandDB(slug);const idx=(db2.socialAccounts||[]).findIndex(a=>a.id===account.id);if(idx>=0){db2.socialAccounts[idx].lastEventAt=nowIST();writeBrandDB(slug,db2);}}
+  }catch(e){console.error(`[Telegram] Webhook error for ${slug}:`,e.message);_socialAudit(slug,'system','webhook_error',{platform:'telegram',error:e.message});}
+});
+
+// Instagram/Facebook share the Meta webhook shape and verification scheme.
+// A single Meta App receives events for ALL tenants' connected Pages —
+// entry[].id (the Page/IG account id) is how we route to the right tenant.
+function _metaWebhookHandler(platform){
+  return async(req,res)=>{
+    if(req.method==='GET'){
+      const verifyToken=process.env.META_WEBHOOK_VERIFY_TOKEN||'';
+      Social.adapters[platform].handleWebhookVerification(req,res,verifyToken);
+      return;
+    }
+    res.sendStatus(200); // ack immediately, same reasoning as Telegram above
+    try{
+      const appSecret=platform==='instagram'?process.env.INSTAGRAM_APP_SECRET:process.env.FACEBOOK_APP_SECRET;
+      if(!appSecret||!Social.adapters[platform].verifyWebhookSignature(req,appSecret)){
+        console.warn(`[${platform}] Rejected webhook — signature mismatch or app secret not configured`);
+        return;
+      }
+      // Route each entry to the tenant whose socialAccounts contains this platformAccountId
+      const owner=readOwner();
+      const receivedAt=new Date().toISOString();
+      for(const entry of(req.body.entry||[])){
+        for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+          const db=readBrandDB(brand.slug);
+          const account=(db.socialAccounts||[]).find(a=>a.platform===platform&&a.platformAccountId===entry.id);
+          if(!account)continue;
+          const singleEntryPayload={object:req.body.object,entry:[entry]};
+          const messages=Social.adapters[platform].normalizeEvent(singleEntryPayload,brand.slug,receivedAt);
+          for(const msg of messages){
+            const result=socialGateway.processEvent(brand.slug,msg);
+            if(!result.duplicate)_socialAudit(brand.slug,'system','message_received',{platform,ticketId:result.ticketId,event_type:msg.event_type});
+          }
+          if(messages.length){const idx=(db.socialAccounts||[]).findIndex(a=>a.id===account.id);if(idx>=0){db.socialAccounts[idx].lastEventAt=nowIST();writeBrandDB(brand.slug,db);}}
+          break; // account ids are unique per platform, no need to keep scanning other brands
+        }
+      }
+    }catch(e){console.error(`[${platform}] Webhook error:`,e.message);}
+  };
+}
+app.get('/api/webhooks/instagram',_metaWebhookHandler('instagram'));
+app.post('/api/webhooks/instagram',_metaWebhookHandler('instagram'));
+app.get('/api/webhooks/facebook',_metaWebhookHandler('facebook'));
+app.post('/api/webhooks/facebook',_metaWebhookHandler('facebook'));
+
+// OAuth callback — shared route, dispatches by :platform. Instagram/Facebook
+// share the Meta token-exchange code; YouTube/LinkedIn/X each have their own.
+app.get('/api/social-oauth/:platform/callback',async(req,res)=>{
+  const{platform}=req.params;
+  const{code,state,error}=req.query;
+  if(error)return res.redirect(`/?toast=${encodeURIComponent('Connection cancelled: '+error)}&toastType=error`);
+  if(!code||!state)return res.send('Missing code or state.');
+  let slug,connectedBy;
+  try{const parsed=JSON.parse(Buffer.from(state,'base64url').toString('utf8'));slug=parsed.slug;connectedBy=parsed.by||'admin';}catch(e){return res.send('Invalid state.');}
+  const redirectUri=`${BASE_URL}/api/social-oauth/${platform}/callback`;
+  try{
+    const db=readBrandDB(slug);
+    db.socialAccounts=db.socialAccounts||[];
+    if(platform==='instagram'||platform==='facebook'){
+      const appId=platform==='instagram'?process.env.INSTAGRAM_APP_ID:process.env.FACEBOOK_APP_ID;
+      const appSecret=platform==='instagram'?process.env.INSTAGRAM_APP_SECRET:process.env.FACEBOOK_APP_SECRET;
+      const result=await Social.adapters[platform].handleOAuthCallback({appId,appSecret,redirectUri,code});
+      for(const acc of result.linkedAccounts){
+        const platformAccountId=platform==='instagram'?acc.instagramAccountId:acc.pageId;
+        db.socialAccounts=db.socialAccounts.filter(a=>!(a.platform===platform&&a.platformAccountId===platformAccountId));
+        db.socialAccounts.push({
+          id:generateId('SOC'),platform,platformAccountId,
+          accountName:acc.name||acc.pageName,username:acc.username||null,accountType:platform==='instagram'?'business':'page',
+          accessTokenRef:Social.encryptSecret(platform==='instagram'?result.accessToken:acc.pageAccessToken),
+          refreshTokenRef:null,tokenExpiry:result.expiresIn?new Date(Date.now()+result.expiresIn*1000).toISOString():null,
+          connectionStatus:'connected',webhookStatus:'pending_verification',lastEventAt:null,
+          connectedBy,createdAt:nowIST(),updatedAt:nowIST(),
+        });
+      }
+      writeBrandDB(slug,db);
+      _socialAudit(slug,'admin','account_connected',{platform,accounts:result.linkedAccounts.length});
+      return res.redirect(`/?toast=${encodeURIComponent(platform+' connected!')}&toastType=success`);
+    }
+    return res.send('OAuth callback for '+platform+' is scaffolded but not yet wired — see integrations/social/'+platform+'-adapter.js.');
+  }catch(e){
+    _socialAudit(slug,'admin','account_connect_failed',{platform,error:e.message});
+    return res.redirect(`/?toast=${encodeURIComponent(platform+' connection failed: '+e.message)}&toastType=error`);
+  }
+});
 // ── SMS webhook (Twilio) — same shape/logic as WhatsApp, plain phone numbers ──
 app.post('/api/sms/webhook',async(req,res)=>{
   const{From,To,Body,MessageSid}=req.body;
