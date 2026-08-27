@@ -8034,6 +8034,73 @@ app.get('/api/owner/tables',ownerOnly,(req,res)=>{
   ]});
 });
 
+// ══════════════════════════════════════════════════════════════════════════
+// OWNER RECORD EDITOR — fetch/edit a single record's fields directly from the
+// Owner Console. Every save is merged onto the existing record (not a raw
+// overwrite of the row) and logged to the owner audit trail with a before/
+// after snapshot, same as every other owner-console mutation.
+// ══════════════════════════════════════════════════════════════════════════
+const EDITABLE_TABLES=new Set(['brands','users','tickets','issues','appointments','comments']);
+const RECORD_FIELD_BLOCKLIST=new Set(['passwordHash']); // never surfaced or writable through this editor
+
+app.get('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
+  const table=req.params.table.toLowerCase();
+  const{brand,id}=req.params;
+  if(!EDITABLE_TABLES.has(table))return res.json({success:false,error:'Table not editable: '+table});
+  try{
+    let record;
+    if(table==='brands'){
+      const owner=readOwner();
+      record=(owner.brands||[]).find(b=>b.slug===id);
+    }else{
+      const db=readBrandDB(brand);
+      record=(db[table]||[]).find(r=>r.id===id);
+    }
+    if(!record)return res.json({success:false,error:'Record not found'});
+    const clean={...record};
+    for(const k of RECORD_FIELD_BLOCKLIST)delete clean[k];
+    res.json({success:true,record:clean});
+  }catch(e){res.json({success:false,error:e.message});}
+});
+
+app.post('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
+  const table=req.params.table.toLowerCase();
+  const{brand,id}=req.params;
+  const updates=req.body.updates;
+  if(!EDITABLE_TABLES.has(table))return res.json({success:false,error:'Table not editable: '+table});
+  if(!updates||typeof updates!=='object'||Array.isArray(updates))return res.json({success:false,error:'No updates provided'});
+  for(const k of RECORD_FIELD_BLOCKLIST)delete updates[k];
+  try{
+    const owner=readOwner();
+    if(table==='brands'){
+      const idx=(owner.brands||[]).findIndex(b=>b.slug===id);
+      if(idx<0)return res.json({success:false,error:'Brand not found'});
+      const before={...owner.brands[idx]};
+      Object.assign(owner.brands[idx],updates);
+      ownerAuditLog(owner,'record_edit',{table:'brands',brand:id,id,fields:Object.keys(updates),before,after:{...owner.brands[idx]}},req.owner.email);
+      writeOwner(owner);
+      monitorEvent('info','record_edit',`Owner edited brand ${id}`,{fields:Object.keys(updates)});
+      const cleanBrand={...owner.brands[idx]};
+      for(const k of RECORD_FIELD_BLOCKLIST)delete cleanBrand[k];
+      return res.json({success:true,record:cleanBrand});
+    }
+    const db=readBrandDB(brand);
+    const arr=db[table]||[];
+    const idx=arr.findIndex(r=>r.id===id);
+    if(idx<0)return res.json({success:false,error:'Record not found'});
+    const before={...arr[idx]};
+    Object.assign(arr[idx],updates);
+    db[table]=arr;
+    writeBrandDB(brand,db);
+    ownerAuditLog(owner,'record_edit',{table,brand,id,fields:Object.keys(updates),before,after:{...arr[idx]}},req.owner.email);
+    writeOwner(owner);
+    monitorEvent('info','record_edit',`Owner edited ${table} record ${id} in ${brand}`,{fields:Object.keys(updates)});
+    const cleanRec={...arr[idx]};
+    for(const k of RECORD_FIELD_BLOCKLIST)delete cleanRec[k];
+    res.json({success:true,record:cleanRec});
+  }catch(e){res.json({success:false,error:e.message});}
+});
+
 // Send ALL nurture emails (time-based + trigger) as a test preview to owner email
 app.post('/api/owner/nurture/test-all',ownerOnly,async(req,res)=>{
   const toEmail=req.body.to||OWNER_FROM_EMAIL;
@@ -8292,6 +8359,23 @@ tr:hover td{background:#1e2330}
   </div>
 </div>
 
+<!-- EDIT RECORD OVERLAY -->
+<div id="editOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:998;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:28px;width:560px;max-width:100%;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:18px;font-weight:800;color:#f5a623">✏️ Edit Record</div>
+      <button onclick="closeEdit()" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="editMeta" style="font-size:12px;color:#64748b;margin-bottom:18px;font-family:monospace"></div>
+    <div id="editErr" style="display:none" class="err"></div>
+    <div id="editFields"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary" id="editSaveBtn" onclick="saveEdit()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN OVERLAY -->
 <div id="loginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;align-items:center;justify-content:center">
   <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:32px;width:340px">
@@ -8316,7 +8400,8 @@ const FIELDS={
   support_tickets:['id','subject','status','from','brandName','createdAt']
 };
 
-let lastResult=null,currentFilter='',allLogs=[],_token='';
+let lastResult=null,currentFilter='',allLogs=[],_token='',lastSql='',lastQueryTable='',editCtx=null;
+const EDITABLE_TABLES=new Set(['brands','users','tickets','issues','appointments','comments']);
 
 function getToken(){
   if(_token)return _token;
@@ -8383,6 +8468,9 @@ function buildSQL(){
 }
 
 async function runSQL(sql){
+  lastSql=sql;
+  const tblM=sql.match(/FROM\\s+(\\w+)/i);
+  lastQueryTable=tblM?tblM[1].toLowerCase():'';
   document.getElementById('qErr').style.display='none';
   document.getElementById('tableWrap').style.display='none';
   document.getElementById('qMeta').style.display='none';
@@ -8398,7 +8486,7 @@ async function runSQL(sql){
     return;
   }
   lastResult=data;
-  document.getElementById('qMeta').innerHTML=\`<b>\${data.total}</b> rows found &nbsp;|&nbsp; <b>\${data.ms}ms</b>\`;
+  document.getElementById('qMeta').innerHTML=\`<b>\${data.total}</b> rows found &nbsp;|&nbsp; <b>\${data.ms}ms</b>\${EDITABLE_TABLES.has(lastQueryTable)?' &nbsp;|&nbsp; <span style="color:#10B981">✏️ Editable — click Edit on a row</span>':''}\`;
   renderTable(data);
   document.getElementById('exportBtn').style.display='inline-flex';
 }
@@ -8411,19 +8499,120 @@ function renderTable(data){
     document.getElementById('tableWrap').innerHTML='<div class="no-data">No results found</div>';
     document.getElementById('tableWrap').style.display='block';return;
   }
-  let html='<table><thead><tr>'+data.columns.map(c=>\`<th>\${c}</th>\`).join('')+'</tr></thead><tbody>';
+  const editable=EDITABLE_TABLES.has(lastQueryTable);
+  const idCol=lastQueryTable==='brands'?'slug':'id';
+  const idIdx=data.columns.indexOf(idCol);
+  const brandIdx=data.columns.indexOf('_brand');
+  const canEditRows=editable&&idIdx>=0;
+  let html='<table><thead><tr>'+data.columns.map(c=>\`<th>\${c}</th>\`).join('')+(canEditRows?'<th>Actions</th>':'')+'</tr></thead><tbody>';
   data.rows.forEach(row=>{
     html+='<tr>'+row.map(v=>{
       if(v===null||v===undefined)return '<td class="nv">—</td>';
       const s=typeof v==='object'?JSON.stringify(v):String(v);
       const display=s.length>100?s.substring(0,100)+'…':s;
       return \`<td title="\${s.replace(/"/g,'&quot;')}">\${display}</td>\`;
-    }).join('')+'</tr>';
+    }).join('');
+    if(canEditRows){
+      const rid=row[idIdx];
+      const brand=lastQueryTable==='brands'?rid:(brandIdx>=0?row[brandIdx]:'');
+      if(rid&&(lastQueryTable==='brands'||brand)){
+        const ridEsc=String(rid).replace(/'/g,"\\\\'");
+        const brandEsc=String(brand).replace(/'/g,"\\\\'");
+        html+=\`<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="openEdit('\${lastQueryTable}','\${brandEsc}','\${ridEsc}')">✏️ Edit</button></td>\`;
+      }else{
+        html+='<td class="nv">—</td>';
+      }
+    }
+    html+='</tr>';
   });
   html+='</tbody></table>';
   document.getElementById('tableWrap').innerHTML=html;
   document.getElementById('tableWrap').style.display='block';
 }
+
+async function openEdit(table,brand,id){
+  editCtx={table,brand,id};
+  document.getElementById('editErr').style.display='none';
+  document.getElementById('editMeta').textContent=table+' · '+(brand||'—')+' · '+id;
+  document.getElementById('editFields').innerHTML='<div class="no-data">Loading...</div>';
+  document.getElementById('editOverlay').style.display='flex';
+  try{
+    const res=await fetch('/api/owner/record/'+encodeURIComponent(table)+'/'+encodeURIComponent(brand)+'/'+encodeURIComponent(id),{headers:{'x-session-token':getToken()}});
+    const d=await res.json();
+    if(!d.success){
+      document.getElementById('editFields').innerHTML='';
+      document.getElementById('editErr').textContent=d.error;
+      document.getElementById('editErr').style.display='block';
+      return;
+    }
+    renderEditForm(d.record);
+  }catch(e){
+    document.getElementById('editErr').textContent=e.message;
+    document.getElementById('editErr').style.display='block';
+  }
+}
+
+function renderEditForm(record){
+  const skip=new Set(['id','slug','_brand','_brandName']);
+  const keys=Object.keys(record).filter(k=>!skip.has(k));
+  if(!keys.length){document.getElementById('editFields').innerHTML='<div class="no-data">No editable fields</div>';return;}
+  const html=keys.map(k=>{
+    const v=record[k];
+    const fid='ef_'+k.replace(/[^\\w]/g,'_');
+    if(typeof v==='boolean'){
+      return \`<div style="margin-bottom:14px"><label>\${k}</label><select id="\${fid}" data-field="\${k}" data-type="bool" style="width:100%"><option value="true" \${v?'selected':''}>true</option><option value="false" \${!v?'selected':''}>false</option></select></div>\`;
+    }
+    if(v!==null&&typeof v==='object'){
+      const json=JSON.stringify(v,null,2).replace(/</g,'&lt;');
+      return \`<div style="margin-bottom:14px"><label>\${k} <span style="color:#4a5568">(JSON — array/object)</span></label><textarea id="\${fid}" data-field="\${k}" data-type="json" rows="6" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px;color:#e2e8f0;font-family:monospace;font-size:12px">\${json}</textarea></div>\`;
+    }
+    const val=(v===null||v===undefined)?'':String(v).replace(/"/g,'&quot;');
+    return \`<div style="margin-bottom:14px"><label>\${k}</label><input type="text" id="\${fid}" data-field="\${k}" data-type="str" value="\${val}" style="width:100%"></div>\`;
+  }).join('');
+  document.getElementById('editFields').innerHTML=html;
+}
+
+async function saveEdit(){
+  if(!editCtx)return;
+  const inputs=document.getElementById('editFields').querySelectorAll('[data-field]');
+  const updates={};
+  const errEl=document.getElementById('editErr');
+  errEl.style.display='none';
+  for(const el of inputs){
+    const field=el.dataset.field,type=el.dataset.type;
+    if(type==='json'){
+      const raw=el.value.trim();
+      if(raw===''){updates[field]=null;continue;}
+      try{updates[field]=JSON.parse(raw);}
+      catch(e){errEl.textContent='Invalid JSON in "'+field+'": '+e.message;errEl.style.display='block';return;}
+    }else if(type==='bool'){
+      updates[field]=el.value==='true';
+    }else{
+      updates[field]=el.value;
+    }
+  }
+  const btn=document.getElementById('editSaveBtn');
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const{table,brand,id}=editCtx;
+    const res=await fetch('/api/owner/record/'+encodeURIComponent(table)+'/'+encodeURIComponent(brand)+'/'+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({updates})});
+    const d=await res.json();
+    if(!d.success){
+      errEl.textContent=d.error;errEl.style.display='block';
+      btn.disabled=false;btn.textContent='💾 Save Changes';
+      return;
+    }
+    closeEdit();
+    if(lastSql)runSQL(lastSql);
+  }catch(e){
+    errEl.textContent=e.message;errEl.style.display='block';
+    btn.disabled=false;btn.textContent='💾 Save Changes';
+  }finally{
+    btn.disabled=false;btn.textContent='💾 Save Changes';
+  }
+}
+
+function closeEdit(){document.getElementById('editOverlay').style.display='none';editCtx=null;}
 
 function exportCSV(){
   if(!lastResult?.columns)return;
