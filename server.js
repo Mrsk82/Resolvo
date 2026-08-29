@@ -8319,6 +8319,7 @@ tr:hover td{background:#1e2330}
   <button class="tab active" onclick="switchTab('browse',this)">📋 Browse Data</button>
   <button class="tab" onclick="switchTab('monitor',this)">📊 Live Monitor</button>
   <button class="tab" onclick="switchTab('nurture',this)">📧 Nurture Emails</button>
+  <button class="tab" onclick="switchTab('health',this)">🩺 DB Health</button>
 </div>
 
 <!-- BROWSE PANEL -->
@@ -8472,6 +8473,35 @@ tr:hover td{background:#1e2330}
   </div>
 </div>
 
+<!-- DB HEALTH PANEL -->
+<div id="panel-health" class="panel">
+  <div class="card">
+    <div class="card-title">Per-brand database size — a brand over ~5MB is worth checking</div>
+    <button class="btn btn-ghost" onclick="loadHealth()" style="margin-bottom:12px;">🔄 Refresh</button>
+    <div id="healthTableWrap" class="table-wrap" style="max-height:50vh;"><div class="no-data">Click Refresh to load</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Migrate inline email HTML → asset table</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.6;">
+      Moves any <code>thread[].emailHtml</code> still stored inline in a brand's tickets (from before the asset-table architecture) out into a separate table, so the tickets table stays small regardless of email size. Safe to run more than once — already-migrated tickets are skipped. Always dry-run first to see what would change.
+    </div>
+    <div class="row">
+      <div>
+        <label>Brand</label>
+        <select id="healthMigrateBrand" style="min-width:200px;"><option value="">— all brands —</option></select>
+      </div>
+      <div style="padding-bottom:1px;">
+        <button class="btn btn-ghost" onclick="runMigration(true)">👁 Dry Run (preview only)</button>
+      </div>
+      <div style="padding-bottom:1px;">
+        <button class="btn btn-primary" onclick="runMigration(false)">▶ Run Migration</button>
+      </div>
+    </div>
+    <div id="migrateErr" style="display:none" class="err"></div>
+    <div id="migrateResult"></div>
+  </div>
+</div>
+
 <!-- EDIT RECORD OVERLAY -->
 <div id="editOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:998;align-items:center;justify-content:center;padding:20px">
   <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:28px;width:560px;max-width:100%;max-height:85vh;overflow-y:auto">
@@ -8529,6 +8559,41 @@ function switchTab(name,el){
   el.classList.add('active');
   document.getElementById('panel-'+name).classList.add('active');
   if(name==='monitor')loadMonitor();
+  if(name==='health')loadHealth();
+}
+
+async function loadHealth(){
+  const wrap=document.getElementById('healthTableWrap');
+  wrap.innerHTML='<div class="no-data">Loading...</div>';
+  const r=await fetch('/api/owner/db-monitor',{headers:{'x-session-token':getToken()}}).then(x=>x.json()).catch(()=>null);
+  if(!r||!r.success){wrap.innerHTML='<div class="no-data">Failed to load</div>';return;}
+  const sel=document.getElementById('healthMigrateBrand');
+  sel.innerHTML='<option value="">— all brands —</option>'+r.stats.map(function(s){return '<option value="'+s.slug+'">'+s.slug+'</option>';}).join('');
+  let html='<table><thead><tr><th>Brand</th><th>Size (KB)</th><th>Tickets</th><th>Issues</th><th></th></tr></thead><tbody>';
+  r.stats.forEach(function(s){
+    const flag=s.critical?' 🔴':s.warning?' 🟡':'';
+    html+='<tr><td>'+s.slug+flag+'</td><td>'+s.sizeKB+'</td><td>'+(s.records.tickets||0)+'</td><td>'+(s.records.issues||0)+'</td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="document.getElementById(&quot;healthMigrateBrand&quot;).value=&quot;'+s.slug+'&quot;;runMigration(true)">Preview migrate</button></td></tr>';
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+async function runMigration(dryRun){
+  const slug=document.getElementById('healthMigrateBrand').value;
+  const errEl=document.getElementById('migrateErr'),resEl=document.getElementById('migrateResult');
+  errEl.style.display='none';
+  resEl.innerHTML='<p style="color:#94a3b8;">'+(dryRun?'Checking...':'Migrating...')+'</p>';
+  try{
+    const r=await fetch('/api/owner/migrate-email-assets',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({slug:slug||undefined,dryRun:dryRun})}).then(function(x){return x.json();});
+    if(!r.success){errEl.textContent=r.error;errEl.style.display='block';resEl.innerHTML='';return;}
+    let rows='';
+    r.results.forEach(function(x){
+      if(x.error)rows+='<tr><td>'+x.slug+'</td><td colspan="4" style="color:#ef4444;">'+x.error+'</td></tr>';
+      else rows+='<tr><td>'+x.slug+'</td><td>'+x.ticketsTouched+'</td><td>'+x.messagesMoved+'</td><td>'+x.beforeKB+'</td><td>'+x.afterKB+'</td></tr>';
+    });
+    resEl.innerHTML='<div class="table-wrap"><table><thead><tr><th>Brand</th><th>Tickets touched</th><th>Messages moved</th><th>Before KB</th><th>After KB</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      (dryRun?'<p style="font-size:12px;color:#94a3b8;margin-top:8px;">Dry run only — nothing was changed. Click "Run Migration" to apply.</p>':'<p style="font-size:12px;color:#10B981;margin-top:8px;">✅ Done — refresh DB Health above to see updated sizes.</p>');
+  }catch(e){errEl.textContent=e.message;errEl.style.display='block';resEl.innerHTML='';}
 }
 
 async function sendNurtureTests(){
