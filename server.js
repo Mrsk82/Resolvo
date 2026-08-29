@@ -1262,6 +1262,51 @@ app.get('/api/owner/db-monitor',ownerOnly,(req,res)=>{
   res.json({success:true,stats,totalBytes,totalKB:Math.round(totalBytes/1024),ownerFileSizeKB:Math.round(ownerSize/1024),warnings:stats.filter(s=>s.warning).length});
 });
 
+// One-time migration: move any inline thread[].emailHtml still sitting in a
+// brand's ticket blob (from before the ticket_assets architecture) out into
+// the asset table, replacing it with the hasEmailHtml flag. Idempotent —
+// safe to run more than once, and per-brand so it can be checked one at a
+// time before running across everything. dryRun reports what WOULD change
+// without writing anything.
+app.post('/api/owner/migrate-email-assets',ownerOnly,(req,res)=>{
+  const{slug,dryRun}=req.body||{};
+  const owner=readOwner();
+  const brands=slug?(owner.brands||[]).filter(b=>b.slug===slug):(owner.brands||[]);
+  if(slug&&!brands.length)return res.json({success:false,error:'Brand not found: '+slug});
+  const results=[];
+  for(const b of brands){
+    try{
+      const db=readBrandDB(b.slug);
+      const before=Buffer.byteLength(JSON.stringify(db.tickets||[]));
+      let ticketsTouched=0,messagesMoved=0;
+      for(const t of(db.tickets||[])){
+        let touched=false;
+        for(const m of(t.thread||[])){
+          if(m.emailHtml&&m.emailHtml.trim()){
+            messagesMoved++;
+            if(!dryRun){
+              saveTicketAsset(b.slug,t.id,m.id,'emailHtml',_sanitizeEmailHtml(m.emailHtml));
+              delete m.emailHtml;
+              m.hasEmailHtml=true;
+            }
+            touched=true;
+          }
+        }
+        if(touched)ticketsTouched++;
+      }
+      if(!dryRun&&ticketsTouched>0){
+        writeBrandDB(b.slug,db);
+        _openDB(b.slug).exec('VACUUM'); // reclaim the freed disk space, not just the in-memory size
+      }
+      const afterDb=dryRun?db:readBrandDB(b.slug);
+      const after=Buffer.byteLength(JSON.stringify(afterDb.tickets||[]));
+      results.push({slug:b.slug,ticketsTouched,messagesMoved,beforeKB:Math.round(before/1024),afterKB:Math.round(after/1024)});
+      if(ticketsTouched>0)monitorEvent('info','migration',`Migrated emailHtml for ${b.slug}: ${messagesMoved} messages, ${Math.round(before/1024)}KB -> ${Math.round(after/1024)}KB`,{dryRun:!!dryRun});
+    }catch(e){results.push({slug:b.slug,error:e.message});}
+  }
+  res.json({success:true,dryRun:!!dryRun,results});
+});
+
 // Maintenance Mode
 app.get('/api/owner/maintenance',ownerOnly,(req,res)=>{
   const owner=readOwner();res.json({success:true,enabled:owner.maintenanceMode||false,message:owner.maintenanceMessage||'',scheduledEnd:owner.maintenanceEnd||null});
