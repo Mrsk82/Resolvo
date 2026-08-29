@@ -4785,24 +4785,32 @@ app.post('/api/call',async(req,res)=>{
     // GROUP A: API KEYS (#10)
     // DB CHANGE: adds db.apiKeys — backward safe
     // ══════════════════════════════════════════════════════════════════════
+    // Keys created by an Admin with no owning user act as a generic
+    // brand-wide integration key. Keys created by anyone else are always
+    // scoped to that person — API calls made with them are attributed to
+    // that user (assignment defaults, reply "from", etc.), same as if they
+    // were logged in themselves. Admins can see/revoke every key in the
+    // brand; everyone else only sees their own.
     getApiKeys:()=>{
-      if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const gate=requireFeature(ff,'API_KEYS_ENABLED');if(gate)return gate;
       const db=rDB();
-      return{success:true,keys:(db.apiKeys||[]).map(k=>({...k,key:k.key.substring(0,8)+'••••••••'+k.key.slice(-4)}))};
+      const all=db.apiKeys||[];
+      const visible=su.role==='Admin'?all:all.filter(k=>k.userEmail===su.email);
+      return{success:true,keys:visible.map(k=>({...k,key:k.key.substring(0,8)+'••••••••'+k.key.slice(-4)}))};
     },
     createApiKey:(name,permissions)=>{
-      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const gate=requireFeature(ff,'API_KEYS_ENABLED');if(gate)return gate;
       const db=rDB();db.apiKeys=db.apiKeys||[];
       const key='rslv_'+slug+'_'+require('crypto').randomBytes(24).toString('hex');
-      const apiKey={id:generateId('KEY'),name:name||'API Key',key,permissions:permissions||['read'],createdBy:su.email,createdAt:nowIST(),lastUsed:null,active:true};
+      const apiKey={id:generateId('KEY'),name:name||(su.role==='Admin'?'API Key':'My API Key'),key,permissions:permissions||['read'],userEmail:su.role!=='Admin'?su.email:null,createdBy:su.email,createdAt:nowIST(),lastUsed:null,active:true};
       db.apiKeys.push(apiKey);wDB(db);
       return{success:true,key,id:apiKey.id,warning:'Save this key — it will only be shown once!'};
     },
     revokeApiKey:(id)=>{
-      if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();const idx=(db.apiKeys||[]).findIndex(k=>k.id===id);
-      if(idx>=0){db.apiKeys[idx].active=false;wDB(db);}
+      if(idx<0)return{success:false,error:'Key not found'};
+      if(su.role!=='Admin'&&db.apiKeys[idx].userEmail!==su.email)return{success:false,error:'You can only revoke your own key'};
+      db.apiKeys[idx].active=false;wDB(db);
       return{success:true};
     },
 
@@ -5744,6 +5752,115 @@ app.get('/widget/:slug/embed.js',(req,res)=>{
   };
 })();
 `);
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// PUBLIC API v1 — external integrations (Zapier, scripts, etc.) authenticate
+// with a key from Settings → Integrations → API Keys, either
+// `Authorization: Bearer rslv_<brand>_<hex>` or `x-api-key: rslv_<brand>_<hex>`.
+// The brand slug is embedded in the key itself so a single lookup finds the
+// right brand DB without a cross-brand scan. A key created by a non-Admin is
+// permanently scoped to that person (see createApiKey) — every action taken
+// with it is attributed to them, same as if they'd done it from the UI.
+// ══════════════════════════════════════════════════════════════════════════
+const _apiRateLimit=new Map(); // apiKey id -> {count, windowStart}
+function _apiRateLimitOk(keyId){
+  const now=Date.now(),windowMs=60000,max=120;
+  let e=_apiRateLimit.get(keyId);
+  if(!e||now-e.windowStart>windowMs){e={count:0,windowStart:now};_apiRateLimit.set(keyId,e);}
+  e.count++;
+  return e.count<=max;
+}
+function apiV1Auth(req,res,next){
+  const header=req.headers['authorization']||'';
+  const bearer=header.toLowerCase().startsWith('bearer ')?header.slice(7).trim():'';
+  const key=bearer||req.headers['x-api-key']||'';
+  const m=key.match(/^rslv_(.+)_([0-9a-f]{48})$/);
+  if(!m)return res.status(401).json({success:false,error:'Missing or malformed API key'});
+  const brandSlug=m[1];
+  let db;
+  try{db=readBrandDB(brandSlug);}catch(e){return res.status(401).json({success:false,error:'Invalid API key'});}
+  const apiKey=(db.apiKeys||[]).find(k=>k.key===key);
+  if(!apiKey||!apiKey.active)return res.status(401).json({success:false,error:'Invalid or revoked API key'});
+  if(!_apiRateLimitOk(apiKey.id))return res.status(429).json({success:false,error:'Rate limit exceeded — max 120 requests/minute per key'});
+  apiKey.lastUsed=nowIST();writeBrandDB(brandSlug,db);
+  req.apiSlug=brandSlug;req.apiKeyObj=apiKey;req.apiPermissions=apiKey.permissions||['read'];
+  req.apiActorEmail=apiKey.userEmail||null;
+  next();
+}
+function apiRequireWrite(req,res,next){
+  if(!(req.apiPermissions||[]).includes('write'))return res.status(403).json({success:false,error:'This API key does not have write permission'});
+  next();
+}
+function _apiTicketShape(t){
+  return{id:t.id,subject:t.subject,status:t.status,priority:t.priority,channel:t.channel||t.source||'email',from:t.from,fromName:t.fromName,assignedTo:t.assignedTo||null,tags:t.tags||[],sentimentLevel:t.sentimentLevel||null,createdDate:t.createdDate,lastActivity:t.lastActivity,threadCount:(t.thread||[]).length};
+}
+
+app.get('/api/v1/tickets',apiV1Auth,(req,res)=>{
+  const db=readBrandDB(req.apiSlug);
+  let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate));
+  if(req.query.status)tickets=tickets.filter(t=>t.status===req.query.status);
+  if(req.query.priority)tickets=tickets.filter(t=>t.priority===req.query.priority);
+  const limit=Math.min(parseInt(req.query.limit)||50,200);
+  res.json({success:true,total:tickets.length,tickets:tickets.slice(0,limit).map(_apiTicketShape)});
+});
+
+app.get('/api/v1/tickets/:id',apiV1Auth,(req,res)=>{
+  const db=readBrandDB(req.apiSlug);
+  const t=(db.tickets||[]).find(x=>x.id===req.params.id);
+  if(!t)return res.status(404).json({success:false,error:'Ticket not found'});
+  res.json({success:true,ticket:{..._apiTicketShape(t),thread:(t.thread||[]).map(m=>({id:m.id,type:m.type,from:m.from,fromName:m.fromName,body:m.body,timestamp:m.timestamp}))}});
+});
+
+app.post('/api/v1/tickets',apiV1Auth,apiRequireWrite,(req,res)=>{
+  const{subject,body,customerEmail,customerName,priority}=req.body||{};
+  if(!customerEmail)return res.status(400).json({success:false,error:'customerEmail is required'});
+  const db=readBrandDB(req.apiSlug);
+  const id=generateTicketId(req.apiSlug),now=nowIST(),actor=req.apiActorEmail;
+  const ticket={id,subject:subject||'(No subject)',from:customerEmail,fromName:customerName||customerEmail,status:'open',priority:priority||'Medium',assignedTo:actor||'',createdDate:now,lastActivity:now,tags:[],source:'api',apiKeyId:req.apiKeyObj.id,
+    thread:[{id:generateId('MSG'),type:'incoming',from:customerEmail,fromName:customerName||'Customer',body:body||'',timestamp:now}]};
+  db.tickets=db.tickets||[];db.tickets.unshift(ticket);
+  writeBrandDB(req.apiSlug,db);
+  runAutomationRules(req.apiSlug,id,'ticket_created').catch(()=>{});
+  res.status(201).json({success:true,ticketId:id});
+});
+
+app.post('/api/v1/tickets/:id/reply',apiV1Auth,apiRequireWrite,(req,res)=>{
+  const{body}=req.body||{};
+  if(!body)return res.status(400).json({success:false,error:'body is required'});
+  const db=readBrandDB(req.apiSlug);
+  const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
+  if(idx<0)return res.status(404).json({success:false,error:'Ticket not found'});
+  const actor=req.apiActorEmail||'api';
+  db.tickets[idx].thread=db.tickets[idx].thread||[];
+  db.tickets[idx].thread.push({id:generateId('MSG'),type:'reply',from:actor,fromName:req.apiActorEmail||'API',body,timestamp:nowIST(),sentAsEmail:false});
+  db.tickets[idx].lastActivity=nowIST();
+  writeBrandDB(req.apiSlug,db);
+  res.json({success:true});
+});
+
+app.patch('/api/v1/tickets/:id/status',apiV1Auth,apiRequireWrite,(req,res)=>{
+  const{status}=req.body||{};
+  if(!status)return res.status(400).json({success:false,error:'status is required'});
+  const db=readBrandDB(req.apiSlug);
+  const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
+  if(idx<0)return res.status(404).json({success:false,error:'Ticket not found'});
+  db.tickets[idx].status=status;db.tickets[idx].lastActivity=nowIST();
+  writeBrandDB(req.apiSlug,db);
+  runAutomationRules(req.apiSlug,req.params.id,'status_changed').catch(()=>{});
+  res.json({success:true});
+});
+
+app.post('/api/v1/tickets/:id/assign',apiV1Auth,apiRequireWrite,(req,res)=>{
+  const{assignedTo}=req.body||{};
+  if(!assignedTo)return res.status(400).json({success:false,error:'assignedTo is required'});
+  const db=readBrandDB(req.apiSlug);
+  const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id);
+  if(idx<0)return res.status(404).json({success:false,error:'Ticket not found'});
+  if(!(db.users||[]).find(u=>u.email===assignedTo))return res.status(400).json({success:false,error:'No such user: '+assignedTo});
+  db.tickets[idx].assignedTo=assignedTo;db.tickets[idx].lastActivity=nowIST();
+  writeBrandDB(req.apiSlug,db);
+  res.json({success:true});
 });
 
 // Widget ticket submission

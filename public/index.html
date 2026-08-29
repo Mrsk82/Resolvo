@@ -17002,6 +17002,7 @@ const App = {
       // ── INTEGRATIONS ──
       {id:'integrations',  label:'Integrations',        group:'Integrations'},
       {id:'api-keys',      label:'API Keys',            group:'Integrations', requires:'API_KEYS_ENABLED'},
+      {id:'developer-docs',label:'Developer Docs',      group:'Integrations', requires:'API_KEYS_ENABLED'},
       // ── SECURITY ──
       {id:'two-fa',        label:'Two-Factor Auth',     group:'Security', requires:'TWO_FA_ENABLED'},
       {id:'gdpr',          label:'GDPR & Privacy',      group:'Compliance', requires:'GDPR_TOOLS_ENABLED'},
@@ -18593,20 +18594,92 @@ const App = {
         var keys = (akr&&akr.keys)||[];
         content =
           '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">🔑 API Keys</h3>'+
-          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Use API keys to integrate Resolvo with external tools. Keys have read/write permissions.</p>'+
+          '<p style="margin:0 0 16px;font-size:12px;color:var(--text-dim);">Use API keys to integrate Resolvo with external tools. A key you create is scoped to you — actions taken with it (replies, assignments) are attributed to your account. Admins can also create a shared integration key with no owning user.</p>'+
           '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:14px;">'+
-            '🔗 Base URL: <code style="color:var(--accent);">'+location.origin+'/api/v1/</code> · Pass key as <code style="color:var(--accent);">Authorization: Bearer YOUR_KEY</code>'+
+            '🔗 Base URL: <code style="color:var(--accent);">'+location.origin+'/api/v1/</code> · Pass key as <code style="color:var(--accent);">Authorization: Bearer YOUR_KEY</code> · Endpoints: <code style="color:var(--accent);">GET/POST /tickets</code>, <code style="color:var(--accent);">GET /tickets/:id</code>, <code style="color:var(--accent);">POST /tickets/:id/reply</code>, <code style="color:var(--accent);">PATCH /tickets/:id/status</code>, <code style="color:var(--accent);">POST /tickets/:id/assign</code>'+
           '</div>'+
-          App._sSection('Your API Keys',[
+          App._sSection((self.currentUser.role==='Admin'?'All API Keys':'Your API Keys'),[
             '<button onclick="App._createApiKey()" class="btn-primary btn-sm" style="margin-bottom:12px;">+ Create New Key</button>'+
             (keys.length?keys.map(function(k){
+              var scopeBadge = k.userEmail
+                ? '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:var(--accent-dim);color:var(--accent);">👤 '+App._esc(k.userEmail)+'</span>'
+                : '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:var(--bg-card);color:var(--text-dim);">🏢 Shared</span>';
               return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-elevated);border-radius:8px;margin-bottom:6px;">'+
                 '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(k.name)+'</div>'+
                 '<div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);">'+App._esc(k.key)+'</div></div>'+
+                scopeBadge+
                 '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:'+(k.active?'var(--low-dim)':'var(--critical-dim)')+';color:'+(k.active?'var(--low)':'var(--critical)')+';">'+(k.active?'Active':'Revoked')+'</span>'+
-                (k.active?'<button onclick="App.callAsync(\'revokeApiKey\',\''+k.id+'\').then(r=>{if(r&&r.success){App.showToast(\'Key revoked\',\'success\');App.renderUnifiedSettings(\'api-keys\');}else App.showToast(\'Failed\',\'error\');})" class="btn-danger btn-sm">Revoke</button>':'')+
+                (k.active?'<button onclick="App.callAsync(\'revokeApiKey\',\''+k.id+'\').then(r=>{if(r&&r.success){App.showToast(\'Key revoked\',\'success\');App.renderUnifiedSettings(\'api-keys\');}else App.showToast(\'Failed: \'+(r&&r.error||\'\'),\'error\');})" class="btn-danger btn-sm">Revoke</button>':'')+
               '</div>';
             }).join(''):'<div style="font-size:12px;color:var(--text-dim);">No API keys yet.</div>')
+          ]);
+      }
+
+      // ── DEVELOPER DOCS ───────────────────────────────────────────────────────
+      else if (tid === 'developer-docs') {
+        var base = location.origin;
+        var endpoints = [
+          {method:'GET', path:'/api/v1/tickets', perm:'read', desc:'List tickets. Query params: status, priority, limit (max 200, default 50).',
+            curl: 'curl "'+base+'/api/v1/tickets?status=open&limit=10" \\\n  -H "Authorization: Bearer YOUR_KEY"',
+            resp: '{\n  "success": true,\n  "total": 55,\n  "tickets": [\n    { "id": "TKT-A1B2C3D4", "subject": "Login issue", "status": "open",\n      "priority": "High", "channel": "email", "from": "customer@example.com",\n      "assignedTo": "agent@yourbrand.com", "createdDate": "...", "threadCount": 3 }\n  ]\n}'},
+          {method:'GET', path:'/api/v1/tickets/:id', perm:'read', desc:'Get one ticket, including its full message thread.',
+            curl: 'curl "'+base+'/api/v1/tickets/TKT-A1B2C3D4" \\\n  -H "Authorization: Bearer YOUR_KEY"',
+            resp: '{\n  "success": true,\n  "ticket": {\n    "id": "TKT-A1B2C3D4", "subject": "Login issue", "status": "open",\n    "thread": [\n      { "id": "MSG-...", "type": "incoming", "from": "customer@example.com",\n        "body": "I can\'t log in", "timestamp": "..." }\n    ]\n  }\n}'},
+          {method:'POST', path:'/api/v1/tickets', perm:'write', desc:'Create a new ticket. Only customerEmail is required.',
+            curl: 'curl -X POST "'+base+'/api/v1/tickets" \\\n  -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: application/json" \\\n  -d \'{"customerEmail":"jane@example.com","customerName":"Jane","subject":"Help","body":"Details here","priority":"High"}\'',
+            resp: '{ "success": true, "ticketId": "TKT-A1B2C3D4" }'},
+          {method:'POST', path:'/api/v1/tickets/:id/reply', perm:'write', desc:'Post a reply to a ticket\'s thread.',
+            curl: 'curl -X POST "'+base+'/api/v1/tickets/TKT-A1B2C3D4/reply" \\\n  -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: application/json" \\\n  -d \'{"body":"Thanks for reaching out — looking into this now."}\'',
+            resp: '{ "success": true }'},
+          {method:'PATCH', path:'/api/v1/tickets/:id/status', perm:'write', desc:'Change a ticket\'s status (e.g. open, resolved, closed).',
+            curl: 'curl -X PATCH "'+base+'/api/v1/tickets/TKT-A1B2C3D4/status" \\\n  -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: application/json" \\\n  -d \'{"status":"resolved"}\'',
+            resp: '{ "success": true }'},
+          {method:'POST', path:'/api/v1/tickets/:id/assign', perm:'write', desc:'Assign a ticket to an agent by email.',
+            curl: 'curl -X POST "'+base+'/api/v1/tickets/TKT-A1B2C3D4/assign" \\\n  -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: application/json" \\\n  -d \'{"assignedTo":"agent@yourbrand.com"}\'',
+            resp: '{ "success": true }'},
+        ];
+        var methodColor = {GET:'#2563eb', POST:'#16a34a', PATCH:'#d97706'};
+        content =
+          '<h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">📘 Developer Docs — API v1</h3>'+
+          '<p style="margin:0 0 20px;font-size:12px;color:var(--text-dim);">Everything needed to integrate with Resolvo from an external script, Zapier, or your own backend.</p>'+
+
+          App._sSection('Authentication', [
+            '<p style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin:0 0 10px;">Every request needs an API key from the <a href="#" onclick="App.renderUnifiedSettings(\'api-keys\');return false;" style="color:var(--accent);">API Keys</a> page, sent as either header:</p>'+
+            '<pre style="background:var(--bg-elevated);border-radius:8px;padding:12px 14px;font-size:12px;font-family:var(--font-mono);color:var(--text-primary);overflow-x:auto;margin:0 0 10px;">Authorization: Bearer YOUR_KEY\n'+
+            '&#x2014; or &#x2014;\nx-api-key: YOUR_KEY</pre>'+
+            '<p style="font-size:12px;color:var(--text-dim);line-height:1.6;margin:0;">A key you create yourself is scoped to you — tickets you create via the API auto-assign to you, and replies show your identity. An Admin can also create a shared key (no owning user) for a team-wide integration like Zapier.</p>'
+          ]) +
+
+          App._sSection('Base URL & Quick Start', [
+            '<pre style="background:var(--bg-elevated);border-radius:8px;padding:12px 14px;font-size:12px;font-family:var(--font-mono);color:var(--accent);overflow-x:auto;margin:0 0 10px;">'+base+'/api/v1/</pre>'+
+            '<pre style="background:var(--bg-elevated);border-radius:8px;padding:12px 14px;font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);overflow-x:auto;white-space:pre-wrap;margin:0;">curl "'+base+'/api/v1/tickets" \\\n  -H "Authorization: Bearer YOUR_KEY"</pre>'
+          ]) +
+
+          '<div style="margin:20px 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);">Endpoints</div>' +
+          endpoints.map(function(ep) {
+            return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:12px;">'+
+              '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
+                '<span style="font-size:11px;font-weight:800;color:#fff;background:'+(methodColor[ep.method]||'#6b7280')+';padding:2px 10px;border-radius:5px;font-family:var(--font-mono);">'+ep.method+'</span>'+
+                '<code style="font-size:13px;color:var(--text-primary);font-weight:600;">'+ep.path+'</code>'+
+                '<span style="font-size:10px;padding:1px 8px;border-radius:20px;background:'+(ep.perm==='write'?'var(--medium-dim)':'var(--low-dim)')+';color:'+(ep.perm==='write'?'var(--medium)':'var(--low)')+';margin-left:auto;">requires '+ep.perm+'</span>'+
+              '</div>'+
+              '<p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">'+ep.desc+'</p>'+
+              '<pre style="background:var(--bg-elevated);border-radius:8px;padding:10px 12px;font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);overflow-x:auto;white-space:pre-wrap;margin:0 0 8px;">'+App._esc(ep.curl)+'</pre>'+
+              '<details><summary style="font-size:11px;color:var(--text-dim);cursor:pointer;">Example response</summary>'+
+                '<pre style="background:var(--bg-elevated);border-radius:8px;padding:10px 12px;font-size:11px;font-family:var(--font-mono);color:var(--low);overflow-x:auto;white-space:pre-wrap;margin:6px 0 0;">'+App._esc(ep.resp)+'</pre>'+
+              '</details>'+
+            '</div>';
+          }).join('') +
+
+          App._sSection('Errors & Rate Limits', [
+            '<p style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin:0 0 10px;">Every response is JSON with a <code>success</code> boolean. On failure, <code>error</code> describes what went wrong and the HTTP status indicates the category:</p>'+
+            '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-family:var(--font-mono);margin-bottom:12px;">'+
+              '<div><span style="color:var(--critical);font-weight:700;">401</span> — missing, malformed, or revoked API key</div>'+
+              '<div><span style="color:var(--critical);font-weight:700;">403</span> — key doesn\'t have write permission for this action</div>'+
+              '<div><span style="color:var(--medium);font-weight:700;">404</span> — ticket not found</div>'+
+              '<div><span style="color:var(--medium);font-weight:700;">429</span> — rate limit exceeded</div>'+
+            '</div>'+
+            '<p style="font-size:12px;color:var(--text-dim);line-height:1.6;margin:0;">Each key is limited to <strong>120 requests per minute</strong>. Build in retry/backoff for 429s if you\'re syncing in bulk.</p>'
           ]);
       }
 
