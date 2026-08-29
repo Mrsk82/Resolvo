@@ -15611,23 +15611,24 @@ const App = {
       var initial = (name || '?').charAt(0).toUpperCase();
       var ago = App._relTime ? App._relTime(msg.timestamp) : (msg.timestamp||'').replace('T',' ').substring(0,16);
       var msgId = msg.id || ('msg_'+idx);
-      var hasHtml = !!(msg.emailHtml && msg.emailHtml.trim());
+      // emailHtml lives in a separate lazy-loaded table now (ticket_assets) —
+      // it's never inlined in the ticket blob anymore, so `hasEmailHtml` is
+      // the only signal available at initial render. `msg.emailHtml` is kept
+      // as a fallback in case any not-yet-migrated record still has it inline.
+      var hasHtml = !!msg.hasEmailHtml || !!(msg.emailHtml && msg.emailHtml.trim());
       var hasText = !!(msg.body && msg.body.trim());
       var bodyHtml;
 
       if (hasHtml && isIncoming) {
         var frameId = 'emlframe_'+msgId;
-        // srcdoc (not a data: URI) is required here: data: URIs always get an
-        // opaque origin per spec, so contentDocument access below would throw
-        // even with sandbox="allow-same-origin", silently blocking auto-resize
-        // and leaving the iframe stuck at min-height — which is what caused
-        // marketing/HTML emails to render as a tiny scrollable box.
-        var innerDoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;overflow-x:hidden!important;max-width:100%;}body{padding:12px 16px;font-family:Arial,sans-serif;font-size:13px;color:#1f2937;line-height:1.6;word-break:break-word;}table{width:100%!important;max-width:100%!important;}td,th{max-width:100%;}img{max-width:100%!important;height:auto!important;}a{color:#10B981;}</style></head><body>'+msg.emailHtml+'</body></html>';
-        var srcdoc = innerDoc.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-        // Fixed-width tables/images in these emails can finish loading after
-        // the iframe's own onload fires, so resize repeatedly (immediately,
-        // then a few times as late assets settle) instead of once.
-        bodyHtml = '<iframe id="'+frameId+'" srcdoc="'+srcdoc+'" sandbox="allow-same-origin" scrolling="no" style="width:100%;border:none;min-height:60px;display:block;" onload="(function(f){function resize(){try{f.style.height=(f.contentDocument.body.scrollHeight+16)+\'px\';}catch(e){}}resize();[0,300,800,1800].forEach(function(ms){setTimeout(resize,ms);});try{f.contentDocument.querySelectorAll(\'img\').forEach(function(im){im.addEventListener(\'load\',resize);im.addEventListener(\'error\',resize);});}catch(e){}})(this)"></iframe>';
+        if (msg.emailHtml && msg.emailHtml.trim()) {
+          // Already-inline content (pre-migration fallback) — render immediately.
+          bodyHtml = self._emailIframeHtml(frameId, msg.emailHtml);
+        } else {
+          // Placeholder — filled in by _loadLazyEmailHtml() after the thread
+          // is in the DOM, via a fetch to getMessageHtml.
+          bodyHtml = '<iframe id="'+frameId+'" data-lazy-html="1" srcdoc="<body style=&quot;font-family:Arial,sans-serif;font-size:12px;color:#9ca3af;padding:12px 16px;&quot;>Loading email…</body>" sandbox="allow-same-origin" scrolling="no" style="width:100%;border:none;min-height:40px;display:block;"></iframe>';
+        }
       } else if (hasText) {
         var escaped = self._esc(msg.body.trim()).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);">$1</a>');
         bodyHtml = '<div style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;padding:10px 14px;color:var(--text-primary);">'+escaped+'</div>';
@@ -15917,6 +15918,40 @@ const App = {
     self._loadStripeBilling(ticketId, t.from);
     self._loadHubSpotContact(ticketId, t.from);
     self._loadRazorpayPayment(ticketId, t.from);
+    // Fetch original email HTML for any message that has it, now that the
+    // thread is in the DOM — see the ticket_assets lazy-load architecture note.
+    self._loadLazyEmailHtml(ticketId, thread);
+  },
+  _emailIframeHtml: function(frameId, html) {
+    // srcdoc (not a data: URI) is required here: data: URIs always get an
+    // opaque origin per spec, so contentDocument access below would throw
+    // even with sandbox="allow-same-origin", silently blocking auto-resize
+    // and leaving the iframe stuck at min-height — which is what caused
+    // marketing/HTML emails to render as a tiny scrollable box.
+    var innerDoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;overflow-x:hidden!important;max-width:100%;}body{padding:12px 16px;font-family:Arial,sans-serif;font-size:13px;color:#1f2937;line-height:1.6;word-break:break-word;}table{width:100%!important;max-width:100%!important;}td,th{max-width:100%;}img{max-width:100%!important;height:auto!important;}a{color:#10B981;}</style></head><body>'+html+'</body></html>';
+    var srcdoc = innerDoc.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    // Fixed-width tables/images in these emails can finish loading after
+    // the iframe's own onload fires, so resize repeatedly (immediately,
+    // then a few times as late assets settle) instead of once.
+    return '<iframe id="'+frameId+'" srcdoc="'+srcdoc+'" sandbox="allow-same-origin" scrolling="no" style="width:100%;border:none;min-height:60px;display:block;" onload="(function(f){function resize(){try{f.style.height=(f.contentDocument.body.scrollHeight+16)+\'px\';}catch(e){}}resize();[0,300,800,1800].forEach(function(ms){setTimeout(resize,ms);});try{f.contentDocument.querySelectorAll(\'img\').forEach(function(im){im.addEventListener(\'load\',resize);im.addEventListener(\'error\',resize);});}catch(e){}})(this)"></iframe>';
+  },
+  _loadLazyEmailHtml: async function(ticketId, thread) {
+    var self = this;
+    var pending = (thread||[]).filter(function(m){ return m.hasEmailHtml && !(m.emailHtml && m.emailHtml.trim()); });
+    for (var i = 0; i < pending.length; i++) {
+      var msg = pending[i];
+      var frameId = 'emlframe_' + msg.id;
+      var iframe = document.getElementById(frameId);
+      if (!iframe) continue;
+      try {
+        var r = await self.callAsync('getMessageHtml', ticketId, msg.id);
+        if (!r || !r.success || !r.html) continue;
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = self._emailIframeHtml(frameId, r.html);
+        var freshIframe = wrapper.firstChild;
+        iframe.replaceWith(freshIframe);
+      } catch (e) {}
+    }
   },
   _loadHubSpotContact: async function(ticketId, fromEmail) {
     var panel = document.getElementById('hubspotContactPanel_'+ticketId);

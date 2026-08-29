@@ -423,9 +423,27 @@ function _openDB(slug){
     CREATE INDEX IF NOT EXISTS idx_crm_ac_due    ON crm_activities(json_extract(data,'$.dueDate'));
     CREATE INDEX IF NOT EXISTS idx_crm_ot_status ON crm_outreach(json_extract(data,'$.status'));
     CREATE INDEX IF NOT EXISTS idx_crm_ot_follow ON crm_outreach(json_extract(data,'$.followUp'));
+    -- Large per-message content (raw email HTML, future attachments) lives
+    -- here instead of inline in the ticket's JSON blob. Every RPC call reads
+    -- the full tickets table, so keeping bulky content out of it is what
+    -- keeps that read fast regardless of how large individual emails are.
+    CREATE TABLE IF NOT EXISTS ticket_assets(
+      msgId TEXT PRIMARY KEY, ticketId TEXT NOT NULL, kind TEXT NOT NULL,
+      content TEXT NOT NULL, createdAt TEXT);
+    CREATE INDEX IF NOT EXISTS idx_ta_ticket ON ticket_assets(ticketId);
   `);
   _dbConns[slug]=db;
   return db;
+}
+
+function saveTicketAsset(slug,ticketId,msgId,kind,content){
+  const db=_openDB(slug);
+  db.prepare(`INSERT INTO ticket_assets(msgId,ticketId,kind,content,createdAt) VALUES(?,?,?,?,?)
+    ON CONFLICT(msgId) DO UPDATE SET content=excluded.content`).run(msgId,ticketId,kind,content,nowIST());
+}
+function getTicketAsset(slug,msgId){
+  const row=_openDB(slug).prepare('SELECT content FROM ticket_assets WHERE msgId=?').get(msgId);
+  return row?row.content:null;
 }
 
 // Upsert helper used inside writeBrandDB transaction
@@ -2087,6 +2105,17 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
       if(!ticket)return{success:false,error:'Ticket not found'};
       return{success:true,ticket};
+    },
+    // Lazy-load a single message's original email HTML — kept out of the main
+    // ticket blob (see ticket_assets) so getTicketById/getTickets stay fast
+    // regardless of how large any one email was.
+    getMessageHtml:(ticketId,msgId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Ticket not found'};
+      const msg=(ticket.thread||[]).find(m=>m.id===msgId);
+      if(!msg)return{success:false,error:'Message not found'};
+      const html=getTicketAsset(slug,msgId);
+      return{success:true,html:html||''};
     },
     updateTicketStatus:(ticketId,status)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
@@ -6131,6 +6160,20 @@ function checkQueueDepth(db) {
   }).filter(a => a.overThreshold);
 }
 
+// Inline base64 images (data:image/...;base64,AAAA...) in a marketing/
+// newsletter email's HTML are the single biggest cause of oversized ticket
+// records seen in production (one promo email alone reached 6+ MB) — and
+// since every ticket row is fully read + JSON-parsed on every RPC call for
+// the brand, one bloated ticket slows down the entire platform, not just
+// that ticket. Strip embedded images and cap the remainder as a backstop.
+function _sanitizeEmailHtml(html) {
+  if (!html) return '';
+  let cleaned = html.replace(/data:[a-z0-9.+-]+\/[a-z0-9.+-]+;base64,[a-zA-Z0-9+/=]+/gi, '');
+  const MAX = 200 * 1024; // 200 KB — generous for any legitimate email
+  if (cleaned.length > MAX) cleaned = cleaned.slice(0, MAX) + '\n<!-- truncated: original email exceeded 200KB -->';
+  return cleaned;
+}
+
 async function createTicketFromEmail(slug, emailData) {
   const db = readBrandDB(slug);
   const config = db.emailTicketing || {};
@@ -6265,11 +6308,14 @@ async function createTicketFromEmail(slug, emailData) {
   if (existingTicket) {
     // Add as a new message to existing ticket thread
     existingTicket.thread = existingTicket.thread || [];
+    const replyMsgId = generateId('MSG');
+    const replyHtml = _sanitizeEmailHtml(emailData.html);
+    if (replyHtml) saveTicketAsset(slug, existingTicket.id, replyMsgId, 'emailHtml', replyHtml);
     existingTicket.thread.push({
-      id: generateId('MSG'), type: 'incoming',
+      id: replyMsgId, type: 'incoming',
       from: emailData.from, fromName: emailData.fromName || emailData.from,
       body: emailData.text || '',
-      emailHtml: emailData.html || '',
+      hasEmailHtml: !!replyHtml,
       timestamp: emailData.date || nowIST(),
       messageId: emailData.messageId
     });
@@ -6299,6 +6345,8 @@ async function createTicketFromEmail(slug, emailData) {
 
   // Round robin auto-assign — pass email data for routing rules
   const assignedTo = config.defaultAssignee || autoAssignAgent(db, {subject:emailData.subject,from:emailData.from,priority}) || '';
+  const newMsgId = generateId('MSG');
+  const newHtml = _sanitizeEmailHtml(emailData.html);
 
   const ticket = {
     id: ticketId,
@@ -6317,16 +6365,17 @@ async function createTicketFromEmail(slug, emailData) {
     gmailThreadId: emailData.gmailThreadId || null,
     messageIds: [emailData.messageId].filter(Boolean),
     thread: [{
-      id: generateId('MSG'),
+      id: newMsgId,
       type: 'incoming',
       from: emailData.from || '',
       fromName: emailData.fromName || emailData.from || '',
       body: emailData.text || '',
-      emailHtml: emailData.html || '',
+      hasEmailHtml: !!newHtml,
       timestamp: now,
       messageId: emailData.messageId || ''
     }]
   };
+  if (newHtml) saveTicketAsset(slug, ticketId, newMsgId, 'emailHtml', newHtml);
 
   // Sentiment analysis on incoming email — strip HTML first to avoid CSS/tag noise
   const rawBody = emailData.text || emailData.html || '';
