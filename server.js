@@ -1673,6 +1673,37 @@ app.post('/api/call',async(req,res)=>{
       await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
       return{success:true,userId:uid};
     },
+    // Bulk import from a parsed CSV — rows: [{name,email,team,role,skill}].
+    // Same validation/limits as addUser (Admin only, plan's maxUsers cap,
+    // duplicate-email check) but processed in one pass so a large roster
+    // doesn't need one API call per row. sendWelcomeEmails lets the admin
+    // review the summary before deciding to actually email everyone.
+    importUsers:async(rows,sendWelcomeEmails)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!Array.isArray(rows))return{success:false,error:'No rows provided'};
+      const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{},lim=brand.limits||{maxUsers:20};
+      const maxUsers=lim.maxUsers||20;
+      db.users=db.users||[];
+      const existingEmails=new Set(db.users.map(u=>u.email.toLowerCase()));
+      let imported=0,skippedInvalid=0,skippedDuplicate=0,skippedLimit=0,emailsSent=0;
+      const validRoles=new Set(['Admin','Manager','Agent','Dev','Developer']);
+      for(const row of rows){
+        const email=(row.email||'').trim().toLowerCase(),name=(row.name||'').trim();
+        if(!email||!email.includes('@')||!name){skippedInvalid++;continue;}
+        if(existingEmails.has(email)){skippedDuplicate++;continue;}
+        if(db.users.filter(u=>u.active).length>=maxUsers){skippedLimit++;continue;}
+        const role=validRoles.has(row.role)?row.role:'Agent';
+        const tempPass=email.split('@')[0]+'123';
+        const nu={id:generateId('USR'),email,name,team:(row.team||'').trim(),role,skill:(row.skill||'').trim(),slackId:'',maxTickets:10,active:true,createdDate:nowIST(),passwordHash:tempPass,firstLogin:true};
+        db.users.push(nu);existingEmails.add(email);imported++;
+        if(sendWelcomeEmails){
+          sendBrandEmail(slug,email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',tempPass,BASE_URL),`Login: ${BASE_URL} | Email: ${email} | Pass: ${tempPass}`).catch(()=>{});
+          emailsSent++;
+        }
+      }
+      if(imported>0)wDB(db);
+      return{success:true,imported,skippedInvalid,skippedDuplicate,skippedLimit,emailsSent};
+    },
     createIssue:async id=>{
       const db=rDB();
       if((db.settings||{}).DUPLICATE_DETECTION_ENABLED==='true'){const ws=(id.title||'').toLowerCase().split(' ').filter(w=>w.length>3);const dupes=(db.issues||[]).filter(issue=>{if(['Resolved','Release Required'].includes(issue.status))return false;const iw=issue.title.toLowerCase().split(' ').filter(w=>w.length>3);return ws.filter(w=>iw.includes(w)).length>=Math.min(3,ws.length*0.5);}).slice(0,5);if(dupes.length>0)return{success:false,duplicates:dupes,message:'Possible duplicate issues found'};}
@@ -3431,6 +3462,28 @@ app.post('/api/call',async(req,res)=>{
     deleteCannedResponse:(id)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();db.cannedResponses=(db.cannedResponses||[]).filter(r=>r.id!==id);wDB(db);return{success:true};
+    },
+    // Bulk import from a parsed CSV — rows: [{title,shortcut,body}]. Skips
+    // rows missing title/body and rows whose shortcut (or exact title, if no
+    // shortcut given) already exists, so re-importing the same file twice is
+    // a no-op rather than creating duplicates.
+    importCannedResponses:(rows)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!Array.isArray(rows))return{success:false,error:'No rows provided'};
+      const db=rDB();db.cannedResponses=db.cannedResponses||[];
+      const existingShortcuts=new Set(db.cannedResponses.filter(r=>r.shortcut).map(r=>r.shortcut.toLowerCase()));
+      const existingTitles=new Set(db.cannedResponses.map(r=>(r.title||'').toLowerCase()));
+      let imported=0,skippedInvalid=0,skippedDuplicate=0;
+      for(const row of rows){
+        const title=(row.title||'').trim(),body=(row.body||'').trim(),shortcut=(row.shortcut||'').trim();
+        if(!title||!body){skippedInvalid++;continue;}
+        if((shortcut&&existingShortcuts.has(shortcut.toLowerCase()))||(!shortcut&&existingTitles.has(title.toLowerCase()))){skippedDuplicate++;continue;}
+        db.cannedResponses.push({id:generateId('CAN'),title,shortcut,body,createdBy:su.email,createdAt:nowIST()});
+        if(shortcut)existingShortcuts.add(shortcut.toLowerCase());else existingTitles.add(title.toLowerCase());
+        imported++;
+      }
+      if(imported>0)wDB(db);
+      return{success:true,imported,skippedInvalid,skippedDuplicate};
     },
 
     // ══════════════════════════════════════════════════════════════════════

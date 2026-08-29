@@ -13276,6 +13276,7 @@ const App = {
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn-secondary" onclick="App._showInviteLinkModal()">🔗 Invite Link</button>
+          <button class="btn-secondary" onclick="App._showImportUsersModal()">⬆ Import CSV</button>
           <button class="btn-primary" onclick="App.showAddUserModal()">+ Add User</button>
         </div>
       </div>
@@ -13295,6 +13296,45 @@ const App = {
           <tbody>${rows||'<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No users found</td></tr>'}</tbody>
         </table>
       </div>`;
+  },
+
+  _showImportUsersModal() {
+    const html = `
+      <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+        <div class="modal" style="max-width:480px">
+          <div class="modal-header">
+            <span class="modal-title">⬆ Import Users from CSV</span>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size:12px;color:var(--text-dim);margin:0 0 14px;line-height:1.6;">
+              CSV columns: <code>name, email, team, role, skill</code> (only <code>name</code> and <code>email</code> are required — role defaults to Agent). Rows with a duplicate email are skipped automatically.
+            </p>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-bottom:16px;cursor:pointer;">
+              <input type="checkbox" id="importSendWelcome" checked style="width:16px;height:16px;">
+              Send welcome emails to newly created users
+            </label>
+            <div id="importUsersResult" style="font-size:12px;margin-bottom:12px;"></div>
+            <button class="btn-primary" style="width:100%;" onclick="App._runImportUsers()">📁 Choose CSV File…</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  _runImportUsers() {
+    const sendWelcome = document.getElementById('importSendWelcome').checked;
+    const resultEl = document.getElementById('importUsersResult');
+    this._importCSVFile('importUsers', [sendWelcome], (r) => {
+      if (!r || !r.success) { resultEl.innerHTML = '<span style="color:var(--critical);">Import failed: ' + this._esc(r&&r.error||'unknown error') + '</span>'; return; }
+      resultEl.innerHTML = '<div style="background:var(--bg-elevated);border-radius:8px;padding:10px 12px;">'
+        + '✅ Imported <strong>' + r.imported + '</strong>' + (r.emailsSent ? ' (' + r.emailsSent + ' welcome emails sent)' : '') + '<br>'
+        + (r.skippedDuplicate ? '⏭ ' + r.skippedDuplicate + ' skipped (duplicate email)<br>' : '')
+        + (r.skippedInvalid ? '⚠ ' + r.skippedInvalid + ' skipped (missing name/email)<br>' : '')
+        + (r.skippedLimit ? '🚫 ' + r.skippedLimit + ' skipped (plan user limit reached)' : '')
+        + '</div>';
+      if (r.imported > 0) this.renderUserManagement();
+    });
   },
 
   showAddUserModal() {
@@ -13985,6 +14025,58 @@ const App = {
       body: JSON.stringify({ fn: fn, args: args })
     }).then(function(r) { return r.json(); })
       .catch(function(e) { return { success: false, error: e.message }; });
+  },
+
+  // Minimal RFC4180-ish CSV parser (handles quoted fields, escaped "",
+  // commas/newlines inside quotes). Returns an array of objects keyed by the
+  // lowercased header row. Shared by every CSV-import flow in the app.
+  _parseCSV: function(text) {
+    var rows = [], field = '', row = [], inQuotes = false, i = 0, len = text.length;
+    while (i < len) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      }
+      if (c === '"') { inQuotes = true; i++; continue; }
+      if (c === ',') { row.push(field); field = ''; i++; continue; }
+      if (c === '\r') { i++; continue; }
+      if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+      field += c; i++;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    if (!rows.length) return [];
+    var headers = rows[0].map(function(h){ return h.trim().toLowerCase(); });
+    return rows.slice(1)
+      .filter(function(r){ return r.some(function(c){ return c.trim() !== ''; }); })
+      .map(function(r){
+        var obj = {};
+        headers.forEach(function(h, idx){ obj[h] = (r[idx]||'').trim(); });
+        return obj;
+      });
+  },
+  // Opens a file picker, parses the chosen file as CSV, and calls `rpcName`
+  // with [rows, ...extraArgs]. onDone(result) runs after the RPC responds.
+  _importCSVFile: function(rpcName, extraArgs, onDone) {
+    var self = this;
+    var input = document.createElement('input');
+    input.type = 'file'; input.accept = '.csv,text/csv';
+    input.onchange = function() {
+      var file = input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var rows = self._parseCSV(e.target.result);
+        if (!rows.length) { self.showToast('No valid rows found in that file', 'warning'); return; }
+        var args = [rpcName].concat([rows]).concat(extraArgs || []);
+        self.callAsync.apply(self, args).then(function(r){ if (onDone) onDone(r); });
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   },
 
   _esc: function(str) {
@@ -16680,6 +16772,19 @@ const App = {
     else App.showToast('Failed: '+(r?.error||''), 'error');
   },
 
+  // CSV columns: title, shortcut, body. Re-importing the same file is a
+  // no-op for rows already present (deduped server-side by shortcut/title).
+  _importCannedResponses: function() {
+    this._importCSVFile('importCannedResponses', [], (r) => {
+      if (!r || !r.success) { this.showToast('Import failed: ' + (r&&r.error||'unknown error'), 'error'); return; }
+      var parts = ['Imported ' + r.imported];
+      if (r.skippedDuplicate) parts.push(r.skippedDuplicate + ' duplicate');
+      if (r.skippedInvalid) parts.push(r.skippedInvalid + ' invalid');
+      this.showToast(parts.join(', '), r.imported > 0 ? 'success' : 'warning');
+      if (r.imported > 0) this.renderUnifiedSettings('canned');
+    });
+  },
+
   // ── TICKET DNA / TIMELINE ───────────────────────────────────────────────────
   _showTicketTimeline: async function(ticketId) {
     var r = await App.callAsync('getTicketTimeline', ticketId);
@@ -17627,7 +17732,10 @@ const App = {
         content =
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
             '<div><h3 style="margin:0;font-size:16px;font-weight:800;">⚡ Canned Responses</h3><p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Pre-written replies. Type / in the reply box to search and insert.</p></div>'+
-            '<button onclick="App._editCannedResponse(null,\'canned-settings\')" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Response</button>'+
+            '<div style="display:flex;gap:8px;">'+
+              '<button onclick="App._importCannedResponses()" class="btn-secondary" style="font-size:12px;padding:7px 16px;">⬆ Import CSV</button>'+
+              '<button onclick="App._editCannedResponse(null,\'canned-settings\')" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Response</button>'+
+            '</div>'+
           '</div>'+
           (crs.length===0?'<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text-dim);">No canned responses yet. Create one to speed up your replies.</div>':
           '<div style="display:flex;flex-direction:column;gap:10px;">'+
