@@ -1820,18 +1820,28 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
       const ticket=db.tickets[idx];
-      // WhatsApp tickets go out via Twilio, not email — send first so a failure
-      // (e.g. Twilio not configured) is reported instead of silently no-op'ing.
+      // WhatsApp tickets go out via Twilio or direct Meta Cloud API depending
+      // on the brand's chosen provider — send first so a failure (e.g. not
+      // configured) is reported instead of silently no-op'ing.
       if(!isNote&&ticket.channel==='whatsapp'){
-        const waCfg=db.whatsappConfig||{};
-        const accountSid=waCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
-        const authToken=waCfg.authToken||process.env.TWILIO_AUTH_TOKEN;
-        const fromNumber=waCfg.number||process.env.TWILIO_WHATSAPP_FROM;
-        if(!accountSid||!authToken||!fromNumber)return{success:false,error:'Twilio not configured for this brand. Connect WhatsApp in Settings first.'};
-        try{
-          const twilio=require('twilio')(accountSid,authToken);
-          await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:replyText});
-        }catch(e){return{success:false,error:'WhatsApp send failed: '+e.message};}
+        if((db.whatsappProvider||'twilio')==='cloud'){
+          const cloudCfg=db.whatsappCloudConfig||{};
+          if(!cloudCfg.phoneNumberId||!cloudCfg.accessTokenRef)return{success:false,error:'WhatsApp (Meta Direct) not configured for this brand. Connect it in Settings first.'};
+          const accessToken=Social.decryptSecret(cloudCfg.accessTokenRef);
+          const to=ticket.whatsappFrom||_normalizeWaNumber(ticket.from).replace(/^\+/,'');
+          const result=await Social.adapters['whatsapp-cloud'].sendMessage({phoneNumberId:cloudCfg.phoneNumberId,accessToken,to,text:replyText});
+          if(result.status!=='SENT')return{success:false,error:'WhatsApp send failed: '+(result.error||'unknown error')};
+        }else{
+          const waCfg=db.whatsappConfig||{};
+          const accountSid=waCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
+          const authToken=waCfg.authToken||process.env.TWILIO_AUTH_TOKEN;
+          const fromNumber=waCfg.number||process.env.TWILIO_WHATSAPP_FROM;
+          if(!accountSid||!authToken||!fromNumber)return{success:false,error:'Twilio not configured for this brand. Connect WhatsApp in Settings first.'};
+          try{
+            const twilio=require('twilio')(accountSid,authToken);
+            await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:replyText});
+          }catch(e){return{success:false,error:'WhatsApp send failed: '+e.message};}
+        }
       }
       if(!isNote&&ticket.channel==='sms'){
         const smsCfg=db.smsConfig||{};
@@ -3289,6 +3299,98 @@ app.post('/api/call',async(req,res)=>{
         return{success:false,error:e.message.includes('Unauthorized')?'Invalid bot token — copy it again from @BotFather.':e.message};
       }
     },
+    // ── WhatsApp direct-Meta ("Tech Provider") integration ──────────────────
+    // Alternative to the Twilio-based WhatsApp above — see
+    // integrations/social/whatsapp-cloud-adapter.js for why this exists and
+    // what it requires. Deliberately separate RPCs from the Twilio config
+    // ones above rather than overloading them, since the two providers have
+    // completely different connection flows (Embedded Signup vs a plain
+    // account SID/token form).
+    getWhatsAppCloudStatus:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const cfg=db.whatsappCloudConfig||{};
+      return{success:true,
+        serverConfigured:Social.adapters['whatsapp-cloud'].isConfigured(),
+        provider:db.whatsappProvider||'twilio',
+        connected:!!(cfg.phoneNumberId&&cfg.accessTokenRef),
+        wabaId:cfg.wabaId||null,phoneNumberId:cfg.phoneNumberId||null,
+        displayNumber:cfg.displayNumber||null,verifiedName:cfg.verifiedName||null,
+      };
+    },
+    // Returns what the frontend's Meta JS SDK needs to launch Embedded
+    // Signup (FB.login with this config_id) — no secrets in this response.
+    getWhatsAppEmbeddedSignupConfig:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const{WHATSAPP_META_APP_ID,WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID}=process.env;
+      if(!WHATSAPP_META_APP_ID||!WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID){
+        return{success:false,error:'Direct WhatsApp (Meta) integration is not configured on this server yet — requires Meta Business Verification first. Twilio remains available in the meantime.'};
+      }
+      return{success:true,appId:WHATSAPP_META_APP_ID,configId:WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID};
+    },
+    // Called after Embedded Signup completes client-side — the SDK callback
+    // hands the frontend a code plus the WABA id and phone number id the
+    // customer just registered; this exchanges the code for a token, then
+    // confirms the phone number is real before saving the connection.
+    connectWhatsAppCloud:async(code,wabaId,phoneNumberId)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!code||!wabaId||!phoneNumberId)return{success:false,error:'Missing code/wabaId/phoneNumberId from Embedded Signup'};
+      try{
+        const redirectUri=`${BASE_URL}/`; // Embedded Signup doesn't navigate away, but Meta's token exchange still wants a redirect_uri matching the App's settings
+        const{accessToken,expiresIn}=await Social.adapters['whatsapp-cloud'].handleEmbeddedSignupCallback({redirectUri,code});
+        const numbers=await Social.adapters['whatsapp-cloud'].discoverPhoneNumbers({wabaId,accessToken});
+        const match=numbers.find(n=>n.id===phoneNumberId)||numbers[0];
+        if(!match)return{success:false,error:'No phone number found on that WhatsApp Business Account'};
+        const db=rDB();
+        db.whatsappCloudConfig={
+          wabaId,phoneNumberId:match.id,displayNumber:match.displayNumber,verifiedName:match.verifiedName,
+          accessTokenRef:Social.encryptSecret(accessToken),tokenExpiry:expiresIn?new Date(Date.now()+expiresIn*1000).toISOString():null,
+          connectedBy:su.email,connectedAt:nowIST(),
+        };
+        wDB(db);
+        _socialAudit(slug,su.email,'account_connected',{platform:'whatsapp-cloud',number:match.displayNumber});
+        return{success:true,displayNumber:match.displayNumber,verifiedName:match.verifiedName};
+      }catch(e){
+        _socialAudit(slug,su.email,'account_connect_failed',{platform:'whatsapp-cloud',error:e.message});
+        return{success:false,error:e.message};
+      }
+    },
+    // One-time step per number — needs the 6-digit PIN the customer set
+    // during Embedded Signup. Without this, the number is connected but
+    // sendMessage() will fail with a Meta API error.
+    registerWhatsAppCloudNumber:async(pin)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();const cfg=db.whatsappCloudConfig||{};
+      if(!cfg.phoneNumberId||!cfg.accessTokenRef)return{success:false,error:'Connect a WhatsApp Business Account first'};
+      if(!pin||!/^\d{6}$/.test(pin))return{success:false,error:'PIN must be exactly 6 digits'};
+      try{
+        const accessToken=Social.decryptSecret(cfg.accessTokenRef);
+        await Social.adapters['whatsapp-cloud'].registerPhoneNumber({phoneNumberId:cfg.phoneNumberId,wabaId:cfg.wabaId,accessToken,pin});
+        return{success:true};
+      }catch(e){return{success:false,error:e.message};}
+    },
+    // Which provider actually sends/receives for this brand right now.
+    // Switching to 'cloud' is blocked until a number is connected, so a
+    // brand can never end up with WhatsApp silently going nowhere.
+    setWhatsAppProvider:(provider)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!['twilio','cloud'].includes(provider))return{success:false,error:'Invalid provider'};
+      const db=rDB();
+      if(provider==='cloud'){
+        const cfg=db.whatsappCloudConfig||{};
+        if(!cfg.phoneNumberId||!cfg.accessTokenRef)return{success:false,error:'Connect a WhatsApp Business Account via Meta Direct first'};
+      }
+      db.whatsappProvider=provider;wDB(db);
+      return{success:true};
+    },
+    disconnectWhatsAppCloud:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();
+      db.whatsappCloudConfig={};
+      if(db.whatsappProvider==='cloud')db.whatsappProvider='twilio'; // fall back so WhatsApp keeps working
+      wDB(db);
+      return{success:true};
+    },
+
     // OAuth platforms (Instagram/Facebook/YouTube/LinkedIn/X) — returns the
     // consent URL for the frontend to redirect to; the actual token exchange
     // happens in the /api/social-oauth/:platform/callback route (needs a
@@ -10134,6 +10236,46 @@ function _linkedIdentifiersFor(db,identifier){
   return [_normalizeIdentifier(identifier)];
 }
 
+// Shared WhatsApp ticket-creation logic used by BOTH providers (Twilio and
+// direct Meta Cloud API) — this is the single place that owns bot rules,
+// spam detection, sentiment tagging, and ticket threading for WhatsApp, so
+// adding the direct-Meta path never means a second, divergent copy of any
+// of that. `sendBotReply(text)` is provider-specific (Twilio SDK vs Graph
+// API) and injected by the caller; omit it if the caller can't send (e.g.
+// misconfigured) — the ticket still gets created either way.
+async function handleIncomingWhatsAppMessage(brandSlug,{from,body,profileName,waId},sendBotReply){
+  const db=readBrandDB(brandSlug);
+  const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===waId&&t.status==='open');
+  // Spam/flood guard only applies to brand-new conversations — an ongoing
+  // thread with a real customer should never be silently dropped.
+  if(existingIdx<0&&isChannelSpam(db,from,body,'whatsapp')){
+    console.log(`[WhatsApp] Dropped spam/duplicate from ${from} (${brandSlug})`);
+    return;
+  }
+  const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
+  // No-code FAQ bot — only on a brand-new conversation, so it doesn't
+  // interrupt an already-open human thread with the same customer
+  const botRule=existingIdx<0?matchBotRule(db,body,'whatsapp'):null;
+  if(existingIdx>=0){
+    db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
+    db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'incoming',from,fromName:profileName||from,body,timestamp:nowIST(),channel:'whatsapp'});
+    db.tickets[existingIdx].lastActivity=nowIST();
+  }else{
+    db.tickets=db.tickets||[];
+    const thread=[{id:generateId('MSG'),type:'incoming',from,fromName:profileName||from,body,timestamp:nowIST(),channel:'whatsapp'}];
+    if(botRule)thread.push({id:generateId('MSG'),type:'reply',from:'bot',fromName:'Auto-Reply Bot',body:botRule.response,timestamp:nowIST(),channel:'whatsapp',botHandled:true});
+    const waTicket={id:ticketId,subject:`WhatsApp: ${body.substring(0,60)}`,body,from,fromName:profileName||from,whatsappFrom:waId,channel:'whatsapp',status:botRule?'resolved':'open',botHandled:!!botRule,priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread};
+    tagTicketSentiment(waTicket,body);
+    db.tickets.unshift(waTicket);
+  }
+  writeBrandDB(brandSlug,db);
+  if(existingIdx<0)runAutomationRules(brandSlug,ticketId,'ticket_created').catch(()=>{});
+  if(botRule&&sendBotReply){
+    try{await sendBotReply(botRule.response);}catch(e){console.error('[Bot] WhatsApp auto-reply send failed:',e.message);}
+  }
+  console.log(`[WhatsApp] Ticket ${ticketId} from ${from} (${brandSlug})${botRule?' — auto-resolved by bot':''}`);
+}
+
 app.post('/api/whatsapp/webhook',async(req,res)=>{
   // Standard Twilio WhatsApp webhook
   const{From,To,Body,ProfileName,WaId}=req.body;
@@ -10148,50 +10290,66 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
     try{
       const db=readBrandDB(brand.slug);
       if(!featEnabled(db,'whatsapp'))continue;
+      if((db.whatsappProvider||'twilio')==='cloud')continue; // this brand receives via the direct-Meta webhook instead
       if(!db.features?.whatsappNumber)continue;
       if(toNorm&&_normalizeWaNumber(db.features.whatsappNumber)!==toNorm)continue;
-      // Create or append to existing ticket from this WhatsApp number
-      const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===WaId&&t.status==='open');
-      // Spam/flood guard only applies to brand-new conversations — an ongoing
-      // thread with a real customer should never be silently dropped.
-      if(existingIdx<0&&isChannelSpam(db,From,Body,'whatsapp')){
-        console.log(`[WhatsApp] Dropped spam/duplicate from ${From} (${brand.slug})`);
-        handled=true;break;
-      }
-      const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
-      // No-code FAQ bot — only on a brand-new conversation, so it doesn't
-      // interrupt an already-open human thread with the same customer
-      const botRule=existingIdx<0?matchBotRule(db,Body,'whatsapp'):null;
-      if(existingIdx>=0){
-        db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
-        db.tickets[existingIdx].thread.push({id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'});
-        db.tickets[existingIdx].lastActivity=nowIST();
-      }else{
-        db.tickets=db.tickets||[];
-        const thread=[{id:generateId('MSG'),type:'incoming',from:From,fromName:ProfileName||From,body:Body,timestamp:nowIST(),channel:'whatsapp'}];
-        if(botRule)thread.push({id:generateId('MSG'),type:'reply',from:'bot',fromName:'Auto-Reply Bot',body:botRule.response,timestamp:nowIST(),channel:'whatsapp',botHandled:true});
-        const waTicket={id:ticketId,subject:`WhatsApp: ${Body.substring(0,60)}`,body:Body,from:From,fromName:ProfileName||From,whatsappFrom:WaId,channel:'whatsapp',status:botRule?'resolved':'open',botHandled:!!botRule,priority:'Medium',createdAt:nowIST(),lastActivity:nowIST(),thread};
-        tagTicketSentiment(waTicket,Body);
-        db.tickets.unshift(waTicket);
-      }
-      writeBrandDB(brand.slug,db);
+      await handleIncomingWhatsAppMessage(brand.slug,{from:From,body:Body,profileName:ProfileName,waId:WaId},async(replyText)=>{
+        const waCfg=db.whatsappConfig||{};
+        if(waCfg.accountSid&&waCfg.authToken&&waCfg.number){
+          const twilio=require('twilio')(waCfg.accountSid,waCfg.authToken);
+          await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(waCfg.number)}`,to:From,body:replyText});
+        }
+      });
       handled=true;
-      if(existingIdx<0)runAutomationRules(brand.slug,ticketId,'ticket_created').catch(()=>{});
-      if(botRule){
-        try{
-          const waCfg=db.whatsappConfig||{};
-          if(waCfg.accountSid&&waCfg.authToken&&waCfg.number){
-            const twilio=require('twilio')(waCfg.accountSid,waCfg.authToken);
-            await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(waCfg.number)}`,to:From,body:botRule.response});
-          }
-        }catch(e){console.error('[Bot] WhatsApp auto-reply send failed:',e.message);}
-      }
-      console.log(`[WhatsApp] Ticket ${ticketId} from ${From} (${brand.slug})${botRule?' — auto-resolved by bot':''}`);
       break;
     }catch(e){console.error('[WhatsApp]',e.message);}
   }
   if(!handled)console.log(`[WhatsApp] No active brand matched To=${To} (normalized ${toNorm}) — message dropped`);
   res.status(200).send('<Response></Response>');
+});
+
+// Direct Meta Cloud API webhook — one Meta App receives events for every
+// brand's WABA, routed by entry.id (the WABA id) the same way Instagram/
+// Facebook webhooks route by Page/IG account id (see _metaWebhookHandler).
+// WhatsApp gets its own handler rather than reusing that one because inbound
+// messages here go through handleIncomingWhatsAppMessage() — the same
+// bot-rule/spam/sentiment path as Twilio — not through the generic social
+// gateway, which has none of that WhatsApp-specific logic.
+app.get('/api/webhooks/whatsapp-cloud',(req,res)=>{
+  const verifyToken=process.env.WHATSAPP_META_VERIFY_TOKEN||process.env.META_WEBHOOK_VERIFY_TOKEN||'';
+  Social.adapters['whatsapp-cloud'].handleWebhookVerification(req,res,verifyToken);
+});
+app.post('/api/webhooks/whatsapp-cloud',async(req,res)=>{
+  res.sendStatus(200); // ack immediately, same reasoning as every other webhook here
+  try{
+    const appSecret=process.env.WHATSAPP_META_APP_SECRET;
+    if(!appSecret||!Social.adapters['whatsapp-cloud'].verifyWebhookSignature(req,appSecret)){
+      console.warn('[WhatsAppCloud] Rejected webhook — signature mismatch or app secret not configured');
+      return;
+    }
+    const owner=readOwner();
+    for(const entry of(req.body.entry||[])){
+      for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+        const db=readBrandDB(brand.slug);
+        const cfg=db.whatsappCloudConfig||{};
+        if(!cfg.wabaId||cfg.wabaId!==entry.id)continue;
+        const accessToken=Social.decryptSecret(cfg.accessTokenRef);
+        for(const change of(entry.changes||[])){
+          if(change.field!=='messages')continue;
+          const v=change.value||{};
+          const contact=(v.contacts||[])[0];
+          for(const m of(v.messages||[])){
+            const body=m.text?m.text.body:(m.button?m.button.text:'');
+            if(!body)continue;
+            await handleIncomingWhatsAppMessage(brand.slug,{from:'+'+m.from,body,profileName:contact?.profile?.name,waId:m.from},async(replyText)=>{
+              await Social.adapters['whatsapp-cloud'].sendMessage({phoneNumberId:cfg.phoneNumberId,accessToken,to:m.from,text:replyText});
+            });
+          }
+        }
+        break; // WABA ids are unique per brand, no need to keep scanning others
+      }
+    }
+  }catch(e){console.error('[WhatsAppCloud] Webhook error:',e.message);}
 });
 
 // ══════════════════════════════════════════════════════════════════════════

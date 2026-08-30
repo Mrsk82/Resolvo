@@ -20614,17 +20614,24 @@ const App = {
       area.innerHTML = `
         <div style="max-width:680px;margin:0 auto;padding:8px 0;">
           <!-- Header -->
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
             <div style="width:44px;height:44px;border-radius:12px;background:#25D36620;display:flex;align-items:center;justify-content:center;font-size:22px;">💬</div>
             <div>
               <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-primary);">WhatsApp Channel</h2>
-              <p style="margin:2px 0 0;font-size:13px;color:var(--text-dim);">Receive and reply to WhatsApp messages as tickets via Twilio</p>
+              <p style="margin:2px 0 0;font-size:13px;color:var(--text-dim);">Receive and reply to WhatsApp messages as tickets</p>
             </div>
             <div style="margin-left:auto;">
               <span style="padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;background:${cfg.enabled?'#25D36620':'var(--bg-elevated)'};color:${cfg.enabled?'#25D366':'var(--text-dim)'};">${cfg.enabled?'● Active':'○ Inactive'}</span>
             </div>
           </div>
 
+          <!-- Provider tabs -->
+          <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);">
+            <button id="waTabTwilio" onclick="App._switchWhatsAppTab('twilio')" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:none;border-bottom:2px solid #25D366;color:#25D366;">Twilio</button>
+            <button id="waTabCloud" onclick="App._switchWhatsAppTab('cloud')" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;color:var(--text-muted);">Meta Direct <span style="font-size:9px;font-weight:700;background:var(--accent-dim);color:var(--accent);padding:1px 6px;border-radius:8px;margin-left:2px;">Lower cost</span></button>
+          </div>
+
+          <div id="waTwilioPanel">
           <!-- Enable toggle -->
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -20679,7 +20686,12 @@ const App = {
             <button onclick="App._saveWhatsAppConfig()" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;">Save Settings</button>
             <button onclick="App.navigate('ticket-inbox')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;padding:11px 20px;font-size:14px;cursor:pointer;">← Back to Inbox</button>
           </div>
+          </div>
+
+          <div id="waCloudPanel" style="display:none;"></div>
         </div>`;
+
+      self._loadWhatsAppCloudPanel();
 
       // Toggle knob animation
       var cb = document.getElementById('wa_enabled');
@@ -20718,6 +20730,154 @@ const App = {
       var r = await fetch('/api/whatsapp/config', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ enabled, number, accountSid, authToken }) }).then(x => x.json()).catch(() => ({ success: false }));
       if (r && r.success) { App.showToast('WhatsApp settings saved ✓', 'success'); App.renderWhatsAppSettings(); }
       else App.showToast('Save failed: ' + (r && r.error || 'Unknown error'), 'error');
+    },
+
+    // ── WhatsApp direct-Meta ("Tech Provider") panel ────────────────────────
+    _switchWhatsAppTab: function(tab) {
+      var twilioPanel = document.getElementById('waTwilioPanel');
+      var cloudPanel = document.getElementById('waCloudPanel');
+      var twilioTab = document.getElementById('waTabTwilio');
+      var cloudTab = document.getElementById('waTabCloud');
+      if (tab === 'cloud') {
+        twilioPanel.style.display = 'none'; cloudPanel.style.display = 'block';
+        cloudTab.style.borderBottomColor = '#25D366'; cloudTab.style.color = '#25D366';
+        twilioTab.style.borderBottomColor = 'transparent'; twilioTab.style.color = 'var(--text-muted)';
+      } else {
+        twilioPanel.style.display = 'block'; cloudPanel.style.display = 'none';
+        twilioTab.style.borderBottomColor = '#25D366'; twilioTab.style.color = '#25D366';
+        cloudTab.style.borderBottomColor = 'transparent'; cloudTab.style.color = 'var(--text-muted)';
+      }
+    },
+
+    _loadWhatsAppCloudPanel: async function() {
+      var self = this;
+      var panel = document.getElementById('waCloudPanel');
+      if (!panel) return;
+      var status = await self.callAsync('getWhatsAppCloudStatus');
+      if (!status || !status.success) { panel.innerHTML = '<div style="color:var(--text-dim);font-size:13px;">Failed to load status.</div>'; return; }
+
+      if (!status.serverConfigured) {
+        panel.innerHTML =
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;">' +
+            '<div style="font-size:32px;margin-bottom:10px;">🔒</div>' +
+            '<div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Not available yet</div>' +
+            '<div style="font-size:12px;color:var(--text-dim);line-height:1.7;max-width:420px;margin:0 auto;">' +
+              'Direct Meta WhatsApp integration removes the Twilio markup — you only pay Meta\'s own per-conversation fee. ' +
+              'It requires one-time <strong>Meta Business Verification</strong> for this platform, which hasn\'t been completed yet. ' +
+              'Twilio (the other tab) works today and isn\'t affected.' +
+            '</div>' +
+          '</div>';
+        return;
+      }
+
+      if (status.connected) {
+        var isActive = status.provider === 'cloud';
+        panel.innerHTML =
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+              '<div style="font-size:14px;font-weight:700;color:var(--text-primary);">' + self._esc(status.displayNumber || '') + '</div>' +
+              '<span style="padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;background:' + (isActive ? '#25D36620' : 'var(--bg-elevated)') + ';color:' + (isActive ? '#25D366' : 'var(--text-dim)') + ';">' + (isActive ? '● Active provider' : '○ Connected, not active') + '</span>' +
+            '</div>' +
+            '<div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;">' + self._esc(status.verifiedName || '') + ' · WABA ' + self._esc(status.wabaId || '') + '</div>' +
+            (!isActive ? '<button onclick="App._setWhatsAppProvider(\'cloud\')" class="btn-primary btn-sm" style="margin-right:8px;">Make this the active provider</button>' : '<button onclick="App._setWhatsAppProvider(\'twilio\')" class="btn-secondary btn-sm" style="margin-right:8px;">Switch back to Twilio</button>') +
+            '<button onclick="App._disconnectWhatsAppCloud()" class="btn-danger btn-sm">Disconnect</button>' +
+          '</div>' +
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;">' +
+            '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">Register number (one-time, if not already done during signup)</div>' +
+            '<div style="display:flex;gap:8px;">' +
+              '<input id="wac_pin" class="form-input" placeholder="6-digit PIN" maxlength="6" style="width:160px;font-family:var(--font-mono);">' +
+              '<button onclick="App._registerWhatsAppCloudNumber()" class="btn-secondary btn-sm">Register</button>' +
+            '</div>' +
+            '<div style="font-size:11px;color:var(--text-dim);margin-top:8px;">This is the PIN you set for this number during Meta\'s signup flow — only needed once.</div>' +
+          '</div>';
+        return;
+      }
+
+      panel.innerHTML =
+        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;">' +
+          '<div style="font-size:32px;margin-bottom:10px;">🟢</div>' +
+          '<div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Connect via Meta directly</div>' +
+          '<div style="font-size:12px;color:var(--text-dim);line-height:1.7;max-width:420px;margin:0 auto 18px;">' +
+            'You\'ll be asked to sign in with Facebook and either create or select a WhatsApp Business Account. No Twilio account needed for this path.' +
+          '</div>' +
+          '<button onclick="App._startWhatsAppEmbeddedSignup()" style="background:#1877F2;color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;">Connect with Meta</button>' +
+        '</div>';
+    },
+
+    _setWhatsAppProvider: async function(provider) {
+      var r = await App.callAsync('setWhatsAppProvider', provider);
+      if (r && r.success) { App.showToast('WhatsApp provider updated', 'success'); App._loadWhatsAppCloudPanel(); App.renderWhatsAppSettings(); }
+      else App.showToast('Failed: ' + (r && r.error || ''), 'error');
+    },
+
+    _disconnectWhatsAppCloud: async function() {
+      if (!confirm('Disconnect this WhatsApp Business Account? Incoming messages via Meta Direct will stop until reconnected.')) return;
+      var r = await App.callAsync('disconnectWhatsAppCloud');
+      if (r && r.success) { App.showToast('Disconnected', 'success'); App._loadWhatsAppCloudPanel(); }
+      else App.showToast('Failed', 'error');
+    },
+
+    _registerWhatsAppCloudNumber: async function() {
+      var pin = document.getElementById('wac_pin')?.value?.trim();
+      var r = await App.callAsync('registerWhatsAppCloudNumber', pin);
+      if (r && r.success) App.showToast('Number registered ✓', 'success');
+      else App.showToast('Failed: ' + (r && r.error || ''), 'error');
+    },
+
+    // Loads Meta's JS SDK on demand (only when this button is clicked, not
+    // on every page load) and launches Embedded Signup. The `code` comes
+    // back via the FB.login callback; the WABA/phone number ids arrive
+    // separately via a postMessage event Meta's signup iframe sends to the
+    // parent window — both are needed before connectWhatsAppCloud can run.
+    _startWhatsAppEmbeddedSignup: async function() {
+      var self = this;
+      var cfgR = await self.callAsync('getWhatsAppEmbeddedSignupConfig');
+      if (!cfgR || !cfgR.success) { self.showToast(cfgR && cfgR.error || 'Not configured', 'error'); return; }
+
+      function launch() {
+        var signupData = null;
+        function onMessage(event) {
+          if (event.origin !== 'https://www.facebook.com') return;
+          try {
+            var data = JSON.parse(event.data);
+            if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
+              signupData = data.data; // { phone_number_id, waba_id }
+            }
+          } catch (e) {}
+        }
+        window.addEventListener('message', onMessage);
+
+        FB.login(function(response) {
+          window.removeEventListener('message', onMessage);
+          if (!response.authResponse || !response.authResponse.code) {
+            self.showToast('WhatsApp connection cancelled or failed', 'warning');
+            return;
+          }
+          if (!signupData || !signupData.waba_id || !signupData.phone_number_id) {
+            self.showToast('Did not receive WhatsApp Business Account details from Meta — please try again.', 'error');
+            return;
+          }
+          self.callAsync('connectWhatsAppCloud', response.authResponse.code, signupData.waba_id, signupData.phone_number_id).then(function(r) {
+            if (r && r.success) { self.showToast('WhatsApp connected: ' + r.displayNumber, 'success'); self._loadWhatsAppCloudPanel(); }
+            else self.showToast('Connect failed: ' + (r && r.error || ''), 'error');
+          });
+        }, {
+          config_id: cfgR.configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
+        });
+      }
+
+      if (window.FB) { launch(); return; }
+      window.fbAsyncInit = function() {
+        FB.init({ appId: cfgR.appId, xfbml: false, version: 'v21.0' });
+        launch();
+      };
+      var script = document.createElement('script');
+      script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.async = true;
+      document.body.appendChild(script);
     },
 
     renderEmailTicketing: async function() {
