@@ -17227,7 +17227,8 @@ const App = {
               '<select id="et_priority" class="form-select" style="width:120px;">'+['Critical','High','Medium','Low'].map(function(p){return '<option'+(p===(ec.defaultPriority||'Medium')?' selected':'')+'>'+p+'</option>';}).join('')+'</select>'),
             App._sRow('Send Ack Email','Auto-reply to sender with ticket ID',
               '<input type="checkbox" id="et_ack" '+(ec.sendAckEmail!==false?'checked':'')+' style="width:18px;height:18px;accent-color:var(--accent);">'),
-            '<div style="margin-top:10px;"><label class="form-label">Spam Blocklist (comma-separated emails, domains, keywords)</label>'+
+            '<div style="margin-top:10px;"><label class="form-label">Spam Blocklist (comma-separated emails, domains, phone numbers, keywords)</label>'+
+              '<p style="font-size:11px;color:var(--text-dim);margin:2px 0 6px;">Applies across every channel — email, WhatsApp, SMS, and the website widget — not just email.</p>'+
               '<textarea id="et_blocklist" class="form-textarea" style="min-height:55px;font-family:var(--font-mono);font-size:12px;" placeholder="spam@example.com, @newsletter.com, unsubscribe">'+App._esc(ec.senderBlocklist||'')+'</textarea></div>',
             '<div id="et_result" style="display:none;margin-top:8px;"></div>',
             '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">'+
@@ -20891,9 +20892,9 @@ const App = {
             Resolvo automatically ignores: <code style="background:var(--bg-elevated);padding:1px 5px;border-radius:3px;">mailer-daemon</code>, <code style="background:var(--bg-elevated);padding:1px 5px;border-radius:3px;">postmaster</code>, <code style="background:var(--bg-elevated);padding:1px 5px;border-radius:3px;">noreply</code>, <code style="background:var(--bg-elevated);padding:1px 5px;border-radius:3px;">Delivery Status Notification</code>, bounce emails, and other automated senders.
           </div>
           <div class="form-group">
-            <label class="form-label">Custom Blocklist (comma-separated emails, domains, or subject keywords)</label>
+            <label class="form-label">Custom Blocklist (comma-separated emails, domains, phone numbers, or keywords)</label>
             <textarea id="et_blocklist" class="form-textarea" style="min-height:70px;font-family:var(--font-mono);font-size:12px;" placeholder="spam@example.com, @newsletter.com, unsubscribe, promotional">${self._esc(cfg.senderBlocklist||'')}</textarea>
-            <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">Any email from a matching address/domain OR with a matching subject keyword will be silently skipped.</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">Applies across every channel (email, WhatsApp, SMS, widget) — any message from a matching address/number OR containing a matching keyword is silently skipped.</div>
           </div>
         </div>
 

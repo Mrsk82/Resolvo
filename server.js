@@ -5868,6 +5868,13 @@ app.post('/api/widget/:slug/submit',(req,res)=>{
   const{message,email,url,userAgent}=req.body;const slug=req.params.slug;
   if(!message||!email)return res.json({success:false,error:'Missing fields'});
   const db=readBrandDB(slug);
+  // Widget submissions have no existing-conversation concept (every submit
+  // is effectively a new ticket attempt), so the spam/flood guard always
+  // applies here, unlike WhatsApp/SMS where it's skipped for an open thread.
+  if(isChannelSpam(db,email,message,'widget')){
+    console.log(`[Widget] Dropped spam/duplicate from ${email} (${slug})`);
+    return res.json({success:true});
+  }
   const ticketId=generateTicketId(slug);const now=nowIST();
   db.tickets=db.tickets||[];
   const thread=[{id:generateId('MSG'),type:'incoming',from:email,fromName:email,body:`${message}\n\n---\nPage: ${url||'unknown'}\nBrowser: ${(userAgent||'').substring(0,80)}`,timestamp:now}];
@@ -6373,6 +6380,30 @@ function checkQueueDepth(db) {
     const open = (db.tickets || []).filter(t => t.assignedTo === u.email && !['resolved','closed'].includes(t.status)).length;
     return { email: u.email, name: u.name, openTickets: open, overThreshold: open >= threshold };
   }).filter(a => a.overThreshold);
+}
+
+// Cross-channel spam/duplicate guard for chat-style channels (WhatsApp, SMS,
+// Widget) where there's no email address to pattern-match the way
+// createTicketFromEmail does — the two signals that generalize are the
+// brand's own blocklist (senderBlocklist, shared with email ticketing) and
+// flood detection: the same sender posting the exact same message
+// repeatedly within a few minutes is the dominant spam/bot signature on
+// these channels. Only meant to gate NEW ticket creation, never a reply
+// into an already-open conversation.
+function isChannelSpam(db, fromId, text, channel) {
+  const textLow = (text || '').toLowerCase().trim();
+  const fromLow = (fromId || '').toLowerCase();
+  const blocklist = ((db.emailTicketing || {}).senderBlocklist || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (blocklist.some(b => b && (fromLow.includes(b) || textLow.includes(b)))) return true;
+  if (!textLow) return false;
+  const cutoffMs = Date.now() - 5 * 60 * 1000; // 5 minutes
+  // Widget tickets are tagged via `source`, not `channel` (an existing
+  // inconsistency in how each channel's ticket object is built) — match both.
+  // startsWith rather than exact-equals because the widget handler appends a
+  // "Page/Browser" footer to the stored body, so the raw message text is
+  // only ever a prefix of what's actually persisted.
+  return (db.tickets || []).some(t => (t.channel === channel || t.source === channel) && t.from === fromId &&
+    (t.thread || []).some(m => m.type === 'incoming' && (m.body || '').toLowerCase().trim().startsWith(textLow) && new Date(m.timestamp).getTime() > cutoffMs));
 }
 
 // Inline base64 images (data:image/...;base64,AAAA...) in a marketing/
@@ -10062,6 +10093,12 @@ app.post('/api/whatsapp/webhook',async(req,res)=>{
       if(toNorm&&_normalizeWaNumber(db.features.whatsappNumber)!==toNorm)continue;
       // Create or append to existing ticket from this WhatsApp number
       const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===WaId&&t.status==='open');
+      // Spam/flood guard only applies to brand-new conversations — an ongoing
+      // thread with a real customer should never be silently dropped.
+      if(existingIdx<0&&isChannelSpam(db,From,Body,'whatsapp')){
+        console.log(`[WhatsApp] Dropped spam/duplicate from ${From} (${brand.slug})`);
+        handled=true;break;
+      }
       const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
       // No-code FAQ bot — only on a brand-new conversation, so it doesn't
       // interrupt an already-open human thread with the same customer
@@ -10230,6 +10267,10 @@ app.post('/api/sms/webhook',async(req,res)=>{
       if(!smsCfg.enabled||!smsCfg.number)continue;
       if(toNorm&&_normalizeWaNumber(smsCfg.number)!==toNorm)continue;
       const existingIdx=(db.tickets||[]).findIndex(t=>t.channel==='sms'&&t.from===From&&t.status==='open');
+      if(existingIdx<0&&isChannelSpam(db,From,Body,'sms')){
+        console.log(`[SMS] Dropped spam/duplicate from ${From} (${brand.slug})`);
+        handled=true;break;
+      }
       const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
       if(existingIdx>=0){
         db.tickets[existingIdx].thread=db.tickets[existingIdx].thread||[];
