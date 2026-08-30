@@ -16697,13 +16697,33 @@ const App = {
     var r = await App.callAsync('getCannedResponses');
     var resp = (r && r.responses || []).find(x=>x.id===cannedId);
     if (!resp) return;
+    var tRes = await App.callAsync('getTicketById', ticketId);
+    var filled = App._fillCannedVariables(resp.body, tRes && tRes.ticket);
     var ta = document.getElementById('replyText');
     if (ta) {
       // Replace from last / to cursor
       var val = ta.value; var lastSlash = val.lastIndexOf('/');
-      ta.value = (lastSlash>=0?val.substring(0,lastSlash):val) + resp.body;
+      ta.value = (lastSlash>=0?val.substring(0,lastSlash):val) + filled;
     }
     var dd = document.getElementById('cannedDropdown'); if(dd) dd.style.display = 'none';
+  },
+  // Substitutes {{customer_name}}, {{customer_email}}, {{ticket_id}},
+  // {{ticket_subject}}, {{agent_name}} — plain string templating, no engine,
+  // consistent with this app's "no AI unless asked" approach. Unknown
+  // {{tokens}} are left as-is rather than silently blanked, so a typo in a
+  // canned response is visible instead of vanishing.
+  _fillCannedVariables: function(text, ticket) {
+    var self = this;
+    var vars = {
+      customer_name: (ticket && (ticket.fromName || ticket.from)) || 'there',
+      customer_email: (ticket && ticket.from) || '',
+      ticket_id: (ticket && ticket.id) || '',
+      ticket_subject: (ticket && ticket.subject) || '',
+      agent_name: (self.currentUser && self.currentUser.name) || '',
+    };
+    return String(text||'').replace(/\{\{\s*(\w+)\s*\}\}/g, function(match, key) {
+      return Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match;
+    });
   },
   _replyKeydown: function(e, ticketId) {
     var dd = document.getElementById('cannedDropdown');
@@ -16738,8 +16758,10 @@ const App = {
     </div></div>`;
     document.body.insertAdjacentHTML('beforeend', html);
   },
-  _insertCannedDirect: function(ticketId, body) {
-    var ta = document.getElementById('replyText'); if (ta) { ta.value = body; }
+  _insertCannedDirect: async function(ticketId, body) {
+    var tRes = await App.callAsync('getTicketById', ticketId);
+    var filled = App._fillCannedVariables(body, tRes && tRes.ticket);
+    var ta = document.getElementById('replyText'); if (ta) { ta.value = filled; }
     document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
   },
   _editCannedResponse: function(id, ticketId) {
@@ -16753,7 +16775,9 @@ const App = {
         <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
           <div><label class="form-label">Title *</label><input id="cr_title" class="form-input" value="${self._esc(existing?.title||'')}" placeholder="e.g. Thank you response"></div>
           <div><label class="form-label">Shortcut (optional)</label><input id="cr_shortcut" class="form-input" value="${existing?.shortcut||''}" placeholder="e.g. thanks (type /thanks to insert)"></div>
-          <div><label class="form-label">Response Body *</label><textarea id="cr_body" class="form-textarea" style="min-height:120px;">${self._esc(existing?.body||'')}</textarea></div>
+          <div><label class="form-label">Response Body *</label><textarea id="cr_body" class="form-textarea" style="min-height:120px;">${self._esc(existing?.body||'')}</textarea>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Variables: <code>{{customer_name}}</code> <code>{{ticket_id}}</code> <code>{{ticket_subject}}</code> <code>{{agent_name}}</code> — filled in automatically when inserted into a reply.</div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
@@ -17743,7 +17767,7 @@ const App = {
         var crs = (crData && crData.responses) || [];
         content =
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'+
-            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">⚡ Canned Responses</h3><p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Pre-written replies. Type / in the reply box to search and insert.</p></div>'+
+            '<div><h3 style="margin:0;font-size:16px;font-weight:800;">⚡ Canned Responses</h3><p style="margin:3px 0 0;font-size:12px;color:var(--text-dim);">Pre-written replies. Type / in the reply box to search and insert. Supports <code>{{customer_name}}</code>, <code>{{ticket_id}}</code>, <code>{{ticket_subject}}</code>, <code>{{agent_name}}</code>.</p></div>'+
             '<div style="display:flex;gap:8px;">'+
               '<button onclick="App._importCannedResponses()" class="btn-secondary" style="font-size:12px;padding:7px 16px;">⬆ Import CSV</button>'+
               '<button onclick="App._editCannedResponse(null,\'canned-settings\')" class="btn-primary" style="font-size:12px;padding:7px 16px;">+ New Response</button>'+
