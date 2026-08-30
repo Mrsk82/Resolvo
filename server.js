@@ -3541,6 +3541,21 @@ app.post('/api/call',async(req,res)=>{
       if(state.email===su.email)return{success:true,typing:null};
       return{success:true,typing:state};
     },
+    // "Someone else is viewing this ticket" — heartbeat-based presence, same
+    // in-memory/self-expiring shape as typing state above but a longer TTL
+    // since a viewer isn't continuously producing an event like typing is.
+    heartbeatTicketView:(ticketId)=>{
+      viewingStates[slug]=viewingStates[slug]||{};
+      viewingStates[slug][ticketId]=viewingStates[slug][ticketId]||{};
+      viewingStates[slug][ticketId][su.email]={email:su.email,name:su.name||su.email,at:Date.now()};
+      return{success:true};
+    },
+    getTicketViewers:(ticketId)=>{
+      const byEmail=viewingStates[slug]?.[ticketId]||{};
+      const now=Date.now();
+      const others=Object.values(byEmail).filter(v=>v.email!==su.email&&now-v.at<=VIEW_TTL_MS);
+      return{success:true,viewers:others};
+    },
 
     // ══════════════════════════════════════════════════════════════════════
     // FEATURE 3: TICKET DNA — Full audit timeline
@@ -6411,6 +6426,12 @@ app.get('/confirm/:token',(req,res)=>{
 
 const activePollers = {}; // { brandSlug: cronJob }
 const typingStates = {}; // { brandSlug: { ticketId: { email, name, at } } }
+// Same in-memory, self-expiring pattern as typingStates, for the "someone
+// else is viewing this ticket" indicator — the frontend heartbeats every
+// ~8s while the ticket detail page is open, and a viewer with no heartbeat
+// in VIEW_TTL_MS is treated as having left, no unload hook required.
+const viewingStates = {}; // { brandSlug: { ticketId: { email, name, at } } }
+const VIEW_TTL_MS = 15000;
 
 function getEmailTicketConfig(slug) {
   const db = readBrandDB(slug);

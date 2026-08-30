@@ -15794,6 +15794,7 @@ const App = {
             </div>
           </div>
 
+          <div id="ticketViewersBadge" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--accent);background:var(--accent-dim);padding:6px 16px;margin:0 24px 10px;border-radius:8px;"></div>
           <div id="dupeSuggestionBanner"></div>
 
           <!-- Thread messages -->
@@ -16018,6 +16019,30 @@ const App = {
     // thread is in the DOM — see the ticket_assets lazy-load architecture note.
     self._loadLazyEmailHtml(ticketId, thread);
     self._loadDuplicateSuggestions(ticketId);
+    self._startViewerPoll(ticketId);
+  },
+  // "Someone else is viewing this ticket" — heartbeats presence every 8s
+  // (same self-cleaning pattern as _startTypingPoll: the interval clears
+  // itself once its target element is gone, e.g. after navigating away).
+  _startViewerPoll: function(ticketId) {
+    if (this._viewerPollTimer) clearInterval(this._viewerPollTimer);
+    async function tick() {
+      var el = document.getElementById('ticketViewersBadge');
+      if (!el) { clearInterval(App._viewerPollTimer); return; }
+      App.callAsync('heartbeatTicketView', ticketId);
+      var r = await App.callAsync('getTicketViewers', ticketId);
+      el = document.getElementById('ticketViewersBadge'); // may have navigated away mid-request
+      if (!el) return;
+      if (r && r.success && r.viewers.length) {
+        var names = r.viewers.map(function(v){ return v.name; }).join(', ');
+        el.innerHTML = '👀 <strong>' + App._esc(names) + '</strong> ' + (r.viewers.length > 1 ? 'are' : 'is') + ' also viewing this ticket';
+        el.style.display = 'flex';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+    tick(); // don't wait 8s for the first check
+    this._viewerPollTimer = setInterval(tick, 8000);
   },
   // Surfaces possible-duplicate tickets from the same customer (see
   // getPossibleDuplicateTickets) as a dismissible banner. "Merge" is the
