@@ -653,6 +653,25 @@ function statusUpdateHTML(issue,newStatus,changedBy,brandName,brandColor,loginUr
   const em={Resolved:'✅',Closed:'🔒',Blocked:'🚨',WIP:'⚙️',Testing:'🧪',Reopened:'🔄',Open:'📬',Acknowledged:'👀'}[newStatus]||'📋';
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,${sc}ee,${sc}99);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">${em}</div><p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.65);">${brandName} · Status Update</p><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Issue ${newStatus}</h1></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 16px;"><p style="font-size:15px;color:#374151;"><strong>${changedBy}</strong> updated the status of an issue you're involved in.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">What Changed</td></tr>${cr('Issue','<strong>'+issue.title+'</strong>')}${cr('ID','<span style="font-family:monospace;color:#6b7280;">'+issue.id+'</span>')}${cr('Status','<span style="display:inline-block;padding:4px 14px;border-radius:20px;background:'+sc+'18;color:'+sc+';font-size:13px;font-weight:700;border:1px solid '+sc+'33;">'+newStatus+'</span>')}${cr('By',changedBy)}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${sc};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue &rarr;</a></td></tr></table></td></tr>`);
 }
+function ticketAssignedHTML(ticket,brandName,brandColor,assigneeName,loginUrl){
+  const c=brandColor||'#f5a623';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[ticket.priority]||'#6b7280';
+  return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.4);">${brandName} · Ticket Assigned</p><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">${ticket.subject||'(No subject)'}</h1><p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.45);font-family:monospace;">${ticket.id} · ${ticket.channel||ticket.source||'email'}</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${assigneeName}</strong>, a new ticket has been assigned to you.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">Ticket Details</td></tr>${cr('From',ticket.fromName||ticket.from||'—')}${cr('Priority','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+pc+'15;color:'+pc+';font-size:12px;font-weight:700;">'+(ticket.priority||'Medium')+'</span>')}${cr('Status',ticket.status||'open')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${c};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Ticket &rarr;</a></td></tr></table></td></tr>`);
+}
+function slaBreachAlertHTML(item,brandName,brandColor,assigneeName,loginUrl,kind){
+  const c=brandColor||'#f5a623';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[item.priority]||'#6b7280';
+  return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#7f1d1d,#450a0a);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">⏰</div><p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.65);">${brandName} · SLA Breach</p><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">${item.label||'(No subject)'}</h1><p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.45);font-family:monospace;">${item.id}</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${assigneeName}</strong>, this ${kind.toLowerCase()} has breached its SLA deadline and needs attention.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">${kind} Details</td></tr>${cr('Priority','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+pc+'15;color:'+pc+';font-size:12px;font-weight:700;">'+(item.priority||'Medium')+'</span>')}${cr('Status','SLA Breached')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${c};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View ${kind} &rarr;</a></td></tr></table></td></tr>`);
+}
+// Fires the "New ticket assigned to me" email, gated by the assignee's own
+// notifyPrefs.onNewTicket (default true) — mirrors the issue-assigned gate.
+function notifyTicketAssigned(slug,db,ticket,assigneeEmail){
+  if(!assigneeEmail)return;
+  const assignee=(db.users||[]).find(u=>u.email===assigneeEmail);
+  if(!assignee)return;
+  const prefs=assignee.notifyPrefs||{};
+  if(prefs.onNewTicket===false)return;
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+  sendBrandEmail(slug,assignee.email,`[${brand.name||slug}] Ticket Assigned: ${ticket.id}`,ticketAssignedHTML(ticket,brand.name||slug,brand.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL),`Ticket ${ticket.id} assigned`).catch(console.error);
+}
 function testEmailHTML(){
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#10b981,#059669);border-radius:16px 16px 0 0;"><tr><td style="padding:44px 40px;text-align:center;"><div style="font-size:48px;margin-bottom:14px;">✅</div><h1 style="margin:0;font-size:26px;font-weight:800;color:#fff;">Email is Working!</h1><p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.85);">TechTrack email notifications are configured correctly.</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:32px 40px 36px;">${[['👤 User added','Welcome email with credentials'],['🎫 Issue assigned','Assignee notified instantly'],['📊 Status changed','Raised-by + assignee updated'],['📣 Announcements','Team-wide alerts']].map(([i,t])=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f3f4f6;"><span style="font-size:13px;font-weight:600;color:#111827;">${i}</span><span style="font-size:13px;color:#6b7280;">${t}</span></div>`).join('')}</td></tr></table></td></tr>`);
 }
@@ -857,7 +876,7 @@ app.get('/api/owner/cross-brand-analytics',ownerOnly,(req,res)=>{
       const issues=db.issues||[];const tickets=db.tickets||[];const users=db.users||[];
       const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
       const resolved=issues.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
-      const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
+      const breached=open.filter(i=>now>getIssueSLAInfo(i).deadline);
       const avgRes=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
       const slaCompliance=issues.length>0?Math.round((1-breached.length/Math.max(open.length,1))*100):100;
       const newTickets=tickets.filter(t=>t.status==='new').length;
@@ -875,7 +894,7 @@ function computeBrandHealth(b){
     const db=readBrandDB(b.slug);const issues=db.issues||[];const users=db.users||[];const tickets=db.tickets||[];
     let score=100,reasons=[],goods=[];
     const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-    const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
+    const breached=open.filter(i=>now>getIssueSLAInfo(i).deadline);
     const activeUsers=users.filter(u=>u.active).length;
     const lastActiveDays=b.lastActive?(now-new Date(b.lastActive))/86400000:999;
     // Deductions
@@ -990,7 +1009,7 @@ app.get('/api/owner/sla-league',ownerOnly,(req,res)=>{
       const db=readBrandDB(b.slug);const issues=db.issues||[];
       const resolved=issues.filter(i=>['Resolved','Release Required'].includes(i.status));
       const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-      const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
+      const breached=open.filter(i=>now>getIssueSLAInfo(i).deadline);
       const compliance=open.length>0?Math.round((1-breached.length/open.length)*100):100;
       const avgRes=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
       return{slug:b.slug,name:b.name,tier:b.tier,compliance,breached:breached.length,openIssues:open.length,totalIssues:issues.length,avgResolutionHours:avgRes};
@@ -1122,7 +1141,7 @@ app.get('/api/owner/compare',ownerOnly,(req,res)=>{
       const db=readBrandDB(slug);const issues=db.issues||[];const tickets=db.tickets||[];const users=(db.users||[]).filter(u=>u.active);
       const open=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
       const resolved=issues.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
-      const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
+      const breached=open.filter(i=>now>getIssueSLAInfo(i).deadline);
       const avgRes=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
       const csatSurveys=db.csatSurveys||[];const responded=csatSurveys.filter(s=>s.rating!==null);const avgCSAT=responded.length>0?Math.round(responded.reduce((s,sv)=>s+(sv.rating||0),0)/responded.length*10)/10:null;
       return{slug,name:brand.name,tier:brand.tier,metrics:{totalIssues:issues.length,openIssues:open.length,resolvedIssues:resolved.length,slaCompliance:open.length>0?Math.round((1-breached.length/open.length)*100):100,avgResolutionHours:avgRes,totalTickets:tickets.length,resolvedTickets:tickets.filter(t=>t.status==='resolved'||t.status==='closed').length,activeUsers:users.length,avgCSAT}};
@@ -1928,6 +1947,7 @@ app.post('/api/call',async(req,res)=>{
         const brand2=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         (updatedTicket.watchers||[]).filter(w=>w!==su.email).forEach(wEmail=>{
           const wu=(dbFresh.users||[]).find(u=>u.email===wEmail);
+          if(wu&&wu.notifyPrefs?.onTicketReply===false)return; // opted out — see getNotifyPrefs
           sendBrandEmail(slug,wEmail,`[Watching] New reply on ${ticketId}: ${updatedTicket.subject}`,
             `<p>Hi ${wu?.name||wEmail},</p><p>${su.name||su.email} replied to a ticket you're watching.</p><p><strong>${updatedTicket.subject}</strong></p><p style="background:#f9fafb;padding:12px;border-radius:8px;">${replyText.substring(0,300)}</p><a href="${BASE_URL}">View ticket →</a>`,
             `New reply on ${ticketId}`).catch(()=>{});
@@ -1955,6 +1975,7 @@ app.post('/api/call',async(req,res)=>{
         const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};
         mentions.filter(m=>m!==su.email).forEach(mentionEmail=>{
           const mentionedUser=(db.users||[]).find(u=>u.email===mentionEmail);
+          if(mentionedUser&&mentionedUser.notifyPrefs?.onMention===false)return; // opted out — see getNotifyPrefs
           if(mentionedUser){
             sendBrandEmail(slug,mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,
               `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:30px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,${b.accentColor||'#f5a623'},${b.accentColor||'#f5a623'}cc);padding:32px;text-align:center;"><div style="font-size:32px;margin-bottom:10px;">💬</div><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">You were mentioned</h1></div><div style="padding:28px 32px;"><p style="color:#374151;margin:0 0 14px;">Hi <strong>${mentionedUser.name||mentionEmail}</strong>, <strong>${su.name||su.email}</strong> mentioned you in a comment on <strong>${issue?issue.title:issueId}</strong>.</p><div style="background:#f9fafb;border-radius:10px;padding:14px 16px;border-left:4px solid ${b.accentColor||'#f5a623'};margin-bottom:20px;"><p style="margin:0;font-size:13px;color:#374151;font-style:italic;">"${ct.substring(0,200)}${ct.length>200?'...':''}"</p></div><div style="text-align:center;"><a href="${BASE_URL}" style="display:inline-block;padding:12px 36px;border-radius:8px;background:${b.accentColor||'#f5a623'};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue →</a></div></div></div></body></html>`,
@@ -1976,6 +1997,7 @@ app.post('/api/call',async(req,res)=>{
         const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};
         mentions.filter(m=>m!==su.email).forEach(mentionEmail=>{
           const mu=(db.users||[]).find(u=>u.email===mentionEmail);
+          if(mu&&mu.notifyPrefs?.onMention===false)return; // opted out — see getNotifyPrefs
           if(mu)sendBrandEmail(slug,mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,`<p>Hi ${mu.name||mentionEmail}, ${su.name||su.email} mentioned you in a comment on issue ${issueId}. <a href="${BASE_URL}">View issue</a></p>`,`${su.name} mentioned you on issue ${issueId}`).catch(()=>{});
         });
       }
@@ -1987,23 +2009,20 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB(),now=new Date();
       // A single issue with a missing/malformed createdDate used to throw
       // "Invalid time value" on toISOString() and crash the WHOLE list —
-      // same fallback pattern as getTicketSLAInfo: fall back to a valid
-      // date rather than letting one bad record take down every issue.
+      // getIssueSLAInfo carries the same fallback pattern as getTicketSLAInfo.
       let issues=(db.issues||[]).map(issue=>{
-        const cd=new Date(issue.createdDate);
-        const createdMs=isNaN(cd.getTime())?Date.now():cd.getTime();
-        const sd=new Date(createdMs+(issue.slaHours||24)*3600000),hr=(sd-now)/3600000;
-        return{...issue,slaDeadline:sd.toISOString(),slaBreached:now>sd&&!['Resolved','Release Required'].includes(issue.status),slaHoursRemaining:Math.round(hr*10)/10,slaRisk:hr>0&&hr<(issue.slaHours||24)*0.2};
+        const{deadline:sd,slaHours}=getIssueSLAInfo(issue),hr=(sd-now)/3600000;
+        return{...issue,slaDeadline:sd.toISOString(),slaBreached:now>sd&&!['Resolved','Release Required'].includes(issue.status),slaHoursRemaining:Math.round(hr*10)/10,slaRisk:hr>0&&hr<slaHours*0.2};
       });
       if(filters){if(filters.status&&filters.status!=='all')issues=issues.filter(i=>i.status===filters.status);if(filters.priority&&filters.priority!=='all')issues=issues.filter(i=>i.priority===filters.priority);if(filters.module&&filters.module!=='all')issues=issues.filter(i=>i.module===filters.module);if(filters.assignedTo&&filters.assignedTo!=='all')issues=issues.filter(i=>i.assignedTo===filters.assignedTo);if(filters.raisedBy)issues=issues.filter(i=>i.raisedBy===filters.raisedBy);if(filters.dateFrom)issues=issues.filter(i=>new Date(i.createdDate)>=new Date(filters.dateFrom));if(filters.dateTo)issues=issues.filter(i=>new Date(i.createdDate)<=new Date(filters.dateTo+'T23:59:59'));}
       return{success:true,issues:issues.reverse()};
     },
-    getIssueById:issueId=>{const db=rDB(),now=new Date(),issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const sd=new Date(new Date(issue.createdDate).getTime()+issue.slaHours*3600000),hr=(sd-now)/3600000;return{success:true,issue:{...issue,slaDeadline:sd.toISOString(),slaBreached:now>sd&&!['Resolved','Release Required'].includes(issue.status),slaHoursRemaining:Math.round(hr*10)/10,slaRisk:hr>0&&hr<issue.slaHours*0.2}};},
+    getIssueById:issueId=>{const db=rDB(),now=new Date(),issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const{deadline:sd,slaHours}=getIssueSLAInfo(issue),hr=(sd-now)/3600000;return{success:true,issue:{...issue,slaDeadline:sd.toISOString(),slaBreached:now>sd&&!['Resolved','Release Required'].includes(issue.status),slaHoursRemaining:Math.round(hr*10)/10,slaRisk:hr>0&&hr<slaHours*0.2}};},
     updateIssuePriority:(issueId,p)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].priority=p;logActivity(db,issueId,`Priority changed to ${p}`,su.email);wDB(db);return{success:true};},
     assignIssue:(issueId,de)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===issueId);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].assignedTo=de;logActivity(db,issueId,`Assigned to ${de}`,su.email);wDB(db);return{success:true};},
     getDashboardStats:()=>{
       const db=rDB(),now=new Date();
-      const issues=(db.issues||[]).map(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return{...i,slaBreached:now>d&&!['Resolved','Release Required'].includes(i.status)};});
+      const issues=(db.issues||[]).map(i=>{const d=getIssueSLAInfo(i).deadline;return{...i,slaBreached:now>d&&!['Resolved','Release Required'].includes(i.status)};});
       const stats={total:issues.length,open:issues.filter(i=>i.status==='Open').length,inProgress:issues.filter(i=>i.status==='WIP').length,critical:issues.filter(i=>i.priority==='Critical'&&!['Resolved','Release Required'].includes(i.status)).length,slaBreached:issues.filter(i=>i.slaBreached).length,resolved:issues.filter(i=>i.status==='Resolved').length,closed:issues.filter(i=>i.status==='Release Required').length};
       const mc={},pc={Critical:0,High:0,Medium:0,Low:0},dw={};
       issues.forEach(i=>{if(i.module)mc[i.module]=(mc[i.module]||0)+1;if(pc[i.priority]!==undefined)pc[i.priority]++;});
@@ -2023,7 +2042,7 @@ app.post('/api/call',async(req,res)=>{
     updateSetting:(k,v)=>{const db=rDB();db.settings=db.settings||{};db.settings[k]=v;wDB(db);if(k==='APP_NAME'&&v){const o=readOwner();const bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){o.brands[bi].name=v;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])sessions[t].brandName=v;}return{success:true};},
     getSLAConfig:()=>{const db=rDB();return{success:true,config:db.slaConfig||{Critical:4,High:8,Medium:24,Low:72}};},
     updateSLAConfig:(p,h)=>{const db=rDB();db.slaConfig=db.slaConfig||{};db.slaConfig[p]=h;wDB(db);return{success:true};},
-    getKanbanData:()=>{const db=rDB(),now=new Date(),cols=['Open','Acknowledged','WIP','Testing','Blocked','Need Info'],board={};cols.forEach(s=>{board[s]=[];});(db.issues||[]).filter(i=>cols.includes(i.status)).forEach(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);board[i.status].push({...i,slaBreached:now>d});});return{success:true,board,columns:cols};},
+    getKanbanData:()=>{const db=rDB(),now=new Date(),cols=['Open','Acknowledged','WIP','Testing','Blocked','Need Info'],board={};cols.forEach(s=>{board[s]=[];});(db.issues||[]).filter(i=>cols.includes(i.status)).forEach(i=>{const d=getIssueSLAInfo(i).deadline;board[i.status].push({...i,slaBreached:now>d});});return{success:true,board,columns:cols};},
     getSprints:()=>{const db=rDB();return{success:true,sprints:db.sprints||[]};},
     createSprint:data=>{const db=rDB(),s={id:generateId('SPR'),...data,createdDate:nowIST()};db.sprints=db.sprints||[];db.sprints.push(s);wDB(db);return{success:true,sprintId:s.id};},
     assignIssueToSprint:(ii,si)=>{const db=rDB();const idx=(db.issues||[]).findIndex(i=>i.id===ii);if(idx===-1)return{success:false,error:'Not found'};db.issues[idx].sprintId=si;wDB(db);return{success:true};},
@@ -2115,7 +2134,7 @@ app.post('/api/call',async(req,res)=>{
     toggleReaction:(cid,emoji)=>{const db=rDB();db.reactions=db.reactions||[];const ex=db.reactions.find(r=>r.commentId===cid&&r.emoji===emoji&&r.email===su.email);if(ex)db.reactions=db.reactions.filter(r=>!(r.commentId===cid&&r.emoji===emoji&&r.email===su.email));else db.reactions.push({commentId:cid,emoji,email:su.email});wDB(db);return{success:true};},
     getReactions:ii=>{const db=rDB(),cids=(db.comments||[]).filter(c=>c.issueId===ii).map(c=>c.id);return{success:true,reactions:(db.reactions||[]).filter(r=>cids.includes(r.commentId))};},
     togglePinnedIssue:ii=>{const db=rDB();db.pinnedIssues=db.pinnedIssues||[];const ex=db.pinnedIssues.find(p=>p.issueId===ii&&p.email===su.email);if(ex)db.pinnedIssues=db.pinnedIssues.filter(p=>!(p.issueId===ii&&p.email===su.email));else db.pinnedIssues.push({issueId:ii,email:su.email});wDB(db);return{success:true,pinned:!ex};},
-    getPinnedIssues:()=>{const db=rDB(),now=new Date();return{success:true,issues:(db.pinnedIssues||[]).filter(p=>p.email===su.email).map(p=>{const issue=(db.issues||[]).find(i=>i.id===p.issueId);if(!issue)return null;const d=new Date(new Date(issue.createdDate).getTime()+issue.slaHours*3600000);return{...issue,slaBreached:now>d};}).filter(Boolean)};},
+    getPinnedIssues:()=>{const db=rDB(),now=new Date();return{success:true,issues:(db.pinnedIssues||[]).filter(p=>p.email===su.email).map(p=>{const issue=(db.issues||[]).find(i=>i.id===p.issueId);if(!issue)return null;const d=getIssueSLAInfo(issue).deadline;return{...issue,slaBreached:now>d};}).filter(Boolean)};},
     fullTextSearch:q=>{const db=rDB(),ql=(q||'').toLowerCase();return{success:true,results:(db.issues||[]).filter(i=>i.title.toLowerCase().includes(ql)||(i.description||'').toLowerCase().includes(ql)||i.id.toLowerCase().includes(ql)).slice(0,20)};},
     getAllFeatureFlags:()=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(brand)return{success:true,flags:resolveFeatureFlags(brand,db.featureFlags||{}),tier:brand.tier,overrides:brand.featureOverrides||{}};return{success:true,flags:db.featureFlags||{}};},
     // Feature flags are OWNER-controlled only — brand admins cannot change them
@@ -2126,8 +2145,8 @@ app.post('/api/call',async(req,res)=>{
     isFeatureEnabled:key=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(brand)return{success:true,enabled:resolveFeatureFlags(brand,db.featureFlags||{})[key]===true};return{success:true,enabled:(db.featureFlags||{})[key]===true};},
     getBrandFeatureAccess:()=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(!brand)return{success:false,error:'Not found'};return{success:true,resolved:resolveFeatureFlags(brand,db.featureFlags||{}),tier:brand.tier,meta:FEATURE_META,overrides:brand.featureOverrides||{}};},
     getModuleHealthScores:()=>{const db=rDB(),mc={},mcc={};(db.issues||[]).filter(i=>!['Resolved','Release Required'].includes(i.status)).forEach(i=>{if(i.module){mc[i.module]=(mc[i.module]||0)+1;if(i.priority==='Critical')mcc[i.module]=(mcc[i.module]||0)+1;}});return{success:true,scores:Object.keys(mc).map(m=>({module:m,open:mc[m],critical:mcc[m]||0,health:Math.max(0,100-mc[m]*5-(mcc[m]||0)*20)}))};},
-    getSLAComplianceReport:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),now=new Date(),issues=(db.issues||[]).filter(i=>new Date(i.createdDate)>=from&&new Date(i.createdDate)<=to),breached=issues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d&&!['Resolved','Release Required'].includes(i.status);}).length;return{success:true,total:issues.length,breached,compliant:issues.length-breached};},
-    getPlatformStats:()=>{const db=rDB(),now=new Date(),issues=db.issues||[],owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{};return{success:true,users:{total:(db.users||[]).length,active:(db.users||[]).filter(u=>u.active).length,byRole:(db.users||[]).reduce((a,u)=>{a[u.role]=(a[u.role]||0)+1;return a;},{})},issues:{total:issues.length,open:issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status)).length,resolved:issues.filter(i=>['Resolved','Release Required'].includes(i.status)).length,slaBreached:issues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d&&!['Resolved','Release Required'].includes(i.status);}).length},data:{comments:(db.comments||[]).length,activityLogs:(db.activityLog||[]).length,sprints:(db.sprints||[]).length,customFields:(db.customFields||[]).length,dbSizeKB:Math.round(fs.statSync(brandDbPath(slug)).size/1024)},settings:db.settings||{},featureFlags:db.featureFlags||{},brand:{name:brand.name,tier:brand.tier,limits:brand.limits,accentColor:brand.accentColor,theme:brand.theme,logoUrl:brand.logoUrl}};},
+    getSLAComplianceReport:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),now=new Date(),issues=(db.issues||[]).filter(i=>new Date(i.createdDate)>=from&&new Date(i.createdDate)<=to),breached=issues.filter(i=>{const d=getIssueSLAInfo(i).deadline;return now>d&&!['Resolved','Release Required'].includes(i.status);}).length;return{success:true,total:issues.length,breached,compliant:issues.length-breached};},
+    getPlatformStats:()=>{const db=rDB(),now=new Date(),issues=db.issues||[],owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{};return{success:true,users:{total:(db.users||[]).length,active:(db.users||[]).filter(u=>u.active).length,byRole:(db.users||[]).reduce((a,u)=>{a[u.role]=(a[u.role]||0)+1;return a;},{})},issues:{total:issues.length,open:issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status)).length,resolved:issues.filter(i=>['Resolved','Release Required'].includes(i.status)).length,slaBreached:issues.filter(i=>{const d=getIssueSLAInfo(i).deadline;return now>d&&!['Resolved','Release Required'].includes(i.status);}).length},data:{comments:(db.comments||[]).length,activityLogs:(db.activityLog||[]).length,sprints:(db.sprints||[]).length,customFields:(db.customFields||[]).length,dbSizeKB:Math.round(fs.statSync(brandDbPath(slug)).size/1024)},settings:db.settings||{},featureFlags:db.featureFlags||{},brand:{name:brand.name,tier:brand.tier,limits:brand.limits,accentColor:brand.accentColor,theme:brand.theme,logoUrl:brand.logoUrl}};},
     exportAllData:()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};return{success:true,data:rDB(),exportedAt:nowIST()};},
     exportIssuesCSV:()=>{const db=rDB(),h=['IssueID','Title','Priority','Status','Module','RaisedBy','AssignedTo','CreatedDate','ResolvedDate','SLAHours'];return{success:true,csv:[h.join(','),...(db.issues||[]).map(i=>h.map(hh=>`"${(i[hh.charAt(0).toLowerCase()+hh.slice(1)]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n')};},
     uploadFile:(fn,mt,b64)=>{const dir=path.join(__dirname,'public','uploads');if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});const ext=fn.split('.').pop(),sn=generateId('FILE')+'.'+ext;fs.writeFileSync(path.join(dir,sn),Buffer.from(b64,'base64'));return{success:true,url:'/uploads/'+sn,fileId:sn};},
@@ -2368,6 +2387,7 @@ app.post('/api/call',async(req,res)=>{
       if(idx===-1)return{success:false,error:'Ticket not found'};
       db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=nowIST();wDB(db);
       sendSlackAlert(slug,'assigned',db.tickets[idx]).catch(()=>{});
+      notifyTicketAssigned(slug,db,db.tickets[idx],agentEmail);
       return{success:true};
     },
     addTicketNote:(ticketId,noteText)=>{
@@ -2398,7 +2418,7 @@ app.post('/api/call',async(req,res)=>{
         const idx=(db.tickets||[]).findIndex(t=>t.id===id);
         if(idx===-1)return;
         if(action==='status'){db.tickets[idx].status=value;db.tickets[idx].lastActivity=now;}
-        else if(action==='assign'){db.tickets[idx].assignedTo=value;db.tickets[idx].lastActivity=now;}
+        else if(action==='assign'){db.tickets[idx].assignedTo=value;db.tickets[idx].lastActivity=now;notifyTicketAssigned(slug,db,db.tickets[idx],value);}
         else if(action==='delete'){db.tickets.splice(idx,1);updated++;return;}
         updated++;
       });
@@ -2854,7 +2874,7 @@ app.post('/api/call',async(req,res)=>{
         const assigned=issues.filter(i=>i.assignedTo===u.email);
         const resolved=assigned.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
         const breached=assigned.filter(i=>{
-          const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);
+          const d=getIssueSLAInfo(i).deadline;
           return now>d&&!['Resolved','Release Required'].includes(i.status);
         });
         const avgResolutionHours=resolved.length>0
@@ -2925,8 +2945,8 @@ app.post('/api/call',async(req,res)=>{
       const assigned=(db.issues||[]).filter(i=>i.assignedTo===email&&inRange(i));
       const resolved=assigned.filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&i.createdDate);
       const open=assigned.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-      const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);return now>d;});
-      const atRisk=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+i.slaHours*3600000);const hr=(d-now)/3600000;return hr>0&&hr<i.slaHours*0.2;});
+      const breached=open.filter(i=>now>getIssueSLAInfo(i).deadline);
+      const atRisk=open.filter(i=>{const{deadline:d,slaHours}=getIssueSLAInfo(i);const hr=(d-now)/3600000;return hr>0&&hr<slaHours*0.2;});
       const avgRes=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
       const byPriority={Critical:0,High:0,Medium:0,Low:0};open.forEach(i=>{if(byPriority[i.priority]!==undefined)byPriority[i.priority]++;});
       const trend=[];for(let d=6;d>=0;d--){const date=new Date();date.setDate(date.getDate()-d);const ds=date.toISOString().split('T')[0];trend.push({date:ds,resolved:resolved.filter(i=>i.resolvedDate&&i.resolvedDate.startsWith(ds)).length,raised:raised.filter(i=>i.createdDate&&i.createdDate.startsWith(ds)).length});}
@@ -2962,7 +2982,7 @@ app.post('/api/call',async(req,res)=>{
       const avgResHours=resolved.length>0?Math.round(resolved.reduce((s,i)=>s+(new Date(i.resolvedDate||i.closedDate)-new Date(i.createdDate))/3600000,0)/resolved.length*10)/10:null;
       // FIX: SLA breached only counts open issues (resolved ones met SLA by definition)
       const openIssues=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-      const breached=openIssues.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000+(i.slaExtraMs||0));return now>d;});
+      const breached=openIssues.filter(i=>now>getIssueSLAInfo(i).deadline);
       // FIX: SLA compliance = open issues that are within SLA / total open (not total issues)
       const slaComplianceRate=openIssues.length>0?Math.round((1-breached.length/openIssues.length)*100):(issues.length>0?100:null);
       const byAssignee={};issues.forEach(i=>{if(i.assignedTo){byAssignee[i.assignedTo]=(byAssignee[i.assignedTo]||0)+1;}});
@@ -3122,7 +3142,7 @@ app.post('/api/call',async(req,res)=>{
         if(filters.dateTo)issues=issues.filter(i=>new Date(i.createdDate)<=new Date(filters.dateTo+'T23:59:59'));
       }
       const rows=issues.map(i=>{
-        const sla=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000);
+        const sla=getIssueSLAInfo(i).deadline;
         const breached=now>sla&&!['Resolved','Release Required','Closed'].includes(i.status);
         const resHours=i.resolvedDate&&i.createdDate?Math.round((new Date(i.resolvedDate)-new Date(i.createdDate))/360000)/10:null;
         return[i.id,i.title?.replace(/,/g,' '),i.status,i.priority,i.module||'',i.assignedTo||'',i.raisedBy||'',(i.createdDate||'').substring(0,10),(i.resolvedDate||'').substring(0,10),breached?'Yes':'No',resHours??'',i.slaHours||24,i.environment||'',i.impact||'',i.revenueImpact||''].join(',');
@@ -3814,6 +3834,7 @@ app.post('/api/call',async(req,res)=>{
       };
       db.tickets=db.tickets||[];db.tickets.unshift(ticket);
       wDB(db);
+      if(assignedTo)notifyTicketAssigned(slug,db,ticket,assignedTo);
       runAutomationRules(slug,id,'ticket_created').catch(()=>{});
       return{success:true,ticketId:id};
     },
@@ -4002,7 +4023,9 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:'transferred',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`From ${prevAgent} → ${toAgent}${note?': '+note:''}`});
       if(note){db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push({id:generateId('NOTE'),type:'note',from:su.email,fromName:su.name||su.email,body:`Transferred to ${toAgent}: ${note}`,timestamp:nowIST()});}
-      wDB(db);return{success:true};
+      wDB(db);
+      notifyTicketAssigned(slug,db,db.tickets[idx],toAgent);
+      return{success:true};
     },
     // Feature 15: Priority bump — move to status 'new' and flag
     bumpTicketPriority:(ticketId)=>{
@@ -4825,7 +4848,7 @@ app.post('/api/call',async(req,res)=>{
       const issues=db.issues||[];const tickets=db.tickets||[];const users=(db.users||[]).filter(u=>u.active);
       // ── Issues (product) ──
       const openIssuesArr=issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-      const breachedIssues=openIssuesArr.filter(i=>now>new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000));
+      const breachedIssues=openIssuesArr.filter(i=>now>getIssueSLAInfo(i).deadline);
       const byPriority={Critical:0,High:0,Medium:0,Low:0};openIssuesArr.forEach(i=>{if(byPriority[i.priority]!=null)byPriority[i.priority]++;});
       const byStatus={};openIssuesArr.forEach(i=>{byStatus[i.status]=(byStatus[i.status]||0)+1;});
       const weekAgo=nowMs-7*86400000;
@@ -4859,7 +4882,7 @@ app.post('/api/call',async(req,res)=>{
       const notes=[];
       // SLA breaching soon
       (db.issues||[]).filter(i=>i.assignedTo===su.email&&!['Resolved','Release Required','Closed'].includes(i.status)).forEach(i=>{
-        const sla=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000);
+        const sla=getIssueSLAInfo(i).deadline;
         const hr=(sla-now)/3600000;
         if(hr<0)notes.push({type:'sla_breached',issueId:i.id,title:i.title,message:`SLA breached on ${i.id}`,at:i.createdDate});
         else if(hr<2)notes.push({type:'sla_risk',issueId:i.id,title:i.title,message:`SLA at risk: ${i.id} (${Math.round(hr*60)}m left)`,at:i.createdDate});
@@ -4911,7 +4934,7 @@ app.post('/api/call',async(req,res)=>{
       const sysNotes=[];
       // SLA at risk (assigned to me)
       (db.issues||[]).filter(i=>i.assignedTo===su.email&&!['Resolved','Release Required','Closed'].includes(i.status)).forEach(i=>{
-        const sla=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000+(i.slaExtraMs||0));
+        const sla=getIssueSLAInfo(i).deadline;
         const hr=(sla-now)/3600000;
         if(hr<0)sysNotes.push({id:'sla_'+i.id,type:'sla_breach',title:'SLA Breached',body:i.title,issueId:i.id,at:now.toISOString(),read:false,icon:'🔴'});
         else if(hr<2)sysNotes.push({id:'slar_'+i.id,type:'sla_risk',title:'SLA at Risk',body:`${i.id}: ${i.title.substring(0,50)} — ${Math.round(hr*60)}m left`,issueId:i.id,at:now.toISOString(),read:false,icon:'🟡'});
@@ -5159,8 +5182,8 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);
       if(!issue)return{success:false,error:'Not found'};
       const now=new Date();
-      const ageHours=(now-new Date(issue.createdDate))/3600000;
-      const sla=new Date(new Date(issue.createdDate).getTime()+(issue.slaHours||24)*3600000);
+      const{deadline:sla,createdMs}=getIssueSLAInfo(issue);
+      const ageHours=(now-createdMs)/3600000;
       const breached=now>sla&&!['Resolved','Release Required','Closed'].includes(issue.status);
       const priorityScore={Critical:40,High:25,Medium:10,Low:5}[issue.priority]||10;
       const ageScore=Math.min(30,Math.round(ageHours/24*5));
@@ -5173,8 +5196,8 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const now=new Date();
       const open=(db.issues||[]).filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
       const scored=open.map(issue=>{
-        const ageHours=(now-new Date(issue.createdDate))/3600000;
-        const sla=new Date(new Date(issue.createdDate).getTime()+(issue.slaHours||24)*3600000);
+        const{deadline:sla,createdMs}=getIssueSLAInfo(issue);
+        const ageHours=(now-createdMs)/3600000;
         const breached=now>sla;
         const s={Critical:40,High:25,Medium:10,Low:5}[issue.priority]||10;
         const score=Math.min(100,s+Math.min(30,Math.round(ageHours/24*5))+Math.min(20,(issue.revenueImpact||0)/1000)+(breached?10:0));
@@ -5325,7 +5348,7 @@ app.get('/api/export/:type',(req,res)=>{
       filename=`${slug}-issues-${dateStr}.csv`;
       const header='ID,Title,Status,Priority,Module,AssignedTo,RaisedBy,CreatedDate,StartedDate,ResolvedDate,ClosedDate,SLAHours,SLADeadline,SLABreached,ResolutionHours,Environment,Impact,RevenueImpact,SprintID,Tags,Source';
       const rows=issues.map(i=>{
-        const slaDeadline=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000+(i.slaExtraMs||0));
+        const slaDeadline=getIssueSLAInfo(i).deadline;
         const breached=now>slaDeadline&&!['Resolved','Release Required','Closed'].includes(i.status);
         const resHours=i.resolvedDate&&i.createdDate?Math.round((new Date(i.resolvedDate)-new Date(i.createdDate))/360000)/10:'';
         return[i.id,esc(i.title),i.status,i.priority,i.module||'',i.assignedTo||'',i.raisedBy||'',(i.createdDate||'').substring(0,10),(i.startedDate||'').substring(0,10),(i.resolvedDate||'').substring(0,10),(i.closedDate||'').substring(0,10),i.slaHours||24,slaDeadline.toISOString().substring(0,10),breached?'Yes':'No',resHours,esc(i.environment),esc(i.impact),i.revenueImpact||'',i.sprintId||'',(i.tags||[]).join(';'),i.source||'manual'].join(',');
@@ -5353,7 +5376,7 @@ app.get('/api/export/:type',(req,res)=>{
         const assigned=issues.filter(i=>i.assignedTo===u.email);
         const resolved=assigned.filter(i=>['Resolved','Release Required','Closed'].includes(i.status));
         const open=assigned.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status));
-        const breached=open.filter(i=>{const d=new Date(new Date(i.createdDate).getTime()+(i.slaHours||24)*3600000);return now>d;}).length;
+        const breached=open.filter(i=>now>getIssueSLAInfo(i).deadline).length;
         const avgRes=resolved.filter(i=>i.resolvedDate&&i.createdDate).length>0?Math.round(resolved.filter(i=>i.resolvedDate&&i.createdDate).reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/resolved.filter(i=>i.resolvedDate&&i.createdDate).length*10)/10:'';
         const tAssigned=tickets.filter(t=>t.assignedTo===u.email);
         const tResolved=tAssigned.filter(t=>['resolved','closed'].includes(t.status));
@@ -6643,6 +6666,19 @@ function getTicketSLAInfo(db, ticket) {
     slaHoursRemaining: Math.round(hoursRemaining * 10) / 10,
     slaPolicyName: policy ? policy.name : null,
   };
+}
+
+// Same fallback pattern as getTicketSLAInfo, for issues: a handful of
+// older/hand-seeded issues have a missing or malformed createdDate — fall
+// back to "now" rather than producing an Invalid Date that throws on
+// toISOString() (or silently NaNs out breach/risk comparisons) wherever an
+// issue's SLA deadline is computed. Also defaults slaHours to 24 when unset.
+function getIssueSLAInfo(issue) {
+  const cd = new Date(issue.createdDate);
+  const createdMs = isNaN(cd.getTime()) ? Date.now() : cd.getTime();
+  const slaHours = issue.slaHours || 24;
+  const deadline = new Date(createdMs + slaHours * 3600000 + (issue.slaExtraMs || 0));
+  return { deadline, slaHours, createdMs };
 }
 
 // Cross-channel spam/duplicate guard for chat-style channels (WhatsApp, SMS,
@@ -8328,6 +8364,53 @@ function runBackgroundJobs(){
       }catch(e){console.error('[Reminders] Error:',e.message);}
     }
   });
+  // SLA breach alerts — every 15 min, flags tickets/issues that just crossed
+  // their SLA deadline and notifies the assignee (email, gated by
+  // notifyPrefs.onSLABreach) + Slack (existing 'slaBreach' alert type,
+  // tickets only — its payload assumes ticket-shaped fields). One-shot per
+  // item via slaBreachNotified, same pattern as appointment reminderSent.
+  cron.schedule('*/15 * * * *',async()=>{
+    const owner=readOwner();
+    for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+      try{
+        const db=readBrandDB(brand.slug);
+        let changed=false;
+        for(const ticket of (db.tickets||[])){
+          if(ticket.slaBreachNotified)continue;
+          let info;
+          try{info=getTicketSLAInfo(db,ticket);}catch(e){continue;}
+          if(!info.slaBreached)continue;
+          ticket.slaBreachNotified=true;changed=true;
+          sendSlackAlert(brand.slug,'slaBreach',ticket).catch(()=>{});
+          if(ticket.assignedTo){
+            const assignee=(db.users||[]).find(u=>u.email===ticket.assignedTo);
+            if(assignee&&assignee.notifyPrefs?.onSLABreach!==false){
+              sendBrandEmail(brand.slug,assignee.email,`[${brand.name}] SLA Breached: ${ticket.id}`,
+                slaBreachAlertHTML({id:ticket.id,label:ticket.subject,priority:ticket.priority},brand.name,brand.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL,'Ticket'),
+                `Ticket ${ticket.id} has breached its SLA`).catch(e=>console.error('[SLA] Email error:',e.message));
+            }
+          }
+        }
+        for(const issue of (db.issues||[])){
+          if(issue.slaBreachNotified)continue;
+          if(['Resolved','Release Required','Closed'].includes(issue.status))continue;
+          const cd=new Date(issue.createdDate);
+          const createdMs=isNaN(cd.getTime())?Date.now():cd.getTime();
+          if(Date.now()<=createdMs+(issue.slaHours||24)*3600000)continue;
+          issue.slaBreachNotified=true;changed=true;
+          if(issue.assignedTo){
+            const assignee=(db.users||[]).find(u=>u.email===issue.assignedTo);
+            if(assignee&&assignee.notifyPrefs?.onSLABreach!==false){
+              sendBrandEmail(brand.slug,assignee.email,`[${brand.name}] SLA Breached: ${issue.id}`,
+                slaBreachAlertHTML({id:issue.id,label:issue.title,priority:issue.priority},brand.name,brand.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL,'Issue'),
+                `Issue ${issue.id} has breached its SLA`).catch(e=>console.error('[SLA] Email error:',e.message));
+            }
+          }
+        }
+        if(changed)writeBrandDB(brand.slug,db);
+      }catch(e){console.error('[SLA] Breach-check error:',brand.slug,e.message);}
+    }
+  });
   // Nurture email sequence — runs daily at 10am, sends day 1/3/7/14 emails to new signups
   cron.schedule('0 10 * * *',async()=>{
     console.log('[Nurture] Checking nurture emails...');
@@ -9915,6 +9998,7 @@ async function executeAutomationAction(slug,ticket,action,db){
         const newAgent=autoAssignAgent(db,{subject:ticket.subject,from:ticket.from,priority:ticket.priority});
         if(newAgent)ticket.assignedTo=newAgent;
       }
+      if(ticket.assignedTo)notifyTicketAssigned(slug,db,ticket,ticket.assignedTo);
       return ticket.assignedTo?`Assigned to ${ticket.assignedTo}`:'Assign agent found no available agent';
     }
     case'notify_email':{
