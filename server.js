@@ -1985,7 +1985,16 @@ app.post('/api/call',async(req,res)=>{
     getActivityLog:issueId=>{const db=rDB();let l=db.activityLog||[];if(issueId)l=l.filter(x=>x.issueId===issueId);return{success:true,logs:l.slice().reverse()};},
     getIssues:filters=>{
       const db=rDB(),now=new Date();
-      let issues=(db.issues||[]).map(issue=>{const sd=new Date(new Date(issue.createdDate).getTime()+issue.slaHours*3600000),hr=(sd-now)/3600000;return{...issue,slaDeadline:sd.toISOString(),slaBreached:now>sd&&!['Resolved','Release Required'].includes(issue.status),slaHoursRemaining:Math.round(hr*10)/10,slaRisk:hr>0&&hr<issue.slaHours*0.2};});
+      // A single issue with a missing/malformed createdDate used to throw
+      // "Invalid time value" on toISOString() and crash the WHOLE list —
+      // same fallback pattern as getTicketSLAInfo: fall back to a valid
+      // date rather than letting one bad record take down every issue.
+      let issues=(db.issues||[]).map(issue=>{
+        const cd=new Date(issue.createdDate);
+        const createdMs=isNaN(cd.getTime())?Date.now():cd.getTime();
+        const sd=new Date(createdMs+(issue.slaHours||24)*3600000),hr=(sd-now)/3600000;
+        return{...issue,slaDeadline:sd.toISOString(),slaBreached:now>sd&&!['Resolved','Release Required'].includes(issue.status),slaHoursRemaining:Math.round(hr*10)/10,slaRisk:hr>0&&hr<(issue.slaHours||24)*0.2};
+      });
       if(filters){if(filters.status&&filters.status!=='all')issues=issues.filter(i=>i.status===filters.status);if(filters.priority&&filters.priority!=='all')issues=issues.filter(i=>i.priority===filters.priority);if(filters.module&&filters.module!=='all')issues=issues.filter(i=>i.module===filters.module);if(filters.assignedTo&&filters.assignedTo!=='all')issues=issues.filter(i=>i.assignedTo===filters.assignedTo);if(filters.raisedBy)issues=issues.filter(i=>i.raisedBy===filters.raisedBy);if(filters.dateFrom)issues=issues.filter(i=>new Date(i.createdDate)>=new Date(filters.dateFrom));if(filters.dateTo)issues=issues.filter(i=>new Date(i.createdDate)<=new Date(filters.dateTo+'T23:59:59'));}
       return{success:true,issues:issues.reverse()};
     },

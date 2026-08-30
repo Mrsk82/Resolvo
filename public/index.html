@@ -12839,7 +12839,7 @@ const App = {
       const slaClass = i.slaBreached ? 'breach' : i.slaRisk ? 'risk' : 'ok';
       const slaText = i.slaBreached ? 'BREACHED' : `${i.slaHoursRemaining}h left`;
       return `
-        <tr onclick="App.navigate('issue-detail', {id:'${i.id}'})" title="${i.title}">
+        <tr onclick="App.navigate('issue-detail', {id:'${i.id}'})" title="${i.title}" data-issue-id="${i.id}">
           <td><input type="checkbox" class="issue-checkbox" data-issue-id="${i.id}" onchange="App.toggleIssueSelect('${i.id}', this)" onclick="event.stopPropagation()"></td>
           <td><span class="issue-id">${i.id}</span></td>
           <td style="max-width:280px"><div class="truncate">${i.source==='email'?'<span title="Email Ticket" style="font-size:11px;margin-right:5px;">📬</span>':''}${i.title}</div></td>
@@ -15385,6 +15385,10 @@ const App = {
     if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load tickets</p></div>'; return; }
 
     var tickets = r.tickets || [];
+    // For RowPreview's hover card — same pattern as App.allIssues, just for
+    // whichever page of tickets is currently on screen (server-paginated,
+    // so this only ever holds what's actually rendered, not the full set).
+    self.allTickets = tickets;
     var counts = r.counts || {};
     var total = (r.total != null) ? r.total : tickets.length;
     var emailCfg = (cfgR && cfgR.success && cfgR.config) ? cfgR.config : {};
@@ -28360,23 +28364,39 @@ const RowPreview = {
     this._tip = document.getElementById('rowPreviewTip');
     var self = this;
     document.addEventListener('mouseover', function(e) {
-      var row = e.target.closest('tbody tr[data-issue-id]');
-      if (!row) { self.hide(); return; }
-      var id = row.getAttribute('data-issue-id');
+      var issueRow = e.target.closest('tbody tr[data-issue-id]');
+      var ticketRow = e.target.closest('.ticket-row[data-ticket-id]');
+      if (!issueRow && !ticketRow) { self.hide(); return; }
       clearTimeout(self._timeout);
-      self._timeout = setTimeout(function() { self.show(id, e); }, 400);
+      if (issueRow) {
+        var issueId = issueRow.getAttribute('data-issue-id');
+        self._timeout = setTimeout(function() { self.showIssue(issueId, e); }, 400);
+      } else {
+        var ticketId = ticketRow.getAttribute('data-ticket-id');
+        self._timeout = setTimeout(function() { self.showTicket(ticketId, e); }, 400);
+      }
     });
     document.addEventListener('mouseout', function(e) {
-      var row = e.target.closest('tbody tr[data-issue-id]');
+      var row = e.target.closest('tbody tr[data-issue-id]') || e.target.closest('.ticket-row[data-ticket-id]');
       if (!row) return;
       clearTimeout(self._timeout);
       setTimeout(function() { self.hide(); }, 200);
     });
   },
 
-  show: function(issueId, e) {
+  _position: function(e) {
+    var x = Math.min(e.clientX + 16, window.innerWidth - 360);
+    var y = Math.min(e.clientY + 16, window.innerHeight - 200);
+    this._tip.style.left = x + 'px';
+    this._tip.style.top = y + 'px';
+    this._tip.classList.add('visible');
+  },
+
+  showIssue: function(issueId, e) {
     if (!this._tip) return;
-    var issue = App._lastIssues && App._lastIssues.find(function(i) { return i.id === issueId; });
+    // Was App._lastIssues, which is never assigned anywhere — this hover
+    // preview has never actually shown anything until this fix.
+    var issue = App.allIssues && App.allIssues.find(function(i) { return i.id === issueId; });
     if (!issue) return;
     var pBadge = '<span class="badge-priority ' + (issue.priority||'').toLowerCase() + '">' + (issue.priority||'') + '</span>';
     var sBadge = '<span class="badge-status ' + (issue.status||'').toLowerCase().replace(' ','-') + '">' + (issue.status||'') + '</span>';
@@ -28385,11 +28405,22 @@ const RowPreview = {
       '<div class="row-preview-title">' + App._esc(issue.title) + '</div>' +
       '<div class="row-preview-desc">' + App._esc((issue.description||'').slice(0,120)) + (issue.description && issue.description.length > 120 ? '...' : '') + '</div>' +
       '<div class="row-preview-meta">' + pBadge + sBadge + '</div>';
-    var x = Math.min(e.clientX + 16, window.innerWidth - 360);
-    var y = Math.min(e.clientY + 16, window.innerHeight - 200);
-    this._tip.style.left = x + 'px';
-    this._tip.style.top = y + 'px';
-    this._tip.classList.add('visible');
+    this._position(e);
+  },
+
+  showTicket: function(ticketId, e) {
+    if (!this._tip) return;
+    var t = App.allTickets && App.allTickets.find(function(x) { return x.id === ticketId; });
+    if (!t) return;
+    var pBadge = '<span class="badge-priority ' + (t.priority||'').toLowerCase() + '">' + (t.priority||'') + '</span>';
+    var sBadge = '<span class="badge-status ' + (t.status||'').toLowerCase().replace(' ','-') + '">' + (t.status||'') + '</span>';
+    var snippet = t.lastMessage && t.lastMessage.body ? t.lastMessage.body : '';
+    this._tip.innerHTML =
+      '<div class="row-preview-id">' + App._esc(t.id) + '</div>' +
+      '<div class="row-preview-title">' + App._esc(t.subject||'') + '</div>' +
+      '<div class="row-preview-desc">' + App._esc(snippet.slice(0,120)) + (snippet.length > 120 ? '...' : '') + '</div>' +
+      '<div class="row-preview-meta">' + pBadge + sBadge + '</div>';
+    this._position(e);
   },
 
   hide: function() {
