@@ -4236,6 +4236,17 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
     margin-left: 0 !important;
     width: 100% !important;
   }
+  /* Ticket Inbox and Ticket Detail both use the same fixed-width
+     sidebar + flex:1 main-pane split (.tt-split-panel/-main/-side) — at
+     desktop widths the fixed side pane (190-272px) is fine, but on a
+     375px phone it left only ~70px for the main pane, squeezing the
+     reply textarea down to near-nothing. Stack them instead. */
+  .tt-split-panel { flex-direction: column !important; height: auto !important; min-height: 0 !important; }
+  .tt-split-panel .tt-split-side, .tt-split-panel #ticketInboxSidebar {
+    width: 100% !important; max-height: 240px !important;
+    border-right: none !important; border-bottom: 1px solid var(--border);
+  }
+  .tt-split-panel .tt-split-main { border-right: none !important; min-height: 50vh; }
   .topbar-hamburger {
     display: flex !important;
   }
@@ -11873,6 +11884,13 @@ const App = {
     const bc = document.getElementById('breadcrumb');
     if (el) el.textContent = title;
     if (bc) bc.textContent = breadcrumb || '';
+    // A wide element on a previous page (or a focus() call that auto-scrolled
+    // to reveal an off-screen input) can leave #mainContent horizontally
+    // scrolled — that position persists across navigation and, at mobile
+    // widths especially, shows up as the new page's content appearing shifted
+    // off the left edge. Every page starts from a clean scroll position.
+    const mc = document.getElementById('mainContent');
+    if (mc) { mc.scrollLeft = 0; mc.scrollTop = 0; }
   },
 
   navigate(page, params = {}) {
@@ -15410,10 +15428,10 @@ const App = {
         </div>`;
       })()}`}
 
-      <div style="display:flex;gap:0;height:calc(100vh - ${!isEmailEnabled?'180px':'150px'});min-height:400px;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <div class="tt-split-panel" style="display:flex;gap:0;height:calc(100vh - ${!isEmailEnabled?'180px':'150px'});min-height:400px;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
 
         <!-- Left sidebar: status filters -->
-        <div id="ticketInboxSidebar" style="width:190px;flex-shrink:0;background:var(--bg-surface);border-right:1px solid var(--border);padding:12px 0;display:flex;flex-direction:column;overflow-y:auto;">
+        <div id="ticketInboxSidebar" class="tt-split-side" style="width:190px;flex-shrink:0;background:var(--bg-surface);border-right:1px solid var(--border);padding:12px 0;display:flex;flex-direction:column;overflow-y:auto;">
 
           <!-- MY QUEUE section -->
           <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green,#10B981);">👤 My Queue</div>
@@ -15854,10 +15872,10 @@ const App = {
     }
 
     area.innerHTML = `
-      <div style="display:flex;gap:0;height:calc(100vh - 72px);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <div class="tt-split-panel" style="display:flex;gap:0;height:calc(100vh - 72px);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
 
         <!-- MAIN: Thread + Composer -->
-        <div style="flex:1;display:flex;flex-direction:column;background:var(--bg-card);min-width:0;border-right:1px solid var(--border);">
+        <div class="tt-split-main" style="flex:1;display:flex;flex-direction:column;background:var(--bg-card);min-width:0;border-right:1px solid var(--border);">
 
           <!-- Ticket header -->
           <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg-surface);">
@@ -15940,7 +15958,7 @@ const App = {
         </div>
 
         <!-- RIGHT sidebar: ticket info -->
-        <div style="width:272px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
+        <div class="tt-split-side" style="width:272px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
           <style>
             .tkt-sb-group{border-bottom:1px solid var(--border);}
             .tkt-sb-group>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:13px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);user-select:none;}
