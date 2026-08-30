@@ -6493,6 +6493,46 @@ function checkQueueDepth(db) {
   }).filter(a => a.overThreshold);
 }
 
+// Business-hours-aware SLA math. Settings → SLA already had a real
+// "Working Hours" form (getWorkingHours/saveWorkingHours) — but until now
+// nothing actually consumed it, so a Critical ticket filed at 6pm Friday
+// showed the same "4 hours left" whether or not the team works weekends.
+// Opt-in via db.workingHours.slaRespectsHours (default off, so existing
+// brands see no change in behavior until they explicitly turn it on).
+// Intl.DateTimeFormat (built into Node, no new dependency) resolves the
+// local hour/weekday for a given instant in any IANA timezone — that's all
+// that's needed to test "is this 15-minute slice inside business hours",
+// which is granular enough for SLA purposes without minute-by-minute cost.
+const _BIZ_STEP_MS = 15 * 60000;
+function _localHourAndDow(ms, tz) {
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, weekday: 'short', hour: 'numeric' });
+  const parts = fmt.formatToParts(new Date(ms));
+  const hour = parseInt(parts.find(p => p.type === 'hour').value, 10) % 24;
+  const dow = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[parts.find(p => p.type === 'weekday').value];
+  return { hour, dow };
+}
+function _isBusinessMs(ms, wh) {
+  const { hour, dow } = _localHourAndDow(ms, wh.timezone || 'UTC');
+  const workDays = (wh.workDays && wh.workDays.length) ? wh.workDays : [1, 2, 3, 4, 5];
+  return workDays.includes(dow) && hour >= (wh.startHour ?? 9) && hour < (wh.endHour ?? 18);
+}
+// Projects forward from `fromMs`, consuming `budgetMs` of business time only,
+// and returns the wall-clock timestamp where that budget runs out — i.e. the
+// actual SLA deadline instant, which is what gets displayed/compared against
+// "now" exactly like the non-business-hours deadline already was.
+function _businessDeadlineMs(fromMs, budgetMs, wh) {
+  let remaining = budgetMs, t = fromMs, guard = 0;
+  while (remaining > 0 && guard++ < 40000) { // ~416 days of 15-min steps — plenty, and bounds a misconfigured workDays:[] from looping forever
+    if (_isBusinessMs(t, wh)) {
+      const take = Math.min(_BIZ_STEP_MS, remaining);
+      remaining -= take; t += take;
+    } else {
+      t += _BIZ_STEP_MS;
+    }
+  }
+  return t;
+}
+
 // Real SLA deadline for a ticket — unlike issues (which bake slaHours in at
 // creation), tickets compute it live from the brand's current slaConfig so a
 // policy change applies retroactively to open tickets, not just new ones.
@@ -6529,7 +6569,11 @@ function getTicketSLAInfo(db, ticket) {
     const l = new Date(ticket.lastActivity);
     return !isNaN(l.getTime()) ? l.getTime() : Date.now();
   })();
-  const deadline = new Date(createdMs + slaHours * 3600000 + pausedMs + activePauseMs);
+  const wh = db.workingHours;
+  const budgetMs = slaHours * 3600000 + pausedMs + activePauseMs;
+  const deadline = (wh && wh.slaRespectsHours)
+    ? new Date(_businessDeadlineMs(createdMs, budgetMs, wh))
+    : new Date(createdMs + budgetMs);
   const now = new Date();
   const hoursRemaining = (deadline - now) / 3600000;
   const isOpen = !['resolved', 'closed'].includes(ticket.status);

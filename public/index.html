@@ -17253,6 +17253,8 @@ const App = {
         var pC = {Critical:'var(--critical)',High:'var(--high)',Medium:'var(--accent)',Low:'var(--low)'};
         var slaPoliciesR2 = await self.callAsync('getSlaPolicies');
         var slaPolicies2 = (slaPoliciesR2&&slaPoliciesR2.policies)||[];
+        var whR = await self.callAsync('getWorkingHours');
+        var wh = (whR&&whR.success)?whR.workingHours:{startHour:9,endHour:18,timezone:'UTC',workDays:[1,2,3,4,5]};
         content =
           '<div style="margin-bottom:16px;"><h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">⏱ SLA Configuration</h3>'+
           '<p style="margin:0;font-size:12px;color:var(--text-dim);">Set response time targets. <strong>Default SLA</strong> applies to all customers. <strong>Customer Policies</strong> override defaults for specific domains.</p></div>'+
@@ -17270,18 +17272,24 @@ const App = {
           ])+
           App._sSection('Working Hours',[
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">'+
-              '<div class="form-group"><label class="form-label">Start Hour (24h)</label><input id="wh_start" type="number" class="form-input" value="9" min="0" max="23"></div>'+
-              '<div class="form-group"><label class="form-label">End Hour (24h)</label><input id="wh_end" type="number" class="form-input" value="18" min="1" max="24"></div>'+
-              '<div class="form-group"><label class="form-label">Timezone</label><select id="wh_tz" class="form-select"><option>UTC</option><option>Asia/Kolkata</option><option>US/Eastern</option><option>US/Pacific</option><option>Europe/London</option><option>Asia/Dubai</option></select></div>'+
+              '<div class="form-group"><label class="form-label">Start Hour (24h)</label><input id="wh_start" type="number" class="form-input" value="'+(wh.startHour??9)+'" min="0" max="23"></div>'+
+              '<div class="form-group"><label class="form-label">End Hour (24h)</label><input id="wh_end" type="number" class="form-input" value="'+(wh.endHour??18)+'" min="1" max="24"></div>'+
+              '<div class="form-group"><label class="form-label">Timezone</label><select id="wh_tz" class="form-select">'+['UTC','Asia/Kolkata','US/Eastern','US/Pacific','Europe/London','Asia/Dubai'].map(function(tz){return '<option'+(wh.timezone===tz?' selected':'')+'>'+tz+'</option>';}).join('')+'</select></div>'+
             '</div>',
             '<div style="margin-top:10px;"><label class="form-label">Work Days</label>'+
               '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'+
                 ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d,i){
+                  var dowNum = i===6?0:i+1; // Mon=1..Sat=6,Sun=0 — matches saveWorkingHours' own mapping
+                  var checked = (wh.workDays||[1,2,3,4,5]).includes(dowNum);
                   return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary);cursor:pointer;padding:5px 10px;border-radius:6px;background:var(--bg-elevated);border:1px solid var(--border);">'+
-                    '<input type="checkbox" id="wd_'+i+'" '+(i<5?'checked':'')+' style="accent-color:var(--accent);"> '+d+'</label>';
+                    '<input type="checkbox" id="wd_'+i+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);"> '+d+'</label>';
                 }).join('')+
               '</div>'+
             '</div>',
+            '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-top:14px;cursor:pointer;">'+
+              '<input type="checkbox" id="wh_sla_respects" '+(wh.slaRespectsHours?'checked':'')+' style="width:16px;height:16px;accent-color:var(--accent);">'+
+              'Pause the SLA countdown outside these working hours <span style="color:var(--text-dim);">(otherwise SLA counts 24/7 wall-clock time)</span>'+
+            '</label>',
             '<div style="text-align:right;margin-top:12px;"><button onclick="App.saveWorkingHours()" class="btn-primary">Save Working Hours</button></div>'
           ])+
           App._sSection('Automation',[
@@ -25053,7 +25061,7 @@ const App = {
     area.innerHTML = '<div class="empty-state"><p>Loading settings...</p></div>';
 
     // Fetch all data in parallel
-    var flagsR, settingsR, modulesR, slaR, geminiR, historyR, rulesR, fieldsR, escR, recR, ocR;
+    var flagsR, settingsR, modulesR, slaR, geminiR, historyR, rulesR, fieldsR, escR, recR, ocR, whR2;
     try {
       var results = await Promise.all([
         self.callAsync('getAllFeatureFlags'),
@@ -25066,11 +25074,12 @@ const App = {
         self.callAsync('getCustomFields'),
         self.callAsync('getEscalationRules'),
         self.callAsync('getRecurringTemplates'),
-        self.callAsync('getOnCallSchedule')
+        self.callAsync('getOnCallSchedule'),
+        self.callAsync('getWorkingHours')
       ]);
       flagsR=results[0]; settingsR=results[1]; modulesR=results[2]; slaR=results[3];
       geminiR=results[4]; historyR=results[5]; rulesR=results[6]; fieldsR=results[7];
-      escR=results[8]; recR=results[9]; ocR=results[10];
+      escR=results[8]; recR=results[9]; ocR=results[10]; whR2=results[11];
     } catch(e) {
       self.showPageError(area, 'Settings load failed: ' + e.message);
       return;
@@ -25081,6 +25090,7 @@ const App = {
     var settings = (settingsR && settingsR.success) ? settingsR.settings : {};
     var modules  = (modulesR && modulesR.success) ? modulesR.modules : [];
     var sla      = (slaR && slaR.success)        ? slaR.config     : {};
+    var wh2      = (whR2 && whR2.success)        ? whR2.workingHours : {startHour:9,endHour:18,timezone:'UTC',workDays:[1,2,3,4,5]};
     var geminiOk = geminiR && geminiR.configured;
     var queries  = (historyR && historyR.success) ? historyR.queries : [];
     var inboundRules = (rulesR && rulesR.success) ? rulesR.rules    : [];
@@ -25217,14 +25227,15 @@ const App = {
     '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">' +
     '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:10px;">Working Hours (for SLA calculation)</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' +
-    '<div class="form-group"><label class="form-label">Work Start</label><input id="wh_start" type="number" class="form-input" value="9" min="0" max="23" placeholder="9"> <span style="font-size:11px;color:var(--text-dim)">hour (24h)</span></div>' +
-    '<div class="form-group"><label class="form-label">Work End</label><input id="wh_end" type="number" class="form-input" value="18" min="1" max="24" placeholder="18"> <span style="font-size:11px;color:var(--text-dim)">hour (24h)</span></div>' +
-    '<div class="form-group"><label class="form-label">Timezone</label><select id="wh_tz" class="form-select"><option>UTC</option><option>Asia/Kolkata</option><option>US/Eastern</option><option>US/Pacific</option><option>Europe/London</option><option>Asia/Dubai</option><option>Asia/Singapore</option></select></div>' +
+    '<div class="form-group"><label class="form-label">Work Start</label><input id="wh_start" type="number" class="form-input" value="'+(wh2.startHour??9)+'" min="0" max="23" placeholder="9"> <span style="font-size:11px;color:var(--text-dim)">hour (24h)</span></div>' +
+    '<div class="form-group"><label class="form-label">Work End</label><input id="wh_end" type="number" class="form-input" value="'+(wh2.endHour??18)+'" min="1" max="24" placeholder="18"> <span style="font-size:11px;color:var(--text-dim)">hour (24h)</span></div>' +
+    '<div class="form-group"><label class="form-label">Timezone</label><select id="wh_tz" class="form-select">'+['UTC','Asia/Kolkata','US/Eastern','US/Pacific','Europe/London','Asia/Dubai','Asia/Singapore'].map(function(tz){return '<option'+(wh2.timezone===tz?' selected':'')+'>'+tz+'</option>';}).join('')+'</select></div>' +
     '</div>' +
     '<div class="form-group"><label class="form-label">Work Days</label>' +
     '<div style="display:flex;gap:8px;">' +
-    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d,i){return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary);"><input type="checkbox" id="wd_'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>';}).join('') +
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d,i){var dowNum=i===6?0:i+1;var checked=(wh2.workDays||[1,2,3,4,5]).includes(dowNum);return '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary);"><input type="checkbox" id="wd_'+i+'" '+(checked?'checked':'')+'> '+d+'</label>';}).join('') +
     '</div></div>' +
+    '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-top:12px;cursor:pointer;"><input type="checkbox" id="wh_sla_respects" '+(wh2.slaRespectsHours?'checked':'')+' style="width:16px;height:16px;accent-color:var(--accent);"> Pause the SLA countdown outside these working hours</label>' +
     '<div style="text-align:right;margin-top:8px"><button class="btn-secondary" onclick="App.saveWorkingHours()">Save Working Hours</button></div></div>';
 
     //  MODULES HTML 
@@ -25623,7 +25634,8 @@ const App = {
       startHour: parseInt((startEl||{}).value||9),
       endHour: parseInt((endEl||{}).value||18),
       timezone: (tzEl||{}).value || 'UTC',
-      workDays
+      workDays,
+      slaRespectsHours: document.getElementById('wh_sla_respects')?.checked || false
     };
     var r = await self.callAsync('saveWorkingHours', wh);
     if (r && r.success) self.showToast('Working hours saved', 'success');
