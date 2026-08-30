@@ -2207,6 +2207,34 @@ app.post('/api/call',async(req,res)=>{
       const html=getTicketAsset(slug,msgId);
       return{success:true,html:html||''};
     },
+    // Duplicate-ticket suggestions — surfaced as a dismissible banner, never
+    // auto-merged. "Merge" itself already exists as linkTicketParent (the
+    // existing 🔗 Link Parent button); this just finds the candidates so an
+    // agent doesn't have to notice/search for them manually. Same
+    // word-overlap heuristic already used for issue duplicate detection
+    // (createIssue, DUPLICATE_DETECTION_ENABLED), scoped first to the same
+    // customer (via the existing cross-channel identity graph) since that
+    // alone is a much stronger signal than subject text ever is alone.
+    getPossibleDuplicateTickets:(ticketId)=>{
+      const db=rDB();
+      const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Ticket not found'};
+      if(ticket.parentId)return{success:true,duplicates:[]}; // already linked — nothing to suggest
+      const myIdentities=new Set(_linkedIdentifiersFor(db,ticket.from));
+      const ws=(ticket.subject||'').toLowerCase().split(/\W+/).filter(w=>w.length>3);
+      const candidates=(db.tickets||[])
+        .filter(t=>t.id!==ticketId&&!['resolved','closed'].includes(t.status)&&t.parentId!==ticketId&&t.id!==ticket.parentId)
+        .filter(t=>myIdentities.has(_normalizeIdentifier(t.from)))
+        .map(t=>{
+          const tw=(t.subject||'').toLowerCase().split(/\W+/).filter(w=>w.length>3);
+          const overlap=ws.filter(w=>tw.includes(w)).length;
+          return{id:t.id,subject:t.subject,status:t.status,createdDate:t.createdDate,score:overlap};
+        })
+        .filter(d=>ws.length>0&&d.score>=Math.min(2,Math.ceil(ws.length*0.4)))
+        .sort((a,b)=>b.score-a.score)
+        .slice(0,5);
+      return{success:true,duplicates:candidates};
+    },
     updateTicketStatus:(ticketId,status)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};

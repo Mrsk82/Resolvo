@@ -15794,6 +15794,8 @@ const App = {
             </div>
           </div>
 
+          <div id="dupeSuggestionBanner"></div>
+
           <!-- Thread messages -->
           <div style="flex:1;overflow-y:auto;padding:20px 24px;" id="threadContainer">
             ${thread.map(function(msg,idx){return msgBubble(msg,idx);}).join('')}
@@ -16015,6 +16017,35 @@ const App = {
     // Fetch original email HTML for any message that has it, now that the
     // thread is in the DOM — see the ticket_assets lazy-load architecture note.
     self._loadLazyEmailHtml(ticketId, thread);
+    self._loadDuplicateSuggestions(ticketId);
+  },
+  // Surfaces possible-duplicate tickets from the same customer (see
+  // getPossibleDuplicateTickets) as a dismissible banner. "Merge" is the
+  // existing 🔗 Link Parent flow — this only helps an agent notice a
+  // candidate they'd otherwise have to search for manually.
+  _loadDuplicateSuggestions: async function(ticketId) {
+    var self = this;
+    var banner = document.getElementById('dupeSuggestionBanner');
+    if (!banner) return;
+    var r = await self.callAsync('getPossibleDuplicateTickets', ticketId);
+    if (!r || !r.success || !r.duplicates.length) return;
+    // Ticket may have navigated away while this was in flight
+    banner = document.getElementById('dupeSuggestionBanner');
+    if (!banner) return;
+    banner.innerHTML = '<div style="background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.2);border-radius:10px;padding:10px 16px;margin:0 24px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
+      '<div style="font-size:12px;color:#D97706;">🔁 <strong>Possible duplicate</strong> — same customer has ' + (r.duplicates.length > 1 ? 'similar open tickets: ' : 'a similar open ticket: ') +
+        r.duplicates.map(function(d){ return '<a href="#" onclick="App.renderTicketDetail(\'' + d.id + '\');return false;" style="color:#D97706;text-decoration:underline;">' + d.id + '</a> ("' + self._esc((d.subject||'').substring(0,50)) + '")'; }).join(', ') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+        '<button onclick="App._linkAsDuplicate(\'' + ticketId + '\',\'' + r.duplicates[0].id + '\')" style="background:#D97706;color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🔗 Link as related</button>' +
+        '<button onclick="document.getElementById(\'dupeSuggestionBanner\').innerHTML=\'\'" style="background:none;border:1px solid rgba(217,119,6,.3);color:#D97706;border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;">Dismiss</button>' +
+      '</div>' +
+    '</div>';
+  },
+  _linkAsDuplicate: async function(ticketId, parentId) {
+    var r = await App.callAsync('linkTicketParent', ticketId, parentId);
+    if (r && r.success) { App.showToast('Linked to ' + parentId, 'success'); App.renderTicketDetail(ticketId); }
+    else App.showToast('Failed: ' + (r && r.error || ''), 'error');
   },
   _emailIframeHtml: function(frameId, html) {
     // srcdoc (not a data: URI) is required here: data: URIs always get an
