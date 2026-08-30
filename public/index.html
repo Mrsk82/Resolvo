@@ -15617,32 +15617,66 @@ const App = {
     if (count) count.textContent = n + ' selected';
   },
 
+  // Holds `run` for 10s behind an Undo button instead of calling the server
+  // immediately — clicking Undo just clearTimeout()s it, so a bad bulk click
+  // never has to reach the backend at all. Nothing here is a "soft delete";
+  // it's simply deferred execution of the exact same RPC call.
+  _runWithUndo: function(label, run) {
+    var self = this;
+    var id = 'u' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    self._pendingUndos = self._pendingUndos || {};
+    var timer = setTimeout(function() {
+      delete self._pendingUndos[id];
+      run();
+    }, 10000);
+    self._pendingUndos[id] = timer;
+    self.showToast(
+      self._esc(label) + ' <button onclick="App._cancelUndo(\'' + id + '\')" style="margin-left:10px;background:none;border:none;color:inherit;text-decoration:underline;font-weight:700;cursor:pointer;padding:0;">Undo</button>',
+      'info', 10000
+    );
+  },
+  _cancelUndo: function(id) {
+    var timer = this._pendingUndos && this._pendingUndos[id];
+    if (!timer) return; // already fired or already cancelled
+    clearTimeout(timer);
+    delete this._pendingUndos[id];
+    this.showToast('Cancelled — no changes made', 'success');
+  },
+
   _bulkTicketAction: async function(action, value) {
     var self = this;
     var ids = Array.from(self._selectedTickets);
     if (!ids.length) return;
-    if (!confirm(action === 'delete' ? 'Delete '+ids.length+' tickets?' : 'Update '+ids.length+' tickets to '+value+'?')) return;
-    var r = await self.callAsync('bulkUpdateTickets', ids, action, value);
-    if (r && r.success) { self.showToast('✓ Updated '+r.updated+' tickets', 'success'); self._selectedTickets.clear(); self.renderTicketInbox(); }
-    else self.showToast('Failed: '+(r&&r.error||'unknown'), 'error');
+    if (!confirm('Update '+ids.length+' tickets to '+value+'?')) return;
+    self._selectedTickets.clear();
+    self._runWithUndo('Updating '+ids.length+' tickets to '+value+'…', async function() {
+      var r = await self.callAsync('bulkUpdateTickets', ids, action, value);
+      if (r && r.success) { self.showToast('✓ Updated '+r.updated+' tickets', 'success'); self.renderTicketInbox(); }
+      else self.showToast('Failed: '+(r&&r.error||'unknown'), 'error');
+    });
   },
 
   _bulkDeleteTickets: async function() {
     var self = this;
     var ids = Array.from(self._selectedTickets);
     if (!ids.length) return;
-    if (!confirm('Permanently delete '+ids.length+' tickets? This cannot be undone.')) return;
-    var r = await self.callAsync('bulkUpdateTickets', ids, 'delete', null);
-    if (r && r.success) { self.showToast('✓ Deleted '+r.updated+' tickets', 'success'); self._selectedTickets.clear(); self.renderTicketInbox(); }
-    else self.showToast('Failed', 'error');
+    if (!confirm('Delete '+ids.length+' tickets?')) return;
+    self._selectedTickets.clear();
+    self._runWithUndo('Deleting '+ids.length+' tickets…', async function() {
+      var r = await self.callAsync('bulkUpdateTickets', ids, 'delete', null);
+      if (r && r.success) { self.showToast('✓ Deleted '+r.updated+' tickets', 'success'); self.renderTicketInbox(); }
+      else self.showToast('Failed', 'error');
+    });
   },
 
   _closeAllByStatus: async function(status, count) {
     var self = this;
-    if (!confirm('Close all '+count+' "'+ status +'" tickets?\n\nThese are likely spam/automated emails. This cannot be undone.')) return;
-    var r = await self.callAsync('bulkCloseByStatus', status);
-    if (r && r.success) { self.showToast('✓ Closed '+r.closed+' tickets', 'success'); self._ticketFilter = 'all'; self.renderTicketInbox(); }
-    else self.showToast('Failed: '+(r&&r.error||'unknown'), 'error');
+    if (!confirm('Close all '+count+' "'+ status +'" tickets?\n\nThese are likely spam/automated emails.')) return;
+    self._runWithUndo('Closing '+count+' "'+status+'" tickets…', async function() {
+      var r = await self.callAsync('bulkCloseByStatus', status);
+      if (r && r.success) { self.showToast('✓ Closed '+r.closed+' tickets', 'success'); self._ticketFilter = 'all'; self.renderTicketInbox(); }
+      else self.showToast('Failed: '+(r&&r.error||'unknown'), 'error');
+    });
   },
 
   _markTicketSpam: async function(ticketId) {
