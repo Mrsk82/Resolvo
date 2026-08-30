@@ -15511,6 +15511,7 @@ const App = {
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;opacity:.75;">
                   ${!['resolved','closed'].includes(t.status)?`<span style="font-size:9px;color:${ageColor};">${ageLabel}</span>`:''}
                   ${t.sentimentLevel&&t.sentimentLevel!=='neutral'?`<span title="Sentiment: ${t.sentimentLevel} (${t.sentimentScore}/100)" style="font-size:9px;color:${t.sentimentLevel==='negative'?'var(--critical)':'var(--low)'};">${t.sentimentLevel==='negative'?'😟':'🙂'}</span>`:''}
+                  ${!['resolved','closed'].includes(t.status)&&(t.slaBreached||t.slaRisk)?`<span title="SLA ${t.slaBreached?'breached':'at risk'} — ${t.slaHoursRemaining}h remaining" style="font-size:9px;font-weight:700;color:${t.slaBreached?'var(--critical)':'var(--medium)'};">${t.slaBreached?'🔴 SLA':'🟡 SLA'}</span>`:''}
                   ${t.assignedTo?`<span style="font-size:9px;color:var(--text-dim);">👤 ${self._esc(t.assignedTo.split('@')[0])}</span>`:''}
                   ${t.linkedIssueId?`<span style="font-size:9px;color:var(--text-dim);">🎫 ${t.linkedIssueId}</span>`:''}
                   <span style="font-size:9px;color:var(--text-dim);">💬 ${t.threadCount||1}</span>
@@ -15890,6 +15891,7 @@ const App = {
                 ['Created', App._fmtDT(t.createdDate, true)],
                 ['Messages', (thread.length||0)],
                 ['Channel', t.channel==='whatsapp'?'WhatsApp':t.channel==='voice'?'Voice':(t.source||'Email')],
+                ...(t.slaDeadline&&!['resolved','closed'].includes(t.status)?[['SLA', (t.slaPaused?'⏸ Paused':t.slaBreached?'<span style="color:var(--critical);font-weight:700;">🔴 Breached</span>':t.slaRisk?'<span style="color:var(--medium);font-weight:700;">🟡 At risk — '+t.slaHoursRemaining+'h left</span>':'🟢 '+t.slaHoursRemaining+'h left')+' <span style="color:var(--text-dim);font-size:10px;">('+t.slaHours+'h SLA'+(t.slaPolicyName?' · '+self._esc(t.slaPolicyName):'')+(t.isVIP?' · VIP':'')+')</span>']]:[]),
                 ...(t.sentimentLevel?[['Sentiment', ({positive:'🙂 Positive',negative:'😟 Negative',neutral:'😐 Neutral'}[t.sentimentLevel]||t.sentimentLevel)+' <span style="color:var(--text-dim);font-size:11px;">('+(t.sentimentScore!=null?t.sentimentScore:'—')+'/100)</span>'+(t.autoEscalated?' <span style="color:var(--critical);font-size:10px;font-weight:700;">⚡ auto-escalated</span>':'')]]:[]),
                 ...(t.csatRating?[['CSAT', t.csatRating==='yes'?'👍 Positive':'👎 Negative']]:[]),
                 ...(t.parentId?[['Parent', t.parentId]]:[]),
@@ -18424,6 +18426,11 @@ const App = {
               '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="vip_tag" '+(vcfg.autoTag!==false?'checked':'')+' style="width:16px;height:16px;"></label>'),
             App._sRow('Notify admin immediately','Admin gets instant alert for every VIP ticket',
               '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="vip_notify" '+(vcfg.autoNotify!==false?'checked':'')+' style="width:16px;height:16px;"></label>'),
+            App._sRow('VIP SLA Speed','Faster response deadline for VIP tickets, on top of the priority bump',
+              '<select id="vip_sla_mult" class="form-select" style="width:220px;">'+
+                [[1,'Standard (no change)'],[0.75,'25% faster'],[0.5,'2x faster'],[0.25,'4x faster']].map(function(o){
+                  return '<option value="'+o[0]+'"'+((vcfg.slaMultiplier||1)==o[0]?' selected':'')+'>'+o[1]+'</option>';
+                }).join('')+'</select>'),
           ])+
           App._sSection('VIP Email Addresses',[
             '<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">One email per line. e.g. ceo@bigclient.com</div>'+
@@ -20068,7 +20075,8 @@ const App = {
     var domains = (document.getElementById('vip_domains')?.value||'').split('\n').map(d=>d.trim().replace(/^@/,'')).filter(Boolean);
     var autoTag = document.getElementById('vip_tag')?.checked!==false;
     var autoNotify = document.getElementById('vip_notify')?.checked!==false;
-    var r = await App.callAsync('saveVIPConfig',{emails,domains,autoTag,autoNotify});
+    var slaMultiplier = parseFloat(document.getElementById('vip_sla_mult')?.value)||1;
+    var r = await App.callAsync('saveVIPConfig',{emails,domains,autoTag,autoNotify,slaMultiplier});
     if(r&&r.success){App.showToast('VIP config saved ⭐','success');App.renderUnifiedSettings('vip-config');}
     else App.showToast('Failed','error');
   },
@@ -20322,7 +20330,7 @@ const App = {
     var low = parseInt(document.getElementById('slap_low')?.value||48);
     if(!name){App.showToast('Name required','warning');return;}
     var r = await App.callAsync('saveSlaPolicy',{name,domain,critical,high,medium,low});
-    if(r&&r.success){App.showToast('SLA Policy saved','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderUnifiedSettings('sla-policies');}
+    if(r&&r.success){App.showToast('SLA Policy saved','success');document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());App.renderUnifiedSettings('sla');}
     else App.showToast('Failed','error');
   },
 

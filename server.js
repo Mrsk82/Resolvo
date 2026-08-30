@@ -2155,13 +2155,15 @@ app.post('/api/call',async(req,res)=>{
             const rank={Critical:0,High:1,Medium:2,Low:3};
             tickets=tickets.slice().sort((a,b)=>(rank[a.priority]??4)-(rank[b.priority]??4)||new Date(b.createdDate)-new Date(a.createdDate));
           }else if(filters.sort==='sla'){
-            // No formal SLA deadline on tickets (unlike issues) — use the same
-            // age-based risk proxy already shown on each row: oldest open ticket first.
+            // Real SLA deadline (see getTicketSLAInfo) — breached first, then
+            // soonest-to-breach, open tickets always ahead of resolved/closed.
             const isOpen=t=>!['resolved','closed'].includes(t.status);
             tickets=tickets.slice().sort((a,b)=>{
               const ao=isOpen(a),bo=isOpen(b);
               if(ao!==bo)return ao?-1:1;
-              return new Date(a.createdDate)-new Date(b.createdDate);
+              const sa=getTicketSLAInfo(db,a),sb=getTicketSLAInfo(db,b);
+              if(sa.slaBreached!==sb.slaBreached)return sa.slaBreached?-1:1;
+              return sa.slaHoursRemaining-sb.slaHoursRemaining;
             });
           }
         }
@@ -2175,12 +2177,14 @@ app.post('/api/call',async(req,res)=>{
       const allSt=db.statusConfig||defSt;
       const terminalIds=allSt.filter(s=>s.isTerminal||s.triggersCsat).map(s=>s.id);
       const perStatus={};allSt.forEach(s=>{perStatus[s.id]=(db.tickets||[]).filter(t=>t.status===s.id).length;});
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0]})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length}};
+      const openTickets=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status));
+      const slaAtRisk=openTickets.filter(t=>{const s=getTicketSLAInfo(db,t);return s.slaBreached||s.slaRisk;}).length;
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0],...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,slaAtRisk}};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
       if(!ticket)return{success:false,error:'Ticket not found'};
-      return{success:true,ticket};
+      return{success:true,ticket:{...ticket,...getTicketSLAInfo(db,ticket)}};
     },
     // Lazy-load a single message's original email HTML — kept out of the main
     // ticket blob (see ticket_assets) so getTicketById/getTickets stay fast
@@ -4080,13 +4084,18 @@ app.post('/api/call',async(req,res)=>{
     // DB CHANGE: adds db.vipConfig — backward safe
     getVIPConfig:()=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
-      const db=rDB();return{success:true,config:db.vipConfig||{emails:[],domains:[],autoNotify:true,autoTag:true}};
+      const db=rDB();return{success:true,config:db.vipConfig||{emails:[],domains:[],autoNotify:true,autoTag:true,slaMultiplier:1}};
     },
     saveVIPConfig:(config)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();
       // DB CHANGE: adds db.vipConfig
-      db.vipConfig={emails:(config.emails||[]).map(e=>e.trim().toLowerCase()).filter(Boolean),domains:(config.domains||[]).map(d=>d.trim().toLowerCase()).filter(Boolean),autoNotify:config.autoNotify!==false,autoTag:config.autoTag!==false};
+      // slaMultiplier applies to VIP tickets' SLA clock (see getTicketSLAInfo)
+      // — e.g. 0.5 means VIP customers get their priority's normal SLA hours
+      // cut in half. 1 = no change (priority bump only, the original behavior).
+      const rawMult=parseFloat(config.slaMultiplier);
+      const slaMultiplier=(!isNaN(rawMult)&&rawMult>0)?Math.min(rawMult,1):1;
+      db.vipConfig={emails:(config.emails||[]).map(e=>e.trim().toLowerCase()).filter(Boolean),domains:(config.domains||[]).map(d=>d.trim().toLowerCase()).filter(Boolean),autoNotify:config.autoNotify!==false,autoTag:config.autoTag!==false,slaMultiplier};
       wDB(db);return{success:true};
     },
     saveTicketTemplate:(tmpl)=>{
@@ -6380,6 +6389,56 @@ function checkQueueDepth(db) {
     const open = (db.tickets || []).filter(t => t.assignedTo === u.email && !['resolved','closed'].includes(t.status)).length;
     return { email: u.email, name: u.name, openTickets: open, overThreshold: open >= threshold };
   }).filter(a => a.overThreshold);
+}
+
+// Real SLA deadline for a ticket — unlike issues (which bake slaHours in at
+// creation), tickets compute it live from the brand's current slaConfig so a
+// policy change applies retroactively to open tickets, not just new ones.
+// Two independent "per customer tier" levers stack on top of the default:
+//   1. Settings → SLA → Customer SLA Policies (db.slaPolicies) — a named
+//      policy matched by the customer's email domain, with its own explicit
+//      per-priority hours (e.g. "Enterprise Tier" on acme.com: Critical 1h).
+//      This UI/backend already existed but was never actually consumed by
+//      any deadline calculation until now.
+//   2. VIP Customers → SLA Speed (vipConfig.slaMultiplier) — a flat speed-up
+//      applied on top of whichever base hours were selected, for ad-hoc VIP
+//      emails/domains that don't warrant a full named policy.
+function getTicketSLAInfo(db, ticket) {
+  const slaConfig = db.slaConfig || { Critical: 4, High: 8, Medium: 24, Low: 72 };
+  const fromDomain = (ticket.from || '').split('@')[1]?.toLowerCase() || '';
+  const policy = fromDomain ? (db.slaPolicies || []).find(p => p.domain && p.domain.toLowerCase() === fromDomain) : null;
+  const baseHours = policy ? (policy[String(ticket.priority || '').toLowerCase()] ?? slaConfig[ticket.priority] ?? 24) : (slaConfig[ticket.priority] || 24);
+  const vipCfg = db.vipConfig || {};
+  const multiplier = (ticket.isVIP && vipCfg.slaMultiplier) ? vipCfg.slaMultiplier : 1;
+  const slaHours = Math.round(baseHours * multiplier * 100) / 100;
+  // Same pause accounting as pauseTicketSLA/resumeTicketSLA and the
+  // equivalent issue-side formula: slaExtraMs is time already banked from a
+  // completed pause; if a pause is currently active, its still-accruing
+  // duration extends the deadline live so breach status freezes correctly
+  // while waiting on the customer.
+  const pausedMs = ticket.slaExtraMs || 0;
+  const activePauseMs = (ticket.slaPaused && ticket.slaPausedAt) ? (Date.now() - new Date(ticket.slaPausedAt).getTime()) : 0;
+  // A handful of older/hand-seeded tickets have a missing or malformed
+  // createdDate — fall back to lastActivity, then "now", rather than
+  // producing an Invalid Date that throws on toISOString() below.
+  const createdMs = (() => {
+    const c = new Date(ticket.createdDate);
+    if (!isNaN(c.getTime())) return c.getTime();
+    const l = new Date(ticket.lastActivity);
+    return !isNaN(l.getTime()) ? l.getTime() : Date.now();
+  })();
+  const deadline = new Date(createdMs + slaHours * 3600000 + pausedMs + activePauseMs);
+  const now = new Date();
+  const hoursRemaining = (deadline - now) / 3600000;
+  const isOpen = !['resolved', 'closed'].includes(ticket.status);
+  return {
+    slaHours,
+    slaDeadline: deadline.toISOString(),
+    slaBreached: isOpen && !ticket.slaPaused && now > deadline,
+    slaRisk: isOpen && !ticket.slaPaused && hoursRemaining > 0 && hoursRemaining < slaHours * 0.2,
+    slaHoursRemaining: Math.round(hoursRemaining * 10) / 10,
+    slaPolicyName: policy ? policy.name : null,
+  };
 }
 
 // Cross-channel spam/duplicate guard for chat-style channels (WhatsApp, SMS,
