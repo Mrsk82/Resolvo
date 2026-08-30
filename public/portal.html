@@ -99,7 +99,26 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .empty-title{font-size:15px;font-weight:700;color:#374151;margin-bottom:6px;}
 .empty-sub{font-size:13px;color:#9ca3af;}
 
+.ticket-row{cursor:pointer;}
+
+/* TICKET DETAIL */
+#ticketDetailSection{display:none;}
+.detail-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:#6b7280;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;padding:0;margin-bottom:16px;}
+.detail-back:hover{color:#111827;}
+.detail-card{background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;}
+.detail-header{padding:20px 24px;border-bottom:1px solid #f3f4f6;}
+.detail-subject{font-size:17px;font-weight:800;color:#111827;margin-bottom:6px;}
+.detail-meta{font-size:12px;color:#9ca3af;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.thread{padding:20px 24px;display:flex;flex-direction:column;gap:14px;max-height:50vh;overflow-y:auto;}
+.msg{max-width:80%;padding:11px 15px;border-radius:12px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+.msg-in{background:#f3f4f6;color:#111827;align-self:flex-start;border-bottom-left-radius:3px;}
+.msg-out{background:var(--accent-dim);color:#065f46;align-self:flex-end;border-bottom-right-radius:3px;border:1px solid var(--accent-border);}
+.msg-meta{font-size:10.5px;color:#9ca3af;margin-top:5px;}
+.reply-box{padding:16px 24px 24px;border-top:1px solid #f3f4f6;}
+.reply-box textarea{margin-bottom:10px;resize:vertical;}
+
 #loginSection{display:none;}
+#disabledSection{display:none;text-align:center;padding:60px 20px;}
 </style>
 </head>
 <body>
@@ -123,6 +142,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 </div>
 
 <div class="page">
+
+  <!-- DISABLED SECTION -->
+  <div id="disabledSection">
+    <div style="font-size:40px;margin-bottom:14px;">🔒</div>
+    <div style="font-size:16px;font-weight:700;color:#374151;margin-bottom:6px;">Customer portal not available</div>
+    <div style="font-size:13px;color:#9ca3af;">This support portal hasn't been enabled by the team yet. Please contact them directly.</div>
+  </div>
 
   <!-- LOGIN SECTION -->
   <div id="loginSection">
@@ -190,6 +216,22 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
     </div>
   </div>
 
+  <!-- TICKET DETAIL -->
+  <div id="ticketDetailSection">
+    <button class="detail-back" onclick="closeTicketDetail()">← Back to your requests</button>
+    <div class="detail-card">
+      <div class="detail-header">
+        <div class="detail-subject" id="dt_subject"></div>
+        <div class="detail-meta"><span id="dt_id"></span><span>·</span><span class="badge" id="dt_status"></span></div>
+      </div>
+      <div class="thread" id="dt_thread"></div>
+      <div class="reply-box">
+        <textarea id="dt_replyBody" rows="3" placeholder="Type a reply…"></textarea>
+        <button class="btn btn-primary" onclick="sendReply()" id="dt_replyBtn">Send reply →</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -208,10 +250,13 @@ fetch('/portal/'+SLUG+'/auth').then(function(r){return r.json();}).then(function
     document.getElementById('brandLogoEl').style.background=accent;
     document.title=name+' Customer Portal';
   }
+  if(d.enabled===false){
+    document.getElementById('disabledSection').style.display='block';
+    return;
+  }
+  if(portalToken&&userEmail){showPortal();}
+  else{document.getElementById('loginSection').style.display='block';}
 });
-
-if(portalToken&&userEmail){showPortal();}
-else{document.getElementById('loginSection').style.display='block';}
 
 function sendOTP(){
   var email=document.getElementById('emailInput').value.trim();
@@ -277,7 +322,7 @@ function loadTickets(){
     var badgeMap={new:'badge-new',open:'badge-open',pending:'badge-pending',resolved:'badge-resolved',closed:'badge-closed'};
     el.innerHTML=tickets.map(function(t){
       var s=t.status||'open';
-      return '<div class="ticket-row">'+
+      return '<div class="ticket-row" onclick="openTicket(\''+t.id+'\')">'+
         '<div class="ticket-dot '+(dotMap[s]||'dot-open')+'"></div>'+
         '<div class="ticket-info">'+
           '<div class="ticket-subject">'+escHtml(t.subject)+'</div>'+
@@ -301,7 +346,7 @@ function submitTicket(){
   var priority=document.getElementById('nt_priority').value;
   if(!subject||!body){alert('Please fill in all required fields.');return;}
   var btn=event.target;btn.textContent='Submitting…';btn.disabled=true;
-  fetch('/api/widget/'+SLUG+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:subject+'\n\n'+body,email:userEmail,subject:subject,priority:priority})})
+  fetch('/portal/'+SLUG+'/tickets',{method:'POST',headers:{'Content-Type':'application/json','x-portal-token':portalToken},body:JSON.stringify({subject:subject,body:body,priority:priority})})
   .then(function(r){return r.json();}).then(function(d){
     if(d.success){
       document.getElementById('nt_actions').style.display='none';
@@ -314,8 +359,56 @@ function submitTicket(){
         btn.textContent='Submit request →';btn.disabled=false;
         loadTickets();
       },2200);
-    }else{btn.textContent='Submit request →';btn.disabled=false;}
+    }else{alert(d.error||'Failed to submit request.');btn.textContent='Submit request →';btn.disabled=false;}
   }).catch(function(){btn.textContent='Submit request →';btn.disabled=false;});
+}
+
+var currentTicketId=null;
+function openTicket(id){
+  currentTicketId=id;
+  document.getElementById('portalSection').style.display='none';
+  document.getElementById('ticketDetailSection').style.display='block';
+  document.getElementById('dt_thread').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Loading…</div></div>';
+  loadTicketDetail();
+}
+function closeTicketDetail(){
+  currentTicketId=null;
+  document.getElementById('ticketDetailSection').style.display='none';
+  document.getElementById('portalSection').style.display='block';
+  loadTickets();
+}
+function loadTicketDetail(){
+  if(!currentTicketId)return;
+  fetch('/portal/'+SLUG+'/tickets/'+currentTicketId,{headers:{'x-portal-token':portalToken}})
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.success){document.getElementById('dt_thread').innerHTML='<div class="empty-state"><div class="empty-title">Could not load this request.</div></div>';return;}
+    var t=d.ticket;
+    document.getElementById('dt_subject').textContent=t.subject;
+    document.getElementById('dt_id').textContent='#'+t.id;
+    var s=t.status||'open';
+    var badgeMap={new:'badge-new',open:'badge-open',pending:'badge-pending',resolved:'badge-resolved',closed:'badge-closed'};
+    var statusEl=document.getElementById('dt_status');
+    statusEl.className='badge '+(badgeMap[s]||'badge-open');statusEl.textContent=s;
+    var thread=d.thread||[];
+    document.getElementById('dt_thread').innerHTML=thread.length?thread.map(function(m){
+      var isCustomer=m.type==='incoming';
+      return '<div class="msg '+(isCustomer?'msg-in':'msg-out')+'">'+escHtml(m.body)+
+        '<div class="msg-meta">'+escHtml(isCustomer?'You':(m.fromName||'Support team'))+' · '+escHtml((m.timestamp||'').replace('T',' ').split('.')[0])+'</div></div>';
+    }).join(''):'<div class="empty-state"><div class="empty-title">No messages yet</div></div>';
+    document.getElementById('dt_thread').scrollTop=document.getElementById('dt_thread').scrollHeight;
+  });
+}
+function sendReply(){
+  var ta=document.getElementById('dt_replyBody');
+  var body=ta.value.trim();
+  if(!body||!currentTicketId)return;
+  var btn=document.getElementById('dt_replyBtn');btn.textContent='Sending…';btn.disabled=true;
+  fetch('/portal/'+SLUG+'/tickets/'+currentTicketId+'/reply',{method:'POST',headers:{'Content-Type':'application/json','x-portal-token':portalToken},body:JSON.stringify({body:body})})
+  .then(function(r){return r.json();}).then(function(d){
+    btn.textContent='Send reply →';btn.disabled=false;
+    if(d.success){ta.value='';loadTicketDetail();}
+    else{alert(d.error||'Failed to send reply.');}
+  }).catch(function(){btn.textContent='Send reply →';btn.disabled=false;});
 }
 
 function logout(){

@@ -5867,45 +5867,129 @@ app.post('/api/roadmap-vote',(req,res)=>{
 });
 
 // ── CUSTOMER PORTAL (/portal/:slug) ────────────────────────────────────────
+// Gated by the CUSTOMER_PORTAL_ENABLED feature flag (Enterprise tier by
+// default). Session state (OTPs, portal tokens) lives in the brand DB
+// (db.portalOtps/db.portalSessions) instead of process-global memory, so it
+// survives a server restart — the previous in-memory version silently
+// logged every customer out (and forgot pending OTPs) on every deploy.
+function isPortalEnabled(slug){
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug);
+  if(!brand)return false;
+  const db=readBrandDB(slug);
+  return resolveFeatureFlags(brand,db.featureFlags||{}).CUSTOMER_PORTAL_ENABLED===true;
+}
+const PORTAL_SESSION_MS=30*24*3600000; // 30 days, mirrors SESSION_30D
+const PORTAL_OTP_MS=600000; // 10 minutes
+// Drops expired OTPs/sessions so these two lists don't grow forever; called
+// on every portal request rather than on a timer (no cron needed).
+function _pruneExpiredPortalState(db){
+  const now=Date.now();
+  if(db.portalOtps)for(const k of Object.keys(db.portalOtps))if(db.portalOtps[k].expiresAt<now)delete db.portalOtps[k];
+  if(db.portalSessions)db.portalSessions=db.portalSessions.filter(s=>s.expiresAt>now);
+}
+function _portalSession(db,token,slug){
+  if(!token)return null;
+  const s=(db.portalSessions||[]).find(x=>x.token===token&&x.slug===slug);
+  if(!s||s.expiresAt<Date.now())return null;
+  return s;
+}
 app.get('/portal/:slug',(req,res)=>res.sendFile(path.join(__dirname,'public','portal.html')));
 app.get('/portal/:slug/auth',(req,res)=>{
-  const db=readBrandDB(req.params.slug);
-  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===req.params.slug)||{};
-  res.json({success:true,brand:{name:brand.name,accentColor:brand.accentColor,logoUrl:brand.logoUrl}});
+  const slug=req.params.slug;
+  const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
+  res.json({success:true,enabled:isPortalEnabled(slug),brand:{name:brand.name,accentColor:brand.accentColor,logoUrl:brand.logoUrl}});
 });
 app.post('/portal/:slug/login',(req,res)=>{
   const{email,otp}=req.body;const slug=req.params.slug;
+  if(!isPortalEnabled(slug))return res.json({success:false,error:'Customer portal is not enabled for this brand.'});
   if(!email)return res.json({success:false,error:'Email required'});
+  // Namespaced onto the shared login rate-limiter (5 attempts/15min per IP)
+  // so a script can't hammer arbitrary emails with OTP spam.
+  if(isRateLimited('portal_'+(req.ip||'unknown')))return res.json({success:false,error:'Too many attempts. Please wait 15 minutes and try again.'});
   const db=readBrandDB(slug);
-  // Check if this email has tickets
-  const hasTickets=(db.tickets||[]).some(t=>t.from&&t.from.toLowerCase()===email.toLowerCase());
+  _pruneExpiredPortalState(db);
   if(!otp){
-    // Send OTP
     const otpCode=Math.floor(100000+Math.random()*900000).toString();
-    const portalOtps=global._portalOtps=global._portalOtps||{};
-    portalOtps[slug+'_'+email]=otpCode;setTimeout(()=>delete portalOtps[slug+'_'+email],600000);
-    sendBrandEmail(slug,email,'Your Resolvo Portal Login Code',`<p>Your one-time login code is: <strong style="font-size:24px;letter-spacing:4px;">${otpCode}</strong></p><p>Valid for 10 minutes.</p>`,'Login code: '+otpCode).catch(()=>{});
+    db.portalOtps=db.portalOtps||{};
+    db.portalOtps[slug+'_'+email.toLowerCase()]={code:otpCode,expiresAt:Date.now()+PORTAL_OTP_MS};
+    writeBrandDB(slug,db);
+    sendBrandEmail(slug,email,'Your Support Portal Login Code',`<p>Your one-time login code is: <strong style="font-size:24px;letter-spacing:4px;">${otpCode}</strong></p><p>Valid for 10 minutes.</p>`,'Login code: '+otpCode).catch(()=>{});
     return res.json({success:true,otpSent:true});
   }
-  // Verify OTP
-  const portalOtps=global._portalOtps||{};
-  const key=slug+'_'+email;
-  if(portalOtps[key]!==otp)return res.json({success:false,error:'Invalid or expired code'});
-  delete portalOtps[key];
+  const key=slug+'_'+email.toLowerCase();
+  const rec=(db.portalOtps||{})[key];
+  if(!rec||rec.code!==otp||rec.expiresAt<Date.now())return res.json({success:false,error:'Invalid or expired code'});
+  delete db.portalOtps[key];
+  clearRateLimit('portal_'+(req.ip||'unknown'));
   const token=generateId('PTK');
-  global._portalTokens=global._portalTokens||{};
-  global._portalTokens[token]={email,slug,createdAt:Date.now()};
-  res.json({success:true,token,email});
+  db.portalSessions=db.portalSessions||[];
+  db.portalSessions.push({token,email:email.toLowerCase(),slug,createdAt:Date.now(),expiresAt:Date.now()+PORTAL_SESSION_MS});
+  writeBrandDB(slug,db);
+  res.json({success:true,token,email:email.toLowerCase()});
 });
 app.get('/portal/:slug/tickets',(req,res)=>{
-  const token=req.headers['x-portal-token'];
-  const session=(global._portalTokens||{})[token];
-  if(!session||session.slug!==req.params.slug)return res.status(401).json({error:'Unauthorized'});
-  const db=readBrandDB(req.params.slug);
-  const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===session.email.toLowerCase())
+  const slug=req.params.slug;
+  const db=readBrandDB(slug);
+  const session=_portalSession(db,req.headers['x-portal-token'],slug);
+  if(!session)return res.status(401).json({error:'Unauthorized'});
+  const tickets=(db.tickets||[]).filter(t=>t.from&&t.from.toLowerCase()===session.email)
     .sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate))
-    .map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,resolvedDate:t.resolvedDate,threadCount:(t.thread||[]).length,csatRating:t.csatRating}));
+    .map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,resolvedDate:t.resolvedDate,threadCount:(t.thread||[]).filter(m=>m.type!=='note').length,csatRating:t.csatRating}));
   res.json({success:true,tickets,email:session.email});
+});
+// Dedicated portal ticket-creation route — the widget submit endpoint
+// (/api/widget/:slug/submit) silently drops subject/priority, which the
+// portal UI was posting to before but never actually got to keep.
+app.post('/portal/:slug/tickets',(req,res)=>{
+  const slug=req.params.slug;
+  const db=readBrandDB(slug);
+  const session=_portalSession(db,req.headers['x-portal-token'],slug);
+  if(!session)return res.status(401).json({error:'Unauthorized'});
+  const{subject,body,priority}=req.body||{};
+  if(!subject||!body)return res.json({success:false,error:'Subject and message are required'});
+  const ticketId=generateTicketId(slug),now=nowIST();
+  const ticket={id:ticketId,subject:String(subject).substring(0,200),from:session.email,fromName:session.email,status:'new',
+    priority:['Low','Medium','High','Critical'].includes(priority)?priority:'Medium',
+    createdDate:now,lastActivity:now,source:'portal',channel:'portal',tags:['portal'],
+    thread:[{id:generateId('MSG'),type:'incoming',from:session.email,fromName:session.email,body:String(body),timestamp:now}]};
+  tagTicketSentiment(ticket,body);
+  db.tickets=db.tickets||[];db.tickets.unshift(ticket);
+  writeBrandDB(slug,db);
+  runAutomationRules(slug,ticketId,'ticket_created').catch(()=>{});
+  res.json({success:true,ticketId});
+});
+// Ticket detail — thread excludes type:'note' entries (internal-only,
+// never meant to reach the customer).
+app.get('/portal/:slug/tickets/:id',(req,res)=>{
+  const slug=req.params.slug;
+  const db=readBrandDB(slug);
+  const session=_portalSession(db,req.headers['x-portal-token'],slug);
+  if(!session)return res.status(401).json({error:'Unauthorized'});
+  const ticket=(db.tickets||[]).find(t=>t.id===req.params.id&&t.from&&t.from.toLowerCase()===session.email);
+  if(!ticket)return res.status(404).json({success:false,error:'Not found'});
+  const thread=(ticket.thread||[]).filter(m=>m.type!=='note').map(m=>({id:m.id,type:m.type,from:m.from,fromName:m.fromName,body:m.body,timestamp:m.timestamp}));
+  res.json({success:true,ticket:{id:ticket.id,subject:ticket.subject,status:ticket.status,priority:ticket.priority,createdDate:ticket.createdDate,resolvedDate:ticket.resolvedDate,csatRating:ticket.csatRating},thread});
+});
+app.post('/portal/:slug/tickets/:id/reply',(req,res)=>{
+  const slug=req.params.slug;
+  const db=readBrandDB(slug);
+  const session=_portalSession(db,req.headers['x-portal-token'],slug);
+  if(!session)return res.status(401).json({error:'Unauthorized'});
+  const body=(req.body&&req.body.body||'').trim();
+  if(!body)return res.json({success:false,error:'Message required'});
+  const idx=(db.tickets||[]).findIndex(t=>t.id===req.params.id&&t.from&&t.from.toLowerCase()===session.email);
+  if(idx===-1)return res.status(404).json({success:false,error:'Not found'});
+  const t=db.tickets[idx];
+  t.thread=t.thread||[];
+  t.thread.push({id:generateId('MSG'),type:'incoming',from:session.email,fromName:session.email,body,timestamp:nowIST()});
+  t.lastActivity=nowIST();
+  if(['resolved','closed'].includes(t.status)){
+    t.timeline=t.timeline||[];
+    t.timeline.push({event:'status_changed',from:t.status,to:'open',by:session.email,byName:session.email,at:nowIST(),detail:'Reopened by customer reply (portal)'});
+    t.status='open';
+  }
+  writeBrandDB(slug,db);
+  res.json({success:true});
 });
 
 // ── EMBEDDABLE WIDGET (script tag) ─────────────────────────────────────────
