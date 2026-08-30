@@ -8566,6 +8566,21 @@ const Notif = {
 const Search = {
   _debounce: null,
   _cache: null,
+  _ticketCache: null,
+  // Jump targets not otherwise reachable by typing — mirrors (a subset of)
+  // the settings nav, kept as its own short list here rather than reaching
+  // into renderUnifiedSettings' local nav array.
+  _settingsIndex: [
+    {label:'SLA Configuration', tid:'sla'}, {label:'VIP Customers', tid:'vip-config'},
+    {label:'API Keys', tid:'api-keys'}, {label:'Developer Docs', tid:'developer-docs'},
+    {label:'Canned Responses', tid:'canned'}, {label:'Automation Rules', tid:'automation'},
+    {label:'Escalation Rules', tid:'escalation'}, {label:'Auto-Reply Bot', tid:'bot-rules'},
+    {label:'Assignment Queue', tid:'queue-config'}, {label:'Ticket Templates', tid:'templates'},
+    {label:'Two-Factor Auth', tid:'two-fa'}, {label:'GDPR & Privacy', tid:'gdpr'},
+    {label:'Integrations', tid:'integrations'}, {label:'Ticket Statuses', tid:'status-management'},
+    {label:'Out of Office', tid:'ooo'}, {label:'CSAT Settings', tid:'csat-config'},
+    {label:'NPS Settings', tid:'nps-config'}, {label:'Knowledge Base', tid:'knowledge-base'},
+  ],
 
   open: function() {
     var panel = document.getElementById('smartSearchPanel');
@@ -8577,6 +8592,12 @@ const Search = {
     if (!this._cache && App.allIssues && App.allIssues.length) {
       this._cache = App.allIssues;
     }
+    // Refreshed every open rather than kept forever stale — tickets change
+    // far more often than the issue list does.
+    var self = this;
+    App.callAsync('getTickets', {status:'all', limit:300, sort:'newest'}).then(function(r) {
+      if (r && r.success) self._ticketCache = r.tickets;
+    });
   },
 
   close: function() {
@@ -8618,10 +8639,57 @@ const Search = {
     if (!results) return;
     var q = query.toLowerCase();
     var issues = App.allIssues || [];
+    var tickets = this._ticketCache || [];
+    var highlight = function(text) {
+      if (!q) return text;
+      var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+      return text.replace(re, '<mark style="background:var(--accent-dim);color:var(--accent);border-radius:2px;">$1</mark>');
+    };
 
-    if (!issues.length) {
-      results.innerHTML = '<div class="search-empty">Load the issue list first for search to work</div>';
-      return;
+    var html = '';
+
+    // Tickets. The open/priority nudge only ever breaks ties between two
+    // real text matches — it never contributes on its own, otherwise every
+    // open ticket would "match" every query regardless of relevance.
+    var scoredTickets = tickets.map(function(t) {
+      var textScore = 0;
+      var subject = (t.subject || '').toLowerCase();
+      var id = (t.id || '').toLowerCase();
+      var from = (t.fromName || t.from || '').toLowerCase();
+      if (id === q) textScore += 100;
+      if (subject.includes(q)) textScore += 50;
+      if (from.includes(q)) textScore += 30;
+      q.split(' ').forEach(function(word) {
+        if (word.length > 2 && subject.includes(word)) textScore += 10;
+      });
+      var score = textScore > 0 ? textScore + (!['resolved','closed'].includes(t.status) ? 3 : 0) : 0;
+      return { ticket: t, score: score };
+    }).filter(function(s){ return s.score > 0; }).sort(function(a,b){ return b.score-a.score; }).slice(0, 8);
+
+    if (scoredTickets.length) {
+      html += '<div class="search-result-group"><div class="search-group-label">Tickets (' + scoredTickets.length + ')</div>';
+      scoredTickets.forEach(function(s) {
+        var t = s.ticket;
+        html += '<div class="search-result-item" onclick="App.renderTicketDetail(\'' + t.id + '\');Search.close();">' +
+          '<div class="search-result-id">' + t.id + '</div>' +
+          '<div class="search-result-title">' + highlight((t.subject||'').substring(0,60)) + '</div>' +
+        '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Settings pages
+    var scoredSettings = this._settingsIndex.filter(function(s) {
+      return s.label.toLowerCase().includes(q);
+    }).slice(0, 6);
+    if (scoredSettings.length) {
+      html += '<div class="search-result-group"><div class="search-group-label">Settings</div>';
+      scoredSettings.forEach(function(s) {
+        html += '<div class="search-result-item" onclick="App.renderUnifiedSettings(\'' + s.tid + '\');Search.close();">' +
+          '<div class="search-result-title">⚙ ' + highlight(s.label) + '</div>' +
+        '</div>';
+      });
+      html += '</div>';
     }
 
     // Score each issue
@@ -8648,29 +8716,21 @@ const Search = {
       .sort(function(a,b){ return b.score - a.score; })
       .slice(0, 12);
 
-    if (!scored.length) {
-      results.innerHTML = '<div class="search-empty">No results for "' + query + '"</div>';
-      return;
+    if (scored.length) {
+      html += '<div class="search-result-group"><div class="search-group-label">Issues (' + scored.length + ')</div>';
+      scored.forEach(function(s) {
+        var i = s.issue;
+        html += '<div class="search-result-item" onclick="App.navigate(\'issue-detail\',{id:\'' + i.id + '\'});Search.close();">' +
+          '<div class="search-result-id">' + i.id + '</div>' +
+          '<div class="search-result-title">' + highlight(i.title.substring(0,60)) + '</div>' +
+          '<div style="display:flex;gap:6px;flex-shrink:0;">';
+        if (App.priorityBadge) html += App.priorityBadge(i.priority);
+        html += '</div></div>';
+      });
+      html += '</div>';
     }
 
-    var html = '<div class="search-result-group">';
-    html += '<div class="search-group-label">Issues (' + scored.length + ')</div>';
-    scored.forEach(function(s) {
-      var i = s.issue;
-      var highlight = function(text) {
-        if (!q) return text;
-        var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
-        return text.replace(re, '<mark style="background:var(--accent-dim);color:var(--accent);border-radius:2px;">$1</mark>');
-      };
-      html += '<div class="search-result-item" onclick="App.navigate(\'issue-detail\',{id:\'' + i.id + '\'});Search.close();">' +
-        '<div class="search-result-id">' + i.id + '</div>' +
-        '<div class="search-result-title">' + highlight(i.title.substring(0,60)) + '</div>' +
-        '<div style="display:flex;gap:6px;flex-shrink:0;">';
-      if (App.priorityBadge) html += App.priorityBadge(i.priority);
-      html += '</div></div>';
-    });
-    html += '</div>';
-    results.innerHTML = html;
+    results.innerHTML = html || ('<div class="search-empty">No results for "' + query + '"</div>');
   }
 };
 
