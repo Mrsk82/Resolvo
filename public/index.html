@@ -10223,6 +10223,13 @@ const App = {
         </div>
       </div>
 
+    <div id="owner-plan-requests-section" style="margin-top:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-primary);">📈 Pending Plan Upgrade Requests</h3>
+      </div>
+      <div id="owner-plan-requests"></div>
+    </div>
+
     <div style="margin-top:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
       <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
         <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-primary);">📋 Owner Audit Log</h3>
@@ -10258,6 +10265,30 @@ const App = {
         } else {
           bannerEl.innerHTML = `<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:12px;color:#065f46;"><span>✓</span> Email links pointing to: <code style="background:#a7f3d0;padding:1px 6px;border-radius:4px;">${url}</code></div>`;
         }
+      }).catch(() => {});
+
+    // Fetch pending plan-upgrade requests in parallel (non-blocking)
+    fetch('/api/owner/plan-requests', { headers: { 'x-session-token': token } })
+      .then(r => r.json())
+      .then(data => {
+        const all = (data.success && data.requests) ? data.requests : [];
+        const pending = all.filter(r => r.status === 'pending');
+        const sectionEl = document.getElementById('owner-plan-requests-section');
+        const listEl = document.getElementById('owner-plan-requests');
+        if (!sectionEl || !listEl) return;
+        if (!pending.length) { sectionEl.style.display = 'none'; return; }
+        sectionEl.style.display = 'block';
+        listEl.innerHTML = pending.map(r => `
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${App._esc(r.brandName)} <span style="font-weight:400;color:var(--text-dim);">wants</span> ${App._esc(r.fromTier)} → ${App._esc(r.toTier)}</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${r.requestedBy ? App._esc(r.requestedBy) + ' · ' : ''}${r.requestedAt ? new Date(r.requestedAt).toLocaleString() : ''}${r.note ? ' · "' + App._esc(r.note) + '"' : ''}</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="App._ownerApprovePlanRequest('${r.id}')" style="font-size:11px;padding:6px 14px;border-radius:6px;border:none;background:var(--low);color:#0D0E14;font-weight:700;cursor:pointer;">Approve</button>
+              <button onclick="App._ownerDeclinePlanRequest('${r.id}')" style="font-size:11px;padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">Decline</button>
+            </div>
+          </div>`).join('');
       }).catch(() => {});
 
     // Fetch audit log in parallel (non-blocking) — reuse token declared above
@@ -11294,6 +11325,20 @@ const App = {
     document.querySelector('.modal-overlay')?.remove();
     App.showToast('Brand updated', 'success');
     App._safeOwnerDashboard();
+  },
+
+  _ownerApprovePlanRequest: async function(requestId) {
+    const token = localStorage.getItem('tt_session_token') || '';
+    const r = await fetch('/api/owner/plan-requests/' + requestId + '/approve', { method: 'POST', headers: { 'x-session-token': token } }).then(r => r.json());
+    if (r && r.success) { App.showToast('Plan upgrade approved', 'success'); App._safeOwnerDashboard(); }
+    else { App.showToast((r && r.error) || 'Failed to approve', 'error'); }
+  },
+  _ownerDeclinePlanRequest: async function(requestId) {
+    const reason = prompt('Reason for declining (optional):') || '';
+    const token = localStorage.getItem('tt_session_token') || '';
+    const r = await fetch('/api/owner/plan-requests/' + requestId + '/decline', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': token }, body: JSON.stringify({ reason }) }).then(r => r.json());
+    if (r && r.success) { App.showToast('Request declined', 'success'); App._safeOwnerDashboard(); }
+    else { App.showToast((r && r.error) || 'Failed to decline', 'error'); }
   },
 
   // ── Base URL updater (Owner Dashboard) ─────────────────────────────────────
@@ -14877,7 +14922,7 @@ const App = {
     html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:24px;display:flex;align-items:center;gap:20px;">';
     html += '<div style="width:56px;height:56px;border-radius:50%;background:' + tierC + '22;border:2px solid ' + tierC + ';display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:' + tierC + ';">' + tier.charAt(0) + '</div>';
     html += '<div style="flex:1;"><div style="font-size:20px;font-weight:800;color:var(--text-primary);">' + tier + ' Plan</div>';
-    html += '<div style="font-size:13px;color:var(--text-muted);margin-top:2px;">Contact your platform owner to upgrade or change your plan</div></div>';
+    html += '<div style="font-size:13px;color:var(--text-muted);margin-top:2px;"><a href="javascript:void(0)" onclick="App.navigate(\'upgrade\')" style="color:var(--accent);">Manage plan →</a></div></div>';
     var enabled = Object.values(resolved).filter(Boolean).length;
     var total = meta.length;
     html += '<div style="text-align:right;"><div style="font-size:28px;font-weight:800;color:' + tierC + ';font-family:var(--font-mono);">' + enabled + '<span style="font-size:14px;color:var(--text-dim);">/' + total + '</span></div><div style="font-size:11px;color:var(--text-dim);">features active</div></div>';
@@ -14909,7 +14954,7 @@ const App = {
       var nextTier = tier === 'Free' ? 'Pro' : 'Enterprise';
       html += '<div style="margin-top:20px;background:linear-gradient(135deg,var(--accent-dim),var(--bg-elevated));border:1px solid var(--border-accent);border-radius:10px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">';
       html += '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary);">Want more features?</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Upgrade to <strong>' + nextTier + '</strong> to unlock ' + (nextTier === 'Pro' ? 'Kanban, Sprints, AI, Analytics, and more' : 'API Integration, Email Triage, and all features') + '.</div></div>';
-      html += '<span style="font-size:12px;color:var(--text-dim);">Contact your platform owner to upgrade</span>';
+      html += '<button onclick="App.navigate(\'upgrade\')" style="font-size:12px;padding:8px 18px;border-radius:8px;border:none;background:var(--accent);color:#0D0E14;font-weight:700;cursor:pointer;white-space:nowrap;">Request Upgrade →</button>';
       html += '</div>';
     }
 
@@ -17815,7 +17860,7 @@ const App = {
             '<div style="display:flex;align-items:center;gap:14px;padding:6px 0;">'+
               '<div style="width:48px;height:48px;border-radius:50%;background:'+tClr+'22;border:2px solid '+tClr+';display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:'+tClr+';">'+tier.charAt(0)+'</div>'+
               '<div><div style="font-size:18px;font-weight:800;color:var(--text-primary);">'+tier+' Plan</div>'+
-              '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Contact your platform owner to change plan</div></div>'+
+              '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;"><a href="javascript:void(0)" onclick="App.navigate(\'upgrade\')" style="color:var(--accent);">Upgrade or downgrade →</a></div></div>'+
             '</div>'
           ])+
           // Feature flags are OWNER-controlled — read only for brand admin
@@ -24362,64 +24407,99 @@ const App = {
     ta.dispatchEvent(new Event('input'));
   },
 
-  renderUpgradePage: function() {
+  renderUpgradePage: async function() {
     var self = this;
     self.setPage('Plans & Billing', 'Upgrade');
     var area = document.getElementById('contentArea');
-    var cu = self.currentUser || {};
-    var currentPlan = cu.plan || 'starter';
-    var plans = [
-      { id:'starter', name:'Starter', price:'Free', priceNote:'forever', color:'#6B7280', features:['3 agents','500 tickets/mo','Email ticketing','Basic reports','Community support'], cta:'Current Plan' },
-      { id:'growth',  name:'Growth',  price:'₹2,999', priceNote:'/month', color:'#10B981', features:['10 agents','5,000 tickets/mo','WhatsApp + Web widget','AI triage & auto-assign','SLA management','Priority support'], cta:'Upgrade to Growth', badge:'Popular' },
-      { id:'pro',     name:'Pro',     price:'₹7,999', priceNote:'/month', color:'#6366F1', features:['Unlimited agents','Unlimited tickets','All channels','AI command bar (Ctrl+K)','Custom branding & CSAT','Audit trail & analytics','Dedicated support'], cta:'Upgrade to Pro' },
-    ];
-    var usageItems = [
-      { label:'Agents used', val: cu.agentCount||1, max: cu.agentLimit||3, unit:'agents' },
-      { label:'Tickets this month', val: cu.ticketCount||0, max: cu.ticketLimit||500, unit:'tickets' },
-      { label:'Storage', val: 0.4, max: 1, unit:'GB' },
-    ];
+    area.innerHTML = App._skeleton(3,'table');
+
+    var r = await self.callAsync('getPlanInfo');
+    if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Failed to load plan info</p></div>'; return; }
+
+    var currentTier = r.currentTier;
+    var pending = r.pending;
+    var tierColors = { Free:'#6B7280', Pro:'#74b9ff', Enterprise:'#f5a623' };
+    var tierDesc = {
+      Free: 'Core ticketing and issue tracking to get started.',
+      Pro: 'Kanban, sprints, AI triage, analytics, and workflow automation.',
+      Enterprise: 'Everything in Pro plus API integration, customer portal, GDPR tools, and dedicated features.',
+    };
+
     var html = '<div style="max-width:960px;margin:0 auto;padding:0 4px;">';
-    // Current usage strip
-    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:24px;">';
-    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:14px;">Current Usage — <span style="color:var(--accent);text-transform:none;font-size:12px;">'+currentPlan.charAt(0).toUpperCase()+currentPlan.slice(1)+' Plan</span></div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">';
-    usageItems.forEach(function(u) {
-      var pct = Math.min(100, Math.round(u.val / u.max * 100));
-      var barColor = pct > 85 ? 'var(--critical)' : pct > 60 ? '#F59E0B' : 'var(--accent)';
-      html += '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><span style="color:var(--text-secondary);">'+u.label+'</span><span style="color:var(--text-primary);font-weight:600;">'+u.val+' / '+u.max+' '+u.unit+'</span></div>';
-      html += '<div style="height:5px;background:var(--bg-elevated);border-radius:999px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:999px;transition:width .4s;"></div></div></div>';
-    });
-    html += '</div></div>';
-    // Plan cards
+
+    if (pending) {
+      html += '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">';
+      html += '<div><div style="font-size:13px;font-weight:700;color:var(--text-primary);">⏳ Upgrade to '+pending.toTier+' pending approval</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Requested '+new Date(pending.requestedAt).toLocaleDateString()+' — your platform owner will review it.</div></div>';
+      html += '<button onclick="App._cancelPlanRequest(\''+pending.id+'\')" style="font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);cursor:pointer;">Cancel Request</button>';
+      html += '</div>';
+    }
+
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:28px;">';
-    plans.forEach(function(p) {
-      var isCurrent = p.id === currentPlan;
-      html += '<div style="background:var(--bg-card);border:2px solid '+(isCurrent?p.color:'var(--border)')+';border-radius:16px;padding:24px;position:relative;transition:border-color .15s,box-shadow .15s;" onmouseover="this.style.boxShadow=\'0 8px 32px rgba(0,0,0,.2)\'" onmouseout="this.style.boxShadow=\'none\'">';
-      if (p.badge) html += '<span style="position:absolute;top:16px;right:16px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;background:'+p.color+'22;color:'+p.color+';">'+p.badge+'</span>';
-      html += '<div style="font-size:13px;font-weight:700;color:'+p.color+';margin-bottom:4px;">'+p.name+'</div>';
-      html += '<div style="font-size:28px;font-weight:800;color:var(--text-primary);letter-spacing:-.5px;line-height:1.1;">'+p.price+'<span style="font-size:13px;font-weight:400;color:var(--text-dim);margin-left:3px;">'+p.priceNote+'</span></div>';
+    (r.tiers||[]).forEach(function(t) {
+      var color = tierColors[t.tier] || '#6B7280';
+      var isCurrent = t.isCurrent;
+      var rank = { Free:0, Pro:1, Enterprise:2 }[t.tier];
+      var curRank = { Free:0, Trial:0, Pro:1, Enterprise:2 }[currentTier];
+      var isUpgrade = rank > curRank;
+      var isDowngrade = rank < curRank && currentTier !== 'Trial';
+      html += '<div style="background:var(--bg-card);border:2px solid '+(isCurrent?color:'var(--border)')+';border-radius:16px;padding:24px;position:relative;">';
+      html += '<div style="font-size:13px;font-weight:700;color:'+color+';margin-bottom:4px;">'+t.tier+'</div>';
+      html += '<div style="font-size:28px;font-weight:800;color:var(--text-primary);letter-spacing:-.5px;line-height:1.1;">'+(t.price?('₹'+t.price):'Free')+'<span style="font-size:13px;font-weight:400;color:var(--text-dim);margin-left:3px;">'+(t.price?'/month':'forever')+'</span></div>';
+      html += '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">'+(tierDesc[t.tier]||'')+'</div>';
       html += '<div style="height:1px;background:var(--border);margin:16px 0;"></div>';
-      html += '<ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:8px;">';
-      p.features.forEach(function(f) {
-        html += '<li style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-secondary);">';
-        html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+p.color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><polyline points="20 6 9 17 4 12"/></svg>';
-        html += f + '</li>';
-      });
-      html += '</ul>';
+      if (t.diff && t.diff.length) {
+        html += '<ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:8px;">';
+        t.diff.slice(0,7).forEach(function(f) {
+          var c = f.gained ? color : 'var(--critical)';
+          html += '<li style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-secondary);">';
+          html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;">'+(f.gained?'<polyline points="20 6 9 17 4 12"/>':'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>')+'</svg>';
+          html += (f.gained?'':'<span style="text-decoration:line-through;opacity:.7;">')+f.label+(f.gained?'':'</span>');
+          html += '</li>';
+        });
+        html += '</ul>';
+      } else {
+        html += '<div style="font-size:12px;color:var(--text-dim);margin-bottom:20px;">Same features as your current plan.</div>';
+      }
       if (isCurrent) {
         html += '<div style="width:100%;padding:10px;text-align:center;border-radius:9px;border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-dim);">✓ Current Plan</div>';
-      } else {
-        html += '<button onclick="App.showToast(\'Contact sales to upgrade — coming soon!\',\'info\')" style="width:100%;padding:11px;background:'+p.color+';color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-display);transition:opacity .15s;" onmouseover="this.style.opacity=\'.88\'" onmouseout="this.style.opacity=\'1\'">'+p.cta+' →</button>';
+      } else if (isUpgrade) {
+        var disabled = !!pending;
+        html += '<button '+(disabled?'disabled':'onclick="App._requestPlanUpgrade(\''+t.tier+'\')"')+' style="width:100%;padding:11px;background:'+(disabled?'var(--bg-elevated)':color)+';color:'+(disabled?'var(--text-dim)':'#fff')+';border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:'+(disabled?'not-allowed':'pointer')+';font-family:var(--font-display);">Request Upgrade to '+t.tier+' →</button>';
+      } else if (isDowngrade) {
+        html += '<button onclick="App._confirmDowngradePlan(\''+t.tier+'\')" style="width:100%;padding:11px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">Downgrade to '+t.tier+'</button>';
       }
       html += '</div>';
     });
     html += '</div>';
-    // FAQ / contact strip
+
     html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">';
     html += '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">Need a custom plan?</div><div style="font-size:12px;color:var(--text-secondary);">Large team or special requirements? We\'ll build a plan around you.</div></div>';
     html += '<a href="mailto:contact@resolvogroup.com" style="background:var(--accent);color:#0D0E14;text-decoration:none;border-radius:9px;padding:10px 20px;font-size:13px;font-weight:700;white-space:nowrap;">Contact Sales →</a>';
     html += '</div></div>';
     area.innerHTML = html;
+  },
+
+  _requestPlanUpgrade: async function(toTier) {
+    var note = prompt('Anything you want your platform owner to know? (optional)') || '';
+    var r = await this.callAsync('requestPlanUpgrade', toTier, note);
+    if (r && r.success) { App.showToast('Upgrade request sent to your platform owner', 'success'); App.renderUpgradePage(); }
+    else { App.showToast((r&&r.error)||'Failed to request upgrade', 'error'); }
+  },
+  _cancelPlanRequest: async function(requestId) {
+    var r = await this.callAsync('cancelPlanRequest', requestId);
+    if (r && r.success) { App.showToast('Request cancelled', 'success'); App.renderUpgradePage(); }
+    else { App.showToast((r&&r.error)||'Failed to cancel', 'error'); }
+  },
+  _confirmDowngradePlan: async function(toTier) {
+    var r = await this.callAsync('getPlanInfo');
+    var target = r && r.success ? (r.tiers||[]).find(function(t){return t.tier===toTier;}) : null;
+    var lost = target ? target.diff.filter(function(f){return !f.gained;}).map(function(f){return f.label;}) : [];
+    var msg = 'Downgrade to ' + toTier + ' immediately?';
+    if (lost.length) msg += '\n\nYou will lose access to:\n- ' + lost.join('\n- ');
+    if (!confirm(msg)) return;
+    var res = await this.callAsync('downgradePlan', toTier);
+    if (res && res.success) { App.showToast('Plan downgraded to ' + toTier, 'success'); App.renderUpgradePage(); }
+    else { App.showToast((res&&res.error)||'Failed to downgrade', 'error'); }
   },
 
   animateCounter: function(el, target) {

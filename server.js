@@ -342,6 +342,17 @@ const FEATURE_META=[
   {key:'API_KEYS_ENABLED',label:'API Key Access',group:'Integrations',tier:'Enterprise'},
 ];
 function resolveFeatureFlags(brand,adf){return{...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};}
+
+// ── SELF-SERVICE PLAN CHANGE ────────────────────────────────────────────────
+// Real, paid tiers a brand admin can pick between (ascending). Trial is
+// owner-granted only — never a self-service target, though a Trial brand
+// can still request an upgrade to convert to a paid tier.
+const TIER_PRICING={Free:0,Trial:0,Pro:999,Enterprise:2499};
+const PLAN_TIERS=['Free','Pro','Enterprise'];
+function tierFeatureDiff(fromTier,toTier){
+  const a=TIER_FEATURES[fromTier]||TIER_FEATURES.Free,b=TIER_FEATURES[toTier]||TIER_FEATURES.Free;
+  return FEATURE_META.filter(f=>!!a[f.key]!==!!b[f.key]).map(f=>({label:f.label,gained:!!b[f.key]&&!a[f.key]}));
+}
 // Server-side feature gate — returns error object if feature disabled
 function requireFeature(flags,key){
   if(!flags[key])return{success:false,error:`Feature not available on your plan. Contact your platform admin to enable ${key}.`,featureRequired:key};
@@ -1165,7 +1176,7 @@ app.post('/api/owner/webhook-config',ownerOnly,(req,res)=>{
 // MRR Dashboard
 app.get('/api/owner/mrr',ownerOnly,(req,res)=>{
   const owner=readOwner();
-  const tierPricing={Free:0,Trial:0,Pro:999,Enterprise:2499};
+  const tierPricing=TIER_PRICING;
   const brands=(owner.brands||[]);
   const activeBrands=brands.filter(b=>b.status==='active');
   const mrr=activeBrands.reduce((s,b)=>s+(b.billing?.amount||tierPricing[b.tier]||0),0);
@@ -1232,8 +1243,7 @@ app.get('/api/owner/cohorts',ownerOnly,(req,res)=>{
 app.get('/api/owner/invoice/:slug',ownerOnly,(req,res)=>{
   const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===req.params.slug);
   if(!brand)return res.json({success:false,error:'Brand not found'});
-  const tierPricing={Free:0,Trial:0,Pro:999,Enterprise:2499};
-  const amount=brand.billing?.amount||tierPricing[brand.tier]||0;
+  const amount=brand.billing?.amount||TIER_PRICING[brand.tier]||0;
   const now=new Date();const invoiceId='INV-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+'-'+req.params.slug.toUpperCase().substring(0,6);
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice ${invoiceId}</title>
   <style>body{font-family:Arial,sans-serif;color:#111827;padding:40px;max-width:700px;margin:0 auto;}
@@ -1669,6 +1679,43 @@ app.put('/api/owner/brands/:slug/features',ownerOnly,(req,res)=>{
   if(req.body.resetAll)owner.brands[idx].featureOverrides={};
   ownerAuditLog(owner,'feature_override_changed',{brandSlug:req.params.slug},req.owner.email);writeOwner(owner);
   res.json({success:true,resolved:resolveFeatureFlags(owner.brands[idx])});
+});
+
+// ── SELF-SERVICE PLAN CHANGE REQUESTS (owner side) ──────────────────────────
+// Upgrades are request-only — a brand admin asks, the owner approves/declines
+// here (no payment collection exists yet). Downgrades are fully self-service
+// from the brand side (see downgradePlan in /api/call) since they carry no
+// revenue-collection risk, so there's nothing for the owner to approve there.
+app.get('/api/owner/plan-requests',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  res.json({success:true,requests:(owner.planChangeRequests||[]).slice(0,100)});
+});
+app.post('/api/owner/plan-requests/:id/approve',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  const rIdx=(owner.planChangeRequests||[]).findIndex(r=>r.id===req.params.id);
+  if(rIdx===-1)return res.json({success:false,error:'Not found'});
+  const reqRec=owner.planChangeRequests[rIdx];
+  if(reqRec.status!=='pending')return res.json({success:false,error:'This request was already resolved.'});
+  const bIdx=(owner.brands||[]).findIndex(b=>b.slug===reqRec.brandSlug);
+  if(bIdx===-1)return res.json({success:false,error:'Brand not found'});
+  const prevTier=owner.brands[bIdx].tier;
+  owner.brands[bIdx].tier=reqRec.toTier;
+  reqRec.status='approved';reqRec.resolvedAt=nowIST();reqRec.resolvedBy=req.owner.email;
+  ownerAuditLog(owner,'tier_changed',{brandSlug:reqRec.brandSlug,from:prevTier,to:reqRec.toTier,viaRequest:reqRec.id},req.owner.email);
+  writeOwner(owner);
+  sendEmail(reqRec.requestedBy,`✅ Your plan upgrade was approved`,`<p>Your request to upgrade <strong>${reqRec.brandName}</strong> to the <strong>${reqRec.toTier}</strong> plan has been approved and is now active.</p>`,`Upgrade approved: ${reqRec.brandName} → ${reqRec.toTier}`).catch(()=>{});
+  res.json({success:true});
+});
+app.post('/api/owner/plan-requests/:id/decline',ownerOnly,(req,res)=>{
+  const owner=readOwner();
+  const rIdx=(owner.planChangeRequests||[]).findIndex(r=>r.id===req.params.id);
+  if(rIdx===-1)return res.json({success:false,error:'Not found'});
+  const reqRec=owner.planChangeRequests[rIdx];
+  if(reqRec.status!=='pending')return res.json({success:false,error:'This request was already resolved.'});
+  reqRec.status='declined';reqRec.resolvedAt=nowIST();reqRec.resolvedBy=req.owner.email;reqRec.declineReason=String((req.body&&req.body.reason)||'').substring(0,500);
+  writeOwner(owner);
+  sendEmail(reqRec.requestedBy,`Plan upgrade request declined`,`<p>Your request to upgrade <strong>${reqRec.brandName}</strong> to the <strong>${reqRec.toTier}</strong> plan was declined.${reqRec.declineReason?' Reason: '+reqRec.declineReason:''}</p>`,`Upgrade declined: ${reqRec.brandName}`).catch(()=>{});
+  res.json({success:true});
 });
 app.post('/api/test-email',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const to=req.body.to||su.email;try{await sendEmail(to,'✅ TechTrack Email Test',testEmailHTML(),`Email test OK → ${to}`);res.json({success:true,message:`Sent to ${to}`});}catch(e){res.json({success:false,error:e.message});}});
 
@@ -2144,6 +2191,59 @@ app.post('/api/call',async(req,res)=>{
     },
     isFeatureEnabled:key=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(brand)return{success:true,enabled:resolveFeatureFlags(brand,db.featureFlags||{})[key]===true};return{success:true,enabled:(db.featureFlags||{})[key]===true};},
     getBrandFeatureAccess:()=>{const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug);if(!brand)return{success:false,error:'Not found'};return{success:true,resolved:resolveFeatureFlags(brand,db.featureFlags||{}),tier:brand.tier,meta:FEATURE_META,overrides:brand.featureOverrides||{}};},
+
+    // ── SELF-SERVICE PLAN CHANGE (brand admin side) ───────────────────────
+    // Upgrades: no payment collection exists yet, so this only files a
+    // request the platform owner approves/declines (see the /api/owner
+    // plan-requests routes). Downgrades carry no revenue-collection risk,
+    // so they apply immediately without owner approval.
+    getPlanInfo:()=>{
+      const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug);
+      if(!brand)return{success:false,error:'Not found'};
+      const current=brand.tier||'Free';
+      const pending=(owner.planChangeRequests||[]).find(r=>r.brandSlug===slug&&r.status==='pending')||null;
+      const tiers=PLAN_TIERS.map(t=>({tier:t,price:TIER_PRICING[t],isCurrent:t===current,diff:tierFeatureDiff(current,t)}));
+      return{success:true,currentTier:current,tiers,pending:pending?{id:pending.id,toTier:pending.toTier,requestedAt:pending.requestedAt}:null};
+    },
+    requestPlanUpgrade:(toTier,note)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      if(!PLAN_TIERS.includes(toTier)||toTier==='Free')return{success:false,error:'Not a valid upgrade target.'};
+      const owner=readOwner();const idx=(owner.brands||[]).findIndex(b=>b.slug===slug);
+      if(idx===-1)return{success:false,error:'Brand not found'};
+      const brand=owner.brands[idx];const current=brand.tier||'Free';
+      const curRank=PLAN_TIERS.indexOf(current==='Trial'?'Free':current),targetRank=PLAN_TIERS.indexOf(toTier);
+      if(targetRank<=curRank&&current!=='Trial')return{success:false,error:'That is not an upgrade from your current plan.'};
+      owner.planChangeRequests=owner.planChangeRequests||[];
+      if(owner.planChangeRequests.some(r=>r.brandSlug===slug&&r.status==='pending'))return{success:false,error:'You already have a pending upgrade request.'};
+      const reqId=generateId('PCR');
+      owner.planChangeRequests.unshift({id:reqId,brandSlug:slug,brandName:brand.name,fromTier:current,toTier,note:String(note||'').substring(0,500),requestedBy:su.email,requestedAt:nowIST(),status:'pending'});
+      ownerAuditLog(owner,'plan_upgrade_requested',{brandSlug:slug,fromTier:current,toTier},su.email);
+      writeOwner(owner);
+      sendEmail(owner.email,`📈 Plan upgrade requested — ${brand.name}`,`<p><strong>${su.name||su.email}</strong> at <strong>${brand.name}</strong> (${slug}) requested to upgrade from <strong>${current}</strong> to <strong>${toTier}</strong>.</p>${note?`<p>Note: ${note}</p>`:''}<p><a href="${BASE_URL}">Open Owner Dashboard</a></p>`,`Plan upgrade requested: ${brand.name} ${current}→${toTier}`).catch(()=>{});
+      return{success:true,requestId:reqId};
+    },
+    cancelPlanRequest:requestId=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const owner=readOwner();const idx=(owner.planChangeRequests||[]).findIndex(r=>r.id===requestId&&r.brandSlug===slug&&r.status==='pending');
+      if(idx===-1)return{success:false,error:'Not found'};
+      owner.planChangeRequests[idx].status='cancelled';writeOwner(owner);
+      return{success:true};
+    },
+    downgradePlan:toTier=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const owner=readOwner();const idx=(owner.brands||[]).findIndex(b=>b.slug===slug);
+      if(idx===-1)return{success:false,error:'Brand not found'};
+      const brand=owner.brands[idx];const current=brand.tier||'Free';
+      if(current==='Trial')return{success:false,error:'A Trial plan can\'t be self-downgraded.'};
+      if(!PLAN_TIERS.includes(toTier))return{success:false,error:'Not a valid plan.'};
+      const curRank=PLAN_TIERS.indexOf(current),targetRank=PLAN_TIERS.indexOf(toTier);
+      if(targetRank>=curRank)return{success:false,error:'That is not a downgrade from your current plan.'};
+      owner.brands[idx].tier=toTier;
+      ownerAuditLog(owner,'tier_changed',{brandSlug:slug,from:current,to:toTier,selfService:true},su.email);
+      writeOwner(owner);
+      sendEmail(owner.email,`📉 Plan downgraded — ${brand.name}`,`<p><strong>${su.name||su.email}</strong> at <strong>${brand.name}</strong> (${slug}) self-service downgraded from <strong>${current}</strong> to <strong>${toTier}</strong>.</p>`,`Plan downgraded: ${brand.name} ${current}→${toTier}`).catch(()=>{});
+      return{success:true};
+    },
     getModuleHealthScores:()=>{const db=rDB(),mc={},mcc={};(db.issues||[]).filter(i=>!['Resolved','Release Required'].includes(i.status)).forEach(i=>{if(i.module){mc[i.module]=(mc[i.module]||0)+1;if(i.priority==='Critical')mcc[i.module]=(mcc[i.module]||0)+1;}});return{success:true,scores:Object.keys(mc).map(m=>({module:m,open:mc[m],critical:mcc[m]||0,health:Math.max(0,100-mc[m]*5-(mcc[m]||0)*20)}))};},
     getSLAComplianceReport:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),now=new Date(),issues=(db.issues||[]).filter(i=>new Date(i.createdDate)>=from&&new Date(i.createdDate)<=to),breached=issues.filter(i=>{const d=getIssueSLAInfo(i).deadline;return now>d&&!['Resolved','Release Required'].includes(i.status);}).length;return{success:true,total:issues.length,breached,compliant:issues.length-breached};},
     getPlatformStats:()=>{const db=rDB(),now=new Date(),issues=db.issues||[],owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{};return{success:true,users:{total:(db.users||[]).length,active:(db.users||[]).filter(u=>u.active).length,byRole:(db.users||[]).reduce((a,u)=>{a[u.role]=(a[u.role]||0)+1;return a;},{})},issues:{total:issues.length,open:issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status)).length,resolved:issues.filter(i=>['Resolved','Release Required'].includes(i.status)).length,slaBreached:issues.filter(i=>{const d=getIssueSLAInfo(i).deadline;return now>d&&!['Resolved','Release Required'].includes(i.status);}).length},data:{comments:(db.comments||[]).length,activityLogs:(db.activityLog||[]).length,sprints:(db.sprints||[]).length,customFields:(db.customFields||[]).length,dbSizeKB:Math.round(fs.statSync(brandDbPath(slug)).size/1024)},settings:db.settings||{},featureFlags:db.featureFlags||{},brand:{name:brand.name,tier:brand.tier,limits:brand.limits,accentColor:brand.accentColor,theme:brand.theme,logoUrl:brand.logoUrl}};},
