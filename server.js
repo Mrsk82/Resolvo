@@ -2268,10 +2268,16 @@ app.post('/api/call',async(req,res)=>{
     getTickets:(filters)=>{
       const gate=requireFeature(ff,'EMAIL_TICKETING_ENABLED');if(gate)return gate;
       const db=rDB();
-      // Default order is by when the ticket/email arrived (createdDate), NOT
-      // lastActivity — a reply on an old ticket shouldn't jump it above a
-      // ticket that arrived more recently but hasn't been touched yet.
-      let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate));
+      // Default order is unread-first, then by when the ticket/email arrived
+      // (createdDate) — NOT lastActivity, since a reply on an old ticket
+      // shouldn't jump it above a ticket that arrived more recently but
+      // hasn't been touched yet. "Unread" = the customer said something
+      // since this agent last opened the ticket (see _isTicketUnread).
+      let tickets=(db.tickets||[]).slice().sort((a,b)=>{
+        const au=_isTicketUnread(a,su.email),bu=_isTicketUnread(b,su.email);
+        if(au!==bu)return au?-1:1;
+        return new Date(b.createdDate)-new Date(a.createdDate);
+      });
       if(filters){
         // My Queue filter — assigned to current user, not resolved/closed
         // Case-insensitive match to handle any email casing differences
@@ -2317,12 +2323,22 @@ app.post('/api/call',async(req,res)=>{
       const perStatus={};allSt.forEach(s=>{perStatus[s.id]=(db.tickets||[]).filter(t=>t.status===s.id).length;});
       const openTickets=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status));
       const slaAtRisk=openTickets.filter(t=>{const s=getTicketSLAInfo(db,t);return s.slaBreached||s.slaRisk;}).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:(t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0],...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,slaAtRisk}};
+      const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,slaAtRisk,unread:unreadCount}};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
       if(!ticket)return{success:false,error:'Ticket not found'};
       return{success:true,ticket:{...ticket,...getTicketSLAInfo(db,ticket)}};
+    },
+    // Marks a ticket as seen by the current agent — clears its "unread" flag
+    // in getTickets until the customer sends another incoming message.
+    markTicketViewed:(ticketId)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      db.tickets[idx].viewedBy=db.tickets[idx].viewedBy||{};
+      db.tickets[idx].viewedBy[su.email]=nowIST();
+      wDB(db);return{success:true};
     },
     // Lazy-load a single message's original email HTML — kept out of the main
     // ticket blob (see ticket_assets) so getTicketById/getTickets stay fast
@@ -6659,6 +6675,18 @@ function getEmailTicketConfig(slug) {
 function generateTicketId(slug) {
   // UUID-based to prevent race conditions when batch-processing many emails in parallel
   return 'TKT-' + uuidv4().substring(0, 8).toUpperCase();
+}
+
+// ── Per-agent unread tracking ────────────────────────────────────────────────
+// "Unread" means the customer said something since this agent last opened
+// the ticket — not just "something changed" (which would include the
+// agent's own reply falsely re-marking their own ticket as unread).
+function _lastIncomingMsg(t){return (t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0];}
+function _isTicketUnread(t,email){
+  const lastIn=_lastIncomingMsg(t);
+  if(!lastIn)return false;
+  const viewedAt=(t.viewedBy||{})[email];
+  return !viewedAt||new Date(lastIn.timestamp)>new Date(viewedAt);
 }
 
 // ── Create ticket from incoming email ──────────────────────────────────────────

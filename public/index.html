@@ -11858,7 +11858,7 @@ const App = {
     this.initContextMenu();
     this.loadAnnouncements();
     // Load new ticket count for sidebar badge
-    this.call('getTickets', {status:'new'}).then(function(r) {
+    this.callAsync('getTickets', {status:'new'}).then(function(r) {
       var badge = document.getElementById('ticketNewBadge');
       if (!badge) return;
       var count = r && r.success ? (r.counts && r.counts.new) || 0 : 0;
@@ -15627,8 +15627,9 @@ const App = {
               <div onclick="App._openTicketRow('${t.id}')" style="width:28px;height:28px;border-radius:50%;background:${sc}22;border:1.5px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;font-weight:800;color:${sc};cursor:pointer;">${(t.fromName||t.from||'?').charAt(0).toUpperCase()}</div>
               <div style="min-width:0;cursor:pointer;" onclick="App._openTicketRow('${t.id}')">
                 <div style="display:flex;align-items:center;gap:5px;margin-bottom:1px;flex-wrap:wrap;">
+                  ${t.unread?'<span title="Unread" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;"></span>':''}
                   ${isVIP?'<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:#F59E0B22;color:#F59E0B;">⭐ VIP</span>':''}
-                  <span style="font-size:13px;font-weight:${isNew?700:500};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;">${self._esc(t.subject)}</span>
+                  <span style="font-size:13px;font-weight:${(isNew||t.unread)?700:500};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;">${self._esc(t.subject)}</span>
                   ${isNew?'<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:'+sc+'22;color:'+sc+';">NEW</span>':''}
                 </div>
                 <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
@@ -15744,6 +15745,7 @@ const App = {
     if (!pane) return;
     if (!r || !r.success) { pane.innerHTML = '<div style="padding:24px;color:var(--critical);">Failed to load ticket.</div>'; return; }
     var t = r.ticket;
+    self.callAsync('markTicketViewed', ticketId);
     var statusColors = {new:'#7C3AED',open:'#2563EB',pending:'#D97706','on-hold':'#64748B',escalated:'#EF4444',resolved:'#16A34A',closed:'#6B7280'};
     var priorityColors = {Critical:'#DC2626',High:'#D97706',Medium:'#CA8A04',Low:'#16A34A'};
     var sc = statusColors[t.status] || '#6B7280', pc = priorityColors[t.priority] || '#6B7280';
@@ -15924,6 +15926,7 @@ const App = {
     }
     if (!tRes || !tRes.success) { area.innerHTML = '<div class="empty-state"><p>Ticket not found</p></div>'; return; }
     var t = tRes.ticket;
+    self.callAsync('markTicketViewed', ticketId).catch(function(){});
     var users = (usersRes && usersRes.success) ? usersRes.users : [];
     var devs = (devsRes && devsRes.success) ? devsRes.developers : [];
     var allAgents = users;
