@@ -11099,7 +11099,7 @@ const App = {
     var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
       '<div class="modal" style="max-width:920px;width:92vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">'+
       '<div class="modal-header" style="flex-shrink:0;"><span class="modal-title">🎫 Bulk Ticket Operations — '+self._esc(brandName)+'</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
-      '<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg-elevated);font-size:11px;color:var(--text-dim);flex-shrink:0;">⚠ Changes here apply directly to this customer\'s live tickets — each change is logged on the ticket itself and in your owner audit log.</div>'+
+      '<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg-elevated);font-size:11px;color:var(--text-dim);flex-shrink:0;">⚠ Changes here apply directly to this customer\'s live tickets — each change is logged on the ticket itself and in your owner audit log. Bulk-supported: assign, status, priority, type, disposition, tag, queue, close. Not supported in bulk (needs per-ticket context): replying to a customer, merging duplicates, deleting a ticket — use "Enter →" to open the brand and do those individually.</div>'+
       '<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">'+
         '<select id="obt_status" class="filter-select" style="font-size:12px;" onchange="App._obtLoad()"><option value="all">All Statuses</option><option value="new">New</option><option value="open">Open</option><option value="pending">Pending</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>'+
         '<select id="obt_priority" class="filter-select" style="font-size:12px;" onchange="App._obtLoad()"><option value="all">All Priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>'+
@@ -11127,7 +11127,7 @@ const App = {
     if (!wrap) return;
     if (!r || !r.success) { wrap.innerHTML = '<div style="padding:20px;color:var(--critical);">Failed to load tickets.</div>'; return; }
     self._obtTickets = r.tickets||[];
-    self._obtMeta = r.meta||{agents:[],teams:[]};
+    self._obtMeta = r.meta||{agents:[],teams:[],types:[],dispositions:[]};
     self._obtSelected = new Set();
     var statusColors = {new:'#7C3AED',open:'#2563EB',pending:'#D97706',resolved:'#16A34A',closed:'#6B7280',escalated:'#EF4444'};
     wrap.innerHTML = r.tickets.length===0 ? '<div style="padding:30px;text-align:center;color:var(--text-dim);">No tickets match this filter.</div>' :
@@ -11172,6 +11172,8 @@ const App = {
     bar.style.display = 'flex';
     var agentOpts = (self._obtMeta.agents||[]).map(function(a){return '<option value="'+a.email+'">'+self._esc(a.name)+'</option>';}).join('');
     var teamOpts = (self._obtMeta.teams||[]).map(function(t){return '<option value="'+self._esc(t.name)+'">'+self._esc(t.name)+'</option>';}).join('');
+    var typeOpts = (self._obtMeta.types||[]).map(function(tp){return '<option value="'+self._esc(tp)+'">'+self._esc(tp)+'</option>';}).join('');
+    var dispOpts = (self._obtMeta.dispositions||[]).map(function(d){return '<option value="'+self._esc(d)+'">'+self._esc(d)+'</option>';}).join('');
     bar.innerHTML =
       '<span style="font-size:12px;font-weight:700;color:var(--accent);">'+n+' selected</span>'+
       '<select id="obt_assign_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Assign to…</option>'+agentOpts+'</select>'+
@@ -11180,6 +11182,10 @@ const App = {
       '<button onclick="App._obtApply(\'status\', document.getElementById(\'obt_status_sel\').value)" class="btn-secondary btn-sm">Apply</button>'+
       '<select id="obt_priority_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Priority…</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>'+
       '<button onclick="App._obtApply(\'priority\', document.getElementById(\'obt_priority_sel\').value)" class="btn-secondary btn-sm">Apply</button>'+
+      (typeOpts?('<select id="obt_type_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Type…</option>'+typeOpts+'</select>'+
+      '<button onclick="App._obtApply(\'type\', document.getElementById(\'obt_type_sel\').value)" class="btn-secondary btn-sm">Apply</button>'):'')+
+      (dispOpts?('<select id="obt_disp_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Disposition…</option>'+dispOpts+'</select>'+
+      '<button onclick="App._obtApply(\'disposition\', document.getElementById(\'obt_disp_sel\').value)" class="btn-secondary btn-sm">Apply</button>'):'')+
       '<input id="obt_tag_input" placeholder="Add tag…" style="font-size:11px;padding:4px;border-radius:5px;width:90px;">'+
       '<button onclick="App._obtApply(\'tag\', document.getElementById(\'obt_tag_input\').value)" class="btn-secondary btn-sm">Apply</button>'+
       (teamOpts?('<select id="obt_queue_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Move to queue…</option>'+teamOpts+'</select>'+

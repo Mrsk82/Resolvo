@@ -1495,7 +1495,8 @@ app.get('/api/owner/brands/:slug/tickets',ownerOnly,(req,res)=>{
   const page=tickets.slice(off,off+lim);
   const agents=(db.users||[]).filter(u=>u.active).map(u=>({email:u.email,name:u.name||u.email}));
   const teams=(db.teams||[]).map(t=>({id:t.id,name:t.name}));
-  res.json({success:true,total,tickets:page.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,assignedTo:t.assignedTo||'',channel:t.channel||t.source||'email',from:t.from,fromName:t.fromName,createdDate:t.createdDate,tags:t.tags||[],team:t.team||''})),meta:{agents,teams}});
+  const clsCfg=db.classificationConfig||{types:['Question','Incident','Problem','Feature Request','Billing','Other'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam']};
+  res.json({success:true,total,tickets:page.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,assignedTo:t.assignedTo||'',channel:t.channel||t.source||'email',from:t.from,fromName:t.fromName,createdDate:t.createdDate,tags:t.tags||[],team:t.team||'',type:t.type||'',disposition:t.disposition||''})),meta:{agents,teams,types:clsCfg.types||[],dispositions:clsCfg.dispositions||[]}});
 });
 app.post('/api/owner/brands/:slug/tickets/bulk',ownerOnly,(req,res)=>{
   const slug=req.params.slug;
@@ -1503,7 +1504,7 @@ app.post('/api/owner/brands/:slug/tickets/bulk',ownerOnly,(req,res)=>{
   const{ids,action,value}=req.body||{};
   if(!Array.isArray(ids)||!ids.length)return res.json({success:false,error:'No tickets selected'});
   if(ids.length>100)return res.json({success:false,error:'Select at most 100 tickets at a time'});
-  const validActions=['assign','status','priority','tag','queue','close'];
+  const validActions=['assign','status','priority','tag','queue','close','type','disposition'];
   if(!validActions.includes(action))return res.json({success:false,error:'Invalid action'});
   if(action!=='close'&&!value)return res.json({success:false,error:'Missing value'});
   const db=readBrandDB(slug);
@@ -1519,6 +1520,8 @@ app.post('/api/owner/brands/:slug/tickets/bulk',ownerOnly,(req,res)=>{
     else if(action==='tag'){t.tags=t.tags||[];if(!t.tags.includes(value))t.tags.push(value);detail='Tag added: '+value;}
     else if(action==='queue'){t.team=value;detail='Moved to queue: '+value;}
     else if(action==='close'){t.status='closed';detail='Closed';}
+    else if(action==='type'){t.type=value;detail='Type set to '+value;}
+    else if(action==='disposition'){t.disposition=value;detail='Disposition set to '+value;}
     t.lastActivity=now;
     t.timeline=t.timeline||[];
     t.timeline.push({event:'owner_bulk_action',by:req.owner.email,byName:'Platform Owner',at:now,detail});
