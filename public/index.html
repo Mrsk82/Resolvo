@@ -22549,6 +22549,10 @@ const App = {
       {id:'coaching',     icon:'🎯', label:'Agent Coaching',         adminOnly:true},
       {id:'cost',         icon:'💰', label:'Cost Report',            adminOnly:true},
       {id:'approvals',    icon:'✅', label:'Pending Approvals',      adminOnly:false},
+      {id:'cust-sentiment',   icon:'😊', label:'Customer Sentiment',    adminOnly:true},
+      {id:'agent-scorecard',  icon:'📇', label:'Agent Scorecard',       adminOnly:true},
+      {id:'channel-perf',     icon:'📡', label:'Channel Performance',   adminOnly:true},
+      {id:'repeat-customers', icon:'🔁', label:'Repeat Customers',      adminOnly:true},
     ].filter(function(t){return !t.adminOnly || isAdmin;});
 
     var tabsHtml = TABS.map(function(t){
@@ -23376,6 +23380,120 @@ const App = {
           '</div>');
       }
 
+      else if (tid === 'cust-sentiment') {
+        var csR = await self.callAsync('getCustomerSentimentOverview');
+        var customers = (csR&&csR.customers)||[];
+        var riskColor = {high:'var(--critical)',medium:'var(--medium)',low:'var(--low)'};
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">😊 Customer Sentiment</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Per-customer happiness across all their tickets, not just one — worst-first so at-risk customers surface immediately.</div></div>'+
+          (customers.length===0?App._emptyState('😊','No sentiment data yet','Sentiment is tagged automatically as tickets come in.','',''):
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+
+          '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--bg-elevated);">'+
+            ['Customer','Tickets','Avg Sentiment','Trend','Risk','Last Contact',''].map(function(h){return '<th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">'+h+'</th>';}).join('')+
+          '</tr></thead><tbody>'+
+          customers.map(function(c,i){
+            var trendArrow = c.trending>3?'<span style="color:var(--low);">▲ improving</span>':c.trending<-3?'<span style="color:var(--critical);">▼ declining</span>':'<span style="color:var(--text-dim);">— flat</span>';
+            return '<tr style="border-top:1px solid var(--border);">'+
+              '<td style="padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(c.fromName||c.email)+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;color:var(--text-secondary);">'+c.ticketCount+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;font-weight:700;">'+(c.avgSentiment??'—')+'</td>'+
+              '<td style="padding:9px 14px;font-size:11px;">'+trendArrow+'</td>'+
+              '<td style="padding:9px 14px;"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+(riskColor[c.churnRisk]||'var(--text-dim)')+'22;color:'+(riskColor[c.churnRisk]||'var(--text-dim)')+';text-transform:uppercase;">'+c.churnRisk+'</span></td>'+
+              '<td style="padding:9px 14px;font-size:11px;color:var(--text-dim);">'+(c.lastContact||'').split('T')[0]+'</td>'+
+              '<td style="padding:9px 14px;"><button onclick="App._toggleCustomerSentimentDetail(\''+App._esc(c.email)+'\',this)" class="btn-secondary btn-sm">View Trend</button></td>'+
+            '</tr><tr id="sentDetail_'+i+'" style="display:none;"><td colspan="7" style="padding:0;"></td></tr>';
+          }).join('')+
+          '</tbody></table></div>');
+      }
+
+      else if (tid === 'agent-scorecard') {
+        var asR = await self.callAsync('getAgentScorecard');
+        var scorecard = (asR&&asR.scorecard)||[];
+        var maxResolved = Math.max.apply(null, scorecard.map(function(a){return a.resolved;}).concat([1]));
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">📇 Agent Scorecard</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Response time, resolution time, and CSAT per agent — not just resolved/open counts.</div></div>'+
+          (scorecard.length===0?App._emptyState('📇','No agent activity yet','Scores appear once agents are assigned tickets.','',''):
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:18px;">'+
+            scorecard.map(function(a){return miniBar(a.name, a.resolved, maxResolved, 'var(--accent)');}).join('')+
+          '</div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+
+          '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--bg-elevated);">'+
+            ['Agent','Resolved','Open','Avg 1st Response','Avg Resolution','CSAT'].map(function(h){return '<th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">'+h+'</th>';}).join('')+
+          '</tr></thead><tbody>'+
+          scorecard.map(function(a){
+            return '<tr style="border-top:1px solid var(--border);">'+
+              '<td style="padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(a.name)+(a.team?' <span style="color:var(--text-dim);font-weight:400;">· '+App._esc(a.team)+'</span>':'')+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;color:var(--low);font-weight:700;">'+a.resolved+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;color:var(--text-secondary);">'+a.open+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;">'+(a.avgFirstResponseMin!=null?a.avgFirstResponseMin+'m':'—')+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;">'+(a.avgResolutionHours!=null?a.avgResolutionHours+'h':'—')+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;font-weight:700;">'+(a.avgCSAT!=null?a.avgCSAT+'%':'—')+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</tbody></table></div>');
+      }
+
+      else if (tid === 'channel-perf') {
+        var chpR = await self.callAsync('getChannelPerformance');
+        var chList = (chpR&&chpR.channels)||[];
+        var chMetaR = {email:'✉️ Email',whatsapp:'💬 WhatsApp',widget:'🌐 Web Widget',portal:'🌐 Portal',api:'⚙ API',manual:'✏ Manual',phone:'📞 Phone',sms:'📱 SMS',call:'📞 Call',instagram:'📷 Instagram',facebook:'📘 Facebook',telegram:'✈️ Telegram',youtube:'▶️ YouTube',linkedin:'💼 LinkedIn',x:'✖ X'};
+        var maxVolume = Math.max.apply(null, chList.map(function(c){return c.volume;}).concat([1]));
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">📡 Channel Performance</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Volume, response time, resolution time, and CSAT compared across every channel — see which one is actually working.</div></div>'+
+          (chList.length===0?App._emptyState('📡','No channel data yet','Data appears once tickets start coming in.','',''):
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:18px;">'+
+            chList.map(function(c){return miniBar(chMetaR[c.channel]||c.channel, c.volume, maxVolume, 'var(--accent)');}).join('')+
+          '</div>'+
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+
+          '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--bg-elevated);">'+
+            ['Channel','Volume','Resolved','Avg 1st Response','Avg Resolution','CSAT'].map(function(h){return '<th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">'+h+'</th>';}).join('')+
+          '</tr></thead><tbody>'+
+          chList.map(function(c){
+            return '<tr style="border-top:1px solid var(--border);">'+
+              '<td style="padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(chMetaR[c.channel]||c.channel)+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;font-weight:700;">'+c.volume+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;color:var(--text-secondary);">'+c.resolved+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;">'+(c.avgFirstResponseMin!=null?c.avgFirstResponseMin+'m':'—')+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;">'+(c.avgResolutionHours!=null?c.avgResolutionHours+'h':'—')+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;font-weight:700;">'+(c.avgCSAT!=null?c.avgCSAT+'%':'—')+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</tbody></table></div>');
+      }
+
+      else if (tid === 'repeat-customers') {
+        var rcR = await self.callAsync('getRepeatCustomerCohorts');
+        var repeatList = (rcR&&rcR.repeatCustomers)||[];
+        reportEl.innerHTML =
+          '<div style="margin-bottom:20px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">🔁 Repeat Customers</h2>'+
+          '<div style="font-size:12px;color:var(--text-muted);">Customers who\'ve contacted you more than once — same identity linked across channels — as a churn-risk signal.</div></div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">'+
+            statCard('👥','Total Customers',(rcR&&rcR.totalCustomers)||0,'','var(--text-primary)')+
+            statCard('🔁','Repeat Customers',(rcR&&rcR.repeatCount)||0,'more than one ticket','var(--accent)')+
+            statCard('📊','Repeat Rate',((rcR&&rcR.repeatRate)||0)+'%','of all customers','var(--medium)')+
+          '</div>'+
+          (repeatList.length===0?App._emptyState('🔁','No repeat customers yet','Great sign — nobody has needed to contact you more than once.','',''):
+          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">'+
+          '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--bg-elevated);">'+
+            ['Customer','Tickets','Reopens','Channels','Avg Sentiment','First Contact','Last Contact'].map(function(h){return '<th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">'+h+'</th>';}).join('')+
+          '</tr></thead><tbody>'+
+          repeatList.map(function(c){
+            return '<tr style="border-top:1px solid var(--border);">'+
+              '<td style="padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-primary);">'+App._esc(c.identity)+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;font-weight:700;color:var(--accent);">'+c.ticketCount+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;'+(c.reopens>0?'color:var(--critical);font-weight:700;':'color:var(--text-dim);')+'">'+c.reopens+'</td>'+
+              '<td style="padding:9px 14px;font-size:11px;color:var(--text-secondary);">'+c.channels.join(', ')+'</td>'+
+              '<td style="padding:9px 14px;font-size:12px;">'+(c.avgSentiment??'—')+'</td>'+
+              '<td style="padding:9px 14px;font-size:11px;color:var(--text-dim);">'+(c.firstContact||'').split('T')[0]+'</td>'+
+              '<td style="padding:9px 14px;font-size:11px;color:var(--text-dim);">'+(c.lastContact||'').split('T')[0]+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</tbody></table></div>');
+      }
+
     } catch(err) {
       console.error('[Reports]', err);
       reportEl.innerHTML = '<div style="background:var(--critical-dim);border:1px solid var(--critical);border-radius:8px;padding:16px;color:var(--critical);">Error: '+App._esc(err.message||String(err))+'</div>';
@@ -23532,6 +23650,51 @@ const App = {
     a.download = 'user-performance-'+new Date().toISOString().split('T')[0]+'.csv';
     a.click();
     App.showToast('Report exported', 'success');
+  },
+
+  // Toggles the inline sentiment-trend detail row under a customer in the
+  // Customer Sentiment report — fetches on first expand, caches after that.
+  _toggleCustomerSentimentDetail: async function(email, btn) {
+    var row = btn.closest('tr');
+    var detailRow = row.nextElementSibling;
+    if (!detailRow) return;
+    var isOpen = detailRow.style.display !== 'none';
+    if (isOpen) { detailRow.style.display = 'none'; btn.textContent = 'View Trend'; return; }
+    var cell = detailRow.querySelector('td');
+    if (!cell.dataset.loaded) {
+      cell.innerHTML = '<div style="padding:14px;color:var(--text-dim);font-size:12px;">Loading…</div>';
+      detailRow.style.display = '';
+      var r = await App.callAsync('getCustomerSentimentTrend', email);
+      if (!r || !r.success || !r.trends.length) { cell.innerHTML = '<div style="padding:14px;color:var(--text-dim);font-size:12px;">No trend data.</div>'; }
+      else {
+        var vals = r.trends.map(function(t){return t.sentiment||60;});
+        var maxV = Math.max.apply(null, vals.concat([1]));
+        var pts = vals.map(function(v,i){return (i/(vals.length-1||1))*200+','+(30-(v/maxV)*28);}).join(' ');
+        var sparkSvg = '<svg width="200" height="32" viewBox="0 0 200 32" style="overflow:visible;flex-shrink:0;">'+
+          '<polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+
+          vals.map(function(v,i){var x=(i/(vals.length-1||1))*200,y=30-(v/maxV)*28;return '<circle cx="'+x+'" cy="'+y+'" r="2.5" fill="var(--accent)"/>';}).join('')+
+        '</svg>';
+        cell.innerHTML = '<div style="padding:14px 18px;background:var(--bg-elevated);">'+
+          '<div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;">'+
+            sparkSvg+
+            (r.recommendation?'<span style="font-size:12px;color:var(--medium);">'+App._esc(r.recommendation)+'</span>':'')+
+          '</div>'+
+          '<div style="display:flex;flex-direction:column;gap:4px;">'+
+          r.trends.map(function(t){
+            return '<div style="display:flex;gap:10px;font-size:11px;color:var(--text-secondary);">'+
+              '<span style="width:90px;color:var(--text-dim);">'+(t.date||'').split('T')[0]+'</span>'+
+              '<span style="width:80px;">'+App._esc(t.ticketId)+'</span>'+
+              '<span style="width:60px;font-weight:700;">'+(t.sentiment??'—')+'</span>'+
+              '<span>'+(t.level||'')+'</span>'+
+            '</div>';
+          }).join('')+
+          '</div></div>';
+      }
+      cell.dataset.loaded = '1';
+    } else {
+      detailRow.style.display = '';
+    }
+    btn.textContent = 'Hide Trend';
   },
 
   _exportReportCSV: function(dataStr, filename) {

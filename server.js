@@ -5402,6 +5402,100 @@ app.post('/api/call',async(req,res)=>{
       const churnRisk=avgSentiment&&avgSentiment<35?'high':avgSentiment&&avgSentiment<55?'medium':'low';
       return{success:true,email,trends,avgSentiment,trending,churnRisk,totalTickets:customerTickets.length,recommendation:churnRisk==='high'?'Proactive outreach recommended — customer showing frustration pattern':churnRisk==='medium'?'Monitor closely — sentiment declining':null};
     },
+    // Same per-customer math as getCustomerSentimentTrend, run across every
+    // customer at once — feeds the Reports "Customer Sentiment" table; a row
+    // click re-calls getCustomerSentimentTrend for that customer's detail view.
+    getCustomerSentimentOverview:()=>{
+      const db=rDB();
+      const byEmail={};
+      (db.tickets||[]).forEach(t=>{
+        if(!t.from)return;
+        const key=t.from.toLowerCase();
+        (byEmail[key]=byEmail[key]||[]).push(t);
+      });
+      const customers=Object.entries(byEmail).map(([email,list])=>{
+        const sorted=list.slice().sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+        const recent5=sorted.slice(-5).map(t=>t.sentimentScore);
+        const avgSentiment=recent5.length?Math.round(recent5.reduce((s,v)=>s+(v||60),0)/recent5.length):null;
+        const trending=recent5.length>=3?(recent5[recent5.length-1]||60)-(recent5[0]||60):0;
+        const churnRisk=avgSentiment&&avgSentiment<35?'high':avgSentiment&&avgSentiment<55?'medium':'low';
+        return{email,fromName:sorted[sorted.length-1].fromName||email,ticketCount:list.length,avgSentiment,trending,churnRisk,lastContact:sorted[sorted.length-1].createdDate};
+      }).filter(c=>c.avgSentiment!=null).sort((a,b)=>a.avgSentiment-b.avgSentiment);
+      return{success:true,customers};
+    },
+    // Response time, resolution time, and CSAT per agent — the dashboard
+    // leaderboard only has resolved/open/csat; this adds the two timing
+    // metrics (avgFirstResponseMin already existed on the ticket, but
+    // avgResolutionHours per agent had never been computed anywhere).
+    getAgentScorecard:()=>{
+      const db=rDB();
+      const tickets=db.tickets||[];
+      const agents=(db.users||[]).filter(u=>u.active);
+      const scorecard=agents.map(u=>{
+        const mine=tickets.filter(t=>t.assignedTo===u.email);
+        const resolved=mine.filter(t=>['resolved','closed'].includes(t.status));
+        const withFRT=mine.filter(t=>t.firstResponseMinutes!=null);
+        const avgFirstResponseMin=withFRT.length?Math.round(withFRT.reduce((s,t)=>s+t.firstResponseMinutes,0)/withFRT.length):null;
+        const resolvedWithDates=resolved.filter(t=>t.resolvedDate&&t.createdDate);
+        const avgResolutionHours=resolvedWithDates.length?Math.round(resolvedWithDates.reduce((s,t)=>s+(new Date(t.resolvedDate)-new Date(t.createdDate)),0)/resolvedWithDates.length/3600000*10)/10:null;
+        const rated=mine.filter(t=>t.csatScore!=null);
+        const avgCSAT=rated.length?Math.round(rated.reduce((s,t)=>s+t.csatScore,0)/rated.length):null;
+        return{email:u.email,name:u.name||u.email,team:u.team||'',resolved:resolved.length,open:mine.length-resolved.length,avgFirstResponseMin,avgResolutionHours,avgCSAT,ratedCount:rated.length};
+      }).filter(a=>a.resolved>0||a.open>0).sort((a,b)=>b.resolved-a.resolved);
+      return{success:true,scorecard};
+    },
+    // Same three metrics (volume, response time, resolution time, CSAT),
+    // grouped by channel instead of agent — answers "which channel is
+    // actually working" rather than "which agent."
+    getChannelPerformance:()=>{
+      const db=rDB();
+      const tickets=db.tickets||[];
+      const groups={};
+      tickets.forEach(t=>{const ch=t.channel||t.source||'email';(groups[ch]=groups[ch]||[]).push(t);});
+      const channels=Object.entries(groups).map(([ch,list])=>{
+        const resolved=list.filter(t=>['resolved','closed'].includes(t.status));
+        const withFRT=list.filter(t=>t.firstResponseMinutes!=null);
+        const avgFirstResponseMin=withFRT.length?Math.round(withFRT.reduce((s,t)=>s+t.firstResponseMinutes,0)/withFRT.length):null;
+        const resolvedWithDates=resolved.filter(t=>t.resolvedDate&&t.createdDate);
+        const avgResolutionHours=resolvedWithDates.length?Math.round(resolvedWithDates.reduce((s,t)=>s+(new Date(t.resolvedDate)-new Date(t.createdDate)),0)/resolvedWithDates.length/3600000*10)/10:null;
+        const rated=list.filter(t=>t.csatScore!=null);
+        const avgCSAT=rated.length?Math.round(rated.reduce((s,t)=>s+t.csatScore,0)/rated.length):null;
+        return{channel:ch,volume:list.length,resolved:resolved.length,avgFirstResponseMin,avgResolutionHours,avgCSAT};
+      }).sort((a,b)=>b.volume-a.volume);
+      return{success:true,channels};
+    },
+    // Repeat-customer / churn-risk cohort view — groups tickets by linked
+    // customer identity (same customerProfiles-aware matching as
+    // getPossibleDuplicateTickets, so a customer who emailed once and then
+    // WhatsApp'd is counted once, not twice) and surfaces anyone with more
+    // than one contact, plus how many of their tickets were reopened.
+    getRepeatCustomerCohorts:()=>{
+      const db=rDB();
+      const tickets=(db.tickets||[]).filter(t=>t.from);
+      const seen=new Set();
+      const cohorts=[];
+      tickets.forEach(t=>{
+        const norm=_normalizeIdentifier(t.from);
+        if(seen.has(norm))return;
+        const linked=new Set(_linkedIdentifiersFor(db,t.from));
+        const group=tickets.filter(x=>linked.has(_normalizeIdentifier(x.from)));
+        group.forEach(x=>seen.add(_normalizeIdentifier(x.from)));
+        const sorted=group.slice().sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+        const reopens=group.reduce((sum,x)=>sum+(x.timeline||[]).filter(e=>e.event==='status_changed'&&e.to==='open'&&e.from&&e.from!=='open').length,0);
+        const sentiments=group.filter(x=>x.sentimentScore!=null).map(x=>x.sentimentScore);
+        cohorts.push({
+          identity:sorted[sorted.length-1].fromName||sorted[sorted.length-1].from,
+          ticketCount:group.length,
+          reopens,
+          channels:[...new Set(group.map(x=>x.channel||x.source||'email'))],
+          firstContact:sorted[0].createdDate,
+          lastContact:sorted[sorted.length-1].createdDate,
+          avgSentiment:sentiments.length?Math.round(sentiments.reduce((a,v)=>a+v,0)/sentiments.length):null,
+        });
+      });
+      const repeatCustomers=cohorts.filter(c=>c.ticketCount>1).sort((a,b)=>b.ticketCount-a.ticketCount);
+      return{success:true,totalCustomers:cohorts.length,repeatCount:repeatCustomers.length,repeatRate:cohorts.length?Math.round(repeatCustomers.length/cohorts.length*100):0,repeatCustomers};
+    },
 
     // ══════════════════════════════════════════════════════════════════════
     // GROUP E: GDPR / DATA COMPLIANCE (#19)
