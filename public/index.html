@@ -10032,20 +10032,42 @@ const App = {
 
   // Toggles one owner-dashboard dropdown menu open, closing any others, and
   // wires a one-shot outside-click listener to close it again.
+  // Renders the menu into a body-level portal instead of leaving it
+  // position:absolute inside the brands table — that table's wrapper has
+  // overflow:auto for horizontal scrolling, which was silently clipping
+  // the bottom of every row's dropdown (worse the more items it grew to
+  // hold — "Generate Invoice"/"Bulk Ticket Ops"/"Suspend Brand" were
+  // rendered but invisible, cut off below the visible table area).
   _toggleOwnerMenu: function(id) {
-    document.querySelectorAll('.owner-dropdown-menu').forEach(function(el) { if (el.id !== id) el.style.display = 'none'; });
-    var el = document.getElementById(id);
-    if (!el) return;
-    var willShow = el.style.display === 'none' || !el.style.display;
-    el.style.display = willShow ? 'block' : 'none';
-    if (willShow) {
-      setTimeout(function() {
-        var closeHandler = function(e) {
-          if (!el.contains(e.target)) { el.style.display = 'none'; document.removeEventListener('click', closeHandler); }
-        };
-        document.addEventListener('click', closeHandler);
-      }, 0);
+    var srcEl = document.getElementById(id);
+    if (!srcEl) return;
+    var portal = document.getElementById('ownerDropdownPortal');
+    var wasOpenForThis = portal && portal.style.display !== 'none' && portal.dataset.forId === id;
+    if (portal) { portal.style.display = 'none'; portal.dataset.forId = ''; }
+    if (wasOpenForThis) return;
+    if (!portal) {
+      portal = document.createElement('div');
+      portal.id = 'ownerDropdownPortal';
+      portal.className = 'owner-dropdown-menu';
+      portal.style.cssText = 'display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.3);min-width:170px;z-index:9999;overflow:hidden;text-align:left;';
+      document.body.appendChild(portal);
     }
+    portal.innerHTML = srcEl.innerHTML;
+    portal.dataset.forId = id;
+    portal.style.display = 'block';
+    var triggerBtn = srcEl.previousElementSibling || srcEl;
+    var rect = triggerBtn.getBoundingClientRect();
+    var top = rect.bottom + 4;
+    if (top + portal.offsetHeight > window.innerHeight) top = Math.max(4, rect.top - portal.offsetHeight - 4);
+    var left = Math.min(rect.right - portal.offsetWidth, window.innerWidth - portal.offsetWidth - 4);
+    portal.style.top = top + 'px';
+    portal.style.left = Math.max(4, left) + 'px';
+    setTimeout(function() {
+      var closeHandler = function(e) {
+        if (!portal.contains(e.target)) { portal.style.display = 'none'; portal.dataset.forId = ''; document.removeEventListener('click', closeHandler); }
+      };
+      document.addEventListener('click', closeHandler);
+    }, 0);
   },
 
   // ── OWNER DASHBOARD ──────────────────────────────────────────────────────────
