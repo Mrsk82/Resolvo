@@ -5,7 +5,7 @@ require('dotenv').config();
 const fs=require('fs'),path=require('path');
 const ownerPath=path.join(__dirname,'data','owner.json');
 const ALERT_TO=fs.existsSync(ownerPath)?JSON.parse(fs.readFileSync(ownerPath,'utf8')).email||'contact@resolvogroup.com':'contact@resolvogroup.com';
-function nowIST(){const d=new Date();const off=d.getTimezoneOffset();const ist=new Date(d.getTime()-off*60000);return ist.toISOString().replace('Z','+05:30');}
+function nowIST(){return new Date(Date.now()+5.5*3600000).toISOString().replace('Z','+05:30');}
 
 async function sendAlert(type,title,details,extras={}){
   const mem=process.memoryUsage();

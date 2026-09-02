@@ -47,7 +47,15 @@ function _socialAudit(slug,user,action,detail){
   }catch(e){console.error('[SocialAudit] failed to log:',e.message);}
 }
 // IST timestamp — use instead of nowIST() everywhere
-function nowIST(){const d=new Date();const off=d.getTimezoneOffset();const ist=new Date(d.getTime()-off*60000);return ist.toISOString().replace('Z','+05:30');}
+// Fixed +5:30 offset — NOT derived from the server process's own OS
+// timezone. The old version used d.getTimezoneOffset() (the RUNTIME's
+// offset), which only produces a correct result if the server happens to
+// be running with TZ=Asia/Kolkata. On this VPS (Europe/Berlin, UTC+2) that
+// silently stamped every ticket/timeline/resolvedDate/csatAt event ~3.5
+// hours EARLIER than the real time while still labeling it "+05:30" —
+// wrong in a way that skews SLA-breach math (real `now` compared against
+// an artificially-early createdDate looks more overdue than it is).
+function nowIST(){return new Date(Date.now()+5.5*3600000).toISOString().replace('Z','+05:30');}
 
 // ── PLATFORM MONITOR ─────────────────────────────────────────────────────────
 // Sends email alerts for: crashes, unhandled errors, slow requests,
@@ -4975,12 +4983,18 @@ app.post('/api/call',async(req,res)=>{
       const tDeadline=t=>new Date(t.createdDate).getTime()+(slaH[t.priority]||24)*3600000;
       const ticketBreached=openTickets.filter(t=>nowMs>tDeadline(t)).length;
       const ticketDue=openTickets.filter(t=>{const d=tDeadline(t);return nowMs<=d&&nowMs>d-4*3600000;}).length;
-      const dayStart=new Date(now.toISOString().split('T')[0]).getTime();
+      // "Today"/day buckets use IST calendar days, not UTC — every
+      // createdDate/resolvedDate in this app is an IST-labeled string
+      // (see nowIST()), so a UTC day boundary would misclassify anything
+      // that happened in the ~5.5h window where the UTC and IST calendar
+      // dates disagree.
+      const istDateStr=ms=>new Date(ms+5.5*3600000).toISOString().split('T')[0];
+      const dayStart=new Date(istDateStr(nowMs)+'T00:00:00+05:30').getTime();
       const resolvedToday=tickets.filter(t=>['resolved','closed'].includes(t.status)&&t.resolvedDate&&new Date(t.resolvedDate).getTime()>=dayStart).length;
       const frt=tickets.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
       const avgFirstResponseMin=frt.length?Math.round(frt.reduce((a,b)=>a+b,0)/frt.length):null;
       const byChannel={};tickets.forEach(t=>{const c=t.channel||t.source||'email';byChannel[c]=(byChannel[c]||0)+1;});
-      const volume=[];for(let i=13;i>=0;i--){const day=new Date(nowMs-i*86400000).toISOString().split('T')[0];volume.push(tickets.filter(t=>(t.createdDate||'').startsWith(day)).length);}
+      const volume=[];for(let i=13;i>=0;i--){const day=istDateStr(nowMs-i*86400000);volume.push(tickets.filter(t=>(t.createdDate||'').startsWith(day)).length);}
       const surveys=db.csatSurveys||[];
       const leaderboard=users.map(u=>{
         const a=tickets.filter(t=>t.assignedTo===u.email);
