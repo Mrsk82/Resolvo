@@ -1475,6 +1475,61 @@ app.delete('/api/owner/crm-notes/:slug/:noteId',ownerOnly,(req,res)=>{
   writeOwner(owner);res.json({success:true});
 });
 
+// ── OWNER BULK TICKET OPERATIONS (cross-brand) ──────────────────────────────
+// Lets the platform Owner directly bulk-edit a brand's live tickets without
+// impersonating that brand first. Every affected ticket gets a timeline
+// entry so the brand's own agents see it was the platform owner, not a
+// silent change — plus an owner audit-log entry for the owner's own record.
+app.get('/api/owner/brands/:slug/tickets',ownerOnly,(req,res)=>{
+  const slug=req.params.slug;
+  const owner=readOwner();if(!(owner.brands||[]).some(b=>b.slug===slug))return res.json({success:false,error:'Brand not found'});
+  const db=readBrandDB(slug);
+  let tickets=(db.tickets||[]).slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate));
+  const{status,channel,priority,search}=req.query;
+  if(status&&status!=='all')tickets=tickets.filter(t=>t.status===status);
+  if(channel&&channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===channel);
+  if(priority&&priority!=='all')tickets=tickets.filter(t=>t.priority===priority);
+  if(search){const q=String(search).toLowerCase();tickets=tickets.filter(t=>(t.subject||'').toLowerCase().includes(q)||(t.from||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q));}
+  const total=tickets.length;
+  const lim=Math.min(parseInt(req.query.limit)||100,100),off=parseInt(req.query.offset)||0;
+  const page=tickets.slice(off,off+lim);
+  const agents=(db.users||[]).filter(u=>u.active).map(u=>({email:u.email,name:u.name||u.email}));
+  const teams=(db.teams||[]).map(t=>({id:t.id,name:t.name}));
+  res.json({success:true,total,tickets:page.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,assignedTo:t.assignedTo||'',channel:t.channel||t.source||'email',from:t.from,fromName:t.fromName,createdDate:t.createdDate,tags:t.tags||[],team:t.team||''})),meta:{agents,teams}});
+});
+app.post('/api/owner/brands/:slug/tickets/bulk',ownerOnly,(req,res)=>{
+  const slug=req.params.slug;
+  const owner=readOwner();if(!(owner.brands||[]).some(b=>b.slug===slug))return res.json({success:false,error:'Brand not found'});
+  const{ids,action,value}=req.body||{};
+  if(!Array.isArray(ids)||!ids.length)return res.json({success:false,error:'No tickets selected'});
+  if(ids.length>100)return res.json({success:false,error:'Select at most 100 tickets at a time'});
+  const validActions=['assign','status','priority','tag','queue','close'];
+  if(!validActions.includes(action))return res.json({success:false,error:'Invalid action'});
+  if(action!=='close'&&!value)return res.json({success:false,error:'Missing value'});
+  const db=readBrandDB(slug);
+  const idSet=new Set(ids);
+  const now=nowIST();
+  let updated=0;
+  (db.tickets||[]).forEach(t=>{
+    if(!idSet.has(t.id))return;
+    let detail='';
+    if(action==='assign'){t.assignedTo=value;detail='Assigned to '+value;}
+    else if(action==='status'){t.status=value;detail='Status changed to '+value;}
+    else if(action==='priority'){t.priority=value;detail='Priority changed to '+value;}
+    else if(action==='tag'){t.tags=t.tags||[];if(!t.tags.includes(value))t.tags.push(value);detail='Tag added: '+value;}
+    else if(action==='queue'){t.team=value;detail='Moved to queue: '+value;}
+    else if(action==='close'){t.status='closed';detail='Closed';}
+    t.lastActivity=now;
+    t.timeline=t.timeline||[];
+    t.timeline.push({event:'owner_bulk_action',by:req.owner.email,byName:'Platform Owner',at:now,detail});
+    updated++;
+  });
+  writeBrandDB(slug,db);
+  ownerAuditLog(owner,'bulk_ticket_action',{brandSlug:slug,action,value:value||'',count:updated},req.owner.email);
+  writeOwner(owner);
+  res.json({success:true,updated});
+});
+
 // Feature Request Voting
 app.get('/api/owner/feature-requests',ownerOnly,(req,res)=>{
   const owner=readOwner();

@@ -10393,6 +10393,7 @@ const App = {
               <button onclick="App._ownerCloneConfig('${b.slug}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">📋 Clone Config</button>
               <button onclick="App._ownerShowCRMNotes('${b.slug}','${App._esc(b.name)}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">🗒 CRM Notes</button>
               <button onclick="App._ownerShowInvoice('${b.slug}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">🧾 Generate Invoice</button>
+              <button onclick="App._ownerBulkTicketOps('${b.slug}','${App._esc(b.name)}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">🎫 Bulk Ticket Ops</button>
               <button onclick="App._ownerSuspendBrand('${b.slug}','${b.status}');App._toggleOwnerMenu('rowMenu_${b.slug}')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;border-top:1px solid var(--border);font-size:12px;color:var(--critical);cursor:pointer;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='none'">${b.status==='active'?'🔒 Suspend Brand':'♻ Reactivate Brand'}</button>
             </div>
           </div>
@@ -11066,6 +11067,118 @@ const App = {
     var token=localStorage.getItem('tt_session_token')||'';
     var invoiceUrl='/api/owner/invoice/'+slug+'?token='+token;
     window.open(invoiceUrl,'_blank','width=800,height=700');
+  },
+
+  // ── OWNER BULK TICKET OPERATIONS (cross-brand) ──────────────────────────
+  _ownerBulkTicketOps: async function(slug, brandName) {
+    var self = this;
+    self._obtSlug = slug;
+    self._obtSelected = new Set();
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()">'+
+      '<div class="modal" style="max-width:920px;width:92vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">'+
+      '<div class="modal-header" style="flex-shrink:0;"><span class="modal-title">🎫 Bulk Ticket Operations — '+self._esc(brandName)+'</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg-elevated);font-size:11px;color:var(--text-dim);flex-shrink:0;">⚠ Changes here apply directly to this customer\'s live tickets — each change is logged on the ticket itself and in your owner audit log.</div>'+
+      '<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">'+
+        '<select id="obt_status" class="filter-select" style="font-size:12px;" onchange="App._obtLoad()"><option value="all">All Statuses</option><option value="new">New</option><option value="open">Open</option><option value="pending">Pending</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>'+
+        '<select id="obt_priority" class="filter-select" style="font-size:12px;" onchange="App._obtLoad()"><option value="all">All Priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>'+
+        '<input id="obt_search" class="filter-select" style="font-size:12px;flex:1;min-width:140px;" placeholder="Search subject / email / ticket ID…" onkeydown="if(event.key===\'Enter\')App._obtLoad()">'+
+        '<button onclick="App._obtLoad()" class="btn-primary btn-sm">Filter</button>'+
+      '</div>'+
+      '<div id="obtBulkBar" style="display:none;padding:10px 16px;background:var(--accent-dim);border-bottom:1px solid var(--border-accent);flex-shrink:0;align-items:center;gap:6px;flex-wrap:wrap;"></div>'+
+      '<div id="obtTableWrap" style="flex:1;overflow-y:auto;">'+App._skeleton(4,'table')+'</div>'+
+      '<div id="obtFooter" style="padding:8px 16px;border-top:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--text-dim);"></div>'+
+      '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    await self._obtLoad();
+  },
+
+  _obtLoad: async function() {
+    var self = this;
+    var slug = self._obtSlug;
+    var token = localStorage.getItem('tt_session_token')||'';
+    var status = (document.getElementById('obt_status')||{}).value || 'all';
+    var priority = (document.getElementById('obt_priority')||{}).value || 'all';
+    var search = (document.getElementById('obt_search')||{}).value || '';
+    var qs = new URLSearchParams({status:status,priority:priority,search:search,limit:100}).toString();
+    var r = await fetch('/api/owner/brands/'+slug+'/tickets?'+qs, {headers:{'x-session-token':token}}).then(function(x){return x.json();}).catch(function(){return {success:false};});
+    var wrap = document.getElementById('obtTableWrap');
+    if (!wrap) return;
+    if (!r || !r.success) { wrap.innerHTML = '<div style="padding:20px;color:var(--critical);">Failed to load tickets.</div>'; return; }
+    self._obtTickets = r.tickets||[];
+    self._obtMeta = r.meta||{agents:[],teams:[]};
+    self._obtSelected = new Set();
+    var statusColors = {new:'#7C3AED',open:'#2563EB',pending:'#D97706',resolved:'#16A34A',closed:'#6B7280',escalated:'#EF4444'};
+    wrap.innerHTML = r.tickets.length===0 ? '<div style="padding:30px;text-align:center;color:var(--text-dim);">No tickets match this filter.</div>' :
+      '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--bg-elevated);position:sticky;top:0;">'+
+      '<th style="padding:8px 12px;width:24px;"><input type="checkbox" onchange="App._obtToggleAll(this.checked)"></th>'+
+      ['ID','Subject','Status','Priority','Assigned','Channel','Created'].map(function(h){return '<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>';}).join('')+
+      '</tr></thead><tbody>'+
+      r.tickets.map(function(t){
+        var sc = statusColors[t.status]||'#6B7280';
+        return '<tr style="border-top:1px solid var(--border);">'+
+          '<td style="padding:6px 12px;"><input type="checkbox" class="obt-ck" data-id="'+t.id+'" onchange="App._obtToggle(\''+t.id+'\',this.checked)"></td>'+
+          '<td style="padding:6px 12px;font-size:11px;font-family:var(--font-mono);color:var(--text-dim);">'+t.id+'</td>'+
+          '<td style="padding:6px 12px;font-size:12px;color:var(--text-primary);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+self._esc(t.subject||'')+'</td>'+
+          '<td style="padding:6px 12px;"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:'+sc+'22;color:'+sc+';">'+t.status+'</span></td>'+
+          '<td style="padding:6px 12px;font-size:11px;">'+t.priority+'</td>'+
+          '<td style="padding:6px 12px;font-size:11px;color:var(--text-dim);">'+self._esc(t.assignedTo||'—')+'</td>'+
+          '<td style="padding:6px 12px;font-size:11px;">'+t.channel+'</td>'+
+          '<td style="padding:6px 12px;font-size:11px;color:var(--text-dim);">'+(t.createdDate||'').split('T')[0]+'</td>'+
+        '</tr>';
+      }).join('')+
+      '</tbody></table>';
+    var footer = document.getElementById('obtFooter');
+    if (footer) footer.textContent = r.total + ' ticket(s) match this filter' + (r.total>100?' — showing the first 100 (select at most 100 at a time)':'');
+    self._obtUpdateBulkBar();
+  },
+
+  _obtToggle: function(id, checked) {
+    if (checked) this._obtSelected.add(id); else this._obtSelected.delete(id);
+    this._obtUpdateBulkBar();
+  },
+  _obtToggleAll: function(checked) {
+    var self = this;
+    document.querySelectorAll('.obt-ck').forEach(function(cb){ cb.checked = checked; if (checked) self._obtSelected.add(cb.dataset.id); else self._obtSelected.delete(cb.dataset.id); });
+    self._obtUpdateBulkBar();
+  },
+  _obtUpdateBulkBar: function() {
+    var self = this;
+    var bar = document.getElementById('obtBulkBar');
+    if (!bar) return;
+    var n = self._obtSelected.size;
+    if (!n) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    var agentOpts = (self._obtMeta.agents||[]).map(function(a){return '<option value="'+a.email+'">'+self._esc(a.name)+'</option>';}).join('');
+    var teamOpts = (self._obtMeta.teams||[]).map(function(t){return '<option value="'+self._esc(t.name)+'">'+self._esc(t.name)+'</option>';}).join('');
+    bar.innerHTML =
+      '<span style="font-size:12px;font-weight:700;color:var(--accent);">'+n+' selected</span>'+
+      '<select id="obt_assign_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Assign to…</option>'+agentOpts+'</select>'+
+      '<button onclick="App._obtApply(\'assign\', document.getElementById(\'obt_assign_sel\').value)" class="btn-secondary btn-sm">Apply</button>'+
+      '<select id="obt_status_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Status…</option><option value="new">New</option><option value="open">Open</option><option value="pending">Pending</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>'+
+      '<button onclick="App._obtApply(\'status\', document.getElementById(\'obt_status_sel\').value)" class="btn-secondary btn-sm">Apply</button>'+
+      '<select id="obt_priority_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Priority…</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>'+
+      '<button onclick="App._obtApply(\'priority\', document.getElementById(\'obt_priority_sel\').value)" class="btn-secondary btn-sm">Apply</button>'+
+      '<input id="obt_tag_input" placeholder="Add tag…" style="font-size:11px;padding:4px;border-radius:5px;width:90px;">'+
+      '<button onclick="App._obtApply(\'tag\', document.getElementById(\'obt_tag_input\').value)" class="btn-secondary btn-sm">Apply</button>'+
+      (teamOpts?('<select id="obt_queue_sel" style="font-size:11px;padding:4px;border-radius:5px;"><option value="">Move to queue…</option>'+teamOpts+'</select>'+
+      '<button onclick="App._obtApply(\'queue\', document.getElementById(\'obt_queue_sel\').value)" class="btn-secondary btn-sm">Apply</button>'):'')+
+      '<button onclick="App._obtApply(\'close\', null)" class="btn-danger btn-sm">Close Selected</button>';
+  },
+  _obtApply: async function(action, value) {
+    var self = this;
+    if (action !== 'close' && !value) { self.showToast('Pick a value first', 'warning'); return; }
+    var ids = Array.from(self._obtSelected);
+    if (!ids.length) return;
+    var desc = action==='close' ? 'Close' : 'Update ('+action+' → '+value+')';
+    if (!confirm(desc+' '+ids.length+' ticket(s) in this customer\'s live account?')) return;
+    self._obtSelected.clear();
+    self._obtUpdateBulkBar();
+    self._runWithUndo(desc+' '+ids.length+' ticket(s)…', async function() {
+      var token = localStorage.getItem('tt_session_token')||'';
+      var r = await fetch('/api/owner/brands/'+self._obtSlug+'/tickets/bulk', {method:'POST', headers:{'Content-Type':'application/json','x-session-token':token}, body: JSON.stringify({ids:ids, action:action, value:value})}).then(function(x){return x.json();}).catch(function(){return {success:false};});
+      if (r && r.success) { self.showToast('✓ Updated '+r.updated+' ticket(s)', 'success'); self._obtLoad(); }
+      else self.showToast('Failed: '+(r&&r.error||'unknown'), 'error');
+    });
   },
 
   _ownerCreateBrand: function() {
