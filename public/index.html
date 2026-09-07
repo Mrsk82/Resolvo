@@ -7935,6 +7935,10 @@ tbody tr.row-selected {
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
               <span class="nav-text">Workload</span>
             </a>
+            <a href="#" class="nav-item" data-page="customer-health" data-tooltip="Customer Health">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <span class="nav-text">Customer Health</span>
+            </a>
             <a href="#" class="nav-item" data-page="export" data-tooltip="Export Data">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
               <span class="nav-text">Export</span>
@@ -7947,6 +7951,14 @@ tbody tr.row-selected {
             <a href="#" class="nav-item" data-page="user-management" data-tooltip="Users">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
               <span class="nav-text">Users</span>
+            </a>
+            <a href="#" class="nav-item" data-page="teams" data-tooltip="Teams">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="17" cy="7" r="2"/></svg></span>
+              <span class="nav-text">Teams</span>
+            </a>
+            <a href="#" class="nav-item" data-page="ai-hub" data-tooltip="AI Intelligence Hub">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg></span>
+              <span class="nav-text">AI Hub</span>
             </a>
             <a href="#" class="nav-item" data-page="announcements" data-tooltip="Announcements">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
@@ -24896,10 +24908,10 @@ const App = {
   // INLINE STATUS CHANGE in issue list
   // ============================================================
   openStatusPicker: function(issueId, currentStatus, btnEl) {
-    // Close any open pickers first
-    document.querySelectorAll('.status-picker-dropdown.open').forEach(function(d){
-      d.classList.remove('open');
-    });
+    // Close any open pickers first — previously just toggled the "open"
+    // class, leaving the (freshly-created-per-call) old element orphaned
+    // in the DOM forever; now that these are body-appended, remove them.
+    document.querySelectorAll('.status-picker-dropdown').forEach(function(d){ d.remove(); });
     var statuses = ['Open','Acknowledged','In Progress','Devlopment Required','Testing','Release required','Resolved','Closed'];
     var dd = document.createElement('div');
     dd.className = 'status-picker-dropdown open';
@@ -24914,8 +24926,19 @@ const App = {
       };
       dd.appendChild(opt);
     });
-    btnEl.style.position = 'relative';
-    btnEl.appendChild(dd);
+    // Body-level portal, position:fixed from the trigger button's own
+    // rect — was position:absolute appended inside the row button, which
+    // got silently clipped by .table-wrap's overflow-y:hidden for any
+    // row near the bottom of the table (same bug class fixed in the
+    // Owner Console's dropdown menus this session).
+    dd.style.position = 'fixed';
+    document.body.appendChild(dd);
+    var rect = btnEl.getBoundingClientRect();
+    var top = rect.bottom + 4;
+    if (top + dd.offsetHeight > window.innerHeight) top = Math.max(4, rect.top - dd.offsetHeight - 4);
+    var left = Math.min(rect.left, window.innerWidth - dd.offsetWidth - 4);
+    dd.style.top = top + 'px';
+    dd.style.left = Math.max(4, left) + 'px';
     setTimeout(function() {
       document.addEventListener('click', function handler() {
         dd.remove();
