@@ -158,7 +158,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* ── CARD SYSTEM (2 sizes) ── */
-.card       { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-5); }
+/* .card canonical definition lives further down (search "CARD POLISH") —
+   this file previously had 3 conflicting .card rules; consolidated to one. */
 .card-sm    { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); }
 .card-hover { transition: border-color 0.15s, box-shadow 0.15s; }
 .card-hover:hover { border-color: var(--accent); box-shadow: var(--shadow-accent); }
@@ -1607,21 +1608,12 @@ html, body {
 .content-area::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 
 /* ============================================================ BUTTONS ============================================================ */
-
-.btn-primary {
-  background: var(--accent);
-  color: #0d0e14;
-  border: none; border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 13px; font-weight: 700;
-  font-family: var(--font-display);
-  cursor: pointer; display: flex; align-items: center; gap: 6px;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.15);
-}
-.btn-primary:hover { background: #fbb830; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(245, 166, 35, 0.3); }
-.btn-primary:active { transform: translateY(0); }
+/* .btn-primary/.btn-secondary/.btn-danger canonical definitions live in
+   the "DESIGN SYSTEM PATCH" block near the top of this file. This used to
+   be a second, later-cascading copy left over from before the brand
+   switched from orange to green — its hover state literally turned
+   primary buttons orange (#fbb830, rgba(245,166,35,...)) instead of the
+   correct green accent. Removed. */
 
 button:focus-visible,
 input:focus-visible,
@@ -1665,17 +1657,15 @@ select:focus-visible,
 .btn-icon { padding: 6px 8px; }
 
 /* ============================================================ CARDS ============================================================ */
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* .card base definition (background/border/radius/padding) lives at the
+   "CARD POLISH" rule further down — this was a second, superseded copy.
+   The transition + :hover behavior below is still the only generic one,
+   so it stays (fixed from a pre-rebrand orange border-color to the
+   correct accent token). */
+.card { transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); }
 
 .card:hover {
-  border-color: rgba(245, 166, 35, 0.2);
+  border-color: var(--border-accent);
   box-shadow: 0 8px 24px rgba(0,0,0,0.1);
   transform: translateY(-2px);
 }
