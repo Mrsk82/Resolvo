@@ -7972,6 +7972,14 @@ tbody tr.row-selected {
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 1 21 12a10 10 0 0 1-1.93 7.07M16.24 7.76A6 6 0 0 1 18 12a6 6 0 0 1-1.76 4.24M4.93 4.93A10 10 0 0 0 3 12a10 10 0 0 0 1.93 7.07M7.76 7.76A6 6 0 0 0 6 12a6 6 0 0 0 1.76 4.24"/></svg></span>
               <span class="nav-text">Settings</span>
             </a>
+            <a href="#" class="nav-item" data-page="api-integration" data-tooltip="API Integration">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
+              <span class="nav-text">API Integration</span>
+            </a>
+            <a href="#" class="nav-item" data-page="release-notes" data-tooltip="Release Notes">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg></span>
+              <span class="nav-text">Release Notes</span>
+            </a>
             <a href="#" class="nav-item" data-page="audit-trail" data-tooltip="Audit Trail">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
               <span class="nav-text">Audit Trail</span>
@@ -9219,7 +9227,7 @@ const AI = {
     };
     if (!issueData.title.trim()) { App.showToast('Title is required', 'warning'); return; }
     App.showToast('Creating issue via AI...', 'info');
-    var result = await App.call('createIssue', issueData);
+    var result = await App.callAsync('createIssue', issueData);
     if (result.success) {
       this.close();
       App.showToast('Issue ' + result.issueId + ' created!', 'success');
@@ -9572,7 +9580,7 @@ const App = {
       }
 
       // Brand user session
-      const result = await this.call('getCurrentUser');
+      const result = await this.callAsync('getCurrentUser');
       if (!result.success) {
         localStorage.removeItem('tt_session_token');
         document.getElementById('loading-screen').style.display = 'none';
@@ -9584,7 +9592,7 @@ const App = {
       App._applyBrandCustomization(result.user);
       if (result.user.isImpersonating) App._showImpersonationBanner();
       try {
-        const flagsResult = await this.call('getAllFeatureFlags');
+        const flagsResult = await this.callAsync('getAllFeatureFlags');
         this.featureFlags = (flagsResult && flagsResult.success) ? flagsResult.flags : {};
       } catch(fe) { this.featureFlags = {}; }
       this.setupUI();
@@ -9858,7 +9866,7 @@ const App = {
     var errEl = document.getElementById('pwdChangeError');
     if (p1.length < 6) { if(errEl){errEl.style.display='block';errEl.textContent='Password must be at least 6 characters.';} return; }
     if (p1 !== p2) { if(errEl){errEl.style.display='block';errEl.textContent='Passwords do not match.';} return; }
-    var r = await App.call('changePassword', App.currentUser.id, p1);
+    var r = await App.callAsync('changePassword', App.currentUser.id, p1);
     if (r && r.success) {
       document.getElementById('must-change-pwd')?.remove();
       App.currentUser.mustChangePassword = false;
@@ -9941,7 +9949,7 @@ const App = {
     var self = this;
     if (self._expiryWatcher) clearInterval(self._expiryWatcher);
     self._expiryWatcher = setInterval(async function() {
-      var r = await self.call('getSessionInfo').catch(()=>null);
+      var r = await self.callAsync('getSessionInfo').catch(()=>null);
       if (!r || !r.success) return;
       var minsLeft = r.expiresIn || 0;
       if (minsLeft <= 0) {
@@ -11321,7 +11329,7 @@ const App = {
     App._applyBrandCustomization(data.user);
     App._showImpersonationBanner();
     document.getElementById('main-app').style.display = 'flex';
-    try { const fr = await this.call('getAllFeatureFlags'); this.featureFlags = (fr && fr.success) ? fr.flags : {}; } catch(e) { this.featureFlags = {}; }
+    try { const fr = await this.callAsync('getAllFeatureFlags'); this.featureFlags = (fr && fr.success) ? fr.flags : {}; } catch(e) { this.featureFlags = {}; }
     this.setupUI();
     this.navigate('dashboard');
   },
@@ -11967,7 +11975,7 @@ const App = {
       theme: (document.getElementById('fw_theme')||{}).value || 'midnight',
       logoUrl: (document.getElementById('fw_logo')||{}).value?.trim() || ''
     };
-    const r = await this.call('completeBrandSetup', setupData);
+    const r = await this.callAsync('completeBrandSetup', setupData);
     if (r && r.success) {
       // Apply to localStorage
       localStorage.setItem('tt_brand_name', setupData.appName);
@@ -12209,8 +12217,8 @@ const App = {
   </div>`;
 
   const [statsRes, settingsRes] = await Promise.all([
-    this.call('getDashboardStats'),
-    this.call('getSettings')
+    this.callAsync('getDashboardStats'),
+    this.callAsync('getSettings')
   ]);
 
   if (!statsRes.success) {
@@ -12250,7 +12258,7 @@ const App = {
   // Optionally load dev perf
   let perfRows = '';
   if (settings.DEV_PERFORMANCE_ANALYTICS_ENABLED === 'true') {
-    const perfRes = await this.call('getDevPerformance');
+    const perfRes = await this.callAsync('getDevPerformance');
     if (perfRes.success && perfRes.performance.length) {
       perfRows = perfRes.performance.map(d => `
         <tr>
@@ -12700,8 +12708,8 @@ const App = {
 
   async renderCreateIssue(params = {}) {
     const [devsRes, modulesRes] = await Promise.all([
-      this.call('getDevelopers'),
-      this.call('getModules')
+      this.callAsync('getDevelopers'),
+      this.callAsync('getModules')
     ]);
     
     const devOptions = (devsRes.success ? devsRes.developers : [])
@@ -12842,7 +12850,7 @@ const App = {
     if (title.length < 8) return;
     clearTimeout(this._dupeTimeout);
     this._dupeTimeout = setTimeout(async () => {
-      const result = await this.call('checkDuplicates', title);
+      const result = await this.callAsync('checkDuplicates', title);
       const warning = document.getElementById('duplicateWarning');
       const list = document.getElementById('duplicateList');
       if (result && result.length > 0) {
@@ -12865,7 +12873,7 @@ const App = {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64 = e.target.result.split(',')[1];
-      const result = await this.call('uploadFile', file.name, file.type, base64);
+      const result = await this.callAsync('uploadFile', file.name, file.type, base64);
       if (result.success) {
         document.getElementById('attachmentUrl').value = result.url;
         status.innerHTML = `Uploaded: <a href="${result.url}" target="_blank" style="color:var(--accent)">${file.name}</a>`;
@@ -12895,7 +12903,7 @@ const App = {
     };
     
     this.showToast('Creating issue...', 'info');
-    const result = await this.call('createIssue', issueData);
+    const result = await this.callAsync('createIssue', issueData);
     
     if (result.success) {
       this.showToast(`Issue ${result.issueId} created successfully!`, 'success');
@@ -12919,9 +12927,9 @@ const App = {
 
   async renderIssueList(myIssuesOnly = false) {
     const [issuesRes, devsRes, modulesRes] = await Promise.all([
-      this.call('getIssues', myIssuesOnly ? { raisedBy: this.currentUser.email } : null),
-      this.call('getDevelopers'),
-      this.call('getModules')
+      this.callAsync('getIssues', myIssuesOnly ? { raisedBy: this.currentUser.email } : null),
+      this.callAsync('getDevelopers'),
+      this.callAsync('getModules')
     ]);
 
     if (issuesRes && !issuesRes.success) {
@@ -13074,10 +13082,10 @@ const App = {
     if (!issueId) { this.navigate('issue-list'); return; }
     
     const [issueRes, commentsRes, activityRes, devsRes] = await Promise.all([
-      this.call('getIssueById', issueId),
-      this.call('getComments', issueId),
-      this.call('getActivityLog', issueId),
-      this.call('getDevelopers')
+      this.callAsync('getIssueById', issueId),
+      this.callAsync('getComments', issueId),
+      this.callAsync('getActivityLog', issueId),
+      this.callAsync('getDevelopers')
     ]);
     
     if (!issueRes.success) { this.showToast('Issue not found', 'error'); this.navigate('issue-list'); return; }
@@ -13340,7 +13348,7 @@ const App = {
     const fnName = (this.featureFlags && this.featureFlags['COMMENT_MENTIONS_ENABLED'] === 'true')
       ? 'addCommentWithMentions' : 'addComment';
 
-    const result = await this.call(fnName, issueId, text);
+    const result = await this.callAsync(fnName, issueId, text);
     if (result.success) {
       this.showToast('Comment added', 'success');
       input.value = '';
@@ -13384,7 +13392,7 @@ const App = {
   async submitStatusUpdate(issueId) {
     const status = document.getElementById('modalStatus').value;
     const comment = document.getElementById('modalComment').value;
-    const result = await this.call('updateIssueStatus', issueId, status, comment);
+    const result = await this.callAsync('updateIssueStatus', issueId, status, comment);
     if (result.success) {
       document.querySelector('.modal-overlay')?.remove();
       this.showToast(`Status updated to ${status}`, 'success');
@@ -13395,7 +13403,7 @@ const App = {
   },
   
   showAssignModal(issueId) {
-    this.call('getDevelopers').then(devsRes => {
+    this.callAsync('getDevelopers').then(devsRes => {
       const options = (devsRes.success ? devsRes.developers : [])
         .map(d => `<option value="${d.email}">${d.name||d.email}</option>`).join('');
       
@@ -13426,7 +13434,7 @@ const App = {
   
   async submitAssign(issueId) {
     const dev = document.getElementById('modalAssignee').value;
-    const result = await this.call('assignIssue', issueId, dev);
+    const result = await this.callAsync('assignIssue', issueId, dev);
     if (result.success) {
       document.querySelector('.modal-overlay')?.remove();
       this.showToast('Issue assigned successfully', 'success');
@@ -13443,7 +13451,7 @@ const App = {
   async renderAdminPanel() {
     if (this.currentUser.role !== 'Admin') { this.showToast('Access denied', 'error'); this.navigate('dashboard'); return; }
     
-    const statsRes = await this.call('getDashboardStats');
+    const statsRes = await this.callAsync('getDashboardStats');
     const s = statsRes.success ? statsRes.stats : {};
     
     document.getElementById('contentArea').innerHTML = `
@@ -13498,7 +13506,7 @@ const App = {
 
   async renderUserManagement() {
     if (this.currentUser.role !== 'Admin') { this.showToast('Access denied', 'error'); return; }
-    const result = await this.call('getUsers', false);
+    const result = await this.callAsync('getUsers', false);
     const users = result.success ? result.users : [];
     const active = users.filter(u => u.active === true || u.active === 'true' || u.active === 'TRUE');
     const roleColors = { Admin:'var(--critical)', Developer:'var(--accent)', CS:'var(--status-ack)', Sales:'var(--low)', QA:'var(--status-testing)', Product:'var(--status-open)' };
@@ -13660,7 +13668,7 @@ const App = {
       password: (document.getElementById('uPass')||{}).value?.trim() || ''
     };
     if (!userData.name || !userData.email) { this.showToast('Name and email required', 'warning'); if(btn){btn.textContent='Add User & Send Email';btn.disabled=false;} return; }
-    const result = await this.call('addUser', userData);
+    const result = await this.callAsync('addUser', userData);
     if (result.success) {
       document.querySelector('.modal-overlay')?.remove();
       this.showToast('User added! Welcome email sent.', 'success');
@@ -13713,7 +13721,7 @@ const App = {
       maxTickets: document.getElementById('euMax')?.value,
       slackId: document.getElementById('euSlack')?.value.trim()
     };
-    const result = await this.call('updateUser', userId, userData);
+    const result = await this.callAsync('updateUser', userId, userData);
     if (result.success) {
       document.querySelector('.modal-overlay')?.remove();
       this.showToast('User updated', 'success');
@@ -13723,7 +13731,7 @@ const App = {
 
   async toggleUserActive(userId, currentlyActive) {
     if (!confirm(`${currentlyActive ? 'Deactivate' : 'Activate'} this user?`)) return;
-    const result = await this.call('updateUser', userId, { active: !currentlyActive });
+    const result = await this.callAsync('updateUser', userId, { active: !currentlyActive });
     if (result.success) { this.showToast('User status updated', 'success'); this.renderUserManagement(); }
     else this.showToast('Failed: ' + result.error, 'error');
   },
@@ -13754,7 +13762,7 @@ const App = {
   async submitResetPassword(userId) {
     const pwd = (document.getElementById('newPwd')||{}).value?.trim();
     if (!pwd) { this.showToast('Enter a password', 'warning'); return; }
-    const r = await this.call('changePassword', userId, pwd);
+    const r = await this.callAsync('changePassword', userId, pwd);
     if (r && r.success) {
       document.querySelector('.modal-overlay')?.remove();
       this.showToast('Password updated', 'success');
@@ -13763,19 +13771,19 @@ const App = {
 
   _forcePasswordChange: async function(userId, userName) {
     if (!confirm('Force ' + userName + ' to set a new password on their next login?')) return;
-    var r = await App.call('forcePasswordChange', userId);
+    var r = await App.callAsync('forcePasswordChange', userId);
     if (r && r.success) App.showToast(userName + ' will be prompted to set a new password on next login', 'success');
     else App.showToast('Failed: ' + (r && r.error || 'unknown'), 'error');
   },
 
   async resendWelcomeEmail(userId, email) {
-    const r = await this.call('resendWelcomeEmail', userId);
+    const r = await this.callAsync('resendWelcomeEmail', userId);
     if (r && r.success) this.showToast('Welcome email sent to ' + email, 'success');
     else this.showToast('Email failed: ' + (r && r.error || 'Check EMAIL_ENABLED in .env'), 'error');
   },
 
   async showUserActivity(userId, userName) {
-    const r = await this.call('getUserActivity', userId);
+    const r = await this.callAsync('getUserActivity', userId);
     if (!r || !r.success) { this.showToast('Failed to load activity', 'error'); return; }
     const logs = r.logs || [];
     const logRows = logs.slice(0, 20).map(l => `<tr><td style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);white-space:nowrap">${l.timestamp ? new Date(l.timestamp).toLocaleString() : '—'}</td><td style="font-size:12px;color:var(--text-muted)">${this._esc(l.issueId||'—')}</td><td style="font-size:12px;color:var(--text-secondary)">${this._esc(l.action||'—')}</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--text-dim)">No activity yet</td></tr>';
@@ -13807,7 +13815,7 @@ const App = {
   async renderSLASettings() {
     if (this.currentUser.role !== 'Admin') { this.showToast('Access denied', 'error'); return; }
     
-    const result = await this.call('getSLAConfig');
+    const result = await this.callAsync('getSLAConfig');
     const config = result.success ? result.config : { Critical:2, High:6, Medium:24, Low:48 };
     
     const priorities = ['Critical', 'High', 'Medium', 'Low'];
@@ -13856,7 +13864,7 @@ const App = {
     
     for (const p of priorities) {
       const hours = parseInt(document.getElementById('sla_' + p).value);
-      await this.call('updateSLAConfig', p, hours);
+      await this.callAsync('updateSLAConfig', p, hours);
     }
     this.showToast('SLA configuration saved!', 'success');
   },
@@ -13870,8 +13878,8 @@ const App = {
 
     const _tok = localStorage.getItem('tt_session_token') || '';
     const [settingsRes, modulesRes, aiStatusRes] = await Promise.all([
-      this.call('getSettings'),
-      this.call('getModules'),
+      this.callAsync('getSettings'),
+      this.callAsync('getModules'),
       fetch('/api/ai/status', {headers:{'x-session-token':_tok}}).then(r=>r.json()).catch(()=>({configured:false}))
     ]);
     // Sync connected state from server (source of truth)
@@ -13949,7 +13957,7 @@ const App = {
   },
   
   async saveSetting(key, value) {
-    const result = await this.call('updateSetting', key, value);
+    const result = await this.callAsync('updateSetting', key, value);
     if (result.success) {
       this.showToast(`${key} ${value === 'true' ? 'enabled' : 'disabled'}`, 'success');
     } else {
@@ -13959,7 +13967,7 @@ const App = {
   
   async saveSlackWebhook() {
     const url = document.getElementById('slackWebhook').value.trim();
-    const result = await this.call('updateSetting', 'SLACK_WEBHOOK_URL', url);
+    const result = await this.callAsync('updateSetting', 'SLACK_WEBHOOK_URL', url);
     if (result.success) this.showToast('Slack webhook saved', 'success');
     else this.showToast('Failed to save webhook', 'error');
   },
@@ -14966,7 +14974,7 @@ const App = {
 
   // ── Issue duplicate ──────────────────────────────────────────────────────────
   _duplicateIssue: async function(issueId) {
-    var r = await App.call('duplicateIssue', issueId);
+    var r = await App.callAsync('duplicateIssue', issueId);
     if (r && r.success) {
       App.showToast('Issue duplicated → ' + r.issueId, 'success');
       App.navigate('issue-detail', { id: r.issueId });
@@ -15009,7 +15017,7 @@ const App = {
   _generateInviteLink: async function() {
     var role = (document.getElementById('invRole')||{}).value || 'Developer';
     var expiry = parseInt((document.getElementById('invExpiry')||{}).value||48);
-    var r = await App.call('createInviteLink', role, expiry);
+    var r = await App.callAsync('createInviteLink', role, expiry);
     if (r && r.success) {
       var urlEl = document.getElementById('invUrl');
       var infoEl = document.getElementById('invExpInfo');
@@ -25184,7 +25192,7 @@ const App = {
     } else {
       // Graceful fallback   add as comment
       var commentText = '[Time Log] ' + hours + 'h on ' + date + (note ? ': ' + note : '');
-      await self.call('addComment', issueId, commentText);
+      await self.callAsync('addComment', issueId, commentText);
       self.closeModal();
       self.showToast(hours + 'h logged as comment', 'success');
     }
@@ -26529,7 +26537,7 @@ const App = {
   async saveModules() {
     const raw = document.getElementById('modulesList').value;
     const modules = raw.split(',').map(m => m.trim()).filter(Boolean);
-    const result = await this.call('updateModules', modules);
+    const result = await this.callAsync('updateModules', modules);
     if (result.success) this.showToast('Modules updated', 'success');
     else this.showToast('Failed to update modules', 'error');
   },
@@ -26539,7 +26547,7 @@ const App = {
   // ============================================================
 
   async checkSLAAlerts() {
-    const result = await this.call('getIssues', null);
+    const result = await this.callAsync('getIssues', null);
     if (!result.success) return;
     const breaches = result.issues.filter(i => i.slaBreached);
     const alertEl = document.getElementById('slaAlert');
@@ -26719,7 +26727,20 @@ App.initMentionAutocomplete = function(issueId) {
         'onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'" ' +
         'onclick="App.insertMention(\'' + handle + '\', \'' + issueId + '\')"><strong>@' + handle + '</strong> · ' + u.name + '</div>';
     }).join('');
+    // Fixed-position, computed from the textarea's own rect — was
+    // position:absolute;bottom:100% relative to the textarea's wrapper,
+    // which .content-area's overflow-y:auto could clip if the textarea
+    // sits near the top of the scrolled viewport (same bug class as the
+    // status-picker and Owner Console dropdown fixes this session).
+    dropdown.style.position = 'fixed';
     dropdown.style.display = 'block';
+    var rect = textarea.getBoundingClientRect();
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.width = Math.min(rect.width, 320) + 'px';
+    var top = rect.top - dropdown.offsetHeight - 4;
+    if (top < 4) top = rect.bottom + 4; // not enough room above — flip below
+    dropdown.style.top = top + 'px';
+    dropdown.style.bottom = 'auto';
   });
 
   textarea.addEventListener('keydown', function(e) {
@@ -26749,7 +26770,7 @@ App.insertMention = function(handle, issueId) {
 App.loadTimeLogs = async function(issueId) {
   var container = document.getElementById('timeLogsContainer');
   if (!container) return;
-  var r = await App.call('getTimeLogsForIssue', issueId);
+  var r = await App.callAsync('getTimeLogsForIssue', issueId);
   if (!r || !r.success) { container.innerHTML = '<p class="text-muted" style="font-size:12px">Failed to load time logs</p>'; return; }
   var logs = r.logs || [];
   var total = r.totalHours || 0;
@@ -26772,7 +26793,7 @@ App.submitTimeLog = async function(issueId) {
   var hrs = parseFloat(document.getElementById('logHoursInput')?.value || 0);
   var note = document.getElementById('logNoteInput')?.value || '';
   if (!hrs || hrs <= 0) { App.showToast('Enter valid hours', 'warning'); return; }
-  var r = await App.call('logTime', issueId, hrs, note);
+  var r = await App.callAsync('logTime', issueId, hrs, note);
   if (r && r.success) {
     App.showToast('Logged ' + hrs + 'h', 'success');
     document.getElementById('logHoursInput') && (document.getElementById('logHoursInput').value = '1');
@@ -26787,7 +26808,7 @@ App.submitTimeLog = async function(issueId) {
 App.loadIssueLinks = async function(issueId) {
   var container = document.getElementById('issueLinksContainer');
   if (!container) return;
-  var r = await App.call('getIssueLinks', issueId);
+  var r = await App.callAsync('getIssueLinks', issueId);
   if (!r || !r.success) { container.innerHTML = '<p class="text-muted" style="font-size:12px">Failed to load links</p>'; return; }
   var links = r.links || [];
   if (links.length === 0) { container.innerHTML = '<p class="text-muted" style="font-size:12px">No linked issues.</p>'; return; }
@@ -26814,7 +26835,7 @@ App.submitIssueLink = async function(issueId) {
   var targetId = (document.getElementById('linkTargetInput')?.value || '').trim();
   var linkType = document.getElementById('linkTypeSelect')?.value || 'related';
   if (!targetId) { App.showToast('Enter a target issue ID', 'warning'); return; }
-  var r = await App.call('linkIssues', issueId, targetId, linkType);
+  var r = await App.callAsync('linkIssues', issueId, targetId, linkType);
   if (r && r.success) {
     App.showToast('Issues linked', 'success');
     document.getElementById('linkTargetInput') && (document.getElementById('linkTargetInput').value = '');
@@ -26825,7 +26846,7 @@ App.submitIssueLink = async function(issueId) {
 };
 
 App.removeIssueLink = async function(depId, issueId) {
-  var r = await App.call('removeIssueLink', depId);
+  var r = await App.callAsync('removeIssueLink', depId);
   if (r && r.success) { App.showToast('Link removed', 'info'); App.loadIssueLinks(issueId); }
   else App.showToast('Failed', 'error');
 };
@@ -26835,7 +26856,7 @@ App.summariseThread = async function(issueId) {
   var area = document.getElementById('aiSummaryArea');
   if (!area) return;
   area.innerHTML = '<div class="skeleton" style="height:80px;border-radius:8px;margin-bottom:10px;"></div>';
-  var r = await App.call('summariseIssueThread', issueId);
+  var r = await App.callAsync('summariseIssueThread', issueId);
   if (!r || !r.success) { area.innerHTML = '<p style="color:var(--critical);font-size:12px">AI failed: ' + (r&&r.error||'unknown') + '</p>'; return; }
   var s = r.summary || {};
   var summary = typeof s === 'string' ? { summary: s } : s;
@@ -26859,7 +26880,7 @@ App.renderWorkloadBoard = async function() {
   }
   area.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">' +
     [1,2,3].map(function(){return '<div class="skeleton" style="height:220px;border-radius:14px"></div>';}).join('') + '</div>';
-  var r = await App.call('getDevWorkloadBoard');
+  var r = await App.callAsync('getDevWorkloadBoard');
   if (!r || !r.success) { App.showPageError(area, r&&r.error||'Failed to load workload data'); return; }
   var board = r.board || [];
   if (board.length === 0) { area.innerHTML = '<div class="empty-state"><p>No developer data found.</p></div>'; return; }
@@ -26906,7 +26927,7 @@ App.renderLeadershipDashboard = async function() {
   }
   area.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">' +
     [1,2,3,4].map(function(){return '<div class="skeleton" style="height:88px;border-radius:14px"></div>';}).join('') + '</div>';
-  var r = await App.call('getCEODashboardData');
+  var r = await App.callAsync('getCEODashboardData');
   if (!r || !r.success) { App.showPageError(area, r&&r.error||'Failed'); return; }
   var s = r.snapshot || {};
   var mh = r.moduleHealth || [];
@@ -27015,7 +27036,7 @@ App.renderSLAForecastWidget = async function(containerEl) {
   if (!App.featureFlags || App.featureFlags['SLA_PREDICTOR_ENABLED'] !== 'true') return;
   if (!containerEl) return;
   containerEl.innerHTML = '<div class="skeleton" style="height:160px;border-radius:14px;"></div>';
-  var r = await App.call('predictSLABreaches');
+  var r = await App.callAsync('predictSLABreaches');
   if (!r || !r.success || !r.predictions || r.predictions.length === 0) {
     containerEl.innerHTML = '<div class="card"><div class="card-title mb-8">SLA Risk Forecast</div><p class="text-muted" style="font-size:12px;">No at-risk issues detected.</p></div>';
     return;
@@ -27041,7 +27062,7 @@ App.requestAITriage = async function() {
   if (!title.trim()) { App.showToast('Enter a title first', 'warning'); return; }
   var btn = document.getElementById('aiTriageBtn');
   if (btn) { btn.textContent = '⏳ Analysing...'; btn.disabled = true; }
-  var r = await App.call('getAIIssueSuggestions', title, desc);
+  var r = await App.callAsync('getAIIssueSuggestions', title, desc);
   if (btn) { btn.textContent = '✨ AI Suggest'; btn.disabled = false; }
   if (!r || !r.success) { App.showToast('AI triage failed: ' + (r&&r.error||''), 'error'); return; }
   var s = r.suggestions || {};
@@ -27071,7 +27092,7 @@ App.acceptAITriage = function(field, value) {
 App.bulkUpdateIssuesPhase5 = async function(action, value) {
   if (!App._selectedIssues || App._selectedIssues.size === 0) { App.showToast('No issues selected', 'warning'); return; }
   var ids = Array.from(App._selectedIssues);
-  var r = await App.call('bulkUpdateIssues', ids, action, value);
+  var r = await App.callAsync('bulkUpdateIssues', ids, action, value);
   if (r && r.success) {
     App.showToast('Updated ' + r.updated + ' issues', 'success');
     App._selectedIssues.clear();
