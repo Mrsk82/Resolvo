@@ -13159,22 +13159,19 @@ const App = {
       ? this.durationHours(i.createdDate, i.resolvedDate) + 'h to resolve'
       : ' ';
 
+    App._lastIssueDetail = i;
     document.getElementById('contentArea').innerHTML = `
-      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
-        <button class="btn-secondary btn-sm" onclick="App.navigate('issue-list')">Back</button>
-        ${canChangeStatus ? `<button class="btn-secondary btn-sm" onclick="App.showStatusModal('${i.id}', '${i.status}')">Update Status</button>` : ''}
+      <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap">
+        <button onclick="App.navigate('issue-list')" style="background:none;border:none;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;padding:6px 6px 6px 0;display:flex;align-items:center;gap:4px;">← Back</button>
+        <div style="width:1px;height:18px;background:var(--border);"></div>
+        ${canChangeStatus ? `<button class="btn-primary btn-sm" onclick="App.showStatusModal('${i.id}', '${i.status}')">Update Status</button>` : ''}
         ${isAdmin ? `<button class="btn-secondary btn-sm" onclick="App.showAssignModal('${i.id}')">Reassign</button>` : ''}
-        ${['Resolved','Closed'].includes(i.status) ? `<button class="btn-secondary btn-sm" onclick="App.showPostMortem('${i.id}')">Post-Mortem</button>` : ''}
-        <button class="btn-secondary btn-sm" onclick="App.showDepsModal('${i.id}')">Dependencies</button>
-        <button class="btn-secondary btn-sm" onclick="App.showLogTimeModal('${i.id}')">Log Time</button>
-        <button class="btn-secondary btn-sm" id="watcherBtn" onclick="App.toggleWatcher('${i.id}')">Watch</button>
-        <button class="btn-secondary btn-sm" onclick="App._duplicateIssue('${i.id}')" title="Duplicate this issue">⧉ Duplicate</button>
-        <button class="btn-secondary btn-sm" style="background:var(--accent-dim);color:var(--accent);border-color:var(--border-accent)" onclick="AIAssist.open('${i.id}', '${this.escapeHtml(i.title)}')">AI</button>
-        ${i.attachmentUrl ? `<a href="${i.attachmentUrl}" target="_blank" class="btn-secondary btn-sm">Attachment</a>` : ''}
-        <button class="btn-secondary btn-sm" onclick="App.exportIssue('${i.id}')">Export</button>
-        <button class="btn-secondary btn-sm" onclick="App.showPeerReviewModal('${i.id}')">Peer Review</button>
+        <button class="btn-secondary btn-sm" style="background:var(--accent-dim);color:var(--accent);border-color:var(--border-accent)" onclick="AIAssist.open('${i.id}', '${this.escapeHtml(i.title)}')">✨ AI Assist</button>
+        <button class="btn-secondary btn-sm" id="watcherBtn" onclick="App.toggleWatcher('${i.id}')">👁 Watch</button>
+        <div style="flex:1;min-width:4px;"></div>
+        <button class="btn-secondary btn-sm" onclick="App._toggleIssueMoreMenu(this,'${i.id}','${i.status}')">⋯ More</button>
       </div>
-      
+
       <div class="issue-detail-grid">
         <div class="issue-main">
           ${regressionBanner}${revenueBanner}
@@ -14973,6 +14970,46 @@ const App = {
   },
 
   // ── Issue duplicate ──────────────────────────────────────────────────────────
+  // Generic body-level dropdown portal — same clipping-safe pattern used
+  // for the Owner Console menus, the status-picker, and the @mention
+  // autocomplete (all fixed this session). Reusable for any future
+  // "⋯ More" action menu so that fix doesn't need repeating a 4th time.
+  _showActionMenu: function(btnEl, itemsHtml) {
+    var existing = document.getElementById('actionMenuPortal');
+    var wasOpenForThisBtn = existing && existing._forBtn === btnEl;
+    if (existing) existing.remove();
+    if (wasOpenForThisBtn) return;
+    var portal = document.createElement('div');
+    portal.id = 'actionMenuPortal';
+    portal._forBtn = btnEl;
+    portal.style.cssText = 'position:fixed;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.3);min-width:190px;z-index:9999;overflow:hidden;text-align:left;';
+    portal.innerHTML = itemsHtml;
+    document.body.appendChild(portal);
+    var rect = btnEl.getBoundingClientRect();
+    var top = rect.bottom + 4;
+    if (top + portal.offsetHeight > window.innerHeight) top = Math.max(4, rect.top - portal.offsetHeight - 4);
+    var left = Math.min(rect.right - portal.offsetWidth, window.innerWidth - portal.offsetWidth - 4);
+    portal.style.top = top + 'px';
+    portal.style.left = Math.max(4, left) + 'px';
+    setTimeout(function() {
+      document.addEventListener('click', function h(e) { if (!portal.contains(e.target)) { portal.remove(); document.removeEventListener('click', h); } }, { once: true });
+    }, 0);
+  },
+
+  _toggleIssueMoreMenu: function(btnEl, issueId, status) {
+    var i = App._lastIssueDetail || {};
+    var itemStyle = 'display:block;width:100%;text-align:left;padding:9px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;';
+    var items = [];
+    if (['Resolved','Closed'].includes(status)) items.push('<button style="'+itemStyle+'" onclick="document.getElementById(\'actionMenuPortal\').remove();App.showPostMortem(\''+issueId+'\')">📝 Post-Mortem</button>');
+    items.push('<button style="'+itemStyle+'" onclick="document.getElementById(\'actionMenuPortal\').remove();App.showDepsModal(\''+issueId+'\')">🔗 Dependencies</button>');
+    items.push('<button style="'+itemStyle+'" onclick="document.getElementById(\'actionMenuPortal\').remove();App.showLogTimeModal(\''+issueId+'\')">⏱ Log Time</button>');
+    items.push('<button style="'+itemStyle+'" onclick="document.getElementById(\'actionMenuPortal\').remove();App._duplicateIssue(\''+issueId+'\')">⧉ Duplicate</button>');
+    if (i.attachmentUrl) items.push('<a href="'+i.attachmentUrl+'" target="_blank" style="'+itemStyle+'text-decoration:none;display:block;">📎 Attachment</a>');
+    items.push('<button style="'+itemStyle+'" onclick="document.getElementById(\'actionMenuPortal\').remove();App.exportIssue(\''+issueId+'\')">⬇ Export</button>');
+    items.push('<button style="'+itemStyle+'border-top:1px solid var(--border);" onclick="document.getElementById(\'actionMenuPortal\').remove();App.showPeerReviewModal(\''+issueId+'\')">👥 Peer Review</button>');
+    App._showActionMenu(btnEl, items.join(''));
+  },
+
   _duplicateIssue: async function(issueId) {
     var r = await App.callAsync('duplicateIssue', issueId);
     if (r && r.success) {
