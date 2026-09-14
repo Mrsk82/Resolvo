@@ -1643,7 +1643,9 @@ async function init() {
     const me = await api('/api/me');
     if (me && me.brandName) document.getElementById('sb-brand').textContent = me.brandName;
   } catch(e) {}
-  loadDashboard();
+  // Deep-link support: /crm#contacts, /crm#companies, /crm#deals, etc.
+  const h = (location.hash || '').slice(1);
+  if (h && loaders[h]) nav(h); else loadDashboard();
 }
 init();
 </script>

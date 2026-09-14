@@ -7901,22 +7901,26 @@ tbody tr.row-selected {
           </div>
 
           <div class="nav-section">
-            <span class="nav-label">Customers <span class="nav-soon-badge">Soon</span></span>
-            <a href="#" class="nav-item nav-item-soon" onclick="App.showToast('Customer profiles — coming in the next phase','info');return false;" data-tooltip="Contacts (coming soon)">
+            <span class="nav-label">Customers</span>
+            <a href="/crm#contacts" class="nav-item" data-tooltip="Contacts">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
               <span class="nav-text">Contacts</span>
             </a>
-            <a href="#" class="nav-item nav-item-soon" onclick="App.showToast('Company accounts — coming in the next phase','info');return false;" data-tooltip="Companies (coming soon)">
+            <a href="/crm#companies" class="nav-item" data-tooltip="Companies">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V7l6-4 6 4v14M10 21v-6h4v6"/></svg></span>
               <span class="nav-text">Companies</span>
             </a>
           </div>
 
           <div class="nav-section">
-            <span class="nav-label">CRM <span class="nav-soon-badge">Soon</span></span>
-            <a href="#" class="nav-item nav-item-soon" onclick="App.showToast('Deals &amp; pipeline — coming in the next phase','info');return false;" data-tooltip="Deals &amp; Pipeline (coming soon)">
+            <span class="nav-label">CRM</span>
+            <a href="/crm#deals" class="nav-item" data-tooltip="Deals &amp; Pipeline">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
               <span class="nav-text">Deals &amp; Pipeline</span>
+            </a>
+            <a href="/crm" class="nav-item" data-tooltip="CRM Dashboard">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+              <span class="nav-text">CRM Dashboard</span>
             </a>
           </div>
 
@@ -27696,6 +27700,8 @@ var CmdPalette = {
           SlidePanel.open(id);
         } else if (action.startsWith('settings:')) {
           App.navigate('settings', { tab: action.replace('settings:','') });
+        } else if (action.startsWith('url:')) {
+          window.location.href = action.replace('url:','');
         } else {
           App.navigate(action);
         }
@@ -27721,6 +27727,9 @@ var CmdPalette = {
       { title:'All Issues', sub:'Browse issue list', action:'issue-list', icon:'≡' },
       { title:'Kanban Board', sub:'Drag-drop workflow', action:'kanban', icon:'▦' },
       { title:'Sprints', sub:'Sprint planning & burndown', action:'sprints', icon:'⏱' },
+      { title:'Contacts', sub:'CRM — customer contacts', action:'url:/crm#contacts', icon:'👤' },
+      { title:'Companies', sub:'CRM — company accounts', action:'url:/crm#companies', icon:'🏢' },
+      { title:'Deals & Pipeline', sub:'CRM — sales pipeline', action:'url:/crm#deals', icon:'💰' },
       { title:'My Issues', sub:'Your assigned issues', action:'my-issues', icon:'👤' },
       { title:'Create Issue', sub:'Report a new issue', action:'create', icon:'+' },
       { title:'Reports', sub:'Support & issue reports', action:'reports', icon:'▤' },

@@ -11415,6 +11415,13 @@ function crmAuth(req,res){
   return su;
 }
 function crmDb(slug){return _openDB(slug);}
+// Lightweight session-info endpoint — used by crm.html to show the brand
+// name in its sidebar (previously 404'd, silently swallowed there).
+app.get('/api/me',(req,res)=>{
+  const su=getSessionUser(req);
+  if(!su)return res.status(401).json({error:'Unauthorized'});
+  res.json({email:su.email,name:su.name,role:su.role,brandName:su.brandName,brandSlug:su.brandSlug});
+});
 function crmAll(db,table){return db.prepare(`SELECT data FROM ${table}`).all().map(r=>JSON.parse(r.data));}
 function crmGet(db,table,id){const r=db.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id);return r?JSON.parse(r.data):null;}
 function crmSave(db,table,obj){db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`).run(obj.id,JSON.stringify(obj));}
