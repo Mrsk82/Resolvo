@@ -16429,6 +16429,15 @@ const App = {
             </div>
           </details>
 
+          ${(function(v){return v===true||v==='true';})((self.featureFlags||{})['AI_ENABLED']) ? `
+          <!-- Conversation Intelligence — compact AI block (intent/topic; sentiment+priority already shown in Overview above) -->
+          <details class="tkt-sb-group">
+            <summary>✨ AI Insights</summary>
+            <div class="tkt-sb-body" id="convIntelBox_${t.id}">
+              <button onclick="App._loadConvIntel('${t.id}')" style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:6px;padding:5px 12px;cursor:pointer;width:100%;">Analyze conversation</button>
+            </div>
+          </details>` : ''}
+
           <!-- Classification & Assignment merged -->
           <details class="tkt-sb-group" open id="classificationCard_${t.id}">
             <summary>Classify &amp; Assign</summary>
@@ -17197,6 +17206,26 @@ const App = {
     box.value = text;
     box.focus();
     this.showToast('Suggestion inserted — feel free to edit before sending', 'success');
+  },
+  _loadConvIntel: async function(ticketId) {
+    var self = this;
+    var box = document.getElementById('convIntelBox_' + ticketId);
+    if (!box) return;
+    box.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:4px 0;">Analyzing…</div>';
+    var r = await self.callAsync('getConversationIntelligence', ticketId);
+    if (!r || !r.success) {
+      box.innerHTML = '<div style="font-size:11px;color:var(--critical);display:flex;align-items:center;gap:8px;">' + self._esc((r && r.error) || 'Could not analyze') + ' <button onclick="App._loadConvIntel(\'' + ticketId + '\')" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;">Retry</button></div>';
+      return;
+    }
+    var intel = r.intel || {};
+    var conf = intel.confidence != null ? Math.round(intel.confidence * 100) : null;
+    var row = function(label, val) {
+      return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;"><span style="color:var(--text-muted);">' + label + '</span><span style="color:var(--text-secondary);font-weight:600;">' + val + '</span></div>';
+    };
+    box.innerHTML =
+      row('Intent', self._esc(intel.intent || '—')) +
+      row('Topic', self._esc(intel.topic || '—')) +
+      (conf != null ? row('AI confidence', conf + '%') : '');
   },
   _toggleTicketPanel: function() {
     var panel = document.getElementById('ticketRightPanel');

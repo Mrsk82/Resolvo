@@ -5133,6 +5133,23 @@ app.post('/api/call',async(req,res)=>{
         return{success:true,reply:raw.trim()};
       }catch(e){return{success:false,error:e.message};}
     },
+    // Compact "Conversation Intelligence" block — intent/topic classification.
+    // Sentiment and priority already exist on the ticket (set elsewhere);
+    // this only adds the two things that don't: intent and topic.
+    getConversationIntelligence:async(ticketId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Ticket not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const thread=(ticket.thread||[]).filter(m=>m.type==='incoming').slice(-4);
+      const convo=thread.map(m=>(m.body||'').substring(0,400)).join('\n---\n');
+      const prompt=`Classify this customer support conversation. Respond ONLY with valid JSON, no markdown.\n\nSubject: ${ticket.subject||''}\nCustomer messages:\n${convo||'(no messages yet)'}\n\nJSON: {"intent":"short 2-4 word label for what the customer wants (e.g. 'Payment failure', 'Refund request', 'How-to question')","topic":"one or two word general topic area (e.g. 'Billing', 'Onboarding', 'Bug report')","confidence":0.0-1.0}`;
+      try{
+        const raw=await callGemini(apiKey,prompt,12000);
+        const intel=parseGeminiJSON(raw);
+        return{success:true,intel};
+      }catch(e){return{success:false,error:e.message};}
+    },
     getDevLeaderboard:()=>{const db=rDB();const issues=db.issues||[];const devs={};(issues||[]).forEach(i=>{if(!i.assignedTo)return;if(!devs[i.assignedTo])devs[i.assignedTo]={email:i.assignedTo,resolved:0,open:0,avgHours:0,total:0};if(['Resolved','Release Required'].includes(i.status)){devs[i.assignedTo].resolved++;const h=i.resolvedDate&&i.createdDate?(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000:0;devs[i.assignedTo].avgHours+=h;}else devs[i.assignedTo].open++;devs[i.assignedTo].total++;});return{success:true,leaderboard:Object.values(devs).sort((a,b)=>b.resolved-a.resolved)};},
     getCFDData:()=>{const db=rDB();const issues=db.issues||[];const statuses=['Open','Acknowledged','WIP','Testing','Resolved'];const today=nowIST().split('T')[0];const data=statuses.map(s=>({status:s,count:issues.filter(i=>i.status===s).length}));return{success:true,data,date:today};},
     forecastResolution:(issueId)=>{const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const similar=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.priority===issue.priority&&i.resolvedDate&&i.createdDate);const avg=similar.length?similar.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/similar.length:24;return{success:true,forecastHours:Math.round(avg*10)/10,basedOn:similar.length,confidence:similar.length>5?'high':similar.length>2?'medium':'low'};},
