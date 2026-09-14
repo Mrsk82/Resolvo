@@ -16328,6 +16328,9 @@ const App = {
               <div id="replyToInfo" data-from="${self._esc(t.from)}" style="font-size:11px;color:var(--text-dim);">📧 Will be sent to: <strong style="color:var(--text-secondary);">${self._esc(t.from)}</strong></div>
               <div id="typingIndicator" style="font-size:11px;color:var(--medium);display:none;">✍ Someone is typing...</div>
               <div id="cannedDropdown" style="display:none;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;"></div>
+              ${(function(v){return v===true||v==='true';})((self.featureFlags||{})['AI_ENABLED']) ? `<div id="aiSuggestBox_${t.id}">
+                <button onclick="App._suggestAIReply('${t.id}')" id="aiSuggestTrigger_${t.id}" style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:7px;padding:6px 12px;cursor:pointer;width:fit-content;">✨ AI Assistant — Suggest a reply</button>
+              </div>` : ''}
               <!-- Rich reply toolbar -->
               <div style="display:flex;align-items:center;gap:2px;padding:5px 8px;background:var(--bg-elevated);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;">
                 <button onclick="App._replyFormat('bold')" title="Bold (Ctrl+B)" style="width:28px;height:28px;border:none;background:none;color:var(--text-dim);cursor:pointer;border-radius:5px;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;" onmouseover="this.style.background='var(--bg-card)';this.style.color='var(--text-primary)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'"><b>B</b></button>
@@ -17146,6 +17149,52 @@ const App = {
     if (btn) btn.setAttribute('data-mode', tab);
     var txt = document.getElementById('replyText');
     if (txt) txt.placeholder = isNote ? 'Add an internal note (not visible to customer)...' : 'Type your reply to the customer...';
+  },
+
+  // ── AI-suggested reply (composer) ──────────────────────────────────────
+  _suggestAIReply: async function(ticketId, tone) {
+    var self = this;
+    var box = document.getElementById('aiSuggestBox_' + ticketId);
+    if (!box) return;
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);padding:8px 0;"><div class="loader-bar" style="width:120px;"><div class="loader-fill"></div></div> Thinking…</div>';
+    var r = await self.callAsync('getAISuggestedReply', ticketId, tone);
+    if (!r || !r.success) {
+      box.innerHTML = '<div style="font-size:11px;color:var(--critical);display:flex;align-items:center;gap:8px;">' + self._esc((r && r.error) || 'Could not generate a suggestion') + ' <button onclick="App._suggestAIReply(\'' + ticketId + '\')" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;">Retry</button></div>';
+      return;
+    }
+    self._aiSuggestedText = self._aiSuggestedText || {};
+    self._aiSuggestedText[ticketId] = r.reply;
+    var toneBtn = function(label, val) {
+      return '<button onclick="App._suggestAIReply(\'' + ticketId + '\',\'' + val + '\')" style="font-size:10px;font-weight:600;color:var(--text-secondary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:5px;padding:3px 9px;cursor:pointer;">' + label + '</button>';
+    };
+    box.innerHTML =
+      '<div style="background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:8px;padding:10px 12px;margin-bottom:2px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<span style="font-size:11px;font-weight:700;color:var(--accent);">✨ AI Assistant — Suggested reply</span>' +
+          '<button onclick="App._dismissAISuggest(\'' + ticketId + '\')" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;">×</button>' +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;max-height:140px;overflow-y:auto;">' + self._esc(r.reply) + '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">' +
+          '<button onclick="App._insertAISuggestion(\'' + ticketId + '\')" class="btn-primary btn-sm" style="font-size:11px;padding:4px 12px;">Insert</button>' +
+          toneBtn('Regenerate', '') +
+          toneBtn('Shorter', 'shorter') +
+          toneBtn('More professional', 'more_professional') +
+          toneBtn('More empathetic', 'more_empathetic') +
+        '</div>' +
+      '</div>';
+  },
+  _insertAISuggestion: function(ticketId) {
+    var text = (this._aiSuggestedText || {})[ticketId];
+    var box = document.getElementById('replyText');
+    if (!text || !box) return;
+    box.value = text;
+    box.focus();
+    this.showToast('Suggestion inserted — feel free to edit before sending', 'success');
+  },
+  _dismissAISuggest: function(ticketId) {
+    var box = document.getElementById('aiSuggestBox_' + ticketId);
+    if (!box) return;
+    box.innerHTML = '<button onclick="App._suggestAIReply(\'' + ticketId + '\')" id="aiSuggestTrigger_' + ticketId + '" style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:7px;padding:6px 12px;cursor:pointer;width:fit-content;">✨ AI Assistant — Suggest a reply</button>';
   },
 
   _submitTicketReply: async function(ticketId) {

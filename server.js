@@ -5113,6 +5113,26 @@ app.post('/api/call',async(req,res)=>{
         return{success:true,triage};
       }catch(e){return{success:false,error:e.message};}
     },
+    // AI-suggested reply for the ticket composer — builds context from the
+    // last few thread messages (customer's own words weighted highest) plus
+    // subject/priority, and asks Gemini for a draft reply. `tone` narrows
+    // the ask (shorter / more_professional / more_empathetic); omitted on
+    // the first generation, passed on a "regenerate with tone" click.
+    getAISuggestedReply:async(ticketId,tone)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Ticket not found'};
+      const apiKey=getBrandGeminiKey(db);
+      if(!apiKey)return{success:false,error:'Add Gemini API key in Settings → Integrations'};
+      const thread=(ticket.thread||[]).filter(m=>m.type!=='note').slice(-6);
+      const convo=thread.map(m=>`${m.type==='incoming'?'Customer':'Agent'}: ${(m.body||'').substring(0,500)}`).join('\n');
+      const toneMap={shorter:'Make it noticeably shorter and more to the point.',more_professional:'Make the tone more formal and professional.',more_empathetic:'Make the tone warmer and more empathetic toward the customer\'s frustration.'};
+      const toneNote=tone&&toneMap[tone]?`\n\nAdjustment requested: ${toneMap[tone]}`:'';
+      const prompt=`You are a customer support agent drafting a reply. Write ONLY the reply text — no subject line, no "Dear customer", no signature, no markdown, no quotes around it.\n\nTicket subject: ${ticket.subject||''}\nPriority: ${ticket.priority||'Medium'}\n\nConversation so far (most recent last):\n${convo||'(no messages yet)'}${toneNote}\n\nWrite a helpful, concise reply to the customer's most recent message.`;
+      try{
+        const raw=await callGemini(apiKey,prompt,15000);
+        return{success:true,reply:raw.trim()};
+      }catch(e){return{success:false,error:e.message};}
+    },
     getDevLeaderboard:()=>{const db=rDB();const issues=db.issues||[];const devs={};(issues||[]).forEach(i=>{if(!i.assignedTo)return;if(!devs[i.assignedTo])devs[i.assignedTo]={email:i.assignedTo,resolved:0,open:0,avgHours:0,total:0};if(['Resolved','Release Required'].includes(i.status)){devs[i.assignedTo].resolved++;const h=i.resolvedDate&&i.createdDate?(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000:0;devs[i.assignedTo].avgHours+=h;}else devs[i.assignedTo].open++;devs[i.assignedTo].total++;});return{success:true,leaderboard:Object.values(devs).sort((a,b)=>b.resolved-a.resolved)};},
     getCFDData:()=>{const db=rDB();const issues=db.issues||[];const statuses=['Open','Acknowledged','WIP','Testing','Resolved'];const today=nowIST().split('T')[0];const data=statuses.map(s=>({status:s,count:issues.filter(i=>i.status===s).length}));return{success:true,data,date:today};},
     forecastResolution:(issueId)=>{const db=rDB();const issue=(db.issues||[]).find(i=>i.id===issueId);if(!issue)return{success:false,error:'Not found'};const similar=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.priority===issue.priority&&i.resolvedDate&&i.createdDate);const avg=similar.length?similar.reduce((s,i)=>s+(new Date(i.resolvedDate)-new Date(i.createdDate))/3600000,0)/similar.length:24;return{success:true,forecastHours:Math.round(avg*10)/10,basedOn:similar.length,confidence:similar.length>5?'high':similar.length>2?'medium':'low'};},
