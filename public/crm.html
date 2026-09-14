@@ -9,9 +9,9 @@
 :root{
   --bg:#08090A;--s1:#0D1117;--s2:#161B22;--card:#0D1117;
   --b0:rgba(255,255,255,.04);--b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.12);--b3:rgba(255,255,255,.22);
-  --green:#00E5A0;--violet:#8B5CF6;--blue:#3B82F6;--amber:#F59E0B;--red:#F43F5E;--cyan:#22D3EE;--pink:#F472B6;
+  --green:#10B981;--violet:#8B5CF6;--blue:#3B82F6;--amber:#F59E0B;--red:#F43F5E;--cyan:#22D3EE;--pink:#F472B6;
   --t1:#F0F6FF;--t2:rgba(240,246,255,.65);--t3:rgba(240,246,255,.35);--t4:rgba(240,246,255,.18);
-  --g:linear-gradient(135deg,#00E5A0,#8B5CF6);
+  --g:linear-gradient(135deg,#10B981,#8B5CF6);
   --sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
   --sw:240px;
 }
@@ -1124,7 +1124,7 @@ async function loadContacts() {
 }
 
 function avatarColor(name) {
-  const colors = ['#6366F1','#8B5CF6','#00E5A0','#F59E0B','#F43F5E','#3B82F6','#22D3EE','#F472B6'];
+  const colors = ['#6366F1','#8B5CF6','#10B981','#F59E0B','#F43F5E','#3B82F6','#22D3EE','#F472B6'];
   let h = 0; for (const c of (name||'?')) h += c.charCodeAt(0);
   return colors[h % colors.length];
 }
@@ -1387,7 +1387,7 @@ const OT_STATUSES = [
   { key:'called',        label:'Called',         color:'var(--violet)' },
   { key:'whatsapped',    label:'WhatsApp\'d',    color:'var(--green)' },
   { key:'demo-scheduled',label:'Demo Scheduled', color:'var(--amber)' },
-  { key:'converted',     label:'Converted',      color:'#00E5A0' },
+  { key:'converted',     label:'Converted',      color:'#10B981' },
   { key:'dead',          label:'Dead',           color:'var(--red)' },
 ];
 
