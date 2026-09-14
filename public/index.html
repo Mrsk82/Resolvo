@@ -29890,9 +29890,41 @@ App.renderNovaBentoDashboard = async function() {
     if (ai && ai.success) assignedIssues = ai.issues.filter(function(i) { return !['Resolved','Closed'].includes(i.status); }).slice(0,4);
   } catch(e) {}
 
+  var sentimentCustomers = [];
+  try {
+    var senti = await App.callAsync('getCustomerSentimentOverview', {});
+    if (senti && senti.success) sentimentCustomers = senti.customers || [];
+  } catch(e) {}
+
   area.innerHTML =
     (function(){
   var sup = s.support || {}, vol = sup.volume || [], ch = sup.byChannel || {}, lb = sup.leaderboard || [], byStatus = s.byStatus || {}, bp = s.byPriority || {};
+
+  // ── CX HEALTH SCORE ─────────────────────────────────────────────────
+  // Weighted blend of SLA compliance, response time, CSAT, sentiment and
+  // backlog health. Any component with no underlying data (e.g. a brand
+  // with zero CSAT surveys yet) is dropped and the remaining weights are
+  // rescaled, so a sparse dataset never drags the score down artificially.
+  var healthParts = [];
+  var slaTotal = (sup.onTime||0) + (sup.slaBreached||0) + (sup.slaDue||0);
+  if (slaTotal > 0) healthParts.push({ w: 30, v: Math.round((sup.onTime||0) / slaTotal * 100) });
+  if (sup.avgFirstResponseMin != null) healthParts.push({ w: 20, v: Math.max(0, Math.min(100, Math.round(100 - (sup.avgFirstResponseMin / 180) * 100))) });
+  var csatVals = lb.filter(function(a){ return a.csat != null; }).map(function(a){ return a.csat; });
+  if (csatVals.length) healthParts.push({ w: 25, v: Math.round(csatVals.reduce(function(a,b){return a+b;},0) / csatVals.length) });
+  if (sentimentCustomers.length) healthParts.push({ w: 15, v: Math.round(sentimentCustomers.reduce(function(a,c){return a+(c.avgSentiment||60);},0) / sentimentCustomers.length) });
+  if ((sup.openTickets||0) > 0) healthParts.push({ w: 10, v: Math.max(0, 100 - Math.round((sup.unassigned||0) / sup.openTickets * 100)) });
+  var healthTotalW = healthParts.reduce(function(a,p){return a+p.w;},0) || 1;
+  var healthScore = healthParts.length ? Math.round(healthParts.reduce(function(a,p){return a+p.v*p.w;},0) / healthTotalW) : null;
+  var healthLabel = healthScore == null ? 'No data yet' : healthScore >= 80 ? 'Healthy' : healthScore >= 60 ? 'Needs Attention' : 'At Risk';
+  var healthColor = healthScore == null ? 'var(--text-dim)' : healthScore >= 80 ? 'var(--low)' : healthScore >= 60 ? 'var(--medium)' : 'var(--critical)';
+
+  // ── PRIORITY ATTENTION ──────────────────────────────────────────────
+  var negSentiment = sentimentCustomers.filter(function(c){ return c.churnRisk === 'high'; }).length;
+  var attention = [];
+  if ((sup.slaBreached||0) > 0) attention.push({ icon:'🔴', text: sup.slaBreached + ' ticket' + (sup.slaBreached===1?'':'s') + ' breached SLA', nav:'ticket-inbox' });
+  if ((sup.slaDue||0) > 0) attention.push({ icon:'🟠', text: sup.slaDue + ' ticket' + (sup.slaDue===1?'':'s') + ' approaching SLA breach', nav:'ticket-inbox' });
+  if ((sup.unassigned||0) > 0) attention.push({ icon:'🔵', text: sup.unassigned + ' ticket' + (sup.unassigned===1?'':'s') + ' unassigned', nav:'ticket-inbox' });
+  if (negSentiment > 0) attention.push({ icon:'🟡', text: negSentiment + ' customer' + (negSentiment===1?'':'s') + ' showing negative sentiment', nav:'reports', params:{tab:'cust-sentiment'} });
   var maxVol = Math.max.apply(null, vol.concat([1]));
   var totalCh = Object.keys(ch).reduce(function(acc,k){return acc+ch[k];},0) || 1;
   var TRACK = 'var(--bg-elevated)', LINE = 'var(--border)';
@@ -29922,6 +29954,44 @@ App.renderNovaBentoDashboard = async function() {
   }
   var html = '<div class="nova-bento-grid">';
   html += '<div class="nova-bento-cell bento-12x1" style="padding:0;overflow:hidden;" id="bentogm"></div>';
+
+  // CX Health Score
+  html += '<div class="nova-bento-cell bento-4x2" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">' +
+    '<div class="bento-stat-label" style="align-self:flex-start;margin-bottom:2px;">CX Health</div>' +
+    '<div style="font-size:40px;font-weight:800;color:'+healthColor+';line-height:1;">' + (healthScore==null?'\u2014':healthScore) + (healthScore==null?'':'<span style="font-size:16px;color:var(--text-dim);font-weight:600;">/100</span>') + '</div>' +
+    '<div style="font-size:12px;font-weight:700;color:'+healthColor+';padding:3px 10px;border-radius:999px;background:'+healthColor+'1a;">' + healthLabel + '</div>' +
+  '</div>';
+
+  // Priority Attention
+  html += '<div class="nova-bento-cell bento-8x2"><div class="bento-stat-label" style="margin-bottom:10px;">\u26A1 Needs Attention</div>' +
+    (attention.length === 0
+      ? '<div class="empty-state-v3" style="padding:14px 0;"><div class="es-icon" style="font-size:22px;">\u2705</div><div class="es-title" style="font-size:13px;">Nothing needs attention right now</div></div>'
+      : attention.map(function(a){
+          var navCall = "App.navigate('" + a.nav + "'" + (a.params ? "," + JSON.stringify(a.params) : "") + ")";
+          return '<div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid '+LINE+';cursor:pointer;" onclick="'+navCall+'">' +
+            '<span style="font-size:14px;">'+a.icon+'</span>' +
+            '<span style="flex:1;font-size:12px;color:var(--text-primary);">'+App._esc(a.text)+'</span>' +
+            '<span style="font-size:10px;color:var(--text-dim);font-weight:600;">VIEW \u2192</span>' +
+          '</div>';
+        }).join('')
+    ) +
+  '</div>';
+
+  // Live Workload
+  html += '<div class="nova-bento-cell bento-12x1" style="height:auto;"><div class="bento-stat-label" style="margin-bottom:12px;">\uD83D\uDCCA Live Workload</div><div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+    [
+      { label:'Open', val: sup.openTickets||0, color:'var(--accent)' },
+      { label:'Unassigned', val: sup.unassigned||0, color:'var(--medium)' },
+      { label:'SLA Due Soon', val: sup.slaDue||0, color:'var(--high)' },
+      { label:'SLA Breached', val: sup.slaBreached||0, color:'var(--critical)' },
+      { label:'On Time', val: sup.onTime||0, color:'var(--low)' },
+      { label:'Resolved Today', val: sup.resolvedToday||0, color:'var(--low)' }
+    ].map(function(w){
+      var pct = Math.round(w.val / Math.max(1, sup.openTickets||1) * 100);
+      return '<div style="flex:1;min-width:120px;"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="color:var(--text-secondary);">'+w.label+'</span><span style="color:var(--text-muted);">'+w.val+'</span></div><div style="height:4px;background:'+TRACK+';border-radius:999px;"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+w.color+';border-radius:999px;"></div></div></div>';
+    }).join('') +
+  '</div></div>';
+
   html += '<div style="grid-column:1 / -1;padding:4px 4px 0;"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text-dim);text-transform:uppercase;">\uD83C\uDFA7 Customer Support</span></div>';
   html += kpi('', 'Open Tickets', (sup.openTickets||0), 'flat', '\u2192 in queue', 'ticket-inbox');
   html += kpi('accent-pink', 'Unassigned', (sup.unassigned||0), (sup.unassigned>0?'up':'down'), (sup.unassigned>0?'\u2191 needs pickup':'\u2193 all assigned'), 'ticket-inbox');
