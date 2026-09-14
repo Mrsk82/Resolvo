@@ -1486,6 +1486,14 @@ html, body {
   letter-spacing: 0.13em; color: var(--text-dim);
   text-transform: uppercase; opacity: 0.6;
 }
+.nav-soon-badge {
+  display: inline-block; margin-left: 5px; padding: 1px 5px;
+  font-size: 8px; font-weight: 800; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--accent); background: var(--accent-dim);
+  border-radius: 999px; vertical-align: 1px;
+}
+.nav-item-soon { opacity: 0.55; cursor: default; }
+.nav-item-soon:hover { opacity: 0.85; background: var(--bg-hover); }
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
@@ -7873,7 +7881,7 @@ tbody tr.row-selected {
 
         <nav class="sidebar-nav">
           <div class="nav-section">
-            <span class="nav-label">Overview</span>
+            <span class="nav-label">Home</span>
             <a href="#" class="nav-item active" data-page="dashboard" data-tooltip="Dashboard">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
               <span class="nav-text">Dashboard</span>
@@ -7885,10 +7893,30 @@ tbody tr.row-selected {
           </div>
 
           <div class="nav-section">
-            <span class="nav-label">Support</span>
+            <span class="nav-label">Inbox</span>
             <a href="#" class="nav-item" data-page="ticket-inbox" data-tooltip="Ticket Inbox">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
               <span class="nav-text">Ticket Inbox <span id="ticketNewBadge" style="display:none;background:var(--critical);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px;"></span></span>
+            </a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-label">Customers <span class="nav-soon-badge">Soon</span></span>
+            <a href="#" class="nav-item nav-item-soon" onclick="App.showToast('Customer profiles — coming in the next phase','info');return false;" data-tooltip="Contacts (coming soon)">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+              <span class="nav-text">Contacts</span>
+            </a>
+            <a href="#" class="nav-item nav-item-soon" onclick="App.showToast('Company accounts — coming in the next phase','info');return false;" data-tooltip="Companies (coming soon)">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V7l6-4 6 4v14M10 21v-6h4v6"/></svg></span>
+              <span class="nav-text">Companies</span>
+            </a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-label">CRM <span class="nav-soon-badge">Soon</span></span>
+            <a href="#" class="nav-item nav-item-soon" onclick="App.showToast('Deals &amp; pipeline — coming in the next phase','info');return false;" data-tooltip="Deals &amp; Pipeline (coming soon)">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+              <span class="nav-text">Deals &amp; Pipeline</span>
             </a>
           </div>
 
@@ -7906,23 +7934,39 @@ tbody tr.row-selected {
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
               <span class="nav-text">My Issues</span>
             </a>
-          </div>
-
-          <div class="nav-section">
-            <span class="nav-label">Workflow</span>
             <a href="#" class="nav-item" data-page="kanban" data-tooltip="Kanban Board">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="3" width="4" height="12" rx="1"/><rect x="17" y="3" width="4" height="15" rx="1"/></svg></span>
               <span class="nav-text">Kanban Board</span>
             </a>
-            <a href="#" class="nav-item" data-page="integration-marketplace" data-tooltip="Integrations">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-              <span class="nav-text">Integrations</span>
+            <a href="#" class="nav-item" data-page="sprints" data-tooltip="Sprints">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+              <span class="nav-text">Sprints</span>
             </a>
           </div>
 
-          <!-- REPORTS — visible to all -->
           <div class="nav-section">
-            <span class="nav-label">Reports</span>
+            <span class="nav-label">Knowledge</span>
+            <a href="#" class="nav-item" data-page="settings" data-nav-params='{"tab":"knowledge-base"}' data-tooltip="Knowledge Base">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+              <span class="nav-text">Knowledge Base</span>
+            </a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-label">Automation</span>
+            <a href="#" class="nav-item" data-page="settings" data-nav-params='{"tab":"automation"}' data-tooltip="Automation Rules">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+              <span class="nav-text">Automation Rules</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings" data-nav-params='{"tab":"escalation"}' data-tooltip="Escalation Rules">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              <span class="nav-text">Escalation Rules</span>
+            </a>
+          </div>
+
+          <!-- ANALYTICS — visible to all -->
+          <div class="nav-section">
+            <span class="nav-label">Analytics</span>
             <a href="#" class="nav-item" data-page="reports" data-tooltip="Reports">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
               <span class="nav-text">Reports</span>
@@ -7942,6 +7986,14 @@ tbody tr.row-selected {
             <a href="#" class="nav-item" data-page="export" data-tooltip="Export Data">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
               <span class="nav-text">Export</span>
+            </a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-label">Integrations</span>
+            <a href="#" class="nav-item" data-page="integration-marketplace" data-tooltip="Integrations">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+              <span class="nav-text">Integrations</span>
             </a>
           </div>
 
@@ -12037,7 +12089,9 @@ const App = {
       item.addEventListener('click', (e) => {
         if (!item.dataset.page) return; // has href, let browser navigate normally
         e.preventDefault();
-        this.navigate(item.dataset.page);
+        var navParams = null;
+        if (item.dataset.navParams) { try { navParams = JSON.parse(item.dataset.navParams); } catch(err) {} }
+        this.navigate(item.dataset.page, navParams);
       });
     });
     
@@ -12162,6 +12216,7 @@ const App = {
       case 'system-settings': this.renderUnifiedSettings('features'); break;
       case 'ai-intelligence': this.renderUnifiedSettings('integrations'); break;
       case 'kanban': this.renderKanban(); break;
+      case 'sprints': this.renderSprints(); break;
       case 'reports': this.renderReports(params && params.tab); break;
       case 'ai-hub': this.renderAIHub(); break;
       case 'revenue-dashboard': this.renderRevenueDashboard(); break;
