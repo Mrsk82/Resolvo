@@ -7,7 +7,7 @@
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
-  <meta name="theme-color" content="#f5a623">
+  <meta name="theme-color" content="#10B981">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -9752,10 +9752,10 @@ const App = {
   _showJoinPage: async function(token) {
     var info = await fetch('/api/invite/'+token).then(r=>r.json()).catch(()=>({success:false,error:'Network error'}));
     if (!info.success) {
-      document.body.innerHTML = `<div style="min-height:100vh;background:#f0f2f5;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;"><div style="text-align:center;background:#fff;border-radius:16px;padding:40px;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,0.12);"><div style="font-size:48px;margin-bottom:14px;">⚠️</div><h2 style="margin:0 0 10px;color:#111827;">Invalid Invite</h2><p style="color:#6b7280;">${info.error||'This invite link has expired or is invalid.'}</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 28px;border-radius:8px;background:#f5a623;color:#fff;text-decoration:none;font-weight:700;">Go to Login</a></div></div>`;
+      document.body.innerHTML = `<div style="min-height:100vh;background:#f0f2f5;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;"><div style="text-align:center;background:#fff;border-radius:16px;padding:40px;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,0.12);"><div style="font-size:48px;margin-bottom:14px;">⚠️</div><h2 style="margin:0 0 10px;color:#111827;">Invalid Invite</h2><p style="color:#6b7280;">${info.error||'This invite link has expired or is invalid.'}</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 28px;border-radius:8px;background:#10B981;color:#fff;text-decoration:none;font-weight:700;">Go to Login</a></div></div>`;
       return;
     }
-    var c = info.brandColor||'#f5a623';
+    var c = info.brandColor||'#10B981';
     document.body.innerHTML = `<div style="min-height:100vh;background:#f0f2f5;display:flex;align-items:center;justify-content:center;padding:20px;font-family:-apple-system,sans-serif;"><div style="background:#fff;border-radius:16px;overflow:hidden;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,0.12);"><div style="background:linear-gradient(135deg,${c},${c}cc);padding:36px;text-align:center;"><div style="font-size:36px;margin-bottom:10px;">🎉</div><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">Join ${info.brandName}</h1><p style="margin:8px 0 0;color:rgba(255,255,255,0.85);">You've been invited as <strong>${info.role}</strong></p></div><div style="padding:32px;display:flex;flex-direction:column;gap:14px;"><div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Your Full Name</label><input id="joinName" type="text" placeholder="Jane Smith" style="width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;"></div><div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Email Address</label><input id="joinEmail" type="email" placeholder="jane@company.com" style="width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;"></div><div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Set Password (min 6 chars)</label><input id="joinPwd" type="password" placeholder="Choose a password" style="width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;"></div><div id="joinError" style="display:none;padding:10px;background:#fef2f2;color:#dc2626;border-radius:8px;font-size:12px;"></div><button id="joinBtn" onclick="App._submitJoin('${token}')" style="width:100%;padding:12px;border-radius:10px;background:${c};color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;">Create Account →</button><p style="margin:4px 0 0;font-size:11px;color:#9ca3af;text-align:center;">By creating an account you agree to our <a href="/terms" target="_blank" style="color:#6b7280;">Terms of Service</a> and <a href="/privacy" target="_blank" style="color:#6b7280;">Privacy Policy</a></p></div></div></div>`;
   },
 
@@ -9780,7 +9780,7 @@ const App = {
     // z-index 99999 — must be above login screen (z-index:9999)
     var html = `<div class="modal-overlay" style="z-index:99999!important;" onclick="if(event.target===this)this.remove()">
       <div class="modal" style="max-width:400px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2);">
-        <div style="background:linear-gradient(135deg,#f5a623,#ff6b35);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="background:linear-gradient(135deg,#10B981,#0ea968);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
           <div>
             <div style="font-size:16px;font-weight:800;color:#fff;">🔑 Forgot Password</div>
             <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">We'll send a reset link to your email</div>
@@ -9790,10 +9790,10 @@ const App = {
         <div style="padding:24px;">
           <div style="margin-bottom:14px;">
             <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Email Address</label>
-            <input id="forgotEmail" type="email" placeholder="your@email.com" style="width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#e5e7eb'">
+            <input id="forgotEmail" type="email" placeholder="your@email.com" style="width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#10B981'" onblur="this.style.borderColor='#e5e7eb'">
           </div>
           <div id="forgotMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
-          <button onclick="App._submitForgotPassword()" id="forgotBtn" style="width:100%;padding:12px;border-radius:10px;background:#f5a623;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Send Reset Link →</button>
+          <button onclick="App._submitForgotPassword()" id="forgotBtn" style="width:100%;padding:12px;border-radius:10px;background:#10B981;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Send Reset Link →</button>
           <button onclick="this.closest('.modal-overlay').remove()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:none;border:1px solid #e5e7eb;font-size:13px;cursor:pointer;color:#6b7280;font-family:inherit;">Cancel</button>
         </div>
       </div>
@@ -9917,7 +9917,7 @@ const App = {
         localStorage.setItem('tt_brand_slug', data.user.brandSlug || '');
         localStorage.setItem('tt_brand_name', data.user.brandName || 'Resolvo');
         localStorage.setItem('tt_brand_theme', data.user.brandTheme || 'midnight');
-        localStorage.setItem('tt_brand_color', data.user.brandAccentColor || '#f5a623');
+        localStorage.setItem('tt_brand_color', data.user.brandAccentColor || '#10B981');
         localStorage.setItem('tt_brand_logo', data.user.brandLogoUrl || '');
         this.currentUser = data.user;
         // Use resolved flags delivered at login (tier + overrides already applied server-side)
@@ -9986,7 +9986,7 @@ const App = {
     const theme = user.brandTheme || localStorage.getItem('tt_brand_theme') || 'midnight';
     if (typeof Themes !== 'undefined') Themes.apply(theme, false);
     // Apply accent color
-    const color = user.brandAccentColor || localStorage.getItem('tt_brand_color') || '#f5a623';
+    const color = user.brandAccentColor || localStorage.getItem('tt_brand_color') || '#10B981';
     document.documentElement.style.setProperty('--accent', color);
     document.documentElement.style.setProperty('--accent-dim', color + '22');
     document.documentElement.style.setProperty('--accent-glow', color + '66');
@@ -11235,7 +11235,7 @@ const App = {
               <div class="form-group"><label class="form-label">Admin Email *</label><input id="nb_admin_email" type="email" class="form-input" placeholder="jane@company.com"></div>
               <div class="form-group"><label class="form-label">Initial Password</label><input id="nb_admin_pass" class="form-input" placeholder="Auto-generated if blank"></div>
               <div class="form-group" style="border-top:1px solid var(--border);padding-top:14px;grid-column:1/-1;margin-top:2px;"><label class="form-label" style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Branding</label></div>
-              <div class="form-group"><label class="form-label">Accent Color</label><div style="display:flex;gap:8px;align-items:center;"><input id="nb_color" type="color" value="#f5a623" style="width:40px;height:36px;border:none;border-radius:6px;cursor:pointer;background:none;"><input id="nb_color_hex" class="form-input" value="#f5a623" style="font-family:var(--font-mono);flex:1" oninput="document.getElementById('nb_color').value=this.value"></div></div>
+              <div class="form-group"><label class="form-label">Accent Color</label><div style="display:flex;gap:8px;align-items:center;"><input id="nb_color" type="color" value="#10B981" style="width:40px;height:36px;border:none;border-radius:6px;cursor:pointer;background:none;"><input id="nb_color_hex" class="form-input" value="#10B981" style="font-family:var(--font-mono);flex:1" oninput="document.getElementById('nb_color').value=this.value"></div></div>
               <div class="form-group"><label class="form-label">Theme</label><select id="nb_theme" class="form-select"><option value="midnight">Midnight</option><option value="arctic">Arctic Light</option><option value="uiux">UIUX</option><option value="forest">Forest</option><option value="ocean">Ocean</option><option value="slate">Slate Pro</option></select></div>
               <div class="form-group" style="grid-column:1/-1"><label class="form-label">Logo URL (optional)</label><input id="nb_logo" class="form-input" placeholder="https://..."></div>
               <div style="grid-column:1/-1;background:var(--accent-dim);border:1px solid var(--border-accent);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--text-secondary);">✉ Welcome email with credentials will be sent to the Major Admin if email is enabled in .env</div>
@@ -11265,7 +11265,7 @@ const App = {
       majorAdminEmail: (document.getElementById('nb_admin_email')||{}).value?.trim(),
       majorAdminName: (document.getElementById('nb_admin_name')||{}).value?.trim(),
       majorAdminPassword: (document.getElementById('nb_admin_pass')||{}).value?.trim() || '',
-      accentColor: (document.getElementById('nb_color_hex')||{}).value?.trim() || '#f5a623',
+      accentColor: (document.getElementById('nb_color_hex')||{}).value?.trim() || '#10B981',
       theme: (document.getElementById('nb_theme')||{}).value || 'midnight',
       logoUrl: (document.getElementById('nb_logo')||{}).value?.trim() || ''
     };
@@ -11320,7 +11320,7 @@ const App = {
     localStorage.setItem('tt_brand_slug', data.brand.slug);
     localStorage.setItem('tt_brand_name', data.brand.name);
     localStorage.setItem('tt_brand_theme', data.brand.theme || 'midnight');
-    localStorage.setItem('tt_brand_color', data.brand.accentColor || '#f5a623');
+    localStorage.setItem('tt_brand_color', data.brand.accentColor || '#10B981');
     localStorage.setItem('tt_brand_logo', data.brand.logoUrl || '');
     // Hide owner dashboard, show brand app
     const ownerEl = document.getElementById('owner-dashboard');
@@ -11448,7 +11448,7 @@ const App = {
           <div class="modal-body">
             <div style="display:grid;gap:12px;">
               <div class="form-group"><label class="form-label">Tier</label><select id="eb_tier" class="form-select"><option>Free</option><option>Pro</option><option>Enterprise</option><option>Trial</option></select></div>
-              <div class="form-group"><label class="form-label">Accent Color</label><input id="eb_color" type="color" value="#f5a623" style="width:100%;height:36px;border:none;border-radius:6px;cursor:pointer;"></div>
+              <div class="form-group"><label class="form-label">Accent Color</label><input id="eb_color" type="color" value="#10B981" style="width:100%;height:36px;border:none;border-radius:6px;cursor:pointer;"></div>
               <div class="form-group"><label class="form-label">Theme</label><select id="eb_theme" class="form-select"><option value="midnight">Midnight</option><option value="arctic">Arctic Light</option><option value="uiux">UIUX</option><option value="forest">Forest</option><option value="ocean">Ocean</option><option value="slate">Slate Pro</option></select></div>
               <div class="form-group"><label class="form-label">Logo URL</label><input id="eb_logo" class="form-input" placeholder="https://..."></div>
               <div class="form-group"><label class="form-label">Max Users</label><input id="eb_maxusers" type="number" class="form-input" value="20"></div>
@@ -11941,9 +11941,9 @@ const App = {
             <div class="form-group"><label class="form-label">Your Name</label><input id="fw_admin_name" class="form-input" value="${App._esc(user.name||'')}" placeholder="Your full name"></div>
             <div class="form-group"><label class="form-label">Accent Color</label>
               <div style="display:flex;gap:10px;align-items:center;">
-                <input id="fw_color" type="color" value="${App._esc(user.brandAccentColor||'#f5a623')}" style="width:44px;height:38px;border:none;border-radius:8px;cursor:pointer;">
+                <input id="fw_color" type="color" value="${App._esc(user.brandAccentColor||'#10B981')}" style="width:44px;height:38px;border:none;border-radius:8px;cursor:pointer;">
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  ${['#f5a623','#1558d6','#2ed573','#ff4757','#a29bfe','#fd79a8','#00cec9'].map(c=>`<div onclick="document.getElementById('fw_color').value='${c}'" style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;border:2px solid var(--border);"></div>`).join('')}
+                  ${['#10B981','#1558d6','#2ed573','#ff4757','#a29bfe','#fd79a8','#00cec9'].map(c=>`<div onclick="document.getElementById('fw_color').value='${c}'" style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;border:2px solid var(--border);"></div>`).join('')}
                 </div>
               </div>
             </div>
@@ -11971,7 +11971,7 @@ const App = {
     const setupData = {
       appName: (document.getElementById('fw_name')||{}).value?.trim() || this.currentUser.brandName,
       adminName: (document.getElementById('fw_admin_name')||{}).value?.trim() || this.currentUser.name,
-      accentColor: (document.getElementById('fw_color')||{}).value || '#f5a623',
+      accentColor: (document.getElementById('fw_color')||{}).value || '#10B981',
       theme: (document.getElementById('fw_theme')||{}).value || 'midnight',
       logoUrl: (document.getElementById('fw_logo')||{}).value?.trim() || ''
     };

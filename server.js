@@ -656,15 +656,15 @@ function cr(label,val,vs){return`<tr><td style="padding:12px 20px;border-bottom:
 function shell(c){return`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 16px;"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">${c}<tr><td style="padding:24px 0;text-align:center;"><p style="margin:0;font-size:12px;color:#9ca3af;">Powered by <strong>TechTrack</strong> · Do not reply</p></td></tr></table></td></tr></table></body></html>`;}
 
 function brandWelcomeHTML(user,brandName,brandColor,ip,loginUrl){
-  const c=brandColor||'#f5a623';const rc={Admin:'#7c3aed',Developer:'#b45309',CS:'#1d4ed8',Sales:'#065f46',QA:'#9d174d',Product:'#0f766e'}[user.role]||'#6b7280';
+  const c=brandColor||'#10B981';const rc={Admin:'#7c3aed',Developer:'#b45309',CS:'#1d4ed8',Sales:'#065f46',QA:'#9d174d',Product:'#0f766e'}[user.role]||'#6b7280';
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,${c},${c}cc);border-radius:16px 16px 0 0;"><tr><td style="padding:44px 40px;text-align:center;"><div style="font-size:40px;margin-bottom:14px;">👋</div><h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">Welcome to ${brandName}</h1><p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.85);">Your account is ready.</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:32px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${user.name||user.email.split('@')[0]}</strong>, use the credentials below to log in.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">Login Details</td></tr>${cr('Email','<span style="font-family:monospace;color:#2563eb;">'+user.email+'</span>')}${cr('Password','<span style="font-family:monospace;font-weight:700;color:'+c+';background:'+c+'15;padding:3px 10px;border-radius:6px;">'+ip+'</span>')}${cr('Role','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+rc+'15;color:'+rc+';font-size:12px;font-weight:700;">'+user.role+'</span>')}${cr('URL','<a href="'+loginUrl+'" style="color:#2563eb;font-family:monospace;text-decoration:none;">'+loginUrl+'</a>','color:#2563eb;')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:14px 44px;border-radius:10px;background:${c};color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Log In Now &rarr;</a></td></tr></table></td></tr>`);
 }
 function majorAdminWelcomeHTML(admin,brandName,brandColor,ip,loginUrl){
-  const c=brandColor||'#f5a623';
+  const c=brandColor||'#10B981';
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#1e293b,${c}dd);border-radius:16px 16px 0 0;"><tr><td style="padding:50px 40px 44px;text-align:center;"><div style="font-size:36px;margin-bottom:16px;">🏢</div><h1 style="margin:0;font-size:30px;font-weight:800;color:#fff;">${brandName} is Live</h1><p style="margin:12px 0 0;font-size:15px;color:rgba(255,255,255,0.75);">Your workspace is ready. You are the Administrator.</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:32px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${admin.name}</strong> — log in and invite your team.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">Admin Credentials</td></tr>${cr('URL','<a href="'+loginUrl+'" style="color:#2563eb;font-family:monospace;text-decoration:none;">'+loginUrl+'</a>','color:#2563eb;')}${cr('Email','<span style="font-family:monospace;color:#2563eb;">'+admin.email+'</span>')}${cr('Password','<span style="font-family:monospace;font-weight:700;color:'+c+';background:'+c+'15;padding:3px 10px;border-radius:6px;">'+ip+'</span>')}${cr('Access','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+c+'22;color:'+c+';font-size:12px;font-weight:700;">⭐ Major Admin</span>')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:16px 52px;border-radius:12px;background:linear-gradient(135deg,${c},${c}cc);color:#fff;font-size:16px;font-weight:700;text-decoration:none;">Enter Your Platform &rarr;</a></td></tr></table></td></tr>`);
 }
 function issueAssignedHTML(issue,brandName,brandColor,assigneeName,loginUrl){
-  const c=brandColor||'#f5a623';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[issue.priority]||'#6b7280';
+  const c=brandColor||'#10B981';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[issue.priority]||'#6b7280';
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.4);">${brandName} · Issue Assigned</p><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">${issue.title}</h1><p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.45);font-family:monospace;">${issue.id} · ${issue.module||'General'}</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${assigneeName}</strong>, a new issue has been assigned to you.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">Issue Details</td></tr>${cr('Priority','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+pc+'15;color:'+pc+';font-size:12px;font-weight:700;">'+issue.priority+'</span>')}${cr('Environment',issue.environment||'—')}${cr('SLA',issue.slaHours+'h to resolve')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${c};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue &rarr;</a></td></tr></table></td></tr>`);
 }
 function statusUpdateHTML(issue,newStatus,changedBy,brandName,brandColor,loginUrl){
@@ -673,11 +673,11 @@ function statusUpdateHTML(issue,newStatus,changedBy,brandName,brandColor,loginUr
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,${sc}ee,${sc}99);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">${em}</div><p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.65);">${brandName} · Status Update</p><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Issue ${newStatus}</h1></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 16px;"><p style="font-size:15px;color:#374151;"><strong>${changedBy}</strong> updated the status of an issue you're involved in.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">What Changed</td></tr>${cr('Issue','<strong>'+issue.title+'</strong>')}${cr('ID','<span style="font-family:monospace;color:#6b7280;">'+issue.id+'</span>')}${cr('Status','<span style="display:inline-block;padding:4px 14px;border-radius:20px;background:'+sc+'18;color:'+sc+';font-size:13px;font-weight:700;border:1px solid '+sc+'33;">'+newStatus+'</span>')}${cr('By',changedBy)}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${sc};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue &rarr;</a></td></tr></table></td></tr>`);
 }
 function ticketAssignedHTML(ticket,brandName,brandColor,assigneeName,loginUrl){
-  const c=brandColor||'#f5a623';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[ticket.priority]||'#6b7280';
+  const c=brandColor||'#10B981';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[ticket.priority]||'#6b7280';
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.4);">${brandName} · Ticket Assigned</p><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">${ticket.subject||'(No subject)'}</h1><p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.45);font-family:monospace;">${ticket.id} · ${ticket.channel||ticket.source||'email'}</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${assigneeName}</strong>, a new ticket has been assigned to you.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">Ticket Details</td></tr>${cr('From',ticket.fromName||ticket.from||'—')}${cr('Priority','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+pc+'15;color:'+pc+';font-size:12px;font-weight:700;">'+(ticket.priority||'Medium')+'</span>')}${cr('Status',ticket.status||'open')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${c};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Ticket &rarr;</a></td></tr></table></td></tr>`);
 }
 function slaBreachAlertHTML(item,brandName,brandColor,assigneeName,loginUrl,kind){
-  const c=brandColor||'#f5a623';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[item.priority]||'#6b7280';
+  const c=brandColor||'#10B981';const pc={Critical:'#dc2626',High:'#d97706',Medium:'#ca8a04',Low:'#16a34a'}[item.priority]||'#6b7280';
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#7f1d1d,#450a0a);border-radius:16px 16px 0 0;"><tr><td style="padding:36px 40px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">⏰</div><p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.65);">${brandName} · SLA Breach</p><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">${item.label||'(No subject)'}</h1><p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.45);font-family:monospace;">${item.id}</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:28px 40px 20px;"><p style="font-size:15px;color:#374151;">Hi <strong>${assigneeName}</strong>, this ${kind.toLowerCase()} has breached its SLA deadline and needs attention.</p></td></tr><tr><td style="padding:0 40px 28px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;"><tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;">${kind} Details</td></tr>${cr('Priority','<span style="display:inline-block;padding:3px 12px;border-radius:20px;background:'+pc+'15;color:'+pc+';font-size:12px;font-weight:700;">'+(item.priority||'Medium')+'</span>')}${cr('Status','SLA Breached')}</table></td></tr><tr><td style="padding:0 40px 36px;text-align:center;"><a href="${loginUrl}" style="display:inline-block;padding:13px 40px;border-radius:10px;background:${c};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View ${kind} &rarr;</a></td></tr></table></td></tr>`);
 }
 // Fires the "New ticket assigned to me" email, gated by the assignee's own
@@ -689,7 +689,7 @@ function notifyTicketAssigned(slug,db,ticket,assigneeEmail){
   const prefs=assignee.notifyPrefs||{};
   if(prefs.onNewTicket===false)return;
   const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
-  sendBrandEmail(slug,assignee.email,`[${brand.name||slug}] Ticket Assigned: ${ticket.id}`,ticketAssignedHTML(ticket,brand.name||slug,brand.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL),`Ticket ${ticket.id} assigned`).catch(console.error);
+  sendBrandEmail(slug,assignee.email,`[${brand.name||slug}] Ticket Assigned: ${ticket.id}`,ticketAssignedHTML(ticket,brand.name||slug,brand.accentColor||'#10B981',assignee.name||assignee.email,BASE_URL),`Ticket ${ticket.id} assigned`).catch(console.error);
 }
 function testEmailHTML(){
   return shell(`<tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#10b981,#059669);border-radius:16px 16px 0 0;"><tr><td style="padding:44px 40px;text-align:center;"><div style="font-size:48px;margin-bottom:14px;">✅</div><h1 style="margin:0;font-size:26px;font-weight:800;color:#fff;">Email is Working!</h1><p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.85);">TechTrack email notifications are configured correctly.</p></td></tr></table></td></tr><tr><td><table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:32px 40px 36px;">${[['👤 User added','Welcome email with credentials'],['🎫 Issue assigned','Assignee notified instantly'],['📊 Status changed','Raised-by + assignee updated'],['📣 Announcements','Team-wide alerts']].map(([i,t])=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f3f4f6;"><span style="font-size:13px;font-weight:600;color:#111827;">${i}</span><span style="font-size:13px;color:#6b7280;">${t}</span></div>`).join('')}</td></tr></table></td></tr>`);
@@ -742,7 +742,7 @@ app.post('/api/login',(req,res)=>{
     }
 
     const token=uuidv4(),bdf=db.featureFlags||{};
-    sessions[token]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#f5a623',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:user.role==='Admin',firstLogin:user.firstLogin===true,mustChangePassword:user.mustChangePassword===true,id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+ttl};
+    sessions[token]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#10B981',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:user.role==='Admin',firstLogin:user.firstLogin===true,mustChangePassword:user.mustChangePassword===true,id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+ttl};
     const od=readOwner();const bi=od.brands.findIndex(b=>b.slug===brand.slug);
     if(bi>=0){od.brands[bi].lastActive=nowIST();writeOwner(od);}
     return res.json({success:true,token,isOwner:false,user:sessions[token]});
@@ -805,7 +805,7 @@ app.post('/api/invite/create',async(req,res)=>{
   const{role,expiryHours}=req.body;
   const token=uuidv4().substring(0,12).toUpperCase();
   const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===su.brandSlug)||{};
-  inviteTokens[token]={brandSlug:su.brandSlug,brandName:su.brandName,brandColor:brand.accentColor||'#f5a623',role:role||'Developer',expiresAt:Date.now()+(expiryHours||48)*3600000,createdBy:su.email};
+  inviteTokens[token]={brandSlug:su.brandSlug,brandName:su.brandName,brandColor:brand.accentColor||'#10B981',role:role||'Developer',expiresAt:Date.now()+(expiryHours||48)*3600000,createdBy:su.email};
   const inviteUrl=`${BASE_URL}/join?invite=${token}`;
   res.json({success:true,token,inviteUrl,expiresIn:`${expiryHours||48} hours`});
 });
@@ -1382,7 +1382,7 @@ app.get('/api/owner/activity-feed',ownerOnly,(req,res)=>{
   const allActivity=[];
   for(const b of(owner.brands||[])){
     if(b.status!=='active')continue;
-    try{const db=readBrandDB(b.slug);(db.activityLog||[]).forEach(l=>allActivity.push({...l,brandSlug:b.slug,brandName:b.name,brandColor:b.accentColor||'#F5A623'}));}catch(e){}
+    try{const db=readBrandDB(b.slug);(db.activityLog||[]).forEach(l=>allActivity.push({...l,brandSlug:b.slug,brandName:b.name,brandColor:b.accentColor||'#10B981'}));}catch(e){}
   }
   allActivity.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
   res.json({success:true,activities:allActivity.slice(0,limit),total:allActivity.length});
@@ -1707,7 +1707,7 @@ app.post('/api/owner/brands',ownerOnly,async(req,res)=>{
   fs.mkdirSync(path.join(BRANDS_DIR,cs),{recursive:true});
   const ip=majorAdminPassword||majorAdminEmail.split('@')[0]+'123';
   writeBrandDB(cs,defaultBrandDB(name,majorAdminEmail,majorAdminName,ip));
-  const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#f5a623',theme:theme||'midnight',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:nowIST(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
+  const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#10B981',theme:theme||'midnight',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:nowIST(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
   owner.brands=owner.brands||[];owner.brands.push(brand);ownerAuditLog(owner,'brand_created',{brandSlug:cs,brandName:name},req.owner.email);writeOwner(owner);
   await sendEmail(majorAdminEmail,`Your ${name} TechTrack Platform is Ready`,majorAdminWelcomeHTML({email:majorAdminEmail,name:majorAdminName||majorAdminEmail.split('@')[0]},name,accentColor,ip,BASE_URL),`Platform: ${BASE_URL} | Email: ${majorAdminEmail} | Pass: ${ip}`);
   res.json({success:true,brand,initialPassword:ip});
@@ -1729,7 +1729,7 @@ app.post('/api/owner/impersonate/:slug',ownerOnly,(req,res)=>{
   if(!brand)return res.json({success:false,error:'Not found.'});if(brand.status!=='active')return res.json({success:false,error:'Not active.'});
   let bdf={};try{bdf=readBrandDB(brand.slug).featureFlags||{};}catch(e){}
   const token=uuidv4();
-  sessions[token]={isOwner:false,isImpersonating:true,impersonatedBy:req.owner.email,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#f5a623',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:true,id:'GHOST',email:req.owner.email,name:'👁 '+req.owner.name+' (Owner)',team:'Owner',role:'Admin',active:true};
+  sessions[token]={isOwner:false,isImpersonating:true,impersonatedBy:req.owner.email,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#10B981',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:true,id:'GHOST',email:req.owner.email,name:'👁 '+req.owner.name+' (Owner)',team:'Owner',role:'Admin',active:true};
   const od=readOwner();ownerAuditLog(od,'brand_impersonated',{brandSlug:brand.slug,brandName:brand.name},req.owner.email);writeOwner(od);
   res.json({success:true,token,brand,user:sessions[token]});
 });
@@ -1802,7 +1802,7 @@ app.post('/api/call',async(req,res)=>{
       const uid=generateId('USR'),ip=ud.password||ud.email.split('@')[0]+'123';
       const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:nowIST(),passwordHash:ip,firstLogin:true};
       db.users=db.users||[];db.users.push(nu);wDB(db);
-      await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
+      await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
       return{success:true,userId:uid};
     },
     // Bulk import from a parsed CSV — rows: [{name,email,team,role,skill}].
@@ -1829,7 +1829,7 @@ app.post('/api/call',async(req,res)=>{
         const nu={id:generateId('USR'),email,name,team:(row.team||'').trim(),role,skill:(row.skill||'').trim(),slackId:'',maxTickets:10,active:true,createdDate:nowIST(),passwordHash:tempPass,firstLogin:true};
         db.users.push(nu);existingEmails.add(email);imported++;
         if(sendWelcomeEmails){
-          sendBrandEmail(slug,email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#f5a623',tempPass,BASE_URL),`Login: ${BASE_URL} | Email: ${email} | Pass: ${tempPass}`).catch(()=>{});
+          sendBrandEmail(slug,email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',tempPass,BASE_URL),`Login: ${BASE_URL} | Email: ${email} | Pass: ${tempPass}`).catch(()=>{});
           emailsSent++;
         }
       }
@@ -1857,7 +1857,7 @@ app.post('/api/call',async(req,res)=>{
         }
       })();
       const o2=readOwner(),b2=(o2.brands||[]).find(b=>b.slug===slug)||{};
-      if(issue.assignedTo){const db2=rDB();const assignee=(db2.users||[]).find(u=>u.email===issue.assignedTo);if(assignee){const prefs=assignee.notifyPrefs||{};if(prefs.onAssigned!==false)sendBrandEmail(slug,assignee.email,`[${su.brandName}] Issue Assigned: ${issueId}`,issueAssignedHTML(issue,su.brandName,b2.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL),`Issue ${issueId} assigned`).catch(console.error);}}
+      if(issue.assignedTo){const db2=rDB();const assignee=(db2.users||[]).find(u=>u.email===issue.assignedTo);if(assignee){const prefs=assignee.notifyPrefs||{};if(prefs.onAssigned!==false)sendBrandEmail(slug,assignee.email,`[${su.brandName}] Issue Assigned: ${issueId}`,issueAssignedHTML(issue,su.brandName,b2.accentColor||'#10B981',assignee.name||assignee.email,BASE_URL),`Issue ${issueId} assigned`).catch(console.error);}}
       // Webhook on issue created (brand-level)
       const whUrl=(b2.settings&&b2.settings.WEBHOOK_ALERT_URL)||((rDB().settings||{}).WEBHOOK_ALERT_URL)||'';
       fireWebhook(whUrl,{event:'issue.created',issueId,title:issue.title,priority:issue.priority,brandName:su.brandName,raisedBy:su.email,url:BASE_URL}).catch(()=>{});
@@ -1883,7 +1883,7 @@ app.post('/api/call',async(req,res)=>{
         const usr=(db3.users||[]).find(u=>u.email===email);const prefs=(usr&&usr.notifyPrefs)||{};
         if(prefs.onStatusChange===false)continue;
         if(prefs.onCriticalOnly&&issue.priority!=='Critical')continue;
-        sendBrandEmail(slug,email,`[${su.brandName}] ${issueId} → ${newStatus}`,statusUpdateHTML(issue,newStatus,su.name||su.email,su.brandName,b.accentColor||'#f5a623',BASE_URL),`Issue ${issueId}: ${newStatus}`).catch(()=>{});
+        sendBrandEmail(slug,email,`[${su.brandName}] ${issueId} → ${newStatus}`,statusUpdateHTML(issue,newStatus,su.name||su.email,su.brandName,b.accentColor||'#10B981',BASE_URL),`Issue ${issueId}: ${newStatus}`).catch(()=>{});
       }
       return{success:true};
     },
@@ -1926,7 +1926,7 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const token=uuidv4().substring(0,12).toUpperCase();
       const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
-      inviteTokens[token]={brandSlug:slug,brandName:su.brandName,brandColor:brand.accentColor||'#f5a623',role:role||'Developer',expiresAt:Date.now()+(expiryHours||48)*3600000,createdBy:su.email};
+      inviteTokens[token]={brandSlug:slug,brandName:su.brandName,brandColor:brand.accentColor||'#10B981',role:role||'Developer',expiresAt:Date.now()+(expiryHours||48)*3600000,createdBy:su.email};
       return{success:true,token,inviteUrl:`${BASE_URL}/join?invite=${token}`,expiresIn:`${expiryHours||48} hours`};
     },
     // Session info (for expiry check from frontend)
@@ -1935,7 +1935,7 @@ app.post('/api/call',async(req,res)=>{
       const s=t?sessions[t]:null;
       return{success:true,expiresAt:s?s.expiresAt:null,expiresIn:s&&s.expiresAt?Math.max(0,Math.round((s.expiresAt-Date.now())/60000)):0};
     },
-    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#f5a623',user.passwordHash,BASE_URL),`Login: ${BASE_URL}`);return{success:true};},
+    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#10B981',user.passwordHash,BASE_URL),`Login: ${BASE_URL}`);return{success:true};},
     sendTestEmail:async to=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};await sendBrandEmail(slug,to||su.email,`✅ TechTrack Email Test`,testEmailHTML(),'Email test OK');return{success:true};},
     completeBrandSetup:async sd=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const db=rDB();if(sd.appName){db.settings=db.settings||{};db.settings.APP_NAME=sd.appName;}const ui=(db.users||[]).findIndex(u=>u.email===su.email);if(ui>=0){db.users[ui].firstLogin=false;if(sd.adminName)db.users[ui].name=sd.adminName;}wDB(db);const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){if(sd.accentColor)o.brands[bi].accentColor=sd.accentColor;if(sd.theme)o.brands[bi].theme=sd.theme;if(sd.logoUrl!==undefined)o.brands[bi].logoUrl=sd.logoUrl;if(sd.appName)o.brands[bi].name=sd.appName;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])Object.assign(sessions[t],{brandName:sd.appName||su.brandName,brandAccentColor:sd.accentColor||su.brandAccentColor,brandTheme:sd.theme||su.brandTheme,firstLogin:false});return{success:true};},
     updateBrandProfile:async updates=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi<0)return{success:false,error:'Not found'};['name','logoUrl','accentColor','theme'].forEach(k=>{if(updates[k]!==undefined)o.brands[bi][k]=updates[k];});writeOwner(o);return{success:true};},
@@ -2037,7 +2037,7 @@ app.post('/api/call',async(req,res)=>{
       wDB(db);
       if(!isNote&&ticket.from&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
-        const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#F5A623';
+        const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#10B981';
         const replySubject=`Re: [${brandName}] ${ticket.subject}`;
         const replyHtml=`<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#202124;">
 <div style="white-space:pre-wrap;">${replyText}</div>
@@ -2091,7 +2091,7 @@ app.post('/api/call',async(req,res)=>{
           if(mentionedUser&&mentionedUser.notifyPrefs?.onMention===false)return; // opted out — see getNotifyPrefs
           if(mentionedUser){
             sendBrandEmail(slug,mentionEmail,`[${su.brandName}] You were mentioned in ${issueId}`,
-              `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:30px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,${b.accentColor||'#f5a623'},${b.accentColor||'#f5a623'}cc);padding:32px;text-align:center;"><div style="font-size:32px;margin-bottom:10px;">💬</div><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">You were mentioned</h1></div><div style="padding:28px 32px;"><p style="color:#374151;margin:0 0 14px;">Hi <strong>${mentionedUser.name||mentionEmail}</strong>, <strong>${su.name||su.email}</strong> mentioned you in a comment on <strong>${issue?issue.title:issueId}</strong>.</p><div style="background:#f9fafb;border-radius:10px;padding:14px 16px;border-left:4px solid ${b.accentColor||'#f5a623'};margin-bottom:20px;"><p style="margin:0;font-size:13px;color:#374151;font-style:italic;">"${ct.substring(0,200)}${ct.length>200?'...':''}"</p></div><div style="text-align:center;"><a href="${BASE_URL}" style="display:inline-block;padding:12px 36px;border-radius:8px;background:${b.accentColor||'#f5a623'};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue →</a></div></div></div></body></html>`,
+              `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:30px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,${b.accentColor||'#10B981'},${b.accentColor||'#10B981'}cc);padding:32px;text-align:center;"><div style="font-size:32px;margin-bottom:10px;">💬</div><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">You were mentioned</h1></div><div style="padding:28px 32px;"><p style="color:#374151;margin:0 0 14px;">Hi <strong>${mentionedUser.name||mentionEmail}</strong>, <strong>${su.name||su.email}</strong> mentioned you in a comment on <strong>${issue?issue.title:issueId}</strong>.</p><div style="background:#f9fafb;border-radius:10px;padding:14px 16px;border-left:4px solid ${b.accentColor||'#10B981'};margin-bottom:20px;"><p style="margin:0;font-size:13px;color:#374151;font-style:italic;">"${ct.substring(0,200)}${ct.length>200?'...':''}"</p></div><div style="text-align:center;"><a href="${BASE_URL}" style="display:inline-block;padding:12px 36px;border-radius:8px;background:${b.accentColor||'#10B981'};color:#fff;font-size:14px;font-weight:700;text-decoration:none;">View Issue →</a></div></div></div></body></html>`,
               `${su.name||su.email} mentioned you: "${ct.substring(0,100)}"`
             ).catch(()=>{});
           }
@@ -8770,7 +8770,7 @@ function runBackgroundJobs(){
             const assignee=(db.users||[]).find(u=>u.email===ticket.assignedTo);
             if(assignee&&assignee.notifyPrefs?.onSLABreach!==false){
               sendBrandEmail(brand.slug,assignee.email,`[${brand.name}] SLA Breached: ${ticket.id}`,
-                slaBreachAlertHTML({id:ticket.id,label:ticket.subject,priority:ticket.priority},brand.name,brand.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL,'Ticket'),
+                slaBreachAlertHTML({id:ticket.id,label:ticket.subject,priority:ticket.priority},brand.name,brand.accentColor||'#10B981',assignee.name||assignee.email,BASE_URL,'Ticket'),
                 `Ticket ${ticket.id} has breached its SLA`).catch(e=>console.error('[SLA] Email error:',e.message));
             }
           }
@@ -8786,7 +8786,7 @@ function runBackgroundJobs(){
             const assignee=(db.users||[]).find(u=>u.email===issue.assignedTo);
             if(assignee&&assignee.notifyPrefs?.onSLABreach!==false){
               sendBrandEmail(brand.slug,assignee.email,`[${brand.name}] SLA Breached: ${issue.id}`,
-                slaBreachAlertHTML({id:issue.id,label:issue.title,priority:issue.priority},brand.name,brand.accentColor||'#f5a623',assignee.name||assignee.email,BASE_URL,'Issue'),
+                slaBreachAlertHTML({id:issue.id,label:issue.title,priority:issue.priority},brand.name,brand.accentColor||'#10B981',assignee.name||assignee.email,BASE_URL,'Issue'),
                 `Issue ${issue.id} has breached its SLA`).catch(e=>console.error('[SLA] Email error:',e.message));
             }
           }
@@ -9881,7 +9881,7 @@ function getSessionUserWithToken(req){
       const db=readBrandDB(brand.slug);
       const user=(db.users||[]).find(u=>u.apiTokenHash===hash&&u.active);
       if(user){
-        return{id:user.id,email:user.email,name:user.name||user.email,role:user.role,brandSlug:brand.slug,brandName:brand.name||'',brandTier:brand.tier||'Free',brandAccentColor:brand.accentColor||'#F5A623',isOwner:false,tokenAuth:true};
+        return{id:user.id,email:user.email,name:user.name||user.email,role:user.role,brandSlug:brand.slug,brandName:brand.name||'',brandTier:brand.tier||'Free',brandAccentColor:brand.accentColor||'#10B981',isOwner:false,tokenAuth:true};
       }
     }catch(e){}
   }
