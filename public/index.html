@@ -8436,11 +8436,16 @@ tbody tr.row-selected {
           <div class="kbd-section">
             <div class="kbd-section-title">Actions</div>
             <div class="kbd-row"><span class="kbd-desc">New ticket</span><div class="kbd-keys"><span class="kbd">C</span></div></div>
-            <div class="kbd-row"><span class="kbd-desc">Quick capture</span><div class="kbd-keys"><span class="kbd">Q</span></div></div>
             <div class="kbd-row"><span class="kbd-desc">Open search</span><div class="kbd-keys"><span class="kbd">/</span></div></div>
             <div class="kbd-row"><span class="kbd-desc">Toggle filters</span><div class="kbd-keys"><span class="kbd">F</span></div></div>
-            <div class="kbd-row"><span class="kbd-desc">Mark resolved</span><div class="kbd-keys"><span class="kbd">R</span></div></div>
-            <div class="kbd-row"><span class="kbd-desc">Assign to me</span><div class="kbd-keys"><span class="kbd">A</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Show shortcuts</span><div class="kbd-keys"><span class="kbd">?</span></div></div>
+          </div>
+          <div class="kbd-section">
+            <div class="kbd-section-title">In an open ticket</div>
+            <div class="kbd-row"><span class="kbd-desc">Reply</span><div class="kbd-keys"><span class="kbd">R</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Internal note</span><div class="kbd-keys"><span class="kbd">N</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Assign</span><div class="kbd-keys"><span class="kbd">A</span></div></div>
+            <div class="kbd-row"><span class="kbd-desc">Resolve</span><div class="kbd-keys"><span class="kbd">E</span></div></div>
           </div>
           <div class="kbd-section">
             <div class="kbd-section-title">Navigation</div>
@@ -16196,6 +16201,7 @@ const App = {
     }
     if (!tRes || !tRes.success) { area.innerHTML = '<div class="empty-state"><p>Ticket not found</p></div>'; return; }
     var t = tRes.ticket;
+    self._activeTicketId = ticketId;
     self.callAsync('markTicketViewed', ticketId).catch(function(){});
     var users = (usersRes && usersRes.success) ? usersRes.users : [];
     var devs = (devsRes && devsRes.success) ? devsRes.developers : [];
@@ -16305,6 +16311,7 @@ const App = {
                 ${self.currentUser&&self.currentUser.role==='Admin'?`<button onclick="App._bumpTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>`:''}
                 ${self.currentUser&&self.currentUser.role==='Admin'&&t.assignedTo?`<button onclick="App._returnTicketToQueue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Return to unassigned queue">↩ Unassign</button>`:''}
                 ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`}
+                <button onclick="App._toggleTicketPanel()" title="Collapse/expand customer panel" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;width:30px;height:30px;font-size:13px;cursor:pointer;">${localStorage.getItem('tt_ticket_panel_collapsed')==='1'?'◀':'▶'}</button>
               </div>
             </div>
           </div>
@@ -16364,7 +16371,7 @@ const App = {
         </div>
 
         <!-- RIGHT sidebar: ticket info -->
-        <div class="tt-split-side" style="width:272px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
+        <div class="tt-split-side" id="ticketRightPanel" style="width:272px;flex-shrink:0;display:${localStorage.getItem('tt_ticket_panel_collapsed')==='1'?'none':'flex'};flex-direction:column;overflow-y:auto;background:var(--bg-surface);">
           <style>
             .tkt-sb-group{border-bottom:1px solid var(--border);}
             .tkt-sb-group>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:13px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);user-select:none;}
@@ -17190,6 +17197,15 @@ const App = {
     box.value = text;
     box.focus();
     this.showToast('Suggestion inserted — feel free to edit before sending', 'success');
+  },
+  _toggleTicketPanel: function() {
+    var panel = document.getElementById('ticketRightPanel');
+    if (!panel) return;
+    var collapsed = panel.style.display === 'none';
+    panel.style.display = collapsed ? 'flex' : 'none';
+    localStorage.setItem('tt_ticket_panel_collapsed', collapsed ? '0' : '1');
+    var btn = event && event.target && event.target.closest('button');
+    if (btn) btn.textContent = collapsed ? '▶' : '◀';
   },
   _dismissAISuggest: function(ticketId) {
     var box = document.getElementById('aiSuggestBox_' + ticketId);
@@ -27495,6 +27511,26 @@ var Keyboard = {
       } else if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         if (window.CmdPalette) CmdPalette.open();
+      } else if (App._currentPage === 'ticket-detail' && App._activeTicketId && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Ticket workspace shortcuts — only active while a ticket is open,
+        // and only when focus isn't already in a field (checked above).
+        var tid = App._activeTicketId;
+        if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          App._switchReplyTab('reply');
+          var rt = document.getElementById('replyText'); if (rt) rt.focus();
+        } else if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          App._switchReplyTab('note');
+          var nt = document.getElementById('replyText'); if (nt) nt.focus();
+        } else if (e.key === 'a' || e.key === 'A') {
+          e.preventDefault();
+          var assignSel = document.querySelector('#ticketRightPanel select[onchange*="assignTicket"]');
+          if (assignSel) { assignSel.focus(); if (assignSel.showPicker) try { assignSel.showPicker(); } catch(err) {} }
+        } else if (e.key === 'e' || e.key === 'E') {
+          e.preventDefault();
+          App._ticketStatusAction(tid, 'resolved');
+        }
       }
     });
   },
