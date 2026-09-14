@@ -8156,7 +8156,6 @@ tbody tr.row-selected {
               autocomplete="off"
               spellcheck="false"
             >
-            <span class="ai-shortcut">Ctrl+K</span>
             <!-- Result panel renders here -->
             <div id="aiPanel" style="display:none"></div>
             <div class="ai-backdrop" id="aiBackdrop" style="display:none" onclick="AI.close()"></div>
@@ -8189,7 +8188,7 @@ tbody tr.row-selected {
               </button>
 
               <!-- Command palette trigger -->
-              <button class="notif-bell-btn" onclick="CmdPalette && CmdPalette.open()" title="Command palette (Ctrl+P)" data-tt="Command palette">
+              <button class="notif-bell-btn" onclick="CmdPalette && CmdPalette.open()" title="Command palette (Ctrl+K)" data-tt="Command palette (Ctrl+K)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
               </button>
 
@@ -8940,14 +8939,6 @@ const AI = {
 
     bar.addEventListener('focus', function() {
       if (!bar.value.trim()) self.showSuggestions();
-    });
-
-    document.addEventListener('keydown', function(e) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        bar.focus();
-        if (!bar.value.trim()) self.showSuggestions();
-      }
     });
 
     this.checkKeyOnInit();
@@ -27398,8 +27389,7 @@ var Keyboard = {
         e.preventDefault(); Keyboard._toggleKbdHelp();
       } else if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        var bar = document.getElementById('aiBar');
-        if (bar) { bar.focus(); bar.select(); }
+        if (window.CmdPalette) CmdPalette.open();
       }
     });
   },
@@ -27704,6 +27694,8 @@ var CmdPalette = {
         if (action.startsWith('issue:')) {
           var id = action.replace('issue:','');
           SlidePanel.open(id);
+        } else if (action.startsWith('settings:')) {
+          App.navigate('settings', { tab: action.replace('settings:','') });
         } else {
           App.navigate(action);
         }
@@ -27725,10 +27717,19 @@ var CmdPalette = {
     // Quick nav matches
     var navItems = [
       { title:'Dashboard', sub:'Overview & KPIs', action:'dashboard', icon:'⌂' },
+      { title:'Ticket Inbox', sub:'Customer conversations', action:'ticket-inbox', icon:'✉' },
       { title:'All Issues', sub:'Browse issue list', action:'issue-list', icon:'≡' },
       { title:'Kanban Board', sub:'Drag-drop workflow', action:'kanban', icon:'▦' },
+      { title:'Sprints', sub:'Sprint planning & burndown', action:'sprints', icon:'⏱' },
       { title:'My Issues', sub:'Your assigned issues', action:'my-issues', icon:'👤' },
-      { title:'Create Ticket', sub:'Report a new issue', action:'create', icon:'+' },
+      { title:'Create Issue', sub:'Report a new issue', action:'create', icon:'+' },
+      { title:'Reports', sub:'Support & issue reports', action:'reports', icon:'▤' },
+      { title:'Analytics', sub:'Trends & performance', action:'analytics', icon:'📈' },
+      { title:'Workload', sub:'Team capacity view', action:'workload', icon:'⚖' },
+      { title:'Knowledge Base', sub:'Published help articles', action:'settings:knowledge-base', icon:'📖' },
+      { title:'Automation Rules', sub:'WHEN → IF → THEN rules', action:'settings:automation', icon:'⚡' },
+      { title:'Escalation Rules', sub:'Auto-escalate aging tickets', action:'settings:escalation', icon:'⚠' },
+      { title:'Settings', sub:'Workspace configuration', action:'settings', icon:'⚙' },
       { title:'Focus Mode', sub:'Hide sidebar', action:'focus', icon:'◎' },
       { title:'Switch Theme', sub:'Change color theme', action:'theme', icon:'◑' },
       { title:'Keyboard Shortcuts', sub:'View all shortcuts', action:'shortcuts', icon:'⌨' },
