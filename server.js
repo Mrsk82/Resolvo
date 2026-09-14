@@ -4370,6 +4370,23 @@ app.post('/api/call',async(req,res)=>{
       const vip=db.vipConfig||{};
       const fromLow=email.toLowerCase();
       const isVIP=(vip.emails||[]).some(e=>fromLow===e.toLowerCase())||(vip.domains||[]).some(d=>fromLow.endsWith('@'+d.toLowerCase()));
+      // CRM bridge — deals store the contact as a free-text name (not a
+      // foreign key), so this is a best-effort match: find the CRM contact
+      // by email, then find deals whose contact name matches theirs.
+      // Returns nothing (not an error) if the CRM module has no record of
+      // this person yet — most tickets won't have a CRM counterpart.
+      let crmContact=null,relatedDeals=[];
+      try{
+        const crm=_openDB(su.brandSlug);
+        const contacts=crm.prepare('SELECT data FROM crm_contacts').all().map(r=>JSON.parse(r.data));
+        const contact=contacts.find(c=>(c.email||'').toLowerCase()===fromLow);
+        if(contact){
+          crmContact={id:contact.id,name:contact.name,company:contact.company||null};
+          const deals=crm.prepare('SELECT data FROM crm_deals').all().map(r=>JSON.parse(r.data));
+          relatedDeals=deals.filter(d=>d.contact&&contact.name&&d.contact.toLowerCase()===contact.name.toLowerCase()&&d.stage!=='lost')
+            .map(d=>({id:d.id,title:d.title,stage:d.stage,value:d.value||0,expectedClose:d.expectedClose||null}));
+        }
+      }catch(e){}
       return{success:true,
         email,linkedIdentifiers:linked,profileId:profile?profile.id:null,
         totalTickets:tickets.length,resolvedTickets:resolved.length,
@@ -4377,7 +4394,7 @@ app.post('/api/call',async(req,res)=>{
         avgCSAT,avgFirstResponseMinutes:avgFRT,isVIP,
         lastContact:tickets.length?tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate))[0].createdDate:null,
         recentTickets:tickets.slice().sort((a,b)=>new Date(b.createdDate)-new Date(a.createdDate)).slice(0,5).map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,createdDate:t.createdDate,csatRating:t.csatRating,channel:t.channel||'email'})),
-        notes
+        notes,crmContact,relatedDeals
       };
     },
 
