@@ -22768,31 +22768,35 @@ const App = {
     var area = document.getElementById('contentArea');
 
     var TABS = [
-      {id:'my-issues',    icon:'👤', label:'My Issues',           adminOnly:false},
-      {id:'all-issues',   icon:'🎫', label:'All Issues',           adminOnly:true},
-      {id:'user-level',   icon:'👥', label:'User Performance',     adminOnly:true},
-      {id:'email-tickets',icon:'📬', label:'Email Ticketing',      adminOnly:true},
-      {id:'leaderboard',  icon:'🏆', label:'Agent Leaderboard',    adminOnly:true},
-      {id:'first-resp',   icon:'⚡', label:'First Response',       adminOnly:true},
-      {id:'heatmap',      icon:'🗓', label:'Ticket Heatmap',       adminOnly:true},
-      {id:'forecast',     icon:'📈', label:'Volume Forecast',      adminOnly:true},
-      {id:'queue-report', icon:'🔄', label:'Queue Performance',     adminOnly:true},
-      {id:'follow-ups',   icon:'⏰', label:'Follow-ups Due',         adminOnly:false},
-      {id:'appointments', icon:'📅', label:'Appointments',           adminOnly:false},
-      {id:'csat',         icon:'⭐', label:'CSAT / Satisfaction',     adminOnly:true},
-      {id:'impact',       icon:'💥', label:'Issue Impact',           adminOnly:true},
-      {id:'coaching',     icon:'🎯', label:'Agent Coaching',         adminOnly:true},
-      {id:'cost',         icon:'💰', label:'Cost Report',            adminOnly:true},
-      {id:'approvals',    icon:'✅', label:'Pending Approvals',      adminOnly:false},
-      {id:'cust-sentiment',   icon:'😊', label:'Customer Sentiment',    adminOnly:true},
-      {id:'agent-scorecard',  icon:'📇', label:'Agent Scorecard',       adminOnly:true},
-      {id:'channel-perf',     icon:'📡', label:'Channel Performance',   adminOnly:true},
-      {id:'repeat-customers', icon:'🔁', label:'Repeat Customers',      adminOnly:true},
+      {id:'my-issues',    icon:'👤', label:'My Issues',           adminOnly:false, group:'My Reports'},
+      {id:'follow-ups',   icon:'⏰', label:'Follow-ups Due',         adminOnly:false, group:'My Reports'},
+      {id:'appointments', icon:'📅', label:'Appointments',           adminOnly:false, group:'My Reports'},
+      {id:'approvals',    icon:'✅', label:'Pending Approvals',      adminOnly:false, group:'My Reports'},
+      {id:'all-issues',   icon:'🎫', label:'All Issues',           adminOnly:true, group:'Issues'},
+      {id:'email-tickets',icon:'📬', label:'Email Ticketing',      adminOnly:true, group:'Issues'},
+      {id:'heatmap',      icon:'🗓', label:'Ticket Heatmap',       adminOnly:true, group:'Issues'},
+      {id:'user-level',   icon:'👥', label:'User Performance',     adminOnly:true, group:'Team Performance'},
+      {id:'leaderboard',  icon:'🏆', label:'Agent Leaderboard',    adminOnly:true, group:'Team Performance'},
+      {id:'agent-scorecard',  icon:'📇', label:'Agent Scorecard',       adminOnly:true, group:'Team Performance'},
+      {id:'coaching',     icon:'🎯', label:'Agent Coaching',         adminOnly:true, group:'Team Performance'},
+      {id:'queue-report', icon:'🔄', label:'Queue Performance',     adminOnly:true, group:'Team Performance'},
+      {id:'first-resp',   icon:'⚡', label:'First Response',       adminOnly:true, group:'SLA & Quality'},
+      {id:'csat',         icon:'⭐', label:'CSAT / Satisfaction',     adminOnly:true, group:'SLA & Quality'},
+      {id:'impact',       icon:'💥', label:'Issue Impact',           adminOnly:true, group:'SLA & Quality'},
+      {id:'cust-sentiment',   icon:'😊', label:'Customer Sentiment',    adminOnly:true, group:'Customer Insights'},
+      {id:'repeat-customers', icon:'🔁', label:'Repeat Customers',      adminOnly:true, group:'Customer Insights'},
+      {id:'channel-perf',     icon:'📡', label:'Channel Performance',   adminOnly:true, group:'Customer Insights'},
+      {id:'forecast',     icon:'📈', label:'Volume Forecast',      adminOnly:true, group:'Trends & Cost'},
+      {id:'cost',         icon:'💰', label:'Cost Report',            adminOnly:true, group:'Trends & Cost'},
     ].filter(function(t){return !t.adminOnly || isAdmin;});
 
-    var tabsHtml = TABS.map(function(t){
-      var active = t.id === self._reportTab;
-      return '<option value="'+t.id+'"'+(active?' selected':'')+'>'+t.icon+'  '+t.label+'</option>';
+    var groupOrderRpt = ['My Reports','Issues','Team Performance','SLA & Quality','Customer Insights','Trends & Cost'];
+    var tabsByGroup = {}; TABS.forEach(function(t){ (tabsByGroup[t.group]=tabsByGroup[t.group]||[]).push(t); });
+    var tabsHtml = groupOrderRpt.filter(function(g){return tabsByGroup[g]&&tabsByGroup[g].length;}).map(function(g){
+      return '<optgroup label="'+g+'">'+tabsByGroup[g].map(function(t){
+        var active = t.id === self._reportTab;
+        return '<option value="'+t.id+'"'+(active?' selected':'')+'>'+t.icon+'  '+t.label+'</option>';
+      }).join('')+'</optgroup>';
     }).join('');
 
     area.innerHTML =
