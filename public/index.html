@@ -4232,6 +4232,12 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
     left: 0 !important;
     box-shadow: 4px 0 24px rgba(0,0,0,0.5);
   }
+  .sidebar-backdrop {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 290;
+  }
+  .sidebar-backdrop.open { display: block; }
   .main-content {
     margin-left: 0 !important;
     width: 100% !important;
@@ -4271,6 +4277,7 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
 
 /* === SIDEBAR ENHANCEMENTS === */
 .sidebar { transition: width 0.28s cubic-bezier(0.4,0,0.2,1); }
+.sidebar-backdrop { display: none; }
 .sidebar-toggle {
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
@@ -8137,7 +8144,8 @@ tbody tr.row-selected {
           </div>
         </div>
       </aside>
-      
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
       <!-- Main Content -->
       <main class="main-content" id="mainContent">
         <!-- Announcement banner — shown by admin via App.showAnnouncement() -->
@@ -8147,6 +8155,7 @@ tbody tr.row-selected {
         </div>
         <header class="topbar">
           <div class="topbar-left">
+            <button class="topbar-hamburger" id="topbarHamburger" title="Open menu" aria-label="Open menu"><span></span><span></span><span></span></button>
             <h1 class="page-title" id="pageTitle">Dashboard</h1>
             <div class="breadcrumb" id="breadcrumb"></div>
           </div>
@@ -12095,6 +12104,27 @@ const App = {
     // Sidebar toggle
     document.getElementById('sidebarToggle').addEventListener('click', () => {
       document.getElementById('sidebar').classList.toggle('collapsed');
+    });
+
+    // Mobile: hamburger opens the sidebar as a slide-in drawer over the
+    // page (the sidebar CSS for this — position:fixed, left:-260px,
+    // .open{left:0} — already existed; only the trigger button was missing).
+    var mobileHamburger = document.getElementById('topbarHamburger');
+    var mobileBackdrop = document.getElementById('sidebarBackdrop');
+    var mobileSidebarEl = document.getElementById('sidebar');
+    function closeMobileSidebar() {
+      mobileSidebarEl.classList.remove('open');
+      mobileBackdrop.classList.remove('open');
+    }
+    if (mobileHamburger) {
+      mobileHamburger.addEventListener('click', () => {
+        mobileSidebarEl.classList.toggle('open');
+        mobileBackdrop.classList.toggle('open');
+      });
+    }
+    if (mobileBackdrop) mobileBackdrop.addEventListener('click', closeMobileSidebar);
+    mobileSidebarEl.addEventListener('click', (e) => {
+      if (e.target.closest('.nav-item')) closeMobileSidebar();
     });
     
     // Check SLA alerts
