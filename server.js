@@ -2344,6 +2344,12 @@ app.post('/api/call',async(req,res)=>{
         if(au!==bu)return au?-1:1;
         return new Date(b.createdDate)-new Date(a.createdDate);
       });
+      const nowMs=Date.now();
+      const isSnoozed=t=>t.snoozedUntil&&new Date(t.snoozedUntil).getTime()>nowMs;
+      // Snoozed tickets stay out of every normal view (including 'all')
+      // until they wake up on their own — same idea as Gmail snooze. The
+      // one exception is filters.status==='snoozed' itself, handled below.
+      if(!filters||filters.status!=='snoozed')tickets=tickets.filter(t=>!isSnoozed(t));
       if(filters){
         // My Queue filter — assigned to current user, not resolved/closed
         // Case-insensitive match to handle any email casing differences
@@ -2353,6 +2359,7 @@ app.post('/api/call',async(req,res)=>{
         }
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
+        else if(filters.status==='snoozed')tickets=tickets.filter(isSnoozed);
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
         if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
@@ -2390,7 +2397,7 @@ app.post('/api/call',async(req,res)=>{
       const openTickets=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status));
       const slaAtRisk=openTickets.filter(t=>{const s=getTicketSLAInfo(db,t);return s.slaBreached||s.slaRisk;}).length;
       const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,slaAtRisk,unread:unreadCount}};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,unread:unreadCount}};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -4603,6 +4610,87 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:'sla_resumed',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`SLA extended by ${Math.round(extraMs/60000)}m`});
       wDB(db);return{success:true};
+    },
+
+    // Snooze — hide a ticket from every normal inbox view until `until`
+    // (ISO datetime), same idea as Gmail snooze. getTickets filters snoozed
+    // tickets out automatically and re-surfaces them once `until` passes —
+    // no cron/sweep needed, it's just a filter on the current time.
+    snoozeTicket:(ticketId,until)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      const untilDate=new Date(until);
+      if(isNaN(untilDate.getTime())||untilDate.getTime()<=Date.now())return{success:false,error:'Pick a time in the future'};
+      db.tickets[idx].snoozedUntil=untilDate.toISOString();
+      db.tickets[idx].snoozedBy=su.email;
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'snoozed',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Snoozed until ${untilDate.toLocaleString()}`});
+      wDB(db);return{success:true};
+    },
+    unsnoozeTicket:(ticketId)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Not found'};
+      if(!db.tickets[idx].snoozedUntil)return{success:true,message:'Not snoozed'};
+      db.tickets[idx].snoozedUntil=null;db.tickets[idx].snoozedBy=null;
+      db.tickets[idx].timeline=db.tickets[idx].timeline||[];
+      db.tickets[idx].timeline.push({event:'unsnoozed',by:su.email,byName:su.name||su.email,at:nowIST(),detail:'Woken up manually'});
+      wDB(db);return{success:true};
+    },
+
+    // Merge — moves the source ticket's thread into the target, closes the
+    // source with a pointer to where it went. Read-facing consequence: the
+    // source ticket stays fetchable by ID (for old links/emails) but any
+    // agent opening it sees a banner pointing to the merged-into ticket.
+    mergeTickets:(sourceId,targetId)=>{
+      if(sourceId===targetId)return{success:false,error:'Cannot merge a ticket into itself'};
+      const db=rDB();
+      const sIdx=(db.tickets||[]).findIndex(t=>t.id===sourceId);
+      const tIdx=(db.tickets||[]).findIndex(t=>t.id===targetId);
+      if(sIdx===-1||tIdx===-1)return{success:false,error:'Ticket not found'};
+      const source=db.tickets[sIdx],target=db.tickets[tIdx];
+      if(source.mergedInto)return{success:false,error:'Source ticket is already merged'};
+      target.thread=target.thread||[];
+      target.thread.push({type:'note',from:su.email,fromName:su.name||su.email,body:`— Merged from ${source.id}: "${source.subject}" —`,timestamp:nowIST()});
+      target.thread=target.thread.concat(source.thread||[]);
+      target.timeline=target.timeline||[];
+      target.timeline.push({event:'merged',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Merged ${source.id} into this ticket`});
+      source.mergedInto=target.id;
+      source.status='closed';
+      source.timeline=source.timeline||[];
+      source.timeline.push({event:'merged_away',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Merged into ${target.id}`});
+      wDB(db);return{success:true,targetId:target.id};
+    },
+
+    // Split — moves selected messages out of a ticket into a brand-new one
+    // for the same customer. Used when one conversation actually covers two
+    // unrelated issues that shouldn't share a status/SLA/assignee.
+    // messageIndexes are positions in orig.thread at the time the split
+    // modal was opened — index-based rather than message.id because legacy
+    // messages don't all have an id (see msgBubble()'s own 'msg_'+idx
+    // fallback client-side), and an index can't collide the way two
+    // undefined ids would.
+    splitTicket:(ticketId,messageIndexes,newSubject)=>{
+      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Ticket not found'};
+      if(!Array.isArray(messageIndexes)||!messageIndexes.length)return{success:false,error:'Select at least one message to split off'};
+      const orig=db.tickets[idx];
+      const idxSet=new Set(messageIndexes.map(Number));
+      const moved=(orig.thread||[]).filter((m,i)=>idxSet.has(i));
+      if(!moved.length)return{success:false,error:'Selected messages not found'};
+      orig.thread=(orig.thread||[]).filter((m,i)=>!idxSet.has(i));
+      const newId=generateId('TKT');
+      const newTicket={
+        id:newId,subject:newSubject&&newSubject.trim()?newSubject.trim():`Split: ${orig.subject}`,
+        from:orig.from,fromName:orig.fromName,channel:orig.channel||orig.source||'email',source:orig.channel||orig.source||'email',
+        status:'open',priority:orig.priority||'Medium',createdDate:nowIST(),lastActivity:nowIST(),
+        thread:[{type:'note',from:su.email,fromName:su.name||su.email,body:`— Split off from ${orig.id}: "${orig.subject}" —`,timestamp:nowIST()}].concat(moved),
+        tags:['split'],splitFrom:orig.id,
+        timeline:[{event:'created_from_split',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Split from ${orig.id}`}]
+      };
+      db.tickets.push(newTicket);
+      orig.timeline=orig.timeline||[];
+      orig.timeline.push({event:'split',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`${moved.length} message(s) split off to ${newId}`});
+      wDB(db);return{success:true,newTicketId:newId};
     },
 
     // ══════════════════════════════════════════════════════════════════════

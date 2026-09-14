@@ -15097,6 +15097,99 @@ const App = {
     App._showActionMenu(btnEl, items.join(''));
   },
 
+  _showTicketMoreMenu: function(btnEl, ticketId) {
+    var self = this;
+    var t = self._lastTicketDetail || {};
+    var itemStyle = 'display:block;width:100%;text-align:left;padding:9px 14px;background:none;border:none;font-size:12px;color:var(--text-secondary);cursor:pointer;';
+    var close = "document.getElementById('actionMenuPortal').remove();";
+    var items = [];
+    items.push('<button style="'+itemStyle+'" onclick="'+close+'App._showTransferTicket(\''+ticketId+'\')">↗ Transfer</button>');
+    if (t.customerPhone || ['whatsapp','sms','call'].includes(t.channel)) items.push('<button style="'+itemStyle+'" onclick="'+close+'App._clickToCall(\''+ticketId+'\')">📞 Call</button>');
+    if (self.currentUser && self.currentUser.role === 'Admin') items.push('<button style="'+itemStyle+'" onclick="'+close+'App._bumpTicket(\''+ticketId+'\')">🚨 Bump to Critical</button>');
+    if (self.currentUser && self.currentUser.role === 'Admin' && t.assignedTo) items.push('<button style="'+itemStyle+'" onclick="'+close+'App._returnTicketToQueue(\''+ticketId+'\')">↩ Unassign</button>');
+    items.push('<button style="'+itemStyle+'border-top:1px solid var(--border);" onclick="'+close+'App._showSnoozeMenu(\''+ticketId+'\')">😴 Snooze</button>');
+    items.push('<button style="'+itemStyle+'" onclick="'+close+'App._showMergeModal(\''+ticketId+'\')">🔀 Merge into…</button>');
+    if ((t.thread||[]).length > 1) items.push('<button style="'+itemStyle+'" onclick="'+close+'App._showSplitModal(\''+ticketId+'\')">✂ Split off…</button>');
+    self._showActionMenu(btnEl, items.join(''));
+  },
+  _showSplitModal: function(ticketId) {
+    var self = this;
+    var t = self._lastTicketDetail || {};
+    var thread = t.thread || [];
+    var rows = thread.map(function(m, i) {
+      var who = m.type === 'incoming' ? (m.fromName || m.from || 'Customer') : (m.type === 'note' ? 'Note' : 'Agent');
+      var preview = (m.body || '').substring(0, 70).replace(/\n/g, ' ');
+      return '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;">'+
+        '<input type="checkbox" class="splitMsgCk" value="'+i+'" style="margin-top:2px;">'+
+        '<span><strong style="color:var(--text-primary);">'+self._esc(who)+'</strong><span style="color:var(--text-dim);"> — '+self._esc(preview)+'</span></span>'+
+      '</label>';
+    }).join('');
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:460px;">'+
+      '<div class="modal-header"><span class="modal-title">✂ Split into a new ticket</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:10px;">'+
+        '<p style="font-size:12px;color:var(--text-muted);margin:0;">Check the messages that belong to a different issue — they\'ll move to a brand-new ticket for the same customer.</p>'+
+        '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px 10px;">'+rows+'</div>'+
+        '<div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">New ticket subject (optional)</label><input id="splitNewSubject" class="form-input" placeholder="Split: '+self._esc(t.subject||'')+'"></div>'+
+        '<button onclick="App._doSplitTicket(\''+ticketId+'\')" class="btn-primary">Split</button>'+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _doSplitTicket: async function(ticketId) {
+    var idxs = Array.from(document.querySelectorAll('.splitMsgCk:checked')).map(function(el){ return parseInt(el.value, 10); });
+    if (!idxs.length) { this.showToast('Select at least one message', 'warning'); return; }
+    var subject = (document.getElementById('splitNewSubject')||{}).value;
+    var r = await this.callAsync('splitTicket', ticketId, idxs, subject);
+    if (r && r.success) {
+      document.querySelectorAll('.modal-overlay').forEach(function(m){ m.remove(); });
+      this.showToast('Split off → ' + r.newTicketId, 'success');
+      this.renderTicketDetail(ticketId);
+    } else this.showToast('Failed: ' + (r && r.error || 'unknown'), 'error');
+  },
+  _showSnoozeMenu: function(ticketId) {
+    var self = this;
+    var opt = function(label, dt) { return {l:label, d:dt}; };
+    var now = new Date();
+    var in1h = new Date(now.getTime() + 3600000);
+    var in4h = new Date(now.getTime() + 4*3600000);
+    var tmrw9 = new Date(now); tmrw9.setDate(tmrw9.getDate()+1); tmrw9.setHours(9,0,0,0);
+    var nextWk = new Date(now); nextWk.setDate(nextWk.getDate()+7); nextWk.setHours(9,0,0,0);
+    var options = [opt('In 1 hour', in1h), opt('In 4 hours', in4h), opt('Tomorrow, 9am', tmrw9), opt('Next week', nextWk)];
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:340px;">'+
+      '<div class="modal-header"><span class="modal-title">😴 Snooze until…</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:6px;">'+
+        options.map(function(o){return '<button onclick="App._doSnoozeTicket(\''+ticketId+'\',\''+o.d.toISOString()+'\')" class="btn-secondary" style="text-align:left;">'+o.l+' <span style="color:var(--text-dim);font-weight:400;">— '+o.d.toLocaleString()+'</span></button>';}).join('')+
+        '<label style="font-size:11px;color:var(--text-muted);margin-top:6px;">Custom</label>'+
+        '<div style="display:flex;gap:8px;"><input type="datetime-local" id="snoozeCustomDt" class="form-input" style="flex:1;"><button onclick="var v=document.getElementById(\'snoozeCustomDt\').value;if(v)App._doSnoozeTicket(\''+ticketId+'\',new Date(v).toISOString())" class="btn-primary btn-sm">Set</button></div>'+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _doSnoozeTicket: async function(ticketId, untilIso) {
+    var r = await this.callAsync('snoozeTicket', ticketId, untilIso);
+    document.querySelectorAll('.modal-overlay').forEach(function(m){ m.remove(); });
+    if (r && r.success) { this.showToast('😴 Snoozed until ' + new Date(untilIso).toLocaleString(), 'success'); this.renderTicketDetail(ticketId); }
+    else this.showToast('Failed: ' + (r && r.error || 'unknown'), 'error');
+  },
+  _showMergeModal: function(ticketId) {
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:380px;">'+
+      '<div class="modal-header"><span class="modal-title">🔀 Merge into another ticket</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>'+
+      '<div class="modal-body" style="display:flex;flex-direction:column;gap:10px;">'+
+        '<p style="font-size:12px;color:var(--text-muted);margin:0;">This ticket\'s conversation will be appended to the target ticket, and this one will be closed with a link to where it went.</p>'+
+        '<div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">Target ticket ID</label><input id="mergeTargetId" class="form-input" placeholder="TKT-XXXXXXXX" style="font-family:var(--font-mono);"></div>'+
+        '<button onclick="App._doMergeTicket(\''+ticketId+'\')" class="btn-primary">Merge</button>'+
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _doMergeTicket: async function(ticketId) {
+    var target = (document.getElementById('mergeTargetId')||{}).value?.trim();
+    if (!target) { this.showToast('Enter a target ticket ID', 'warning'); return; }
+    var r = await this.callAsync('mergeTickets', ticketId, target);
+    if (r && r.success) {
+      document.querySelectorAll('.modal-overlay').forEach(function(m){ m.remove(); });
+      this.showToast('Merged into ' + r.targetId, 'success');
+      this.renderTicketDetail(r.targetId);
+    } else this.showToast('Failed: ' + (r && r.error || 'unknown'), 'error');
+  },
+
   _duplicateIssue: async function(issueId) {
     var r = await App.callAsync('duplicateIssue', issueId);
     if (r && r.success) {
@@ -15763,9 +15856,11 @@ const App = {
           ${(function(){
             var mineCount = counts.mine || 0;
             var unassignedCount = counts.unassigned || 0;
+            var snoozedCount = counts.snoozed || 0;
             return [
               {k:'mine',       l:'My Tickets',  n:mineCount,       c:'#10B981'},
               {k:'unassigned', l:'Unassigned',  n:unassignedCount, c:'#EF4444'},
+              {k:'snoozed',    l:'😴 Snoozed',  n:snoozedCount,    c:'#F59E0B'},
           ].map(s => `<div onclick="App._ticketFilter='${s.k}';App.renderTicketInbox();" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;border-left:3px solid ${self._ticketFilter===s.k?s.c:'transparent'};background:${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'};transition:all .15s;" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='${self._ticketFilter===s.k?'rgba(16,185,129,.08)':'none'}'">
             <span style="font-size:13px;font-weight:${self._ticketFilter===s.k?700:500};color:${self._ticketFilter===s.k?s.c:'var(--text-secondary)'};">${s.l}</span>
             <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${s.n>0?s.c+'20':'var(--bg-elevated)'};color:${s.n>0?s.c:'var(--text-dim)'};">${s.n}</span>
@@ -15920,6 +16015,7 @@ const App = {
                 <div style="display:flex;align-items:center;gap:5px;margin-bottom:1px;flex-wrap:wrap;">
                   ${t.unread?'<span title="Unread" style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;"></span>':''}
                   ${isVIP?'<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:#F59E0B22;color:#F59E0B;">⭐ VIP</span>':''}
+                  ${t.snoozedUntil&&new Date(t.snoozedUntil).getTime()>Date.now()?'<span title="Snoozed until '+new Date(t.snoozedUntil).toLocaleString()+'" style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:#F59E0B22;color:#F59E0B;">😴 Snoozed</span>':''}
                   <span style="font-size:13px;font-weight:${(isNew||t.unread)?700:500};color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;">${self._esc(t.subject)}</span>
                   ${isNew?'<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:'+sc+'22;color:'+sc+';">NEW</span>':''}
                 </div>
@@ -16218,6 +16314,7 @@ const App = {
     if (!tRes || !tRes.success) { area.innerHTML = '<div class="empty-state"><p>Ticket not found</p></div>'; return; }
     var t = tRes.ticket;
     self._activeTicketId = ticketId;
+    self._lastTicketDetail = t;
     self.callAsync('markTicketViewed', ticketId).catch(function(){});
     var users = (usersRes && usersRes.success) ? usersRes.users : [];
     var devs = (devsRes && devsRes.success) ? devsRes.developers : [];
@@ -16316,18 +16413,17 @@ const App = {
                 <h2 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${self._esc(t.subject)}</h2>
                 <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">From: <strong style="color:var(--text-secondary);">${self._esc(t.fromName||t.from)}</strong> &lt;${self._esc(t.from)}&gt;</div>
               </div>
-              <!-- Action buttons: Resolve is the one primary action; everything else is a consistent neutral/ghost button so the row doesn't compete for attention -->
+              <!-- Action buttons: Resolve is the one primary action; frequently-used ones stay visible; the rest live in "More" so the row doesn't compete for attention -->
               <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">
+                ${t.snoozedUntil&&new Date(t.snoozedUntil).getTime()>Date.now()?`<span style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;background:var(--medium-dim);color:var(--medium);display:flex;align-items:center;gap:6px;">😴 Snoozed until ${new Date(t.snoozedUntil).toLocaleString()} <span onclick="App.callAsync('unsnoozeTicket','${t.id}').then(()=>App.renderTicketDetail('${t.id}'))" style="cursor:pointer;text-decoration:underline;">Wake up</span></span>`:''}
+                ${t.mergedInto?`<span style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;background:var(--critical-dim);color:var(--critical);">🔀 Merged into <span onclick="App.navigate('ticket-detail',{id:'${t.mergedInto}'})" style="cursor:pointer;text-decoration:underline;">${t.mergedInto}</span></span>`:''}
                 ${t.status!=='resolved'&&t.status!=='closed'?`<button onclick="App._ticketStatusAction('${t.id}','resolved')" style="background:var(--low);color:#fff;border:1px solid var(--low);border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;">✓ Resolve</button>`:''}
                 ${t.status==='resolved'?`<button onclick="App._ticketStatusAction('${t.id}','closed')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Close</button>`:''}
                 ${t.status==='resolved'||t.status==='closed'?`<button onclick="App._ticketStatusAction('${t.id}','open')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Reopen</button>`:''}
                 ${!t.assignedTo||t.assignedTo!==self.currentUser?.email?`<button onclick="App._takeTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">✋ Take</button>`:''}
-                <button onclick="App._showTransferTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Transfer to another agent">↗ Transfer</button>
-                ${(t.customerPhone||['whatsapp','sms','call'].includes(t.channel))?`<button onclick="App._clickToCall('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Call this customer">📞 Call</button>`:''}
-                ${self.currentUser&&self.currentUser.role==='Admin'?`<button onclick="App._bumpTicket('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Bump to Critical priority">🚨 Bump</button>`:''}
-                ${self.currentUser&&self.currentUser.role==='Admin'&&t.assignedTo?`<button onclick="App._returnTicketToQueue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;" title="Return to unassigned queue">↩ Unassign</button>`:''}
                 ${!t.linkedIssueId?`<button onclick="App._showRaiseToIssue('${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`:`<button onclick="App.navigate('issue-detail',{id:'${t.linkedIssueId}'})" style="background:var(--status-ack)18;color:var(--status-ack);border:1px solid var(--status-ack)44;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">🎫 Issue</button>`}
                 <button onclick="App._toggleTicketPanel()" title="Collapse/expand customer panel" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;width:30px;height:30px;font-size:13px;cursor:pointer;">${localStorage.getItem('tt_ticket_panel_collapsed')==='1'?'◀':'▶'}</button>
+                <button onclick="App._showTicketMoreMenu(this,'${t.id}')" style="background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">⋯ More</button>
               </div>
             </div>
           </div>
