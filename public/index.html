@@ -15773,6 +15773,22 @@ const App = {
           })()}
 
           <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
+          <details open style="display:block;">
+            <summary style="padding:6px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;justify-content:space-between;">⭐ My Views</summary>
+            ${(function(){
+              var views = TicketSavedViews.getAll();
+              return views.map(function(v){
+                var active = TicketSavedViews._isActive(v);
+                var isCustom = v.id.indexOf('tv_')===0;
+                return '<div onclick="TicketSavedViews.apply(\''+v.id+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;border-left:3px solid '+(active?'var(--accent)':'transparent')+';background:'+(active?'var(--accent-dim)':'none')+';transition:all .15s;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\''+(active?'var(--accent-dim)':'none')+'\'">'+
+                  '<span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:'+(active?700:500)+';color:'+(active?'var(--accent)':'var(--text-secondary)')+';">'+v.icon+' '+self._esc(v.name)+'</span>'+
+                  (isCustom?'<span onclick="event.stopPropagation();TicketSavedViews.delete(\''+v.id+'\');App.renderTicketInbox()" style="font-size:11px;color:var(--text-dim);cursor:pointer;padding:0 4px;">&#x2715;</span>':'')+
+                '</div>';
+              }).join('') +
+              '<div onclick="TicketSavedViews.promptSave()" style="padding:7px 14px;font-size:11px;color:var(--accent);cursor:pointer;">+ Save current filters</div>';
+            })()}
+          </details>
+          <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
           <details ${statusFilter==='all'?'':'open'} style="display:block;">
             <summary style="padding:6px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;justify-content:space-between;">Status${statusFilter!=='all'?` <span style="color:var(--accent);">•</span>`:''}</summary>
           ${(function(){
@@ -27661,6 +27677,70 @@ var SavedViews = {
     dropEl.classList.toggle('open');
   }
 };
+
+// ─── TICKET INBOX SAVED VIEWS ──────────────────────────────────────
+// Same idea as SavedViews above (localStorage-backed, save/apply/delete)
+// but scoped to Ticket Inbox's own filter state (App._ticketFilter/
+// _ticketChannel/_ticketPriority/_ticketSearch — JS vars + a re-render,
+// not the <select> elements SavedViews.apply() expects on Issues list),
+// so the two can't just share one implementation.
+var TicketSavedViews = {
+  _key: 'tt_ticket_saved_views',
+  _custom: [],
+  _defaults: [
+    { id: 'all',        name: 'All Tickets', icon: '≡',  filters: {} },
+    { id: 'mine',       name: 'My Tickets',  icon: '👤', filters: { ticketFilter: 'mine' } },
+    { id: 'unassigned', name: 'Unassigned',  icon: '⚠',  filters: { ticketFilter: 'unassigned' } },
+    { id: 'critical',   name: 'Critical',    icon: '🔴', filters: { ticketPriority: 'Critical' } }
+  ],
+  init: function() {
+    try { this._custom = JSON.parse(localStorage.getItem(this._key) || '[]'); } catch(e) { this._custom = []; }
+  },
+  getAll: function() { return this._defaults.concat(this._custom); },
+  _current: function() {
+    return { ticketFilter: App._ticketFilter||'all', ticketChannel: App._ticketChannel||'all', ticketPriority: App._ticketPriority||'all', ticketSearch: App._ticketSearch||'' };
+  },
+  _isActive: function(v) {
+    var cur = this._current(), f = v.filters||{};
+    return (f.ticketFilter||'all') === cur.ticketFilter && (f.ticketChannel||'all') === cur.ticketChannel && (f.ticketPriority||'all') === cur.ticketPriority && (f.ticketSearch||'') === cur.ticketSearch;
+  },
+  save: function(name) {
+    var f = this._current();
+    // Drop the no-op dimensions so a saved view only carries what the
+    // user actually had set, not every filter pinned to 'all'/''.
+    var clean = {};
+    if (f.ticketFilter !== 'all') clean.ticketFilter = f.ticketFilter;
+    if (f.ticketChannel !== 'all') clean.ticketChannel = f.ticketChannel;
+    if (f.ticketPriority !== 'all') clean.ticketPriority = f.ticketPriority;
+    if (f.ticketSearch) clean.ticketSearch = f.ticketSearch;
+    var v = { id: 'tv_' + Date.now(), name: name, icon: '⭐', filters: clean };
+    this._custom.push(v);
+    localStorage.setItem(this._key, JSON.stringify(this._custom));
+    App.showToast('View saved: ' + name, 'success');
+    return v;
+  },
+  delete: function(id) {
+    this._custom = this._custom.filter(function(v){ return v.id !== id; });
+    localStorage.setItem(this._key, JSON.stringify(this._custom));
+  },
+  apply: function(id) {
+    var view = this.getAll().find(function(v){ return v.id === id; });
+    if (!view) return;
+    var f = view.filters||{};
+    App._ticketFilter = f.ticketFilter||'all';
+    App._ticketChannel = f.ticketChannel||'all';
+    App._ticketPriority = f.ticketPriority||'all';
+    App._ticketSearch = f.ticketSearch||'';
+    App.renderTicketInbox();
+  },
+  promptSave: function() {
+    var name = prompt('Name this view:');
+    if (!name || !name.trim()) return;
+    this.save(name.trim());
+    App.renderTicketInbox();
+  }
+};
+TicketSavedViews.init();
 
 // ─── COMPACT MODE ────────────────────────────────────────────────
 var CompactMode = {
