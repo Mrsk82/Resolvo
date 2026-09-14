@@ -3348,6 +3348,8 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
 .analytics-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
 .analytics-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px; }
 .analytics-card-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-dim); font-family:var(--font-mono); margin-bottom:12px; }
+.analytics-card-title:has(+ .analytics-card-sub) { margin-bottom: 3px; }
+.analytics-card-sub { font-size:11px; color:var(--text-muted); margin-bottom:12px; }
 .mttr-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; }
 .mttr-row:last-child { border-bottom:none; }
 .mttr-key { color:var(--text-secondary); flex:1; font-family:var(--font-mono); }
@@ -24211,11 +24213,12 @@ const App = {
     var patR = await self.callAsync('getRecurringPatterns');
     var burnR = await self.callAsync('getBurndownData', null);
     var html = '<div style="max-width:900px">';
+    html += '<div style="margin-bottom:20px;"><div style="font-size:18px;font-weight:800;color:var(--text-primary);">Engineering Analytics</div><div style="font-size:12px;color:var(--text-dim);margin-top:3px;">Resolution speed, workload trends, and AI-detected recurring patterns across all issues.</div></div>';
 
     // MTTR by priority
     html += '<div class="analytics-grid">';
     if (mttrR && mttrR.success) {
-      html += '<div class="analytics-card"><div class="analytics-card-title">MTTR by Priority (avg hours)</div>';
+      html += '<div class="analytics-card"><div class="analytics-card-title">MTTR by Priority</div><div class="analytics-card-sub">Average time to resolve, from creation to close</div>';
       var pColors = { Critical:'var(--critical)', High:'var(--high)', Medium:'var(--accent)', Low:'var(--low)' };
       ['Critical','High','Medium','Low'].forEach(function(p) {
         var val = mttrR.priorityMTTR ? (mttrR.priorityMTTR[p] || 0) : 0;
@@ -24228,8 +24231,9 @@ const App = {
       html += '</div>';
 
       // MTTR by module
-      html += '<div class="analytics-card"><div class="analytics-card-title">MTTR by Module (avg hours)</div>';
+      html += '<div class="analytics-card"><div class="analytics-card-title">MTTR by Module</div><div class="analytics-card-sub">Slowest-resolving areas of the product, worst first</div>';
       var modules = mttrR.moduleMTTR ? Object.keys(mttrR.moduleMTTR).sort(function(a,b){ return mttrR.moduleMTTR[b] - mttrR.moduleMTTR[a]; }) : [];
+      if (!modules.length) html += '<div style="font-size:12px;color:var(--text-dim);padding:8px 0;">No module data yet.</div>';
       modules.slice(0,6).forEach(function(m) {
         var val = mttrR.moduleMTTR[m];
         html += '<div class="mttr-row"><span class="mttr-key">' + self._esc(m) + '</span><span class="mttr-val">' + val + 'h</span></div>';
@@ -24240,15 +24244,19 @@ const App = {
 
     // Burndown mini chart
     if (burnR && burnR.success && burnR.burndown && burnR.burndown.length) {
-      html += '<div class="analytics-card" style="margin-bottom:16px;"><div class="analytics-card-title">14-Day Issue Trend</div>';
+      html += '<div class="analytics-card" style="margin-bottom:16px;"><div class="analytics-card-title">14-Day Issue Trend</div><div class="analytics-card-sub">Open issue count at end of each day &mdash; hover a bar for the exact date</div>';
       var days = burnR.burndown;
       var mx = Math.max.apply(null, days.map(function(d){return d.remaining;})) || 1;
+      var firstDay = days[0], lastDay = days[days.length-1];
+      var trendDelta = lastDay.remaining - firstDay.remaining;
+      var trendTxt = trendDelta === 0 ? 'Flat vs 14 days ago' : (trendDelta > 0 ? '&#8593; ' + trendDelta + ' more open than 14 days ago' : '&#8595; ' + Math.abs(trendDelta) + ' fewer open than 14 days ago');
+      var trendColor = trendDelta > 0 ? 'var(--critical)' : trendDelta < 0 ? 'var(--low)' : 'var(--text-dim)';
       html += '<div style="display:flex;align-items:flex-end;gap:3px;height:80px;border-bottom:1px solid var(--border);">';
       days.forEach(function(d) {
         var bh = Math.round((d.remaining/mx)*70);
         html += '<div style="flex:1;background:var(--accent-dim);border-radius:2px 2px 0 0;height:' + bh + 'px;min-height:2px;" title="' + d.date + ': ' + d.remaining + ' issues"></div>';
       });
-      html += '</div></div>';
+      html += '</div><div style="margin-top:8px;font-size:11px;font-weight:700;color:' + trendColor + ';">' + trendTxt + '</div></div>';
     }
 
     // AI Recurring patterns
