@@ -2919,15 +2919,30 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
   
 /* Light theme button text fix */
 [data-theme="arctic"] .btn-primary { color: #ffffff; }
-[data-theme="arctic"] .brand-name { color: var(--text-primary); }
-[data-theme="arctic"] .sidebar { border-right-color: var(--border); }
-[data-theme="arctic"] .nav-item { color: var(--text-muted); }
-[data-theme="arctic"] .nav-item:hover { color: var(--text-primary); }
-[data-theme="arctic"] .nav-item.active { color: var(--accent); }
-[data-theme="arctic"] .user-role { color: var(--text-muted); }
-[data-theme="arctic"] .sidebar-footer { border-top-color: var(--border); }
 [data-theme="arctic"] .loader-msg { color: var(--text-muted); }
 [data-theme="arctic"] #loading-screen { background: var(--bg-base); }
+
+/* Arctic sidebar: dark navy against the light content area — the
+   persistent-dark-sidebar-over-light-canvas pattern (Linear/Vercel-style),
+   rather than an all-light page. Only the sidebar's own surface + text
+   are overridden here; --bg-surface itself stays light for the topbar
+   and everything else in this theme. */
+[data-theme="arctic"] .sidebar { background: #12162b; border-right-color: rgba(255,255,255,0.08); }
+[data-theme="arctic"] .sidebar-header { border-bottom-color: rgba(255,255,255,0.08); }
+[data-theme="arctic"] .brand-name { color: #f1f5f9; }
+[data-theme="arctic"] .brand-tagline { color: #64748b; }
+[data-theme="arctic"] .sidebar-toggle { color: #94a3b8; }
+[data-theme="arctic"] .nav-label { color: #64748b; }
+[data-theme="arctic"] .nav-item { color: #94a3b8; }
+[data-theme="arctic"] .nav-item:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
+[data-theme="arctic"] .nav-item.active { color: var(--accent); background: var(--accent-dim); }
+[data-theme="arctic"] .nav-icon svg { stroke: currentColor; }
+[data-theme="arctic"] .user-card { border-color: rgba(255,255,255,0.08); }
+[data-theme="arctic"] .user-name { color: #f1f5f9; }
+[data-theme="arctic"] .user-role { color: #64748b; }
+[data-theme="arctic"] .sidebar-footer { border-top-color: rgba(255,255,255,0.08); color: #94a3b8; }
+[data-theme="arctic"] .sidebar-footer * { color: inherit; }
+[data-theme="arctic"] .sidebar .nav-soon-badge { background: var(--accent-dim); }
 
 
 /* ============================================================
