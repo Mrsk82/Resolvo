@@ -29,10 +29,19 @@ curl -sf -o migrate-to-sqlite.js "https://raw.githubusercontent.com/Mrsk82/Resol
 curl -sf -o migrate-to-mysql.js "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/migrate-to-mysql.js" || true
 echo "✅ Migration scripts updated"
 
+echo "📥 Downloading latest package.json / package-lock.json..."
+curl -sf -o package.json "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/package.json"
+curl -sf -o package-lock.json "https://raw.githubusercontent.com/Mrsk82/Resolvo/main/package-lock.json"
+echo "✅ package.json / package-lock.json updated"
+
 # Install dependencies (includes mysql2 + better-sqlite3)
+# npm ci (not npm install) so a lockfile/tree mismatch fails loudly instead of
+# silently installing an incomplete set — this is what let the 2026-06-24
+# crash-loop happen (helmet was in server.js but missing from the VPS's stale
+# package.json, and npm install just silently skipped it).
 echo ""
-echo "📦 Installing dependencies..."
-npm install --production --silent
+echo "📦 Installing dependencies (npm ci)..."
+npm ci --omit=dev --silent
 echo "✅ Dependencies ready"
 
 # Run MySQL migration (skips brands already migrated)
