@@ -11933,21 +11933,20 @@ app.get('/api/:slug/dashboard/widget',(req,res)=>{
         data={announcements:ann.slice(0,5)};
         break;}
       case'pipeline_value':{
-        const CRM=require('better-sqlite3');
-        const crmDb=crmDBO(slug);
-        const deals=crmDb.prepare('SELECT data FROM crm_deals').all().map(r=>JSON.parse(r.data));
+        const pDb=crmDb(slug);
+        const deals=pDb.prepare('SELECT data FROM crm_deals').all().map(r=>JSON.parse(r.data));
         const stages=['Lead','Proposal','Negotiation','Won','Lost'];
         data={stages:stages.map(s=>({stage:s,count:deals.filter(d=>d.stage===s).length,value:deals.filter(d=>d.stage===s).reduce((a,d)=>a+(d.value||0),0)}))};
         break;}
       case'won_deals_month':{
-        const cDb=crmDBO(slug);
+        const cDb=crmDb(slug);
         const allDeals=cDb.prepare('SELECT data FROM crm_deals').all().map(r=>JSON.parse(r.data));
         const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
         const won=allDeals.filter(d=>d.stage==='Won'&&d.closeDate&&new Date(d.closeDate)>=monthStart);
         data={count:won.length,value:won.reduce((a,d)=>a+(d.value||0),0)};
         break;}
       case'outreach_stats':{
-        const oDb=crmDBO(slug);
+        const oDb=crmDb(slug);
         const outreach=oDb.prepare('SELECT data FROM crm_outreach').all().map(r=>JSON.parse(r.data)).filter(o=>new Date(o.sentAt)>=cutoff);
         const replied=outreach.filter(o=>o.status==='replied').length;
         data={sent:outreach.length,replied,bounced:outreach.filter(o=>o.status==='bounced').length,replyRate:outreach.length?Math.round(replied/outreach.length*100):0};
