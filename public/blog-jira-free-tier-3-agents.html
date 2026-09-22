@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Jira Service Management's Free Tier Caps at 3 Agents — Then What? — Resolvo Blog</title>
+<meta name="description" content="Jira Service Management's free plan stops at 3 agents, 2GB storage, and 100 emails/day. Here's exactly what the limits include, what breaks first, and what a honest next step looks like.">
+<meta name="keywords" content="jira service management free tier, jira free plan limits, jira service management pricing, jira alternative for small teams">
+<link rel="canonical" href="https://app.resolvogroup.com/blog/jira-free-tier-3-agents">
+
+<meta property="og:title" content="Jira Service Management's Free Tier Caps at 3 Agents — Then What?">
+<meta property="og:description" content="Jira Service Management's free plan stops at 3 agents, 2GB storage, and 100 emails/day. Here's exactly what breaks first, and what a honest next step looks like.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://app.resolvogroup.com/blog/jira-free-tier-3-agents">
+<meta property="og:image" content="https://app.resolvogroup.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Jira Service Management's Free Tier Caps at 3 Agents — Then What?",
+  "description": "Jira Service Management's free plan stops at 3 agents, 2GB storage, and 100 emails/day. Here's exactly what breaks first, and what a honest next step looks like.",
+  "datePublished": "2026-09-23",
+  "dateModified": "2026-09-23",
+  "author": { "@type": "Organization", "name": "Resolvo Team", "url": "https://resolvogroup.com" },
+  "publisher": { "@type": "Organization", "name": "Resolvo", "logo": { "@type": "ImageObject", "url": "https://app.resolvogroup.com/logo-mark.svg" } },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://app.resolvogroup.com/blog/jira-free-tier-3-agents" }
+}
+</script>
+
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5972416555160838" crossorigin="anonymous"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#fff;color:#111827;font-family:'Inter',sans-serif;line-height:1.8;font-size:17px;}
+
+nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}
+.logo-name{font-size:16px;font-weight:700;color:#111827;}
+.nav-links{display:flex;align-items:center;gap:20px;}
+.nav-links a{font-size:13px;color:#6B7280;text-decoration:none;}
+.nav-cta{background:#10B981;color:#fff!important;padding:7px 16px;border-radius:7px;font-weight:600!important;}
+
+.article-wrap{max-width:760px;margin:0 auto;padding:0 24px;}
+
+.article-header{padding:52px 0 36px;border-bottom:1px solid #F3F4F6;margin-bottom:40px;}
+.article-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;margin-bottom:14px;display:block;}
+.article-header h1{font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:-1.2px;line-height:1.15;color:#111827;margin-bottom:16px;}
+.article-intro{font-size:18px;color:#4B5563;line-height:1.75;margin-bottom:20px;}
+.article-meta{font-size:13px;color:#9CA3AF;display:flex;align-items:center;gap:12px;}
+.article-meta .sep{color:#E5E7EB;}
+
+.article-body h2{font-size:24px;font-weight:800;color:#111827;margin:44px 0 14px;letter-spacing:-.4px;line-height:1.25;}
+.article-body h3{font-size:19px;font-weight:700;color:#111827;margin:32px 0 10px;letter-spacing:-.3px;}
+.article-body p{margin-bottom:20px;color:#374151;}
+.article-body ul,.article-body ol{margin:0 0 20px 22px;}
+.article-body ul li,.article-body ol li{margin-bottom:8px;color:#374151;}
+.article-body strong{color:#111827;}
+.article-body a{color:#10B981;text-decoration:underline;text-decoration-color:rgba(16,185,129,.3);}
+.article-body a:hover{text-decoration-color:#10B981;}
+
+.callout{border-radius:12px;padding:22px 24px;margin:28px 0;}
+.callout-green{background:#F0FDF4;border-left:4px solid #10B981;}
+.callout-blue{background:#EFF6FF;border-left:4px solid #3B82F6;}
+.callout-yellow{background:#FFFBEB;border-left:4px solid #F59E0B;}
+.callout p{margin:0;font-size:15px;}
+.callout strong{display:block;margin-bottom:6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;}
+
+.article-body table{width:100%;border-collapse:collapse;margin:24px 0;font-size:14px;}
+.article-body th{background:#F9FAFB;padding:12px 14px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;border-bottom:2px solid #E5E7EB;}
+.article-body td{padding:12px 14px;border-bottom:1px solid #F3F4F6;color:#374151;vertical-align:top;}
+.article-body tr:last-child td{border-bottom:none;}
+
+.inline-cta{background:linear-gradient(135deg,#0B0F19,#141c2e);border-radius:14px;padding:32px;text-align:center;margin:44px 0;}
+.inline-cta h3{font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px;}
+.inline-cta p{font-size:14px;color:#94a3b8;margin-bottom:20px;}
+.inline-cta a{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700;}
+
+.article-footer{border-top:1px solid #E5E7EB;margin-top:56px;padding:32px 0 80px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.back-link{font-size:14px;color:#10B981;text-decoration:none;font-weight:600;}
+.share-label{font-size:13px;color:#9CA3AF;}
+
+footer{border-top:1px solid #E5E7EB;padding:20px 28px;text-align:center;font-size:13px;color:#9CA3AF;}
+footer a{color:#10B981;text-decoration:none;margin:0 8px;}
+
+@media(max-width:600px){
+  .article-header{padding:32px 0 24px;}
+  .article-body h2{font-size:20px;}
+  .nav-links{display:none;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" class="logo">
+    <img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;">
+    <span class="logo-name">resolvo</span>
+  </a>
+  <div class="nav-links">
+    <a href="/blog">← Blog</a>
+    <a href="/about">About</a>
+    <a href="/use-cases">Use Cases</a>
+    <a href="/signup" class="nav-cta">Start Free</a>
+  </div>
+</nav>
+
+<div class="article-wrap">
+  <div class="article-header">
+    <span class="article-tag">Jira Service Management</span>
+    <h1>Jira Service Management's Free Tier Caps at 3 Agents — Then What?</h1>
+    <p class="article-intro">For a lot of 2-3 person support teams, Jira Service Management's free plan is the first real helpdesk they use — and it's a genuinely capable one. But the ceiling is closer than it looks. Here's exactly what's included, what breaks first, and what a next step looks like if you're honest about the tradeoffs.</p>
+    <div class="article-meta">
+      <span>By Resolvo Team</span>
+      <span class="sep">·</span>
+      <span>6 min read</span>
+      <span class="sep">·</span>
+      <span>September 2026</span>
+    </div>
+  </div>
+
+  <div class="article-body">
+
+    <h2>What Jira Service Management's free tier actually includes</h2>
+    <p>Atlassian's free plan for Jira Service Management is usage-capped, not feature-stripped — you get a real product, but with hard ceilings on the things that matter most as a team grows:</p>
+    <ul>
+      <li><strong>3 agents</strong> — the seats that can actually work tickets, not just view them.</li>
+      <li><strong>2GB storage</strong> — attachments, screenshots, and logs count against this.</li>
+      <li><strong>100 emails/day</strong> — inbound email-to-ticket volume, across your whole team.</li>
+      <li><strong>500 automation runs/month</strong> — every auto-assignment rule, notification, or SLA escalation counts as a run.</li>
+      <li><strong>No vendor support</strong> — free-tier customers rely on Atlassian's community forums and public documentation, not a support ticket to Atlassian itself.</li>
+    </ul>
+    <p>For a 2-agent team fielding a modest volume of tickets, this is often plenty. The problem is that none of these limits move gradually — you tend to hit them right around the point where your team is actually growing, which is the worst possible time for a support tool to start pushing back.</p>
+
+    <div class="callout callout-yellow">
+      <p><strong>⚠ The sneakiest limit</strong> The 500 automation runs/month cap is easy to miss because it doesn't fail loudly. Automation rules just stop firing once you're over — tickets stop auto-assigning, SLA reminders stop sending — and unless someone's actively watching for it, that can go unnoticed for a while.</p>
+    </div>
+
+    <h2>The moment you outgrow it</h2>
+    <p>A few concrete signs that the free tier is no longer the right fit:</p>
+    <ul>
+      <li>You're hiring a 4th agent, even part-time or temporary.</li>
+      <li>Your daily email volume is creeping toward 100/day — a single busy Monday can burn through it.</li>
+      <li>Automation rules are silently not firing because you've crossed 500 runs for the month.</li>
+      <li>Something breaks and you need an actual answer from Atlassian, not a community thread.</li>
+    </ul>
+
+    <h2>What Jira Service Management costs once you're past free</h2>
+    <p>Once you outgrow the free tier, JSM's published pricing moves to <strong>Standard at roughly $20-24/agent/month</strong>, and <strong>Premium at roughly $47-55/agent/month</strong>. For a 5-agent team, that's a jump from $0/month to somewhere around $100-120/month at minimum on Standard — before any marketplace add-ons. These are the USD figures published by Atlassian and tracked by third-party pricing trackers; no India-specific (₹) pricing has been found on Atlassian's own pages, so budget in USD terms unless you confirm an India rate directly with Atlassian.</p>
+
+    <h2>It's not just the price — the complexity comes with it</h2>
+    <p>Independent reviews of Jira Service Management consistently describe it as admin-dependent to configure properly, with a real learning curve and setup that can stretch from weeks to months for anything beyond the basics — a pattern that shows up in both professional reviews and discussion threads on Atlassian's own community forums. That complexity doesn't go away when you start paying; if anything, the paid tiers unlock more configuration surface area (workflow schemes, permission schemes, SLA rules) that a small team without a dedicated admin will spend real time learning.</p>
+
+    <div class="inline-cta">
+      <h3>Try a WhatsApp-native helpdesk built for small teams</h3>
+      <p>₹1,999/month flat for small teams, ₹399/agent/month beyond that. WhatsApp included, not a separate connector.</p>
+      <a href="/signup">Start your 3-month free trial →</a>
+    </div>
+
+    <h2>What to actually evaluate before you pick a next tool</h2>
+    <p>Whether you stay with Jira Service Management's paid tiers or look elsewhere, these are the questions worth asking honestly:</p>
+    <ul>
+      <li><strong>Is it a permanent free tier or a time-limited trial?</strong> Don't treat the two as equivalent when planning your budget.</li>
+      <li><strong>Does the entry paid tier assume a dedicated admin?</strong> If setup and maintenance require someone learning workflow/permission schemes, that's a real ongoing cost even if the subscription price looks fine.</li>
+      <li><strong>Is the channel your customers actually use — WhatsApp, email, chat — native, or a separate purchase/integration?</strong> Jira Service Management has no native WhatsApp channel; teams that need it are relying on third-party connectors rather than something Atlassian ships directly.</li>
+      <li><strong>Does pricing scale predictably per agent, or does it stack with add-ons as you grow?</strong></li>
+    </ul>
+
+    <h2>Where Resolvo fits, honestly</h2>
+    <p>Resolvo isn't a permanent free tier either — it's worth being upfront about that rather than blurring the two. Resolvo offers a <strong>3-month free trial</strong>, a different structure than JSM's permanently-free-up-to-3-agents model, not a like-for-like swap. After the trial, pricing is <strong>₹1,999/month flat for small teams, and ₹399/agent/month beyond that</strong> — no automation-run caps or email-volume caps to track. WhatsApp is included as a native support channel, not a separate connector to configure, and setup doesn't require a dedicated admin. Whether that's the right next step depends on your team's specific volume and channels — worth evaluating directly against Jira Service Management's paid tiers rather than taking either vendor's framing at face value.</p>
+
+    <h2>FAQ</h2>
+    <h3>Is Jira Service Management's free tier time-limited?</h3>
+    <p>No — based on Atlassian's published terms, the free tier is capped by usage (3 agents, 2GB storage, 100 emails/day, 500 automation runs/month) rather than by a trial period. That's a meaningfully different model from a time-limited free trial.</p>
+
+    <h3>What exactly happens when I go over 100 emails/day or 500 automation runs?</h3>
+    <p><em>[NEEDS ASIF INPUT: the precise enforcement behavior — whether overages are hard-blocked, queued, or silently dropped — wasn't confirmed against Atlassian's own documentation in this research pass. Flagging rather than guessing.]</em></p>
+
+    <h3>Does Jira Service Management have a native WhatsApp channel?</h3>
+    <p>No native WhatsApp channel was found in this research pass. Teams needing WhatsApp support alongside JSM are relying on third-party integrations rather than a channel Atlassian ships directly.</p>
+
+    <div class="inline-cta">
+      <h3>See the full Resolvo vs Jira comparison</h3>
+      <p>Feature-by-feature breakdown, including pricing and setup time.</p>
+      <a href="/vs/jira">Read Resolvo vs Jira →</a>
+    </div>
+
+  </div>
+
+  <div class="article-footer">
+    <a href="/blog" class="back-link">← Back to all articles</a>
+    <span class="share-label">Found this useful? Share it with a colleague.</span>
+  </div>
+</div>
+
+<footer>
+  &copy; 2025 Resolvo &nbsp;·&nbsp;
+  <a href="/pitch">Home</a>
+  <a href="/blog">Blog</a>
+  <a href="/about">About</a>
+  <a href="/privacy">Privacy</a>
+  <a href="/pro">Start Free</a>
+</footer>
+</body>
+</html>
