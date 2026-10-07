@@ -1495,7 +1495,7 @@ app.get('/api/owner/brands/:slug/tickets',ownerOnly,(req,res)=>{
   const page=tickets.slice(off,off+lim);
   const agents=(db.users||[]).filter(u=>u.active).map(u=>({email:u.email,name:u.name||u.email}));
   const teams=(db.teams||[]).map(t=>({id:t.id,name:t.name}));
-  const clsCfg=db.classificationConfig||{types:['Question','Incident','Problem','Feature Request','Billing','Other'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam']};
+  const clsCfg=db.classificationConfig||{types:['Question','Incident','Problem','Feature Request'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam']};
   res.json({success:true,total,tickets:page.map(t=>({id:t.id,subject:t.subject,status:t.status,priority:t.priority,assignedTo:t.assignedTo||'',channel:t.channel||t.source||'email',from:t.from,fromName:t.fromName,createdDate:t.createdDate,tags:t.tags||[],team:t.team||'',type:t.type||'',disposition:t.disposition||''})),meta:{agents,teams,types:clsCfg.types||[],dispositions:clsCfg.dispositions||[]}});
 });
 app.post('/api/owner/brands/:slug/tickets/bulk',ownerOnly,(req,res)=>{
@@ -3956,7 +3956,7 @@ app.post('/api/call',async(req,res)=>{
       }
       return{success:false,error:'Unknown dataset'};
     },
-    getClassificationConfig:()=>{const db=rDB();return{success:true,config:db.classificationConfig||{types:['Question','Incident','Problem','Feature Request','Billing','Other'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'],requireDisposition:false}};},
+    getClassificationConfig:()=>{const db=rDB();return{success:true,config:db.classificationConfig||{types:['Question','Incident','Problem','Feature Request'],dispositions:['Resolved — Fixed','Resolved — Workaround','Resolved — No Action','Escalated to Engineering','Customer Error','Duplicate','Spam'],requireDisposition:false}};},
     saveClassificationConfig:(config)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.classificationConfig=config;wDB(db);return{success:true};},
     updateTicketField:(ticketId,field,value)=>{
       const allowed=['type','disposition','internalNote'];
@@ -4017,7 +4017,7 @@ app.post('/api/call',async(req,res)=>{
         body:data.body||'',status:'open',priority:data.priority||'Medium',
         assignedTo,createdDate:now,lastActivity:now,
         thread:[{id:generateId('MSG'),type:'incoming',from:data.customerEmail||'manual@internal',fromName:data.customerName||'Customer',body:data.body||'',timestamp:now}],
-        tags,source:'manual',isVIP,
+        tags,source:'manual',isVIP,type:data.type||'',
         cc:data.cc?data.cc.split(',').map(e=>e.trim()).filter(Boolean):[],
         templateId:data.templateId||null,customFields:data.customFields||{}
       };

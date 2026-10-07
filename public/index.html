@@ -19732,19 +19732,24 @@ const App = {
   // ── CREATE MANUAL TICKET ────────────────────────────────────────────────────
   _showCreateManualTicket: async function() {
     var self = this;
-    // Load templates + agents in parallel
-    var [tmplR, usersR] = await Promise.all([
+    // Load templates + agents + classification types in parallel
+    var [tmplR, usersR, clsR] = await Promise.all([
       self.callAsync('getTicketTemplates'),
-      self.callAsync('getUsers', true)
+      self.callAsync('getUsers', true),
+      self.callAsync('getClassificationConfig')
     ]);
     var templates = (tmplR && tmplR.templates) || [];
     var agents = (usersR && usersR.users) || [];
+    var types = (clsR && clsR.config && clsR.config.types) || [];
 
     var templateOptions = '<option value="">No template</option>' +
       templates.map(function(t){ return '<option value="'+t.id+'">'+self._esc(t.name)+'</option>'; }).join('');
 
     var agentOptions = '<option value="">Unassigned</option>' +
       agents.map(function(u){ return '<option value="'+u.email+'">'+self._esc(u.name||u.email)+'</option>'; }).join('');
+
+    var typeOptions = '<option value="">Unclassified</option>' +
+      types.map(function(t){ return '<option value="'+self._esc(t)+'">'+self._esc(t)+'</option>'; }).join('');
 
     // Template required fields placeholder
     var reqFieldsHtml = '<div id="tmplRequiredFields"></div>';
@@ -19795,7 +19800,7 @@ const App = {
           <textarea id="ct_body" class="form-textarea" style="min-height:100px;" placeholder="Describe the issue in detail..."></textarea>
         </div>
 
-        <!-- Priority + Assignee -->
+        <!-- Priority + Type -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div>
             <label class="form-label">Priority</label>
@@ -19807,9 +19812,15 @@ const App = {
             </select>
           </div>
           <div>
-            <label class="form-label">Assign To</label>
-            <select id="ct_assign" class="form-select">${agentOptions}</select>
+            <label class="form-label">Type</label>
+            <select id="ct_type" class="form-select">${typeOptions}</select>
           </div>
+        </div>
+
+        <!-- Assignee -->
+        <div>
+          <label class="form-label">Assign To</label>
+          <select id="ct_assign" class="form-select">${agentOptions}</select>
         </div>
 
         <!-- Tags -->
@@ -19908,6 +19919,7 @@ const App = {
       subject,
       body: document.getElementById('ct_body')?.value?.trim() || '',
       priority: document.getElementById('ct_priority')?.value || 'Medium',
+      type: document.getElementById('ct_type')?.value || '',
       assignedTo: document.getElementById('ct_assign')?.value || '',
       tags: document.getElementById('ct_tags')?.value?.trim() || '',
       templateId: document.getElementById('ct_template')?.value || '',
