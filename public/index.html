@@ -5722,6 +5722,17 @@ body.focus-mode .focus-mode-btn { color: var(--accent); border-color: var(--bord
 .notif-item-desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
 .notif-item-time { font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 4px; }
 .notif-empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; }
+.notif-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+.notif-backdrop.open { opacity: 1; pointer-events: auto; }
+.notif-group-label { position: sticky; top: 0; z-index: 1; padding: 6px 20px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-surface); border-bottom: 1px solid var(--border); }
+.notif-tab .notif-tab-count { margin-left: 4px; font-size: 10px; opacity: .8; }
+.notif-item:focus-visible, .notif-tab:focus-visible, .notif-mark-all:focus-visible, .notif-close-drawer:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.notif-center-drawer { visibility: hidden; transition: right 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0s linear 0.25s; }
+.notif-center-drawer.open { visibility: visible; transition: right 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0s; }
+@media (max-width: 480px) { .notif-center-drawer { width: 100vw; right: -100vw; } }
+@media (prefers-reduced-motion: reduce) { .notif-center-drawer, .notif-backdrop, .sidebar { transition: none !important; } }
+.breadcrumb .bc-sep { opacity: .5; margin: 0 2px; }
+.breadcrumb .bc-current { color: var(--text-secondary); font-weight: 600; }
 [data-theme="uiux"] .notif-center-drawer { background: #fff; border-color: #e5e7eb; }
 [data-theme="uiux"] .notif-item.unread { background: #eff6ff; }
 
@@ -8504,7 +8515,8 @@ tbody tr.row-selected {
   </nav>
 
   <!-- Notification Center Drawer -->
-  <div class="notif-center-drawer" id="notifCenterDrawer">
+  <div class="notif-backdrop" id="notifBackdrop" onclick="NotifCenter.close()"></div>
+  <div class="notif-center-drawer" id="notifCenterDrawer" role="dialog" aria-modal="true" aria-label="Notifications" aria-hidden="true">
     <div class="notif-center-header">
       <span class="notif-center-title">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -8512,7 +8524,7 @@ tbody tr.row-selected {
       </span>
       <div class="notif-center-actions">
         <button class="notif-mark-all" onclick="NotifCenter.markAllRead()">Mark all read</button>
-        <button class="notif-close-drawer" onclick="NotifCenter.close()">
+        <button class="notif-close-drawer" onclick="NotifCenter.close()" aria-label="Close notifications">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -12136,13 +12148,26 @@ const App = {
     function closeMobileSidebar() {
       mobileSidebarEl.classList.remove('open');
       mobileBackdrop.classList.remove('open');
+      if (mobileHamburger) mobileHamburger.setAttribute('aria-expanded', 'false');
     }
     if (mobileHamburger) {
+      mobileHamburger.setAttribute('aria-expanded', 'false');
       mobileHamburger.addEventListener('click', () => {
-        mobileSidebarEl.classList.toggle('open');
+        var isOpen = mobileSidebarEl.classList.toggle('open');
         mobileBackdrop.classList.toggle('open');
+        mobileHamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
       });
     }
+    // Swipe left on the open drawer (or its backdrop) to close it
+    var swipeX = null;
+    [mobileSidebarEl, mobileBackdrop].forEach(function(el) {
+      if (!el) return;
+      el.addEventListener('touchstart', function(e) { swipeX = e.touches[0].clientX; }, { passive: true });
+      el.addEventListener('touchend', function(e) {
+        if (swipeX !== null && swipeX - e.changedTouches[0].clientX > 60) closeMobileSidebar();
+        swipeX = null;
+      }, { passive: true });
+    });
     if (mobileBackdrop) mobileBackdrop.addEventListener('click', closeMobileSidebar);
     mobileSidebarEl.addEventListener('click', (e) => {
       if (e.target.closest('.nav-item')) closeMobileSidebar();
@@ -12181,7 +12206,13 @@ const App = {
     const el = document.getElementById('pageTitle');
     const bc = document.getElementById('breadcrumb');
     if (el) el.textContent = title;
-    if (bc) bc.textContent = breadcrumb || '';
+    if (bc) {
+      var parts = String(breadcrumb || '').split(' / ').filter(Boolean);
+      bc.innerHTML = parts.map(function(p, i) {
+        var last = i === parts.length - 1;
+        return (i ? '<span class="bc-sep">›</span>' : '') + '<span class="' + (last ? 'bc-current' : 'bc-part') + '">' + App._esc(p) + '</span>';
+      }).join('');
+    }
     // A wide element on a previous page (or a focus() call that auto-scrolled
     // to reveal an off-screen input) can leave #mainContent horizontally
     // scrolled — that position persists across navigation and, at mobile
@@ -27653,7 +27684,11 @@ var Keyboard = {
       var isInput = ['INPUT','TEXTAREA','SELECT'].includes(tag);
       var isCE = document.activeElement && document.activeElement.contentEditable === 'true';
 
+      if (e.key === 'Tab' && window.NotifCenter && NotifCenter.isOpen()) NotifCenter._trapTab(e);
       if (e.key === 'Escape') {
+        if (window.NotifCenter && NotifCenter.isOpen()) { NotifCenter.close(); return; }
+        var sbOpen = document.getElementById('sidebar');
+        if (sbOpen && sbOpen.classList.contains('open')) { sbOpen.classList.remove('open'); var bdp = document.getElementById('sidebarBackdrop'); if (bdp) bdp.classList.remove('open'); }
         Search.close();
         SlidePanel.close();
         Keyboard._closeKbdHelp();
@@ -28690,13 +28725,38 @@ const NotifCenter = {
 
   open: function() {
     var drawer = document.getElementById('notifCenterDrawer');
-    if (drawer) drawer.classList.add('open');
+    var bd = document.getElementById('notifBackdrop');
+    this._returnFocus = document.activeElement;
+    if (drawer) { drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false'); }
+    if (bd) bd.classList.add('open');
     this.load();
+    var closeBtn = drawer && drawer.querySelector('.notif-close-drawer');
+    if (closeBtn) setTimeout(function() { closeBtn.focus(); }, 60);
+  },
+
+  isOpen: function() {
+    var drawer = document.getElementById('notifCenterDrawer');
+    return !!(drawer && drawer.classList.contains('open'));
   },
 
   close: function() {
     var drawer = document.getElementById('notifCenterDrawer');
-    if (drawer) drawer.classList.remove('open');
+    var bd = document.getElementById('notifBackdrop');
+    if (drawer) { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); }
+    if (bd) bd.classList.remove('open');
+    if (this._returnFocus && this._returnFocus.focus) { try { this._returnFocus.focus(); } catch (e) {} }
+    this._returnFocus = null;
+  },
+
+  // Keep Tab inside the open drawer
+  _trapTab: function(e) {
+    var drawer = document.getElementById('notifCenterDrawer');
+    if (!drawer) return;
+    var f = drawer.querySelectorAll('button, [tabindex="0"]');
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   },
 
   filter: function(type, btn) {
@@ -28779,21 +28839,52 @@ const NotifCenter = {
       if (self._filter === 'mention') return n.type === 'mention';
       return true;
     });
+    // Tab counts (from all items, not just the filtered view)
+    var counts = { all: this._items.length, unread: 0, assigned: 0, sla: 0, mention: 0 };
+    this._items.forEach(function(n) { if (!n.read) counts.unread++; if (counts[n.type] !== undefined) counts[n.type]++; });
+    document.querySelectorAll('.notif-center-drawer .notif-tab').forEach(function(t) {
+      var m = /filter\('(\w+)'/.exec(t.getAttribute('onclick') || '');
+      if (!m) return;
+      var span = t.querySelector('.notif-tab-count');
+      if (!span) { span = document.createElement('span'); span.className = 'notif-tab-count'; t.appendChild(span); }
+      span.textContent = (m[1] !== 'all' && counts[m[1]]) ? counts[m[1]] : '';
+    });
     if (items.length === 0) {
-      list.innerHTML = '<div class="notif-empty">✓ All caught up!</div>';
+      var msgs = {
+        unread: ['✓', "You're all caught up", 'No unread notifications.'],
+        assigned: ['👤', 'Nothing assigned', 'Tickets assigned to you will show up here.'],
+        sla: ['⏰', 'No SLA alerts', 'Tickets nearing breach will show up here.'],
+        mention: ['💬', 'No mentions', 'When someone @mentions you it shows up here.'],
+        all: ['🔔', 'No notifications yet', 'Assignments, SLA alerts and mentions will appear here.']
+      };
+      var em = msgs[self._filter] || msgs.all;
+      list.innerHTML = '<div class="notif-empty"><div style="font-size:28px;margin-bottom:8px;">' + em[0] + '</div><div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">' + em[1] + '</div><div style="font-size:12px;">' + em[2] + '</div></div>';
       return;
     }
     var iconMap = { assigned: '👤', sla: '⏰', mention: '💬', resolved: '✅', info: '🔔', critical: '🚨' };
     var bgMap = { assigned: 'rgba(56,189,248,0.15)', sla: 'rgba(255,71,87,0.15)', mention: 'rgba(162,155,254,0.15)', resolved: 'rgba(46,213,115,0.15)', info: 'rgba(245,166,35,0.15)', critical: 'rgba(255,71,87,0.15)' };
-    list.innerHTML = items.map(function(n) {
-      return '<div class="notif-item' + (n.read ? '' : ' unread') + '" onclick="NotifCenter._click(\'' + n.id + '\',\'' + (n.issueId||'') + '\')">' +
-        '<div class="notif-item-icon" style="background:' + (bgMap[n.type]||bgMap.info) + '">' + (iconMap[n.type]||'🔔') + '</div>' +
+    var startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+    var startYest = startToday.getTime() - 86400000;
+    function groupOf(n) {
+      var t = new Date(n.time).getTime();
+      if (isNaN(t) || t >= startToday.getTime()) return 'Today';
+      if (t >= startYest) return 'Yesterday';
+      return 'Earlier';
+    }
+    var html = '', lastGroup = '';
+    items.forEach(function(n) {
+      var g = groupOf(n);
+      if (g !== lastGroup) { html += '<div class="notif-group-label">' + g + '</div>'; lastGroup = g; }
+      var idArg = String(n.id).replace(/'/g, '');
+      html += '<div class="notif-item' + (n.read ? '' : ' unread') + '" tabindex="0" role="button" aria-label="' + App._esc((n.read ? '' : 'Unread: ') + n.title) + '" onclick="NotifCenter._click(\'' + idArg + '\',\'' + (n.issueId || '') + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">' +
+        '<div class="notif-item-icon" style="background:' + (bgMap[n.type] || bgMap.info) + '">' + (iconMap[n.type] || '🔔') + '</div>' +
         '<div class="notif-item-body">' +
         '<div class="notif-item-title">' + App._esc(n.title) + '</div>' +
-        '<div class="notif-item-desc">' + App._esc(n.desc||'') + '</div>' +
+        '<div class="notif-item-desc">' + App._esc(n.desc || '') + '</div>' +
         '<div class="notif-item-time">' + App.relativeTime(n.time) + '</div>' +
         '</div></div>';
-    }).join('');
+    });
+    list.innerHTML = html;
   },
 
   _click: function(id, issueId) {
