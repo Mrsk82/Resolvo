@@ -2937,6 +2937,12 @@ tbody td:first-child { color: var(--text-primary); font-weight: 500; }
 [data-theme="arctic"] .nav-item { color: #94a3b8; }
 [data-theme="arctic"] .nav-item:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
 [data-theme="arctic"] .nav-item.active { color: var(--accent); background: var(--accent-dim); }
+/* The global `.nav-item:hover { background: var(--bg-elevated) !important }` is a LIGHT colour in
+   Arctic, which turned hovered sidebar rows into white pills with white text. Pin both states to
+   the dark-sidebar palette with enough specificity/!important to beat the global + theme rules. */
+[data-theme="arctic"] .sidebar .nav-item:hover { background: rgba(255,255,255,0.08) !important; color: #f1f5f9 !important; }
+[data-theme="arctic"] .sidebar .nav-item.active { background: rgba(16,185,129,0.18) !important; color: #34d399 !important; }
+[data-theme="arctic"] .sidebar .nav-item:hover .nav-icon svg, [data-theme="arctic"] .sidebar .nav-item.active .nav-icon svg { stroke: currentColor; }
 [data-theme="arctic"] .nav-icon svg { stroke: currentColor; }
 [data-theme="arctic"] .user-card { border-color: rgba(255,255,255,0.08); }
 [data-theme="arctic"] .user-name { color: #f1f5f9; }
@@ -12275,7 +12281,15 @@ const App = {
     if (bcEl) bcEl.textContent = breadcrumbs[page] || '';
     
     document.querySelectorAll('.nav-item').forEach(i => {
-      i.classList.toggle('active', i.dataset.page === page);
+      var on = i.dataset.page === page;
+      // Several sidebar rows share data-page="settings" and differ only by tab —
+      // match the tab too, otherwise Knowledge Base/Automation/Escalation all light up at once.
+      if (on && page === 'settings') {
+        var itemTab = '';
+        try { itemTab = (JSON.parse(i.dataset.navParams || '{}').tab) || ''; } catch (e) {}
+        on = itemTab === ((params && params.tab) || '');
+      }
+      i.classList.toggle('active', on);
     });
     
     const content = document.getElementById('contentArea');
@@ -17926,6 +17940,23 @@ const App = {
           }).join('')+
           '</div></div>';
       }).join('');
+      // CRM & Contacts live on the /crm page, not as settings tabs — surface them here as link cards
+      var crmLinks = [
+        { label:'Contacts', desc:'People you support and sell to', href:'/crm#contacts', ico:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
+        { label:'Companies', desc:'Organisations and accounts', href:'/crm#companies', ico:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V7l6-4 6 4v14M10 21v-6h4v6"/></svg>' },
+        { label:'Deals & Pipeline', desc:'Sales stages, deal values and forecasts', href:'/crm#deals', ico:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' },
+        { label:'CRM Dashboard', desc:'Pipeline value, won deals and outreach stats', href:'/crm', ico:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' }
+      ];
+      gridHtml += '<div style="margin-bottom:28px;">'+
+        '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);">CRM &amp; Contacts</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">'+
+        crmLinks.map(function(c){
+          return '<a href="'+c.href+'" style="text-decoration:none;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:all .15s;display:flex;gap:12px;align-items:flex-start;" onmouseover="this.style.background='var(--bg-elevated)';this.style.borderColor='var(--border-accent)'" onmouseout="this.style.background='var(--bg-card)';this.style.borderColor='var(--border)'">'+
+            '<div style="width:32px;height:32px;border-radius:8px;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+c.ico+'</div>'+
+            '<div><div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px;">'+c.label.replace('&','&amp;')+'</div>'+
+            '<div style="font-size:11px;color:var(--text-dim);line-height:1.4;">'+c.desc+'</div></div></a>';
+        }).join('')+
+        '</div></div>';
       area.innerHTML =
         '<div style="margin-bottom:24px;"><h2 style="margin:0 0 4px;font-size:20px;font-weight:800;">⚙ Settings</h2>'+
         '<p style="margin:0;font-size:13px;color:var(--text-dim);">Configure your workspace, team, ticketing and integrations.</p></div>'+
