@@ -156,6 +156,7 @@ input:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);backgr
       </div>
     </div>
 
+    <div id="cf_turnstile" style="margin:2px 0 14px;"></div>
     <button class="btn" id="s_btn" onclick="doSignup()">Create free account →</button>
     <div class="msg" id="s_msg"></div>
 
@@ -184,8 +185,9 @@ async function doSignup(){
   if(!name||!company||!email){showMsg('Please fill in all fields.','error');return;}
   if(!email.includes('@')){showMsg('Please enter a valid email address.','error');return;}
   if(pass&&pass.length<8){showMsg('Password must be at least 8 characters.','error');return;}
+  if(window._tsRequired&&!window._tsToken){showMsg('Please complete the security check.','error');return;}
   btn.textContent='Creating your account…';btn.disabled=true;
-  var r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company,email,password:pass||undefined})}).then(function(x){return x.json();}).catch(function(){return{success:false,error:'Network error — please try again.'};});
+  var r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company,email,password:pass||undefined,turnstileToken:window._tsToken||undefined})}).then(function(x){return x.json();}).catch(function(){return{success:false,error:'Network error — please try again.'};});
   if(r.success){
     showMsg('Account created! Taking you in…','success');
     btn.textContent='✓ Account created!';
@@ -193,8 +195,18 @@ async function doSignup(){
   } else {
     showMsg(r.error||'Something went wrong. Please try again.','error');
     btn.textContent='Create free account →';btn.disabled=false;
+    if(window._tsRequired&&window.turnstile){window._tsToken='';try{turnstile.reset();}catch(e){}}
   }
 }
+// Cloudflare Turnstile captcha: shown only when the server has TURNSTILE_SITE_KEY configured.
+fetch('/api/signup-config').then(function(x){return x.json();}).then(function(cfg){
+  if(!cfg||!cfg.turnstileSiteKey)return;
+  window._tsRequired=true;
+  var s=document.createElement('script');
+  s.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';s.async=true;
+  s.onload=function(){turnstile.render('#cf_turnstile',{sitekey:cfg.turnstileSiteKey,theme:'light',callback:function(tok){window._tsToken=tok;},'expired-callback':function(){window._tsToken='';},'error-callback':function(){window._tsToken='';}});};
+  document.head.appendChild(s);
+}).catch(function(){});
 function showMsg(text,type){
   var el=document.getElementById('s_msg');el.textContent=text;el.style.display='block';
   if(type==='success'){el.style.background='#F0FDF4';el.style.border='1px solid #BBF7D0';el.style.color='#166534';}

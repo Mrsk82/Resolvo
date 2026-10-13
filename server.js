@@ -6102,6 +6102,16 @@ function _rateLimited(map,key,max,windowMs){
   if(map.size>5000){for(const[k,v]of map){if(!v.some(ts=>now-ts<windowMs))map.delete(k);}}
   return false;
 }
+// Optional Cloudflare Turnstile captcha. Off until TURNSTILE_SITE_KEY and TURNSTILE_SECRET are set in .env.
+app.get('/api/signup-config',(req,res)=>res.json({turnstileSiteKey:process.env.TURNSTILE_SITE_KEY||''}));
+async function _verifyTurnstile(token,ip){
+  if(!process.env.TURNSTILE_SECRET)return true;
+  if(!token||typeof token!=='string')return false;
+  try{
+    const r=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({secret:process.env.TURNSTILE_SECRET,response:token,remoteip:ip||''})});
+    const j=await r.json();return !!j.success;
+  }catch(e){console.error('[Turnstile] verify failed:',e.message);return false;}
+}
 const _RESERVED_EMAIL=/@(example\.(com|org|net)|[^@]+\.(test|invalid|localhost|example))$/i;
 app.post('/api/signup',async(req,res)=>{
   const{name,email,company,password,ref,category}=req.body;
@@ -6111,6 +6121,7 @@ app.post('/api/signup',async(req,res)=>{
   if(typeof name!=='string'||typeof email!=='string'||typeof company!=='string')return res.json({success:false,error:'Invalid details.'});
   if(!email.includes('@'))return res.json({success:false,error:'Invalid email.'});
   if(_RESERVED_EMAIL.test(email.trim()))return res.json({success:false,error:'Please use a real work email address.'});
+  if(!(await _verifyTurnstile(req.body.turnstileToken,clientIp)))return res.json({success:false,error:'Please complete the security check and try again.'});
   if(name.length>80||company.length>80||/[\/\\\u0000-\u001f]|\.\./.test(company)||/[\u0000-\u001f]/.test(name))return res.json({success:false,error:'Name and company must be under 80 characters and cannot contain slashes.'});
   const owner=readOwner();
   // Check email not already registered
