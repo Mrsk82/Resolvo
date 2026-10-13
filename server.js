@@ -6089,10 +6089,29 @@ app.get('/nps',(req,res)=>{
 });
 
 // ── PUBLIC SELF-SIGNUP (no auth — creates trial brand) ─────────────────────
+// ── Signup abuse protection ──────────────────────────────────────────────────
+// Open self-signup was used to create probe workspaces. Limits: 5 sign-ups per network per hour,
+// no reserved/test email domains, no path-like or oversized names; the caller's IP + user agent
+// are written to the owner audit log so abuse can be traced.
+const _signupHits=new Map(),_demoReqHits=new Map();
+function _clientIp(req){return String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim();}
+function _rateLimited(map,key,max,windowMs){
+  const now=Date.now(),arr=(map.get(key)||[]).filter(ts=>now-ts<windowMs);
+  if(arr.length>=max){map.set(key,arr);return true;}
+  arr.push(now);map.set(key,arr);
+  if(map.size>5000){for(const[k,v]of map){if(!v.some(ts=>now-ts<windowMs))map.delete(k);}}
+  return false;
+}
+const _RESERVED_EMAIL=/@(example\.(com|org|net)|[^@]+\.(test|invalid|localhost|example))$/i;
 app.post('/api/signup',async(req,res)=>{
   const{name,email,company,password,ref,category}=req.body;
+  const clientIp=_clientIp(req),clientUa=String(req.headers['user-agent']||'').slice(0,160);
+  if(_rateLimited(_signupHits,clientIp,5,3600000))return res.status(429).json({success:false,error:'Too many sign-ups from this network. Please try again later, or email contact@resolvogroup.com.'});
   if(!name||!email||!company)return res.json({success:false,error:'Name, email and company required.'});
+  if(typeof name!=='string'||typeof email!=='string'||typeof company!=='string')return res.json({success:false,error:'Invalid details.'});
   if(!email.includes('@'))return res.json({success:false,error:'Invalid email.'});
+  if(_RESERVED_EMAIL.test(email.trim()))return res.json({success:false,error:'Please use a real work email address.'});
+  if(name.length>80||company.length>80||/[\/\\\u0000-\u001f]|\.\./.test(company)||/[\u0000-\u001f]/.test(name))return res.json({success:false,error:'Name and company must be under 80 characters and cannot contain slashes.'});
   const owner=readOwner();
   // Check email not already registered
   const existing=(owner.brands||[]).find(b=>b.majorAdminEmail===email);
@@ -6112,7 +6131,7 @@ app.post('/api/signup',async(req,res)=>{
   writeBrandDB(finalSlug,bdb);
   const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
-  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null},owner.email);
+  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null,ip:clientIp,userAgent:clientUa},owner.email);
   // Track referral if ref code provided
   if(ref&&owner.referrals&&owner.referrals[ref]){
     owner.referrals[ref].uses=(owner.referrals[ref].uses||0)+1;
@@ -6134,6 +6153,7 @@ app.post('/api/signup',async(req,res)=>{
 // ── DEMO REQUEST ─────────────────────────────────────────────────────────────
 app.post('/api/demo-request',async(req,res)=>{
   const{name,email,company,message}=req.body;
+  if(_rateLimited(_demoReqHits,_clientIp(req),5,3600000))return res.status(429).json({success:false,error:'Too many requests. Please email contact@resolvogroup.com.'});
   if(!name||!email)return res.json({success:false,error:'Name and email required.'});
   const owner=readOwner();
   owner.prospects=owner.prospects||[];
