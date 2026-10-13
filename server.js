@@ -67,6 +67,10 @@ const _alertCooldown=new Map(); // errorKey -> last sent ms
 const _errorCount=new Map();    // errorKey -> count
 const _recentErrors=[];         // rolling last 20 errors for context
 const COOLDOWN_MS=5*60*1000;    // max 1 alert per error type per 5 min
+// Persisted so a crash-loop (a fresh process on every restart) can't re-send the same alert each time.
+const COOLDOWN_FILE=require('path').join(__dirname,'data','alert-cooldown.json');
+try{const o=JSON.parse(require('fs').readFileSync(COOLDOWN_FILE,'utf8'));for(const k in o)_alertCooldown.set(k,o[k]);}catch(e){}
+function _saveCooldown(){try{require('fs').writeFileSync(COOLDOWN_FILE,JSON.stringify(Object.fromEntries(_alertCooldown)));}catch(e){}}
 
 function _canAlert(key){
   const last=_alertCooldown.get(key)||0;
@@ -83,7 +87,7 @@ async function sendAlert(type,title,details,extras={}){
   const key=type+':'+title.substring(0,60);
   _trackError(key,title);
   if(!_canAlert(key))return; // rate-limited
-  _alertCooldown.set(key,Date.now());
+  _alertCooldown.set(key,Date.now());_saveCooldown();
   const count=_errorCount.get(key)||1;
   const mem=process.memoryUsage();
   const memMB=Math.round(mem.heapUsed/1024/1024);
