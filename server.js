@@ -373,7 +373,10 @@ function requireFeature(flags,key){
 function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[];owner.auditLog.unshift({id:uuidv4().substring(0,8),action,details,by,timestamp:nowIST()});if(owner.auditLog.length>500)owner.auditLog=owner.auditLog.slice(0,500);}
 function readOwner(){return JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}
 function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf8');}
-function brandDbPath(slug){return path.join(BRANDS_DIR,slug,'db.json');}
+// A brand slug becomes a folder name: only letters, digits, '-' and '_' are allowed, so a request
+// can never point at '../..' or any path outside data/brands.
+function _assertSlug(slug){if(!/^[A-Za-z0-9_-]{1,64}$/.test(String(slug==null?'':slug)))throw new Error('Invalid brand slug');return slug;}
+function brandDbPath(slug){_assertSlug(slug);return path.join(BRANDS_DIR,slug,'db.json');}
 
 // ══════════════════════════════════════════════════════════════════════════
 // SQLITE DATABASE LAYER  (replaces JSON file reads/writes)
@@ -408,6 +411,7 @@ const KV_KEYS=[
 ];
 
 function _openDB(slug){
+  _assertSlug(slug);
   if(_dbConns[slug])return _dbConns[slug];
   const dir=path.join(BRANDS_DIR,slug);
   if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
@@ -488,6 +492,7 @@ function _upsertRows(db,table,items){
 }
 
 function readBrandDB(slug){
+  _assertSlug(slug);
   // ── fallback: if SQLite doesn't exist yet, try legacy JSON ──────────────
   const sqlitePath=path.join(BRANDS_DIR,slug,'db.sqlite');
   const jsonPath=brandDbPath(slug);
@@ -517,6 +522,7 @@ function readBrandDB(slug){
 }
 
 function writeBrandDB(slug,data){
+  _assertSlug(slug);
   const db=_openDB(slug);
   db.transaction(()=>{
     // Row-table collections
@@ -11794,7 +11800,7 @@ const DEFAULT_DASHBOARD_WIDGETS=[
 // GET dashboard config
 app.get('/api/:slug/dashboard/config',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const db=readBrandDB(req.params.slug);
+  const db=readBrandDB(su.brandSlug);
   res.json({success:true,widgets:db.dashboardConfig||DEFAULT_DASHBOARD_WIDGETS,globalRange:db.dashboardRange||'30d'});
 });
 
@@ -11802,17 +11808,17 @@ app.get('/api/:slug/dashboard/config',(req,res)=>{
 app.post('/api/:slug/dashboard/config',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
   if(su.role!=='Admin')return res.status(403).json({error:'Admin only'});
-  const db=readBrandDB(req.params.slug);
+  const db=readBrandDB(su.brandSlug);
   db.dashboardConfig=req.body.widgets||DEFAULT_DASHBOARD_WIDGETS;
   db.dashboardRange=req.body.globalRange||'30d';
-  writeBrandDB(req.params.slug,db);
+  writeBrandDB(su.brandSlug,db);
   res.json({success:true});
 });
 
 // GET widget data
 app.get('/api/:slug/dashboard/widget',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const{slug}=req.params;
+  const slug=su.brandSlug;
   const type=req.query.type;
   const range=parseInt(req.query.range)||30;
   const db=readBrandDB(slug);
