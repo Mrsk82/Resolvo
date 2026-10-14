@@ -188,7 +188,10 @@ async function doSignup(){
   if(window._tsRequired&&!window._tsToken){showMsg('Please complete the security check.','error');return;}
   btn.textContent='Creating your account…';btn.disabled=true;
   var r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company,email,password:pass||undefined,turnstileToken:window._tsToken||undefined})}).then(function(x){return x.json();}).catch(function(){return{success:false,error:'Network error — please try again.'};});
-  if(r.success){
+  if(r.success&&r.pending){
+    showMsg((r.message||'Check your email to activate your account.')+' The link works for 48 hours.','success');
+    btn.textContent='✓ Check your email';
+  } else if(r.success){
     showMsg('Account created! Taking you in…','success');
     btn.textContent='✓ Account created!';
     setTimeout(function(){window.location.href='/';},2000);

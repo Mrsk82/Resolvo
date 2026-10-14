@@ -737,6 +737,7 @@ app.post('/api/login',(req,res)=>{
 
   // Brand user login
   for(const brand of(owner.brands||[])){
+    if(brand.status==='pending'&&String(brand.majorAdminEmail||'').toLowerCase()===String(email).toLowerCase())return res.json({success:false,error:'Please activate your account first: open the confirmation link we emailed you (check spam). Sign up again with the same email to get a new link.'});
     if(brand.status!=='active')continue;
     let db;try{db=readBrandDB(brand.slug);}catch(e){continue;}
     const user=(db.users||[]).find(u=>u.email===email&&(u.active===true||u.active==='true'));
@@ -6113,6 +6114,27 @@ async function _verifyTurnstile(token,ip){
   }catch(e){console.error('[Turnstile] verify failed:',e.message);return false;}
 }
 const _RESERVED_EMAIL=/@(example\.(com|org|net)|[^@]+\.(test|invalid|localhost|example))$/i;
+// Email verification: self-signup workspaces start as status 'pending' and only become 'active'
+// when the owner of the email address opens the link we send. Pending workspaces cannot log in.
+function _activationEmailHtml(name,company,link,autoPass,email){
+  const creds=autoPass?`<div style="background:#f9fafb;border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid #e5e7eb;font-size:13px;color:#374151;"><div><strong>Email:</strong> ${email}</div><div style="margin-top:6px;"><strong>Temporary password:</strong> <span style="font-family:monospace;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${autoPass}</span></div><div style="margin-top:8px;color:#6b7280;">Please change it after your first login.</div></div>`:`<p style="font-size:13px;color:#6b7280;">You can log in with the email and password you chose when you signed up.</p>`;
+  return `<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:28px;text-align:center;"><h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">Confirm your email</h1></div><div style="padding:26px 30px;"><p style="font-size:15px;color:#374151;">Hi <strong>${name}</strong>,</p><p style="font-size:14px;color:#374151;line-height:1.7;">Thanks for signing up for Resolvo. Please confirm your email address to activate the workspace for <strong>${company}</strong>.</p><div style="text-align:center;margin:22px 0;"><a href="${link}" style="display:inline-block;padding:13px 36px;background:linear-gradient(135deg,#10B981,#6366F1);color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;">Activate my account &rarr;</a></div>${creds}<p style="font-size:12px;color:#9ca3af;">This link works for 48 hours. If you didn't sign up, you can ignore this email.</p></div><div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;">Need help? <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></div></div></body></html>`;
+}
+function _simplePage(title,msg,ok){
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Resolvo</title></head><body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1020;font-family:Arial,sans-serif;padding:20px;"><div style="max-width:440px;background:#fff;border-radius:16px;padding:36px 32px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.4);"><div style="font-size:40px;margin-bottom:8px;">${ok?'✅':'⚠️'}</div><h1 style="margin:0 0 10px;font-size:22px;color:#111827;">${title}</h1><p style="font-size:14px;line-height:1.7;color:#4b5563;margin:0 0 22px;">${msg}</p><a href="/" style="display:inline-block;padding:12px 30px;background:#10B981;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">${ok?'Go to login &rarr;':'Back to Resolvo'}</a></div></body></html>`;
+}
+app.get('/verify-email',(req,res)=>{
+  const slug=String(req.query.slug||''),token=String(req.query.token||'');
+  if(!/^[A-Za-z0-9_-]{1,64}$/.test(slug)||!/^[a-f0-9]{48}$/.test(token))return res.status(400).send(_simplePage('Invalid link','This activation link is not valid. Please use the link from your email, or sign up again.',false));
+  const owner=readOwner(),i=(owner.brands||[]).findIndex(b=>b.slug===slug),b=i>=0?owner.brands[i]:null;
+  if(b&&b.status==='active')return res.send(_simplePage('Already activated','Your account is already active. You can log in now.',true));
+  const ok=b&&b.status==='pending'&&b.verifyToken&&b.verifyToken.length===token.length&&require('crypto').timingSafeEqual(Buffer.from(b.verifyToken),Buffer.from(token))&&(!b.verifyExpires||Date.now()<=b.verifyExpires);
+  if(!ok)return res.status(400).send(_simplePage('Link expired or invalid','This activation link has expired or was already used. Sign up again with the same email and we will send a fresh link.',false));
+  b.status='active';b.verifiedAt=nowIST();delete b.verifyToken;delete b.verifyExpires;
+  ownerAuditLog(owner,'brand_email_verified',{brandSlug:slug},b.majorAdminEmail);
+  writeOwner(owner);
+  res.send(_simplePage('Account activated','Your email is confirmed and your workspace is ready. You can log in now.',true));
+});
 app.post('/api/signup',async(req,res)=>{
   const{name,email,company,password,ref,category}=req.body;
   const clientIp=_clientIp(req),clientUa=String(req.headers['user-agent']||'').slice(0,160);
@@ -6126,6 +6148,13 @@ app.post('/api/signup',async(req,res)=>{
   const owner=readOwner();
   // Check email not already registered
   const existing=(owner.brands||[]).find(b=>b.majorAdminEmail===email);
+  if(existing&&existing.status==='pending'){
+    // Not activated yet: issue a fresh link instead of locking the person out.
+    existing.verifyToken=require('crypto').randomBytes(24).toString('hex');existing.verifyExpires=Date.now()+48*3600*1000;
+    writeOwner(owner);
+    sendEmail(email,'Confirm your email — activate your Resolvo account',_activationEmailHtml(name,existing.name,`${BASE_URL}/verify-email?slug=${existing.slug}&token=${existing.verifyToken}`,null,email),`Activate your Resolvo account: ${BASE_URL}/verify-email?slug=${existing.slug}&token=${existing.verifyToken}`).catch(()=>{});
+    return res.json({success:true,pending:true,message:'We sent a new activation link. Please check your inbox (and spam).'});
+  }
   if(existing)return res.json({success:false,error:'An account with this email already exists. Please log in.'});
   // Generate slug from company name
   let slug=company.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').substring(0,30);
@@ -6133,14 +6162,16 @@ app.post('/api/signup',async(req,res)=>{
   // Ensure unique slug
   let finalSlug=slug;let i=2;
   while((owner.brands||[]).find(b=>b.slug===finalSlug)){finalSlug=slug+'-'+i;i++;}
-  const pass=password||email.split('@')[0]+'@'+Math.floor(1000+Math.random()*9000);
+  const autoPass=password?null:require('crypto').randomBytes(9).toString('base64url');
+  const pass=password||autoPass;
+  const verifyToken=require('crypto').randomBytes(24).toString('hex');
   fs.mkdirSync(path.join(BRANDS_DIR,finalSlug),{recursive:true});
   const bdb=defaultBrandDB(company,email,name,pass);
   const proCats=['doctor','lawyer','consultant','salon','tutor','other-pro'];
   const isPro=proCats.includes((category||'').toLowerCase());
   if(isPro){bdb.bookingConfig={enabled:true,title:'Book an Appointment',slotDuration:30,buffer:15,workingHours:{}};bdb.plan={tier:'free',appointmentLimit:250};}
   writeBrandDB(finalSlug,bdb);
-  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'active',tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
+  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'pending',verifyToken,verifyExpires:Date.now()+48*3600*1000,tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
   ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null,ip:clientIp,userAgent:clientUa},owner.email);
   // Track referral if ref code provided
@@ -6153,12 +6184,12 @@ app.post('/api/signup',async(req,res)=>{
     console.log(`[Referral] Code ${ref} used by ${email} — referrer: ${owner.referrals[ref].email}`);
   }
   writeOwner(owner);
-  // Send welcome email
-  const welcomeHtml=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:24px 16px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="background:linear-gradient(135deg,#10B981,#6366F1);padding:32px;text-align:center;"><div style="font-size:36px;margin-bottom:10px;">🎉</div><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Welcome to Resolvo!</h1><p style="margin:8px 0 0;color:rgba(255,255,255,.85);font-size:14px;">Your account is ready</p></div><div style="padding:28px 32px;"><p style="font-size:15px;color:#374151;">Hi <strong>${name}</strong>,</p><p style="font-size:14px;color:#374151;line-height:1.7;">Your Resolvo workspace for <strong>${company}</strong> is live and ready. Here are your login details:</p><div style="background:#f9fafb;border-radius:10px;padding:16px 20px;margin:16px 0;border:1px solid #e5e7eb;"><div style="font-size:13px;color:#6b7280;margin-bottom:6px;"><strong>Login URL:</strong> <a href="${BASE_URL}" style="color:#10B981;">${BASE_URL}</a></div><div style="font-size:13px;color:#6b7280;margin-bottom:6px;"><strong>Email:</strong> ${email}</div><div style="font-size:13px;color:#6b7280;"><strong>Password:</strong> <span style="font-family:monospace;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${pass}</span></div></div><p style="font-size:13px;color:#6b7280;">Please change your password after first login.</p><div style="text-align:center;margin-top:20px;"><a href="${BASE_URL}" style="display:inline-block;padding:13px 40px;background:linear-gradient(135deg,#10B981,#6366F1);color:#fff;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;">Open Your Workspace →</a></div></div><div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;"><p style="font-size:12px;color:#9ca3af;margin:0;">Need help? <a href="mailto:contact@resolvogroup.com" style="color:#10B981;">contact@resolvogroup.com</a></p></div></div></body></html>`;
-  await sendEmail(email,`🎉 Welcome to Resolvo — ${company} is live!`,welcomeHtml,`Your Resolvo workspace is ready. Login: ${BASE_URL} | Email: ${email} | Password: ${pass}`).catch(()=>{});
+  // Send the activation email (no workspace access until the link is opened)
+  const activationLink=`${BASE_URL}/verify-email?slug=${finalSlug}&token=${verifyToken}`;
+  await sendEmail(email,'Confirm your email — activate your Resolvo account',_activationEmailHtml(name,company,activationLink,autoPass,email),`Activate your Resolvo account: ${activationLink}`+(autoPass?` | Temporary password: ${autoPass}`:'')).catch(()=>{});
   // Notify owner
   sendEmail(owner.email,`New signup: ${company} (${email})`,`<p>New self-signup on Resolvo:</p><p><strong>Company:</strong> ${company}<br><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Slug:</strong> ${finalSlug}<br><strong>Tier:</strong> Free<br><strong>Time:</strong> ${new Date().toLocaleString()}</p>`,`New signup: ${company} — ${email}`).catch(()=>{});
-  res.json({success:true,message:'Account created! Check your email for login details.',slug:finalSlug});
+  res.json({success:true,pending:true,message:'Check your email to activate your account.',slug:finalSlug});
 });
 
 // ── DEMO REQUEST ─────────────────────────────────────────────────────────────
