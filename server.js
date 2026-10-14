@@ -168,7 +168,8 @@ function monitorReq(req,res,next){
 const BOT_PATH_PATTERNS=[/\/wp-/i,/xmlrpc/i,/wlwmanifest/i,/\.php$/i,/\/ads\.txt$/i,/\/vs-/i,/\/pitch\//i,/favicon\.ico$/i,/robots\.txt$/i,/sitemap/i];
 function isBotPath(p){return BOT_PATH_PATTERNS.some(r=>r.test(p));}
 function errorMiddleware(err,req,res,next){
-  const status=err.status||500;
+  // A request naming a brand that doesn't exist (or a malformed brand name) is a 404, not a server fault.
+  const status=err.status||((err.message==='Unknown brand'||err.message==='Invalid brand slug')?404:500);
   const stack=err.stack||err.message||String(err);
   // Only log + alert for real server errors, not 404s or bot scans
   if(status>=500&&!isBotPath(req.path)){
@@ -377,6 +378,31 @@ function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf
 // can never point at '../..' or any path outside data/brands.
 function _assertSlug(slug){if(!/^[A-Za-z0-9_-]{1,64}$/.test(String(slug==null?'':slug)))throw new Error('Invalid brand slug');return slug;}
 function brandDbPath(slug){_assertSlug(slug);return path.join(BRANDS_DIR,slug,'db.json');}
+// Signed tokens (OAuth "state" etc.): the payload cannot be forged or altered without the server secret.
+function _appSecret(){
+  if(_appSecret._v)return _appSecret._v;
+  let s=process.env.APP_SECRET||'';
+  if(!s){
+    const f=path.join(__dirname,'data','app-secret.txt');
+    try{s=fs.readFileSync(f,'utf8').trim();}catch(e){}
+    if(!s){s=require('crypto').randomBytes(32).toString('hex');try{fs.writeFileSync(f,s,{mode:0o600});}catch(e){}}
+  }
+  return _appSecret._v=s;
+}
+function _signToken(obj){const b=Buffer.from(JSON.stringify(obj)).toString('base64url');return b+'.'+require('crypto').createHmac('sha256',_appSecret()).update(b).digest('base64url');}
+function _verifyToken(tok,maxAgeMs){
+  try{
+    const[b,sig]=String(tok||'').split('.');if(!b||!sig)return null;
+    const exp=require('crypto').createHmac('sha256',_appSecret()).update(b).digest('base64url');
+    const A=Buffer.from(sig),B=Buffer.from(exp);
+    if(A.length!==B.length||!require('crypto').timingSafeEqual(A,B))return null;
+    const p=JSON.parse(Buffer.from(b,'base64url').toString('utf8'));
+    if(maxAgeMs&&(!p.ts||Date.now()-p.ts>maxAgeMs))return null;
+    return p;
+  }catch(e){return null;}
+}
+function _safeEq(a,b){a=String(a==null?'':a);b=String(b==null?'':b);if(!a||a.length!==b.length)return false;return require('crypto').timingSafeEqual(Buffer.from(a),Buffer.from(b));}
+function _escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 // ══════════════════════════════════════════════════════════════════════════
 // SQLITE DATABASE LAYER  (replaces JSON file reads/writes)
@@ -414,7 +440,12 @@ function _openDB(slug){
   _assertSlug(slug);
   if(_dbConns[slug])return _dbConns[slug];
   const dir=path.join(BRANDS_DIR,slug);
-  if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});
+  if(!fs.existsSync(dir)){
+    // Only registered brands may get a folder; a request naming an unknown brand must not create one.
+    let known=false;try{known=(readOwner().brands||[]).some(b=>b.slug===slug);}catch(e){}
+    if(!known)throw new Error('Unknown brand');
+    fs.mkdirSync(dir,{recursive:true});
+  }
   const db=_sqlite3(path.join(dir,'db.sqlite'));
   db.pragma('journal_mode=WAL');   // concurrent reads, atomic writes
   db.pragma('synchronous=NORMAL'); // safe + fast (no fsync on every write)
@@ -3654,7 +3685,7 @@ app.post('/api/call',async(req,res)=>{
     // real app registered on that platform — see .env.example).
     startSocialOAuth:(platform)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
-      const state=Buffer.from(JSON.stringify({slug,by:su.email,ts:Date.now()})).toString('base64url');
+      const state=_signToken({slug,by:su.email,ts:Date.now()});
       const redirectUri=`${BASE_URL}/api/social-oauth/${platform}/callback`;
       try{
         if(platform==='instagram'){
@@ -6047,9 +6078,12 @@ app.get('/csat-ticket',(req,res)=>{
   try{
     const payload=JSON.parse(Buffer.from(token,'base64url').toString('utf8'));
     const{ticketId,slug}=payload;
+    if(!(readOwner().brands||[]).some(b=>b.slug===slug))return res.send('<html><body><p>Invalid link.</p></body></html>');
     const db=readBrandDB(slug);
     const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
     if(idx===-1)return res.send('<html><body><p>Ticket not found.</p></body></html>');
+    // The link is only valid if it is exactly the token we issued for this ticket (stops forged links).
+    if(!_safeEq(db.tickets[idx].csatToken,token))return res.send('<html><body><p>Invalid link.</p></body></html>');
     if(rating&&!db.tickets[idx].csatRating){
       db.tickets[idx].csatScore=rating==='yes'?100:0;
       db.tickets[idx].csatRating=rating;
@@ -6060,7 +6094,7 @@ app.get('/csat-ticket',(req,res)=>{
     }
     const isYes=db.tickets[idx].csatRating==='yes';
     const alreadyDone=!!db.tickets[idx].csatRating&&!rating;
-    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Feedback</title></head><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;"><div style="max-width:400px;text-align:center;background:#fff;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,.08);"><div style="font-size:52px;margin-bottom:16px;">${alreadyDone?'✅':isYes?'🎉':'😔'}</div><h2 style="margin:0 0 10px;font-size:22px;font-weight:800;color:#111827;">${alreadyDone?'Already recorded!':isYes?'Thanks for the thumbs up!':'Sorry to hear that!'}</h2><p style="color:#6b7280;font-size:14px;margin:10px 0 0;">${alreadyDone?'Your feedback was already recorded.':isYes?'We\'re glad we could help you.':'We\'ll work hard to do better.'}</p><p style="color:#9ca3af;font-size:12px;margin:24px 0 0;">Ref: ${ticketId} · Powered by Resolvo</p></div></body></html>`);
+    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Feedback</title></head><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;"><div style="max-width:400px;text-align:center;background:#fff;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,.08);"><div style="font-size:52px;margin-bottom:16px;">${alreadyDone?'✅':isYes?'🎉':'😔'}</div><h2 style="margin:0 0 10px;font-size:22px;font-weight:800;color:#111827;">${alreadyDone?'Already recorded!':isYes?'Thanks for the thumbs up!':'Sorry to hear that!'}</h2><p style="color:#6b7280;font-size:14px;margin:10px 0 0;">${alreadyDone?'Your feedback was already recorded.':isYes?'We\'re glad we could help you.':'We\'ll work hard to do better.'}</p><p style="color:#9ca3af;font-size:12px;margin:24px 0 0;">Ref: ${_escHtml(ticketId)} · Powered by Resolvo</p></div></body></html>`);
   }catch(e){return res.send('<html><body><p>Invalid link.</p></body></html>');}
 });
 
@@ -6071,11 +6105,13 @@ app.get('/nps',(req,res)=>{
   try{
     const payload=JSON.parse(Buffer.from(token,'base64url').toString('utf8'));
     const{slug,surveyId}=payload;
+    if(!(readOwner().brands||[]).some(b=>b.slug===slug))return res.send('<html><body><p>Invalid link.</p></body></html>');
     const db=readBrandDB(slug);
     db.npsSurveys=db.npsSurveys||[];
     const idx=db.npsSurveys.findIndex(s=>s.id===surveyId);
     if(idx===-1)return res.send('<html><body><p>Survey not found or expired.</p></body></html>');
     const s=db.npsSurveys[idx];
+    if(s.token&&!_safeEq(s.token,token))return res.send('<html><body><p>Invalid link.</p></body></html>');
     if(score!=null&&s.score==null){
       const n=Math.max(0,Math.min(10,parseInt(score,10)));
       s.score=n;s.respondedAt=nowIST();
@@ -7944,7 +7980,7 @@ app.get('/api/gmail-oauth/start',(req,res)=>{
   const url=client.generateAuthUrl({
     access_type:'offline',
     scope:['https://www.googleapis.com/auth/gmail.readonly','https://www.googleapis.com/auth/gmail.modify'],
-    state:su.brandSlug,
+    state:_signToken({slug:su.brandSlug,ts:Date.now()}),
     prompt:'consent'
   });
   res.redirect(url);
@@ -7952,7 +7988,7 @@ app.get('/api/gmail-oauth/start',(req,res)=>{
 
 // Step 2 — Google redirects back with code
 app.get('/api/gmail-oauth/callback',async(req,res)=>{
-  const{code,state:slug,error}=req.query;
+  const{code,state,error}=req.query;const _st=_verifyToken(state,15*60*1000);const slug=_st&&_st.slug;
   if(error)return res.redirect(`/?toast=${encodeURIComponent('Google OAuth denied: '+error)}&toastType=error`);
   if(!code||!slug)return res.send('Missing code or state');
   try{
@@ -8034,13 +8070,13 @@ app.get('/api/calendar-oauth/start',(req,res)=>{
   const url=client.generateAuthUrl({
     access_type:'offline',
     scope:['https://www.googleapis.com/auth/calendar.events','https://www.googleapis.com/auth/calendar.readonly','https://www.googleapis.com/auth/userinfo.email'],
-    state:su.brandSlug,
+    state:_signToken({slug:su.brandSlug,ts:Date.now()}),
     prompt:'consent'
   });
   res.redirect(url);
 });
 app.get('/api/calendar-oauth/callback',async(req,res)=>{
-  const{code,state:slug,error}=req.query;
+  const{code,state,error}=req.query;const _st=_verifyToken(state,15*60*1000);const slug=_st&&_st.slug;
   if(error)return res.redirect(`/?toast=${encodeURIComponent('Google Calendar OAuth denied: '+error)}&toastType=error`);
   if(!code||!slug)return res.send('Missing code or state');
   try{
@@ -9067,7 +9103,7 @@ function runBackgroundJobs(){
           const html=`<!DOCTYPE html><html><body style="margin:0;background:#f0f2f5;font-family:Arial,sans-serif;padding:32px 16px;"><div style="max-width:480px;margin:0 auto;background:#fff;border-radius:14px;padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.08);"><p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 16px;">${cfg.message||'On a scale of 0-10, how likely are you to recommend us to a friend or colleague?'}</p><div style="text-align:center;margin-bottom:8px;">${scoreLinks}</div><div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:4px;"><span>Not likely</span><span>Very likely</span></div></div></body></html>`;
           try{
             await sendBrandEmail(brand.slug,ticket.from,cfg.subject||'Quick question about your experience',html,'Rate us 0-10: '+surveyUrl('N'));
-            db.npsSurveys.push({id:surveyId,customerEmail:ticket.from,brandSlug:brand.slug,sentAt:nowIST(),score:null,comment:null,respondedAt:null});
+            db.npsSurveys.push({id:surveyId,token,customerEmail:ticket.from,brandSlug:brand.slug,sentAt:nowIST(),score:null,comment:null,respondedAt:null});
             sentThisRun++;
           }catch(e){}
         }
@@ -11223,7 +11259,7 @@ app.get('/api/social-oauth/:platform/callback',async(req,res)=>{
   if(error)return res.redirect(`/?toast=${encodeURIComponent('Connection cancelled: '+error)}&toastType=error`);
   if(!code||!state)return res.send('Missing code or state.');
   let slug,connectedBy;
-  try{const parsed=JSON.parse(Buffer.from(state,'base64url').toString('utf8'));slug=parsed.slug;connectedBy=parsed.by||'admin';}catch(e){return res.send('Invalid state.');}
+  {const parsed=_verifyToken(state,15*60*1000);if(!parsed||!parsed.slug)return res.send('Invalid or expired state.');slug=parsed.slug;connectedBy=parsed.by||'admin';}
   const redirectUri=`${BASE_URL}/api/social-oauth/${platform}/callback`;
   try{
     const db=readBrandDB(slug);
