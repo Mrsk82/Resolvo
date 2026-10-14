@@ -225,7 +225,7 @@ function monitored(name,fn){
   };
 }
 console.log('[Monitor] Platform monitoring active — alerts → owner email');
-const express=require('express'),cors=require('cors'),path=require('path'),fs=require('fs'),{v4:uuidv4}=require('uuid');
+const express=require('express'),cors=require('cors'),path=require('path'),fs=require('fs'),uuidv4=()=>require('crypto').randomUUID();
 const bcrypt=require('bcryptjs');
 const helmet=require('helmet');
 const app=express(),PORT=process.env.PORT||3000;
@@ -6131,7 +6131,8 @@ app.get('/nps',(req,res)=>{
 // no reserved/test email domains, no path-like or oversized names; the caller's IP + user agent
 // are written to the owner audit log so abuse can be traced.
 const _signupHits=new Map(),_demoReqHits=new Map();
-function _clientIp(req){return String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim();}
+// req.ip honours 'trust proxy' (the address nginx saw); the raw X-Forwarded-For header is attacker-controlled.
+function _clientIp(req){return String(req.ip||req.socket.remoteAddress||'');}
 function _rateLimited(map,key,max,windowMs){
   const now=Date.now(),arr=(map.get(key)||[]).filter(ts=>now-ts<windowMs);
   if(arr.length>=max){map.set(key,arr);return true;}
@@ -6237,7 +6238,7 @@ app.post('/api/demo-request',async(req,res)=>{
   owner.prospects=owner.prospects||[];
   const ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim();
   const existing=owner.prospects.find(p=>(p.email||'').toLowerCase()===email.toLowerCase());
-  if(existing){existing.updatedAt=nowIST();}else{owner.prospects.push({id:require('uuid').v4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:nowIST(),updatedAt:nowIST(),lastContact:null});}
+  if(existing){existing.updatedAt=nowIST();}else{owner.prospects.push({id:uuidv4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:nowIST(),updatedAt:nowIST(),lastContact:null});}
   writeOwner(owner);
   await sendEmail(owner.email,`Demo Request: ${name} from ${company||'unknown'}`,`<p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Company:</strong> ${company||'—'}<br><strong>Message:</strong> ${message||'—'}</p><p><a href="mailto:${email}">Reply to ${name}</a></p>`,`Demo request from ${name} (${email}) — ${company||''}`).catch(()=>{});
   // Auto-reply to prospect
