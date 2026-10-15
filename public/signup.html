@@ -96,7 +96,7 @@ input:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);backgr
     <span class="logo-name">resolvo</span>
   </a>
 
-  <div class="badge"><span class="badge-dot"></span>Free to start — no card needed</div>
+  <div class="badge"><span class="badge-dot"></span>14-day free trial — no card needed</div>
 
   <h1>From inbox chaos<br>to <span>clarity</span>.</h1>
   <p>Resolvo is a unified support platform built for Indian D2C brands and growing teams. Get started in under 5 minutes.</p>
@@ -132,14 +132,14 @@ input:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);backgr
     </div>
   </div>
 
-  <p style="margin-top:22px;font-size:12.5px;color:#64748b;line-height:1.6;max-width:440px;">Your free workspace lets you explore the product. Email ticketing, SLA policies and automation are part of the paid plans &mdash; message us at contact@resolvogroup.com and we&#39;ll set up a trial for you.</p>
+  <p style="margin-top:22px;font-size:12.5px;color:#64748b;line-height:1.6;max-width:440px;">Your trial includes email ticketing, the live dashboard and reports. After 14 days you can move to a paid plan or continue on the Free plan. Questions? Write to contact@resolvogroup.com.</p>
 
 </div>
 
 <!-- RIGHT FORM PANEL -->
 <div class="right">
   <div class="form-card">
-    <h2>Create your free account</h2>
+    <h2>Start your 14-day free trial</h2>
     <p class="sub">No credit card. No setup fees. Up and running in minutes.</p>
 
     <div class="fg"><label>Your Name</label><input id="s_name" placeholder="Rahul Sharma" autocomplete="name"></div>
@@ -157,7 +157,7 @@ input:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);backgr
     </div>
 
     <div id="cf_turnstile" style="margin:2px 0 14px;"></div>
-    <button class="btn" id="s_btn" onclick="doSignup()">Create free account →</button>
+    <button class="btn" id="s_btn" onclick="doSignup()">Start free trial →</button>
     <div class="msg" id="s_msg"></div>
 
     <div class="divider">or</div>
@@ -197,7 +197,7 @@ async function doSignup(){
     setTimeout(function(){window.location.href='/';},2000);
   } else {
     showMsg(r.error||'Something went wrong. Please try again.','error');
-    btn.textContent='Create free account →';btn.disabled=false;
+    btn.textContent='Start free trial →';btn.disabled=false;
     if(window._tsRequired&&window.turnstile){window._tsToken='';try{turnstile.reset();}catch(e){}}
   }
 }

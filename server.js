@@ -783,6 +783,13 @@ app.post('/api/login',(req,res)=>{
       if(ui>=0){db.users[ui].passwordHash=hashPwd(password);writeBrandDB(brand.slug,db);}
     }
 
+    if(brand.tier==='Trial'&&brand.trialEnds&&Date.now()>new Date(brand.trialEnds).getTime()){
+      // Trial over: move to the Free plan (owner can re-grant a trial or upgrade from the portal).
+      try{const od0=readOwner();const bi0=od0.brands.findIndex(b=>b.slug===brand.slug);
+        if(bi0>=0&&od0.brands[bi0].tier==='Trial'){od0.brands[bi0].tier='Free';od0.brands[bi0].trialExpiredAt=nowIST();ownerAuditLog(od0,'trial_expired',{brandSlug:brand.slug},'system');writeOwner(od0);}
+      }catch(e){}
+      brand.tier='Free';
+    }
     const token=uuidv4(),bdf=db.featureFlags||{};
     sessions[token]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#10B981',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:user.role==='Admin',firstLogin:user.firstLogin===true,mustChangePassword:user.mustChangePassword===true,id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+ttl};
     const od=readOwner();const bi=od.brands.findIndex(b=>b.slug===brand.slug);
@@ -1150,7 +1157,7 @@ app.post('/api/owner/clone-config',ownerOnly,(req,res)=>{
 app.get('/api/owner/trial-status',ownerOnly,(req,res)=>{
   const owner=readOwner();const now=new Date();
   const trials=(owner.brands||[]).filter(b=>b.tier==='Trial'&&b.status==='active').map(b=>{
-    const created=new Date(b.createdDate||now);const trialDays=14;const expiresAt=new Date(created.getTime()+trialDays*86400000);const daysLeft=Math.ceil((expiresAt-now)/86400000);
+    const created=new Date(b.createdDate||now);const trialDays=14;const expiresAt=b.trialEnds?new Date(b.trialEnds):new Date(created.getTime()+trialDays*86400000);const daysLeft=Math.ceil((expiresAt-now)/86400000);
     return{slug:b.slug,name:b.name,majorAdminEmail:b.majorAdminEmail,createdDate:b.createdDate,expiresAt:expiresAt.toISOString(),daysLeft,expired:daysLeft<=0,expiringSoon:daysLeft>0&&daysLeft<=3};
   });
   res.json({success:true,trials,expired:trials.filter(t=>t.expired).length,expiringSoon:trials.filter(t=>t.expiringSoon).length});
@@ -6168,6 +6175,7 @@ app.get('/verify-email',(req,res)=>{
   const ok=b&&b.status==='pending'&&b.verifyToken&&b.verifyToken.length===token.length&&require('crypto').timingSafeEqual(Buffer.from(b.verifyToken),Buffer.from(token))&&(!b.verifyExpires||Date.now()<=b.verifyExpires);
   if(!ok)return res.status(400).send(_simplePage('Link expired or invalid','This activation link has expired or was already used. Sign up again with the same email and we will send a fresh link.',false));
   b.status='active';b.verifiedAt=nowIST();delete b.verifyToken;delete b.verifyExpires;
+  if(b.tier==='Trial')b.trialEnds=new Date(Date.now()+14*86400000).toISOString();
   ownerAuditLog(owner,'brand_email_verified',{brandSlug:slug},b.majorAdminEmail);
   writeOwner(owner);
   res.send(_simplePage('Account activated','Your email is confirmed and your workspace is ready. You can log in now.',true));
@@ -6208,7 +6216,7 @@ app.post('/api/signup',async(req,res)=>{
   const isPro=proCats.includes((category||'').toLowerCase());
   if(isPro){bdb.bookingConfig={enabled:true,title:'Book an Appointment',slotDuration:30,buffer:15,workingHours:{}};bdb.plan={tier:'free',appointmentLimit:250};}
   writeBrandDB(finalSlug,bdb);
-  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'pending',verifyToken,verifyExpires:Date.now()+48*3600*1000,tier:'Free',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
+  const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'pending',verifyToken,verifyExpires:Date.now()+48*3600*1000,tier:'Trial',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
   ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null,ip:clientIp,userAgent:clientUa},owner.email);
   // Track referral if ref code provided
@@ -6225,7 +6233,7 @@ app.post('/api/signup',async(req,res)=>{
   const activationLink=`${BASE_URL}/verify-email?slug=${finalSlug}&token=${verifyToken}`;
   await sendEmail(email,'Confirm your email — activate your Resolvo account',_activationEmailHtml(name,company,activationLink,autoPass,email),`Activate your Resolvo account: ${activationLink}`+(autoPass?` | Temporary password: ${autoPass}`:'')).catch(()=>{});
   // Notify owner
-  sendEmail(owner.email,`New signup: ${company} (${email})`,`<p>New self-signup on Resolvo:</p><p><strong>Company:</strong> ${company}<br><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Slug:</strong> ${finalSlug}<br><strong>Tier:</strong> Free<br><strong>Time:</strong> ${new Date().toLocaleString()}</p>`,`New signup: ${company} — ${email}`).catch(()=>{});
+  sendEmail(owner.email,`New signup: ${company} (${email})`,`<p>New self-signup on Resolvo:</p><p><strong>Company:</strong> ${company}<br><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Slug:</strong> ${finalSlug}<br><strong>Tier:</strong> Trial (14 days from activation)<br><strong>Time:</strong> ${new Date().toLocaleString()}</p>`,`New signup: ${company} — ${email}`).catch(()=>{});
   res.json({success:true,pending:true,message:'Check your email to activate your account.',slug:finalSlug});
 });
 
