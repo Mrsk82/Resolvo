@@ -6260,6 +6260,7 @@ app.get('/for/support-teams',(req,res)=>res.redirect('/pitch'));
 app.get('/vs/jira',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-jira.html')));
 app.get('/vs/freshdesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-freshdesk.html')));
 app.get('/vs/zendesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-zendesk.html')));
+app.get('/vs/sachdesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-sachdesk.html')));
 app.get('/vs/linear',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-linear.html')));
 app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
 app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));
