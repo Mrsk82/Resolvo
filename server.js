@@ -246,6 +246,8 @@ app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
 
 // ── Password helpers ──────────────────────────────────────────────────────────
 function hashPwd(plain){return bcrypt.hashSync(plain,10);}
+// Random one-time password for invited users / new brand admins (never derived from the email address).
+function _genTempPassword(){return require('crypto').randomBytes(9).toString('base64url');}
 function sanitize(v){if(typeof v!=='string')return v;return v.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]*on\w+\s*=\s*["'][^"']*["'][^>]*>/gi,'').replace(/javascript:/gi,'');}
 function sanitizeObj(obj){if(!obj||typeof obj!=='object')return obj;const out={};for(const k of Object.keys(obj))out[k]=typeof obj[k]==='string'?sanitize(obj[k]):obj[k];return out;}
 function checkPwd(plain,hash){
@@ -606,7 +608,7 @@ function generateIssueId(slug){const db=readBrandDB(slug);return 'ISS-'+String((
 function logActivity(db,issueId,action,user){db.activityLog=db.activityLog||[];db.activityLog.push({issueId,action,user,timestamp:nowIST()});}
 function defaultBrandDB(brandName,email,name,pass){
   const now=nowIST();
-  return{users:[{id:'USR-'+uuidv4().substring(0,8).toUpperCase(),email,name:name||email.split('@')[0],team:'Management',role:'Admin',skill:'',slackId:'',maxTickets:50,active:true,createdDate:now,passwordHash:pass||email.split('@')[0]+'123',firstLogin:true}],issues:[],comments:[],activityLog:[],slaConfig:{Critical:4,High:8,Medium:24,Low:72},settings:{AUTO_ASSIGN_ENABLED:'false',DUPLICATE_DETECTION_ENABLED:'true',MODULES:'API,Dashboard,Reports,Authentication,Database,UI,Integration,Backend,Frontend,DevOps',APP_NAME:brandName,GEMINI_API_KEY:'',SLACK_WEBHOOK_URL:'',WEBHOOK_ALERT_URL:'',WEBHOOK_CRITICAL_ONLY:'false',GOOGLE_CALENDAR_ID:'false'},sprints:[],dependencies:[],customFields:[],customFieldValues:[],onCallSchedule:[],savedFilters:[],escalationRules:[],recurringTemplates:[],commits:[],peerReviews:[],emailThreads:[],inboundRules:[],aiHistory:[],tags:[],coAssignees:[],votes:[],timeLogs:[],watchers:[],reactions:[],pinnedIssues:[],featureFlags:{},postMortems:[],auditTrail:[],announcements:[],teams:[]};
+  return{users:[{id:'USR-'+uuidv4().substring(0,8).toUpperCase(),email,name:name||email.split('@')[0],team:'Management',role:'Admin',skill:'',slackId:'',maxTickets:50,active:true,createdDate:now,passwordHash:hashPwd(pass||_genTempPassword()),firstLogin:true}],issues:[],comments:[],activityLog:[],slaConfig:{Critical:4,High:8,Medium:24,Low:72},settings:{AUTO_ASSIGN_ENABLED:'false',DUPLICATE_DETECTION_ENABLED:'true',MODULES:'API,Dashboard,Reports,Authentication,Database,UI,Integration,Backend,Frontend,DevOps',APP_NAME:brandName,GEMINI_API_KEY:'',SLACK_WEBHOOK_URL:'',WEBHOOK_ALERT_URL:'',WEBHOOK_CRITICAL_ONLY:'false',GOOGLE_CALENDAR_ID:'false'},sprints:[],dependencies:[],customFields:[],customFieldValues:[],onCallSchedule:[],savedFilters:[],escalationRules:[],recurringTemplates:[],commits:[],peerReviews:[],emailThreads:[],inboundRules:[],aiHistory:[],tags:[],coAssignees:[],votes:[],timeLogs:[],watchers:[],reactions:[],pinnedIssues:[],featureFlags:{},postMortems:[],auditTrail:[],announcements:[],teams:[]};
 }
 
 // EMAIL
@@ -1754,7 +1756,7 @@ app.post('/api/owner/brands',ownerOnly,async(req,res)=>{
   const cs=slug.toLowerCase().replace(/[^a-z0-9-]/g,'-');const owner=readOwner();
   if((owner.brands||[]).find(b=>b.slug===cs))return res.json({success:false,error:`Slug "${cs}" already exists.`});
   fs.mkdirSync(path.join(BRANDS_DIR,cs),{recursive:true});
-  const ip=majorAdminPassword||majorAdminEmail.split('@')[0]+'123';
+  const ip=majorAdminPassword||_genTempPassword();
   writeBrandDB(cs,defaultBrandDB(name,majorAdminEmail,majorAdminName,ip));
   const brand={id:generateId('BRD'),slug:cs,name,logoUrl:logoUrl||'',accentColor:accentColor||'#10B981',theme:theme||'midnight',status:'active',tier:tier||'Free',majorAdminEmail,createdDate:nowIST(),lastActive:null,limits:{maxUsers:maxUsers||20,maxIssues:maxIssues||1000}};
   owner.brands=owner.brands||[];owner.brands.push(brand);ownerAuditLog(owner,'brand_created',{brandSlug:cs,brandName:name},req.owner.email);writeOwner(owner);
@@ -1862,8 +1864,8 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{},lim=brand.limits||{maxUsers:20};
       if((db.users||[]).filter(u=>u.active).length>=(lim.maxUsers||20))return{success:false,error:`User limit reached (${lim.maxUsers}).`};
       if((db.users||[]).find(u=>u.email===ud.email))return{success:false,error:'Email already registered.'};
-      const uid=generateId('USR'),ip=ud.password||ud.email.split('@')[0]+'123';
-      const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:nowIST(),passwordHash:ip,firstLogin:true};
+      const uid=generateId('USR'),ip=ud.password||_genTempPassword();
+      const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:nowIST(),passwordHash:hashPwd(ip),firstLogin:true,mustChangePassword:true};
       db.users=db.users||[];db.users.push(nu);wDB(db);
       await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
       return{success:true,userId:uid};
@@ -1888,8 +1890,8 @@ app.post('/api/call',async(req,res)=>{
         if(existingEmails.has(email)){skippedDuplicate++;continue;}
         if(db.users.filter(u=>u.active).length>=maxUsers){skippedLimit++;continue;}
         const role=validRoles.has(row.role)?row.role:'Agent';
-        const tempPass=email.split('@')[0]+'123';
-        const nu={id:generateId('USR'),email,name,team:(row.team||'').trim(),role,skill:(row.skill||'').trim(),slackId:'',maxTickets:10,active:true,createdDate:nowIST(),passwordHash:tempPass,firstLogin:true};
+        const tempPass=_genTempPassword();
+        const nu={id:generateId('USR'),email,name,team:(row.team||'').trim(),role,skill:(row.skill||'').trim(),slackId:'',maxTickets:10,active:true,createdDate:nowIST(),passwordHash:hashPwd(tempPass),firstLogin:true,mustChangePassword:true};
         db.users.push(nu);existingEmails.add(email);imported++;
         if(sendWelcomeEmails){
           sendBrandEmail(slug,email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',tempPass,BASE_URL),`Login: ${BASE_URL} | Email: ${email} | Pass: ${tempPass}`).catch(()=>{});
@@ -1998,7 +2000,7 @@ app.post('/api/call',async(req,res)=>{
       const s=t?sessions[t]:null;
       return{success:true,expiresAt:s?s.expiresAt:null,expiresIn:s&&s.expiresAt?Math.max(0,Math.round((s.expiresAt-Date.now())/60000)):0};
     },
-    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#10B981',user.passwordHash,BASE_URL),`Login: ${BASE_URL}`);return{success:true};},
+    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};const tmp=_genTempPassword();user.passwordHash=hashPwd(tmp);user.mustChangePassword=true;user.firstLogin=true;wDB(db);await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#10B981',tmp,BASE_URL),`Login: ${BASE_URL} | Email: ${user.email} | Temporary password: ${tmp}`);return{success:true};},
     sendTestEmail:async to=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};await sendBrandEmail(slug,to||su.email,`✅ TechTrack Email Test`,testEmailHTML(),'Email test OK');return{success:true};},
     completeBrandSetup:async sd=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const db=rDB();if(sd.appName){db.settings=db.settings||{};db.settings.APP_NAME=sd.appName;}const ui=(db.users||[]).findIndex(u=>u.email===su.email);if(ui>=0){db.users[ui].firstLogin=false;if(sd.adminName)db.users[ui].name=sd.adminName;}wDB(db);const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){if(sd.accentColor)o.brands[bi].accentColor=sd.accentColor;if(sd.theme)o.brands[bi].theme=sd.theme;if(sd.logoUrl!==undefined)o.brands[bi].logoUrl=sd.logoUrl;if(sd.appName)o.brands[bi].name=sd.appName;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])Object.assign(sessions[t],{brandName:sd.appName||su.brandName,brandAccentColor:sd.accentColor||su.brandAccentColor,brandTheme:sd.theme||su.brandTheme,firstLogin:false});return{success:true};},
     updateBrandProfile:async updates=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi<0)return{success:false,error:'Not found'};['name','logoUrl','accentColor','theme'].forEach(k=>{if(updates[k]!==undefined)o.brands[bi][k]=updates[k];});writeOwner(o);return{success:true};},
@@ -12251,7 +12253,34 @@ app.get('/api/:slug/dashboard/widget',(req,res)=>{
 app.use(notFoundMiddleware); // 404 for unknown HTML routes
 app.use(errorMiddleware);   // Layer 3 — Express error handler (must be last)
 
+// One-time cleanup at startup (safe to repeat):
+//  * any account whose password is the old guessable default (email-name + "123") is locked to a random one,
+//    so that user must use "Forgot password" before logging in
+//  * every other password still stored as plain text is converted to a bcrypt hash (same password keeps working)
+function _migratePasswords(){
+  let guessable=0,hashed=0;
+  try{
+    const owner=readOwner();
+    for(const b of (owner.brands||[])){
+      let db;try{db=readBrandDB(b.slug);}catch(e){continue;}
+      let changed=false;
+      for(const u of (db.users||[])){
+        const h=u.passwordHash;
+        if(typeof h!=='string'||!h||h.startsWith('$2'))continue;
+        const guess=String(u.email||'').split('@')[0]+'123';
+        if(h.toLowerCase()===guess.toLowerCase()){u.passwordHash=hashPwd(_genTempPassword());u.mustChangePassword=true;u.firstLogin=true;guessable++;}
+        else{u.passwordHash=hashPwd(h);hashed++;}
+        changed=true;
+      }
+      if(changed)writeBrandDB(b.slug,db);
+    }
+    if(guessable){const o=readOwner();ownerAuditLog(o,'guessable_passwords_retired',{count:guessable},'system');writeOwner(o);}
+  }catch(e){console.error('[Security] password migration failed:',e.message);}
+  if(guessable||hashed)console.log(`[Security] passwords: ${guessable} guessable default(s) locked (use Forgot password), ${hashed} plain-text password(s) converted to hashes`);
+}
+
 app.listen(PORT,()=>{
+  _migratePasswords();
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
   console.log(`║   Resolvo SaaS  —  ${BASE_URL.padEnd(34)}║`);
