@@ -16882,6 +16882,15 @@ const App = {
     else this.renderTicketDetail(id);
   },
 
+  _sampleTickets: async function(add) {
+    var r = await App._crmFetch('/api/sample-tickets', { method: add ? 'POST' : 'DELETE' });
+    if (r && r.success) {
+      App._onboardingData = null;
+      App.showToast(add ? '5 sample tickets added. Open one and try replying.' : 'Sample tickets removed', 'success');
+      App.navigate(add ? 'ticket-inbox' : 'dashboard');
+    } else App.showToast((r && r.error) || 'Could not update sample tickets', 'error');
+  },
+
   _custNewDeal: function(contactId, ticketId) {
     var self = this;
     var c = (self._custLast || {})[contactId];
@@ -30515,6 +30524,9 @@ App.renderGoodMorning = async function(containerId) {
             '</div>' +
             '<div style="height:6px;border-radius:4px;background:var(--border);margin:14px 0;overflow:hidden;"><div style="height:6px;width:' + od.percent + '%;background:var(--accent);border-radius:4px;transition:width .4s;"></div></div>' +
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">' + stepsHtml + '</div>' +
+            (od.hasSample
+              ? '<div style="margin-top:12px;font-size:12px;color:var(--text-muted);">You have sample tickets in your inbox. <a href="#" onclick="App._sampleTickets(false);return false;" style="color:var(--accent);">Remove sample tickets</a></div>'
+              : (!od.hasTickets ? '<div style="margin-top:12px;font-size:12px;color:var(--text-muted);">Want to look around first? <a href="#" onclick="App._sampleTickets(true);return false;" style="color:var(--accent);font-weight:600;">Try it with 5 sample tickets</a> (they are marked as samples and nothing is ever sent to anyone).</div>' : '')) +
           '</div>');
       }
     }

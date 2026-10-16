@@ -1685,13 +1685,13 @@ app.get('/api/onboarding-status',(req,res)=>{
   // Steps a small support team needs to start answering customers (ordered by value).
   const steps=[
     {id:'connect_email',label:'Connect your support email',hint:'Customer emails arrive as tickets',done:!!(db.emailTicketing?.enabled),link:'#email-ticketing',icon:'📬'},
-    {id:'first_ticket',label:'Create your first ticket',hint:'See how a conversation looks',done:(db.tickets||[]).length>0,link:'#ticket-inbox',icon:'🎫'},
+    {id:'first_ticket',label:'Create your first ticket',hint:'See how a conversation looks',done:(db.tickets||[]).some(t=>!t.isSample),link:'#ticket-inbox',icon:'🎫'},
     {id:'invite_user',label:'Invite a teammate',hint:'Share the inbox with your team',done:(db.users||[]).length>1,link:'#user-management',icon:'👥'},
     {id:'setup_queue',label:'Turn on auto-assignment',hint:'New tickets go to the right person',done:!!(db.queueConfig?.enabled),link:'#settings|queue-config',icon:'🔄'},
     {id:'canned',label:'Add a saved reply',hint:'Answer common questions in one click',done:(db.cannedResponses||[]).length>0,link:'#settings',icon:'💬'},
   ];
   const completed=steps.filter(s=>s.done).length;
-  return res.json({success:true,steps,completed,total:steps.length,percent:Math.round(completed/steps.length*100)});
+  return res.json({success:true,steps,completed,total:steps.length,percent:Math.round(completed/steps.length*100),hasSample:(db.tickets||[]).some(t=>t.isSample),hasTickets:(db.tickets||[]).length>0});
 });
 
 // ── GA4 ANALYTICS placeholder route ──────────────────────────────────────────
@@ -2098,7 +2098,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:isNote?'note_added':'reply_sent',by:su.email,byName:su.name||su.email,at:now,detail:replyText.substring(0,120)});
       wDB(db);
-      if(!isNote&&ticket.from&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)){
+      if(!isNote&&ticket.from&&!ticket.isSample&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)){
         const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
         const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#10B981';
         const replySubject=`Re: [${brandName}] ${ticket.subject}`;
@@ -11837,6 +11837,40 @@ app.post('/api/crm/contacts/:id/note',(req,res)=>{
   const a={id:uuidv4(),type:'note',subject:text.split('\n')[0].slice(0,80),notes:text,contactId:c.id,contact:c.name||'',createdDate:nowIST(),completedDate:nowIST(),ownerId:su.userId};
   crmSave(db,'crm_activities',a);
   res.json({success:true,activity:a});
+});
+
+// ── Sample tickets: let a new workspace try the product without connecting email ──
+// Sample tickets use the undeliverable ".invalid" domain and are flagged isSample, so a reply can
+// never reach a real person (the reply sender also skips them).
+const _SAMPLE_TICKETS=[
+  {n:'Priya Sharma',h:30,p:'High',s:'Order #48213 not delivered',b:'Hi, I ordered a cotton kurta 6 days ago (order #48213) and the tracking has not moved for 3 days. Can you tell me where it is? I need it for a function on Saturday.'},
+  {n:'Rahul Mehta',h:22,p:'Medium',s:'Refund not received after return',b:'I returned my shoes 10 days ago and your warehouse confirmed receipt on the 4th. I still have not got the refund of Rs 2,499. Please check the status.'},
+  {n:'Ananya Rao',h:9,p:'Low',s:'Size exchange request',b:'The kurta I received is a size M but it runs small. Can I exchange it for an L? I have not worn it and the tags are on.'},
+  {n:'Karan Malhotra',h:5,p:'High',s:'Bulk order for corporate gifting',b:'We are planning Diwali gifts for 40 employees. Do you offer a discount on bulk orders, and can you print our logo on the packaging? We would need delivery by 28 October.'},
+  {n:'Sneha Iyer',h:2,p:'Medium',s:'Coupon code not working at checkout',b:'I tried the code WELCOME10 from your newsletter and it says invalid at checkout. Is it expired? I have a full cart waiting.'}
+];
+app.post('/api/sample-tickets',(req,res)=>{
+  const su=getSessionUser(req);if(!su||!su.brandSlug)return res.status(401).json({success:false,error:'Unauthorized'});
+  const db=readBrandDB(su.brandSlug);db.tickets=db.tickets||[];
+  if(db.tickets.some(t=>t.isSample))return res.json({success:false,error:'Sample tickets are already in your inbox.'});
+  const out=[];
+  _SAMPLE_TICKETS.forEach((s,i)=>{
+    const email=s.n.toLowerCase().replace(/[^a-z]+/g,'.')+'@sample.invalid';
+    const when=new Date(Date.now()-s.h*3600000).toISOString();
+    const id=generateId('TKT');
+    out.push({id,subject:s.s,from:email,fromName:s.n,body:s.b,status:i===2?'new':'open',priority:s.p,assignedTo:'',createdDate:when,lastActivity:when,
+      thread:[{id:generateId('MSG'),type:'incoming',from:email,fromName:s.n,body:s.b,timestamp:when}],tags:['sample'],source:'sample',channel:'email',isSample:true,isVIP:false,type:'',cc:[],customFields:{}});
+  });
+  db.tickets=out.concat(db.tickets);writeBrandDB(su.brandSlug,db);
+  res.json({success:true,count:out.length});
+});
+app.delete('/api/sample-tickets',(req,res)=>{
+  const su=getSessionUser(req);if(!su||!su.brandSlug)return res.status(401).json({success:false,error:'Unauthorized'});
+  const db=readBrandDB(su.brandSlug);const before=(db.tickets||[]).length;
+  db.tickets=(db.tickets||[]).filter(t=>!t.isSample);writeBrandDB(su.brandSlug,db);
+  let contacts=0;
+  try{const c=crmDb(su.brandSlug);crmAll(c,'crm_contacts').filter(x=>/@sample\.invalid$/i.test(String(x.email||''))).forEach(x=>{crmDel(c,'crm_contacts',x.id);contacts++;});}catch(e){}
+  res.json({success:true,removed:before-db.tickets.length,contacts});
 });
 
 // ── Contacts ──────────────────────────────────────────────────────────────────
