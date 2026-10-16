@@ -7940,6 +7940,10 @@ tbody tr.row-selected {
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
               <span class="nav-text">Ticket Inbox <span id="ticketNewBadge" style="display:none;background:var(--critical);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px;"></span></span>
             </a>
+            <a href="#" class="nav-item" data-page="customers" data-tooltip="Customers">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              <span class="nav-text">Customers</span>
+            </a>
           </div>
 
           <div class="nav-section">
@@ -12303,6 +12307,8 @@ const App = {
       case 'announcements': this.renderAnnouncements(); break;
       case 'teams': this.renderTeams(); break;
       case 'ticket-inbox': this.renderTicketInbox(); break;
+      case 'customers': this.renderCustomers(); break;
+      case 'customer': this.renderCustomer360(params && params.id); break;
       case 'export': this.renderExport(); break;
       case 'ticket-detail': this.renderTicketDetail(params && params.id); break;
       case 'settings': this.renderUnifiedSettings(params && params.tab); break;
@@ -16541,6 +16547,7 @@ const App = {
               <button onclick="App._showCustomerHistory('${self._esc(t.from)}')" style="font-size:11px;color:var(--indigo,#6366F1);border:1px solid var(--indigo,#6366F1)44;border-radius:5px;padding:4px 8px;background:rgba(99,102,241,.08);cursor:pointer;" title="View customer history">📋 History</button>
             </div>
             <div id="stripeBillingPanel_${t.id}"></div>
+            <div id="crmPanel_${t.id}"></div>
             <div id="hubspotContactPanel_${t.id}"></div>
             <div id="razorpayPaymentPanel_${t.id}"></div>
           </div>
@@ -16690,6 +16697,7 @@ const App = {
     self._loadTicketCustomFields(ticketId, t);
     // Stripe billing context (silently does nothing if not connected / no match)
     self._loadStripeBilling(ticketId, t.from);
+    self._loadCrmPanel(ticketId, t.from, t.fromName);
     self._loadHubSpotContact(ticketId, t.from);
     self._loadRazorpayPayment(ticketId, t.from);
     // Fetch original email HTML for any message that has it, now that the
@@ -16780,6 +16788,290 @@ const App = {
       } catch (e) {}
     }
   },
+  // ── CUSTOMERS (helpdesk + CRM in one record) ──────────────────────────────
+  _crmFetch: async function(path, opts) {
+    opts = opts || {};
+    var h = { 'x-session-token': localStorage.getItem('tt_session_token') || '' };
+    if (opts.body) h['Content-Type'] = 'application/json';
+    try {
+      var res = await fetch(path, { method: opts.method || 'GET', headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined });
+      return await res.json();
+    } catch (e) { return null; }
+  },
+  _custAgo: function(d) {
+    if (!d) return '—';
+    var t = new Date(d).getTime(); if (isNaN(t)) return '—';
+    var m = Math.floor((Date.now() - t) / 60000);
+    if (m < 1) return 'just now'; if (m < 60) return m + 'm ago';
+    var h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+    var dd = Math.floor(h / 24); if (dd < 30) return dd + 'd ago';
+    return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  },
+  _custStatusColor: function(s) {
+    s = String(s || '').toLowerCase();
+    if (s === 'resolved' || s === 'closed') return 'var(--low, #10B981)';
+    if (s === 'new' || s === 'open') return 'var(--accent, #10B981)';
+    if (s === 'pending' || s === 'waiting') return 'var(--medium, #F59E0B)';
+    return 'var(--text-muted, #94A3B8)';
+  },
+  _custRupees: function(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); },
+
+  // Panel inside the ticket sidebar: who is this person, and what else do we know?
+  _loadCrmPanel: async function(ticketId, from, name) {
+    var self = this;
+    var panel = document.getElementById('crmPanel_' + ticketId);
+    if (!panel || !from) return;
+    var r = await self._crmFetch('/api/crm/customer?email=' + encodeURIComponent(from) + '&name=' + encodeURIComponent(name || ''));
+    var c = r && r.customer;
+    if (!c) return;
+    var s = c.stats || {};
+    var others = (c.tickets || []).filter(function(t) { return t.id !== ticketId; }).slice(0, 3);
+    var chip = function(label, val, col) {
+      return '<div style="flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:7px 8px;text-align:center;">' +
+        '<div style="font-size:15px;font-weight:800;color:' + (col || 'var(--text-primary)') + ';">' + val + '</div>' +
+        '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);">' + label + '</div></div>';
+    };
+    panel.innerHTML =
+      '<div style="margin-top:12px;padding:10px 12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+          '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);">Customer</span>' +
+          '<a href="#" onclick="App.navigate(\'customer\',{id:\'' + c.contact.id + '\'});return false;" style="font-size:11px;color:var(--accent);text-decoration:none;">Open profile →</a>' +
+        '</div>' +
+        (c.contact.company ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">🏢 ' + self._esc(c.contact.company) + (c.contact.role ? ' · ' + self._esc(c.contact.role) : '') + '</div>' : '') +
+        '<div style="display:flex;gap:6px;margin-bottom:8px;">' +
+          chip('Tickets', s.totalTickets || 0) +
+          chip('Open', s.openTickets || 0, s.openTickets ? 'var(--medium,#F59E0B)' : null) +
+          chip('Deals', s.openDeals || 0) +
+          (s.avgCsat != null ? chip('CSAT', s.avgCsat) : '') +
+        '</div>' +
+        (s.openDealValue ? '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Open deal value: <strong style="color:var(--text-primary);">' + self._custRupees(s.openDealValue) + '</strong></div>' : '') +
+        (others.length ? '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:4px 0 4px;">Earlier tickets</div>' +
+          others.map(function(t) {
+            return '<div onclick="App.renderTicketDetail(\'' + t.id + '\')" style="display:flex;gap:6px;align-items:center;padding:4px 0;cursor:pointer;font-size:11px;color:var(--text-secondary);">' +
+              '<span style="width:7px;height:7px;border-radius:50%;flex:none;background:' + self._custStatusColor(t.status) + ';"></span>' +
+              '<span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(t.subject) + '</span>' +
+              '<span style="color:var(--text-dim);flex:none;">' + self._custAgo(t.createdDate) + '</span></div>';
+          }).join('') : '') +
+        '<div style="display:flex;gap:6px;margin-top:8px;">' +
+          '<button onclick="App._custNewDeal(\'' + c.contact.id + '\',\'' + ticketId + '\')" style="flex:1;font-size:11px;color:var(--accent);border:1px solid var(--border-accent,var(--border));border-radius:6px;padding:5px 8px;background:none;cursor:pointer;">+ Create deal</button>' +
+        '</div>' +
+      '</div>';
+    self._custLast = self._custLast || {};
+    self._custLast[c.contact.id] = c;
+  },
+
+  _custNewDeal: function(contactId, ticketId) {
+    var self = this;
+    var c = (self._custLast || {})[contactId];
+    var name = c && c.contact ? (c.contact.name || c.contact.email || 'Customer') : 'Customer';
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:420px">' +
+      '<div class="modal-header"><span class="modal-title">New deal — ' + self._esc(name) + '</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>' +
+      '<div class="modal-body">' +
+        '<label style="font-size:12px;color:var(--text-muted);">Deal title</label>' +
+        '<input id="cd_title" class="form-input" style="width:100%;margin:4px 0 12px;" value="' + self._esc('Deal — ' + name) + '">' +
+        '<div style="display:flex;gap:10px;">' +
+          '<div style="flex:1;"><label style="font-size:12px;color:var(--text-muted);">Value (₹)</label><input id="cd_value" type="number" min="0" class="form-input" style="width:100%;margin-top:4px;" placeholder="0"></div>' +
+          '<div style="flex:1;"><label style="font-size:12px;color:var(--text-muted);">Stage</label><select id="cd_stage" class="form-input" style="width:100%;margin-top:4px;"><option value="prospect">Prospect</option><option value="qualified">Qualified</option><option value="demo">Demo</option><option value="proposal">Proposal</option></select></div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">' +
+          '<button class="btn-secondary btn-sm" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>' +
+          '<button class="btn-primary btn-sm" onclick="App._custSaveDeal(\'' + contactId + '\',\'' + (ticketId || '') + '\',this)">Create deal</button>' +
+        '</div>' +
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(function() { var el = document.getElementById('cd_title'); if (el) el.focus(); }, 50);
+  },
+  _custSaveDeal: async function(contactId, ticketId, btn) {
+    var self = this;
+    var c = (self._custLast || {})[contactId];
+    var title = (document.getElementById('cd_title') || {}).value || '';
+    if (!title.trim()) { self.showToast('Give the deal a title', 'error'); return; }
+    if (btn) btn.disabled = true;
+    var r = await self._crmFetch('/api/crm/deals', { method: 'POST', body: {
+      title: title.trim().slice(0, 140),
+      value: parseFloat((document.getElementById('cd_value') || {}).value) || 0,
+      stage: (document.getElementById('cd_stage') || {}).value || 'prospect',
+      contactId: contactId,
+      contact: c && c.contact ? (c.contact.name || '') : '',
+      company: c && c.contact ? (c.contact.company || '') : '',
+      notes: ticketId ? 'Created from ticket ' + ticketId : ''
+    } });
+    if (r && r.success) {
+      self.showToast('Deal created ✓', 'success');
+      var ov = document.querySelector('.modal-overlay'); if (ov) ov.remove();
+      if (ticketId) self._loadCrmPanel(ticketId, c && c.contact ? (c.contact.email || c.contact.phone) : '', c && c.contact ? c.contact.name : '');
+      else if (self.currentPage === 'customer') self.renderCustomer360(contactId);
+    } else { if (btn) btn.disabled = false; self.showToast((r && r.error) || 'Could not create the deal', 'error'); }
+  },
+
+  // Customers list
+  renderCustomers: async function() {
+    var self = this;
+    self.setPage('Customers', 'Inbox / Customers');
+    var area = document.getElementById('contentArea');
+    area.innerHTML =
+      '<div style="max-width:1100px;margin:0 auto;padding:4px 0 40px;">' +
+        '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">' +
+          '<div><div style="font-size:22px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;">Customers</div>' +
+          '<div id="custCount" style="font-size:13px;color:var(--text-muted);margin-top:2px;">Everyone who has contacted you, with their tickets and deals in one place.</div></div>' +
+          '<div style="display:flex;gap:8px;"><input id="custSearch" class="form-input" placeholder="Search name, email, phone, company" style="width:280px;max-width:100%;">' +
+          '<a href="/crm" class="btn-secondary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;">Sales pipeline →</a></div>' +
+        '</div>' +
+        '<div id="custTable" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;"><div style="padding:40px;text-align:center;color:var(--text-dim);">Loading customers…</div></div>' +
+      '</div>';
+    var timer = null;
+    var load = async function(q) {
+      var r = await self._crmFetch('/api/crm/customers' + (q ? '?q=' + encodeURIComponent(q) : ''));
+      var box = document.getElementById('custTable'); if (!box) return;
+      if (!r || !r.success) { box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);">Could not load customers.</div>'; return; }
+      var cnt = document.getElementById('custCount');
+      if (cnt) cnt.textContent = r.total + (r.total === 1 ? ' customer' : ' customers') + (q ? ' match' : '') + ' — everything they have asked and bought, in one place.';
+      if (!r.customers.length) {
+        box.innerHTML = '<div style="padding:48px 20px;text-align:center;"><div style="font-size:34px;margin-bottom:8px;">👥</div>' +
+          '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' + (q ? 'No customers match your search' : 'No customers yet') + '</div>' +
+          '<div style="font-size:13px;color:var(--text-muted);">' + (q ? 'Try a different name or email.' : 'Customers appear here automatically the first time someone emails or messages you.') + '</div></div>';
+        return;
+      }
+      var head = '<div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);"><div>Customer</div><div>Company</div><div>Tickets</div><div>Last contact</div></div>';
+      box.innerHTML = head + r.customers.map(function(c) {
+        var ini = String(c.name || c.email || '?').trim().charAt(0).toUpperCase();
+        return '<div onclick="App.navigate(\'customer\',{id:\'' + c.id + '\'})" style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'">' +
+          '<div style="display:flex;align-items:center;gap:10px;min-width:0;"><div style="width:32px;height:32px;border-radius:50%;background:var(--accent-dim,rgba(16,185,129,.15));color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">' + self._esc(ini) + '</div>' +
+            '<div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.name || c.email || c.phone) + '</div>' +
+            '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.email || c.phone) + '</div></div></div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (c.company ? self._esc(c.company) : '<span style="color:var(--text-dim);">—</span>') + '</div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);">' + c.tickets + (c.openTickets ? ' <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--medium,#F59E0B);">' + c.openTickets + ' open</span>' : '') + '</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);">' + self._custAgo(c.lastTicketDate || c.createdDate) + '</div>' +
+        '</div>';
+      }).join('');
+    };
+    var inp = document.getElementById('custSearch');
+    if (inp) inp.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(function() { load(inp.value.trim()); }, 250); });
+    load('');
+  },
+
+  // One customer, everything together
+  renderCustomer360: async function(id) {
+    var self = this;
+    if (!id) { self.navigate('customers'); return; }
+    self.setPage('Customer', 'Inbox / Customers / Profile');
+    var area = document.getElementById('contentArea');
+    area.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);">Loading customer…</div>';
+    var r = await self._crmFetch('/api/crm/contacts/' + encodeURIComponent(id) + '/360');
+    if (!r || !r.success) { area.innerHTML = '<div class="empty-state"><p>Customer not found</p><button class="btn-secondary btn-sm" onclick="App.navigate(\'customers\')">← All customers</button></div>'; return; }
+    var c = r.customer, ct = c.contact, s = c.stats;
+    self._custLast = self._custLast || {}; self._custLast[ct.id] = c;
+    var ini = String(ct.name || ct.email || '?').trim().charAt(0).toUpperCase();
+    var stat = function(label, val, sub) {
+      return '<div style="flex:1;min-width:130px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);">' + label + '</div>' +
+        '<div style="font-size:24px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;margin-top:2px;">' + val + '</div>' +
+        (sub ? '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + sub + '</div>' : '') + '</div>';
+    };
+    // one timeline from tickets, notes/activities and deals
+    var items = [];
+    (c.tickets || []).forEach(function(t) { items.push({ kind: 'ticket', date: t.createdDate, t: t }); });
+    (c.activities || []).forEach(function(a) { items.push({ kind: a.type === 'note' ? 'note' : 'activity', date: a.createdDate, a: a }); });
+    (c.deals || []).forEach(function(d) { items.push({ kind: 'deal', date: d.createdDate, d: d }); });
+    items.sort(function(a, b) { return new Date(b.date || 0) - new Date(a.date || 0); });
+    var tl = function(filter) {
+      var list = items.filter(function(i) { return filter === 'all' || i.kind === filter || (filter === 'note' && i.kind === 'activity'); });
+      if (!list.length) return '<div style="padding:30px;text-align:center;color:var(--text-dim);font-size:13px;">Nothing here yet.</div>';
+      return list.map(function(i) {
+        var ico = '', title = '', sub = '', click = '', col = 'var(--text-muted)';
+        if (i.kind === 'ticket') { ico = '🎫'; title = self._esc(i.t.subject); sub = '<span style="color:' + self._custStatusColor(i.t.status) + ';font-weight:700;">' + self._esc(i.t.status || '') + '</span> · ' + self._esc(i.t.priority || '') + ' · ' + self._esc(i.t.channel || 'email'); click = ' onclick="App.renderTicketDetail(\'' + i.t.id + '\')"'; }
+        else if (i.kind === 'deal') { ico = '💼'; title = self._esc(i.d.title); sub = self._esc(i.d.stage) + ' · ' + self._custRupees(i.d.value); }
+        else { ico = i.a.type === 'note' ? '📝' : '🔔'; title = self._esc(i.a.subject || i.a.type); sub = self._esc(String(i.a.notes || '').slice(0, 160)); }
+        return '<div' + (click || '') + ' style="display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);' + (click ? 'cursor:pointer;' : '') + '">' +
+          '<div style="width:30px;height:30px;border-radius:8px;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;flex:none;font-size:14px;">' + ico + '</div>' +
+          '<div style="min-width:0;flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div>' +
+          '<div style="font-size:11px;color:' + col + ';margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sub + '</div></div>' +
+          '<div style="font-size:11px;color:var(--text-dim);flex:none;">' + self._custAgo(i.date) + '</div></div>';
+      }).join('');
+    };
+    var row = function(label, val) { return val ? '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:12px;"><span style="color:var(--text-dim);">' + label + '</span><span style="color:var(--text-secondary);text-align:right;word-break:break-all;">' + self._esc(val) + '</span></div>' : ''; };
+    area.innerHTML =
+      '<div style="max-width:1180px;margin:0 auto;padding:4px 0 40px;">' +
+        '<a href="#" onclick="App.navigate(\'customers\');return false;" style="font-size:12px;color:var(--text-muted);text-decoration:none;">← All customers</a>' +
+        '<div style="display:flex;align-items:center;gap:14px;margin:10px 0 18px;flex-wrap:wrap;">' +
+          '<div style="width:52px;height:52px;border-radius:50%;background:var(--accent-dim,rgba(16,185,129,.15));color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">' + self._esc(ini) + '</div>' +
+          '<div style="flex:1;min-width:200px;"><div style="font-size:22px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;">' + self._esc(ct.name || ct.email || ct.phone) + '</div>' +
+          '<div style="font-size:13px;color:var(--text-muted);">' + self._esc([ct.role, ct.company].filter(Boolean).join(' · ') || (ct.email || ct.phone || '')) + '</div></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            (ct.email ? '<button class="btn-secondary btn-sm" onclick="App._custNewTicket(\'' + ct.id + '\')">+ New ticket</button>' : '') +
+            '<button class="btn-secondary btn-sm" onclick="App._custNewDeal(\'' + ct.id + '\')">+ Deal</button>' +
+            '<button class="btn-secondary btn-sm" onclick="App._custEdit(\'' + ct.id + '\')">Edit</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' +
+          stat('Tickets', s.totalTickets, s.openTickets + ' open · ' + s.resolvedTickets + ' resolved') +
+          stat('Satisfaction', s.avgCsat != null ? s.avgCsat : '—', s.avgCsat != null ? 'average CSAT' : 'no ratings yet') +
+          stat('Open deals', s.openDeals, self._custRupees(s.openDealValue)) +
+          stat('Last ticket', self._custAgo(s.lastTicketDate), '') +
+        '</div>' +
+        '<div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">' +
+          '<div style="flex:2;min-width:300px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">' +
+            '<div id="custTabs" style="display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;">' +
+              ['all:All', 'ticket:Tickets', 'deal:Deals', 'note:Notes'].map(function(x, ix) { var p = x.split(':'); return '<button data-f="' + p[0] + '" style="font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid ' + (ix === 0 ? 'var(--accent)' : 'var(--border)') + ';background:' + (ix === 0 ? 'rgba(16,185,129,.12)' : 'none') + ';color:' + (ix === 0 ? 'var(--accent)' : 'var(--text-muted)') + ';cursor:pointer;">' + p[1] + '</button>'; }).join('') +
+            '</div><div id="custTimeline">' + tl('all') + '</div></div>' +
+          '<div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:14px;">' +
+            '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
+              '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Details</div>' +
+              row('Email', ct.email) + row('Phone', ct.phone) + row('Company', ct.company) + row('Role', ct.role) + row('Source', ct.source) + row('Customer since', ct.createdDate ? new Date(ct.createdDate).toLocaleDateString() : '') +
+              (c.company && c.company.industry ? row('Industry', c.company.industry) : '') +
+            '</div>' +
+            '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
+              '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:8px;">Add a note</div>' +
+              '<textarea id="custNote" class="form-textarea" style="width:100%;min-height:70px;" placeholder="What should your team know about this customer?"></textarea>' +
+              '<div style="text-align:right;margin-top:8px;"><button class="btn-primary btn-sm" onclick="App._custAddNote(\'' + ct.id + '\')">Save note</button></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var tabs = document.getElementById('custTabs');
+    if (tabs) tabs.addEventListener('click', function(e) {
+      var b = e.target.closest('button[data-f]'); if (!b) return;
+      tabs.querySelectorAll('button').forEach(function(x) { var on = x === b; x.style.borderColor = on ? 'var(--accent)' : 'var(--border)'; x.style.background = on ? 'rgba(16,185,129,.12)' : 'none'; x.style.color = on ? 'var(--accent)' : 'var(--text-muted)'; });
+      document.getElementById('custTimeline').innerHTML = tl(b.dataset.f);
+    });
+  },
+  _custAddNote: async function(id) {
+    var el = document.getElementById('custNote'); var text = el ? el.value.trim() : '';
+    if (!text) { App.showToast('Write a note first', 'error'); return; }
+    var r = await App._crmFetch('/api/crm/contacts/' + encodeURIComponent(id) + '/note', { method: 'POST', body: { text: text } });
+    if (r && r.success) { App.showToast('Note saved ✓', 'success'); App.renderCustomer360(id); }
+    else App.showToast((r && r.error) || 'Could not save the note', 'error');
+  },
+  _custEdit: function(id) {
+    var self = this; var c = (self._custLast || {})[id]; if (!c) return;
+    var ct = c.contact;
+    var f = function(key, label, val) { return '<div style="margin-bottom:10px;"><label style="font-size:12px;color:var(--text-muted);">' + label + '</label><input id="ce_' + key + '" class="form-input" style="width:100%;margin-top:4px;" value="' + self._esc(val || '') + '"></div>'; };
+    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:420px">' +
+      '<div class="modal-header"><span class="modal-title">Edit customer</span><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button></div>' +
+      '<div class="modal-body">' + f('name', 'Name', ct.name) + f('email', 'Email', ct.email) + f('phone', 'Phone', ct.phone) + f('company', 'Company', ct.company) + f('role', 'Role', ct.role) +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;"><button class="btn-secondary btn-sm" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>' +
+      '<button class="btn-primary btn-sm" onclick="App._custSaveEdit(\'' + id + '\',this)">Save</button></div></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+  _custSaveEdit: async function(id, btn) {
+    var g = function(k) { return ((document.getElementById('ce_' + k) || {}).value || '').trim().slice(0, 200); };
+    if (!g('name')) { App.showToast('Name is required', 'error'); return; }
+    if (btn) btn.disabled = true;
+    var r = await App._crmFetch('/api/crm/contacts/' + encodeURIComponent(id), { method: 'PUT', body: { name: g('name'), email: g('email'), phone: g('phone'), company: g('company'), role: g('role') } });
+    if (r && r.success) { var ov = document.querySelector('.modal-overlay'); if (ov) ov.remove(); App.showToast('Customer updated ✓', 'success'); App.renderCustomer360(id); }
+    else { if (btn) btn.disabled = false; App.showToast((r && r.error) || 'Could not save', 'error'); }
+  },
+  _custNewTicket: function(id) {
+    var c = (App._custLast || {})[id];
+    if (c && c.contact && c.contact.email) App._customerForTicket = { email: c.contact.email, name: c.contact.name || '' };
+    App._showCreateManualTicket();
+    setTimeout(function() {
+      var cc = App._customerForTicket; if (!cc) return;
+      ['ct_cemail'].forEach(function(i) { var el = document.getElementById(i); if (el && !el.value) el.value = cc.email; });
+      ['ct_cname'].forEach(function(i) { var el = document.getElementById(i); if (el && !el.value) el.value = cc.name; });
+    }, 150);
+  },
+
   _loadHubSpotContact: async function(ticketId, fromEmail) {
     var panel = document.getElementById('hubspotContactPanel_'+ticketId);
     if (!panel || !fromEmail || fromEmail.indexOf('@') === -1) return;

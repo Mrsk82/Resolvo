@@ -11708,6 +11708,115 @@ app.get('/api/crm/dashboard',(req,res)=>{
   });
 });
 
+// ── Unified customer record (helpdesk + CRM) ─────────────────────────────────
+// A "customer" is a CRM contact. Tickets are matched to it by email, or by phone for
+// WhatsApp/SMS/voice tickets (last 10 digits), so every channel lands on the same record.
+const _CRM_SKIP_FROM=/@(internal|example\.invalid)$|^(system|noreply|no-reply|donotreply|mailer-daemon)@/i;
+function _custKeyOf(raw){
+  const s=String(raw||'').trim().toLowerCase();
+  if(!s||_CRM_SKIP_FROM.test(s))return null;
+  if(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s))return 'e:'+s;
+  const d=s.replace(/\D/g,'');
+  if(d.length>=8&&d.length<=15&&/^\+?[\d\s()-]+$/.test(s))return 'p:'+d.slice(-10);
+  return null;
+}
+function _custKeysOfContact(c){const k=[];const e=_custKeyOf(c.email);if(e)k.push(e);const p=_custKeyOf(c.phone);if(p)k.push(p);return k;}
+function crmSyncFromTickets(slug){
+  const db=crmDb(slug);
+  const have=new Set();crmAll(db,'crm_contacts').forEach(c=>_custKeysOfContact(c).forEach(k=>have.add(k)));
+  const tickets=(readBrandDB(slug).tickets||[]);
+  let created=0;
+  db.transaction(()=>{
+    for(const tk of tickets){
+      const k=_custKeyOf(tk.from);if(!k||have.has(k))continue;
+      const isEmail=k[0]==='e';
+      const nm=(tk.fromName&&String(tk.fromName).toLowerCase()!==String(tk.from).toLowerCase())?String(tk.fromName):(isEmail?k.slice(2).split('@')[0]:String(tk.from));
+      crmSave(db,'crm_contacts',{id:uuidv4(),name:nm.slice(0,120),email:isEmail?k.slice(2):'',phone:isEmail?'':String(tk.from).slice(0,30),source:isEmail?'other':'whatsapp',createdDate:tk.createdDate||nowIST(),autoCreated:true});
+      have.add(k);created++;
+    }
+  })();
+  return created;
+}
+function crmFindByKey(db,key){return crmAll(db,'crm_contacts').find(c=>_custKeysOfContact(c).includes(key))||null;}
+function crmBuild360(slug,contact){
+  const db=crmDb(slug);
+  const keys=new Set(_custKeysOfContact(contact));
+  const tickets=(readBrandDB(slug).tickets||[]).filter(tk=>{const k=_custKeyOf(tk.from);return k&&keys.has(k);})
+    .sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  const nm=String(contact.name||'').toLowerCase();
+  const mine=x=>x.contactId===contact.id||(!x.contactId&&nm&&String(x.contact||'').toLowerCase()===nm);
+  const deals=crmAll(db,'crm_deals').filter(mine).sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
+  const activities=crmAll(db,'crm_activities').filter(mine).sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0)).slice(0,50);
+  const company=contact.company?(crmAll(db,'crm_companies').find(c=>String(c.name||'').toLowerCase()===String(contact.company).toLowerCase())||null):null;
+  const done=s=>s==='resolved'||s==='closed';
+  const csat=tickets.filter(x=>x.csatScore!=null).map(x=>Number(x.csatScore)).filter(n=>!isNaN(n));
+  const openDeals=deals.filter(d=>d.stage!=='won'&&d.stage!=='lost');
+  return{
+    contact,company,
+    tickets:tickets.slice(0,100).map(x=>({id:x.id,subject:x.subject||'(No subject)',status:x.status,priority:x.priority,createdDate:x.createdDate||null,lastActivity:x.lastActivity||x.createdDate||null,assignedTo:x.assignedTo||'',channel:x.channel||x.source||'email',csatScore:x.csatScore==null?null:x.csatScore})),
+    deals:deals.map(d=>({id:d.id,title:d.title,stage:d.stage,value:d.value||0,expectedClose:d.expectedClose||null,createdDate:d.createdDate||null})),
+    activities:activities.map(a=>({id:a.id,type:a.type,subject:a.subject,notes:a.notes||'',dueDate:a.dueDate||null,completedDate:a.completedDate||null,createdDate:a.createdDate||null})),
+    stats:{totalTickets:tickets.length,openTickets:tickets.filter(x=>!done(x.status)).length,resolvedTickets:tickets.filter(x=>done(x.status)).length,
+      avgCsat:csat.length?Math.round(csat.reduce((a,b)=>a+b,0)/csat.length*10)/10:null,
+      openDeals:openDeals.length,openDealValue:openDeals.reduce((s,d)=>s+(Number(d.value)||0),0),
+      lastTicketDate:tickets.length?(tickets[0].createdDate||null):null}
+  };
+}
+// Customer for a ticket sender: find (or create) the CRM contact and return the whole picture.
+app.get('/api/crm/customer',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const key=_custKeyOf(req.query.email||req.query.phone);
+  if(!key)return res.json({success:true,customer:null});
+  const db=crmDb(su.brandSlug);
+  let c=crmFindByKey(db,key);
+  if(!c){
+    const isEmail=key[0]==='e';
+    const rawName=String(req.query.name||'').slice(0,120).trim();
+    c={id:uuidv4(),name:rawName||(isEmail?key.slice(2).split('@')[0]:String(req.query.phone||'')),email:isEmail?key.slice(2):'',phone:isEmail?'':String(req.query.phone||req.query.email||'').slice(0,30),source:isEmail?'other':'whatsapp',createdDate:nowIST(),autoCreated:true,ownerId:su.userId};
+    crmSave(db,'crm_contacts',c);
+  }
+  res.json({success:true,customer:crmBuild360(su.brandSlug,c)});
+});
+// Customers list: every CRM contact with its helpdesk numbers. Contacts are created from tickets on the fly.
+app.get('/api/crm/customers',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  let created=0;try{created=crmSyncFromTickets(su.brandSlug);}catch(e){}
+  const db=crmDb(su.brandSlug);
+  const byKey={};
+  for(const tk of (readBrandDB(su.brandSlug).tickets||[])){
+    const k=_custKeyOf(tk.from);if(!k)continue;
+    const o=byKey[k]||(byKey[k]={total:0,open:0,last:null});
+    o.total++;if(tk.status!=='resolved'&&tk.status!=='closed')o.open++;
+    const d=tk.createdDate||null;if(d&&(!o.last||new Date(d)>new Date(o.last)))o.last=d;
+  }
+  const q=String(req.query.q||'').toLowerCase().trim();
+  let rows=crmAll(db,'crm_contacts').map(c=>{
+    const agg={total:0,open:0,last:null};
+    for(const k of _custKeysOfContact(c)){const o=byKey[k];if(o){agg.total+=o.total;agg.open+=o.open;if(o.last&&(!agg.last||new Date(o.last)>new Date(agg.last)))agg.last=o.last;}}
+    return{id:c.id,name:c.name||'',email:c.email||'',phone:c.phone||'',company:c.company||'',source:c.source||'',tickets:agg.total,openTickets:agg.open,lastTicketDate:agg.last,createdDate:c.createdDate||null};
+  });
+  if(q)rows=rows.filter(r=>(r.name+' '+r.email+' '+r.phone+' '+r.company).toLowerCase().includes(q));
+  rows.sort((a,b)=>new Date(b.lastTicketDate||b.createdDate||0)-new Date(a.lastTicketDate||a.createdDate||0));
+  res.json({success:true,created,total:rows.length,customers:rows.slice(0,500)});
+});
+app.get('/api/crm/contacts/:id/360',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const c=crmGet(crmDb(su.brandSlug),'crm_contacts',req.params.id);
+  if(!c)return res.status(404).json({error:'Not found'});
+  res.json({success:true,customer:crmBuild360(su.brandSlug,c)});
+});
+app.post('/api/crm/contacts/:id/note',(req,res)=>{
+  const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
+  const db=crmDb(su.brandSlug);
+  const c=crmGet(db,'crm_contacts',req.params.id);
+  if(!c)return res.status(404).json({error:'Not found'});
+  const text=String((req.body||{}).text||'').trim().slice(0,4000);
+  if(!text)return res.status(400).json({error:'Note is empty'});
+  const a={id:uuidv4(),type:'note',subject:text.split('\n')[0].slice(0,80),notes:text,contactId:c.id,contact:c.name||'',createdDate:nowIST(),completedDate:nowIST(),ownerId:su.userId};
+  crmSave(db,'crm_activities',a);
+  res.json({success:true,activity:a});
+});
+
 // ── Contacts ──────────────────────────────────────────────────────────────────
 app.get('/api/crm/contacts',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
