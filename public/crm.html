@@ -122,6 +122,7 @@ select.search-input{cursor:pointer;}
 .k-card-foot{display:flex;align-items:center;justify-content:space-between;}
 .k-card-val{font-size:11px;font-weight:700;color:var(--green);}
 .k-card-date{font-size:10px;color:var(--t4);}
+.k-col.drop{border-color:var(--green);background:rgba(16,185,129,.07);}
 .k-add{width:100%;background:none;border:1px dashed var(--b1);border-radius:8px;padding:8px;font-size:11px;color:var(--t4);cursor:pointer;font-family:var(--sans);transition:all .15s;margin-top:4px;}
 .k-add:hover{border-color:var(--b2);color:var(--t2);}
 
@@ -884,16 +885,17 @@ const loaders = {
 };
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function stageBadge(s) {
   const map = { prospect:'prospect', qualified:'qualified', demo:'demo', proposal:'proposal', won:'won', lost:'lost' };
   const labels = { prospect:'Prospect', qualified:'Qualified', demo:'Demo', proposal:'Proposal', won:'Won ✓', lost:'Lost' };
-  return `<span class="badge badge-${map[s]||'prospect'}">${labels[s]||s}</span>`;
+  return `<span class="badge badge-${map[s]||'prospect'}">${labels[s]||esc(s)}</span>`;
 }
 function sourceLabel(s) {
   const m = { linkedin:'LinkedIn', referral:'Referral', 'cold-email':'Cold Email', website:'Website', whatsapp:'WhatsApp', event:'Event', other:'Other' };
-  return m[s] || s || '—';
+  return m[s] || esc(s) || '—';
 }
 function actIcon(type) {
   const m = { call:'📞', email:'📧', meeting:'🤝', whatsapp:'📱', 'follow-up':'🔔', note:'📝' };
@@ -953,7 +955,7 @@ async function loadDashboard() {
   const barSegs = stages.map(s => `<div class="pb-seg" style="width:${(stats.stageBreakdown[s.key]||0)/total*100}%;background:${s.color};min-width:${stats.stageBreakdown[s.key]?4:0}px;"></div>`).join('');
   sb.innerHTML = `<div class="pipeline-bar">${barSegs}</div>` +
     stages.map(s => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);">
-      <div style="display:flex;align-items:center;gap:8px;"><div style="width:8px;height:8px;border-radius:50%;background:${s.color};"></div><span style="font-size:12px;color:var(--t2);">${s.label}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:8px;height:8px;border-radius:50%;background:${s.color};"></div><span style="font-size:12px;color:var(--t2);">${esc(s.label)}</span></div>
       <span style="font-size:13px;font-weight:700;color:var(--t1);">${stats.stageBreakdown[s.key]||0}</span>
     </div>`).join('');
 
@@ -968,8 +970,8 @@ async function loadDashboard() {
   const recent = deals.slice(0, 6);
   if (!recent.length) { dd.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--t4);">No deals yet — <button class="btn btn-ghost btn-sm" onclick="nav('deals')">Create your first deal</button></td></tr>`; }
   else dd.innerHTML = recent.map(d => `<tr>
-    <td><span class="tbl-name" onclick="nav('deals')">${d.title}</span></td>
-    <td style="color:var(--t3);">${d.company||'—'}</td>
+    <td><span class="tbl-name" onclick="nav('deals')">${esc(d.title)}</span></td>
+    <td style="color:var(--t3);">${esc(d.company||'—')}</td>
     <td>${stageBadge(d.stage)}</td>
     <td style="font-weight:700;color:var(--green);">${d.value ? fmt(d.value) : '—'}</td>
     <td style="color:var(--t3);">${fmtDate(d.expectedClose)}</td>
@@ -1004,15 +1006,17 @@ function filterDeals(q) {
 }
 
 function renderDeals(deals) {
+  initDealDrop();
   const stages = ['prospect', 'qualified', 'demo', 'proposal', 'won'];
   if (dealsViewMode === 'kanban') {
     stages.forEach(s => {
       const col = deals.filter(d => d.stage === s);
-      document.getElementById('kc-' + s).textContent = col.length;
+      const total = col.reduce((a, d) => a + (Number(d.value) || 0), 0);
+      document.getElementById('kc-' + s).textContent = col.length + (total ? ' · ' + fmt(total) : '');
       document.getElementById('kc-' + s + '-cards').innerHTML = col.map(d => `
-        <div class="k-card" onclick="editDeal('${d.id}')">
-          <div class="k-card-title">${d.title}</div>
-          ${d.company ? `<div class="k-card-company">🏢 ${d.company}</div>` : ''}
+        <div class="k-card" draggable="true" data-id="${d.id}" ondragstart="dealDragStart(event)" ondragend="dealDragEnd(event)" onclick="editDeal('${d.id}')">
+          <div class="k-card-title">${esc(d.title)}</div>
+          ${d.company ? `<div class="k-card-company">🏢 ${esc(d.company)}</div>` : ''}
           <div class="k-card-foot">
             <span class="k-card-val">${d.value ? fmt(d.value) : 'No value'}</span>
             <span class="k-card-date">${d.expectedClose ? fmtDate(d.expectedClose) : ''}</span>
@@ -1023,8 +1027,8 @@ function renderDeals(deals) {
     const tb = document.getElementById('deals-tbody');
     if (!deals.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t4);">No deals found</td></tr>`; return; }
     tb.innerHTML = deals.map(d => `<tr>
-      <td><span class="tbl-name" onclick="editDeal('${d.id}')">${d.title}</span></td>
-      <td style="color:var(--t3);">${d.contact || '—'}</td>
+      <td><span class="tbl-name" onclick="editDeal('${d.id}')">${esc(d.title)}</span></td>
+      <td style="color:var(--t3);">${esc(d.contact || '—')}</td>
       <td>${stageBadge(d.stage)}</td>
       <td style="font-weight:700;color:${d.stage==='won'?'var(--green)':'var(--t1)'};">${d.value ? fmt(d.value) : '—'}</td>
       <td style="color:var(--t3);">${fmtDate(d.expectedClose)}</td>
@@ -1033,6 +1037,27 @@ function renderDeals(deals) {
     </tr>`).join('');
   }
 }
+
+// Drag a deal card to another column to move it to that stage.
+let _dragDealId = null;
+function dealDragStart(e) { _dragDealId = e.currentTarget.dataset.id; e.currentTarget.style.opacity = '.45'; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', _dragDealId); } catch (x) {} }
+function dealDragEnd(e) { e.currentTarget.style.opacity = ''; document.querySelectorAll('.k-col.drop').forEach(c => c.classList.remove('drop')); }
+function initDealDrop() {
+  ['prospect', 'qualified', 'demo', 'proposal', 'won'].forEach(s => {
+    const col = document.getElementById('kc-' + s + '-cards').closest('.k-col');
+    if (!col || col.dataset.dnd) return;
+    col.dataset.dnd = '1';
+    col.addEventListener('dragover', e => { if (_dragDealId) { e.preventDefault(); col.classList.add('drop'); } });
+    col.addEventListener('dragleave', e => { if (!col.contains(e.relatedTarget)) col.classList.remove('drop'); });
+    col.addEventListener('drop', async e => {
+      e.preventDefault(); col.classList.remove('drop');
+      const id = _dragDealId; _dragDealId = null; if (!id) return;
+      const r = await api('/api/crm/deals/' + id, { method: 'PUT', body: JSON.stringify({ stage: s }) });
+      if (r && r.success) { toast(s === 'won' ? 'Deal won 🎉' : 'Moved to ' + s); loadDeals(); } else toast((r && r.error) || 'Could not move the deal', 'err');
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', initDealDrop);
 
 function openDealModal(stage = 'prospect') {
   document.getElementById('deal-id').value = '';
@@ -1111,12 +1136,12 @@ async function loadContacts() {
   if (!contacts.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t4);">No contacts yet</td></tr>`; return; }
   tb.innerHTML = contacts.map(c => `<tr>
     <td><div style="display:flex;align-items:center;gap:9px;">
-      <div class="avatar" style="background:${avatarColor(c.name)};width:28px;height:28px;font-size:11px;">${(c.name||'?')[0].toUpperCase()}</div>
-      <div><div class="tbl-name" onclick="editContact('${c.id}')">${c.name}</div><div style="font-size:10px;color:var(--t4);">${c.role||''}</div></div>
+      <div class="avatar" style="background:${avatarColor(c.name)};width:28px;height:28px;font-size:11px;">${esc((c.name||'?')[0].toUpperCase())}</div>
+      <div><div class="tbl-name" onclick="editContact('${c.id}')">${esc(c.name)}</div><div style="font-size:10px;color:var(--t4);">${esc(c.role||'')}</div></div>
     </div></td>
-    <td style="color:var(--t3);">${c.email||'—'}</td>
-    <td style="color:var(--t3);">${c.phone||'—'}</td>
-    <td style="color:var(--t2);">${c.company||'—'}</td>
+    <td style="color:var(--t3);">${esc(c.email||'—')}</td>
+    <td style="color:var(--t3);">${esc(c.phone||'—')}</td>
+    <td style="color:var(--t2);">${esc(c.company||'—')}</td>
     <td><span class="badge badge-source">${sourceLabel(c.source)}</span></td>
     <td>${scoreBar(c.leadScore)}</td>
     <td><button class="btn btn-ghost btn-sm" onclick="deleteContact('${c.id}')">Delete</button></td>
@@ -1188,12 +1213,12 @@ async function loadCompanies() {
   const tb = document.getElementById('companies-tbody');
   if (!companies.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t4);">No companies yet</td></tr>`; return; }
   tb.innerHTML = companies.map(c => `<tr>
-    <td><span class="tbl-name" onclick="editCompany('${c.id}')">${c.name}</span></td>
-    <td style="color:var(--t3);">${c.industry||'—'}</td>
-    <td style="color:var(--t3);">${c.size||'—'}</td>
-    <td style="color:var(--t3);">${c.city||'—'}</td>
-    <td style="font-family:var(--mono);font-size:11px;color:var(--t4);">${c.gst||'—'}</td>
-    <td>${c.website?`<a href="${c.website}" target="_blank" style="color:var(--green);font-size:12px;">${c.website.replace('https://','')}</a>`:'—'}</td>
+    <td><span class="tbl-name" onclick="editCompany('${c.id}')">${esc(c.name)}</span></td>
+    <td style="color:var(--t3);">${esc(c.industry||'—')}</td>
+    <td style="color:var(--t3);">${esc(c.size||'—')}</td>
+    <td style="color:var(--t3);">${esc(c.city||'—')}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--t4);">${esc(c.gst||'—')}</td>
+    <td>${c.website?`<a href="${esc(c.website)}" target="_blank" style="color:var(--green);font-size:12px;">${c.website.replace('https://','')}</a>`:'—'}</td>
     <td><button class="btn btn-ghost btn-sm" onclick="deleteCompany('${c.id}')">Delete</button></td>
   </tr>`).join('');
 }
@@ -1262,9 +1287,9 @@ function renderActivityItem(a) {
   return `<div class="act-item${isDone?' done':''}">
     <div class="act-icon" style="background:${ic.color};">${ic.icon}</div>
     <div class="act-body">
-      <div class="act-subject">${a.subject}</div>
-      <div class="act-meta">${a.contact ? '👤 ' + a.contact + ' · ' : ''}${dateBadge}</div>
-      ${a.notes ? `<div style="font-size:11px;color:var(--t4);margin-top:4px;">${a.notes}</div>` : ''}
+      <div class="act-subject">${esc(a.subject)}</div>
+      <div class="act-meta">${a.contact ? '👤 ' + esc(a.contact) + ' · ' : ''}${dateBadge}</div>
+      ${a.notes ? `<div style="font-size:11px;color:var(--t4);margin-top:4px;">${esc(a.notes)}</div>` : ''}
     </div>
     <div class="act-actions">
       ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="completeActivity('${a.id}')">✓ Done</button>` : ''}
@@ -1411,7 +1436,7 @@ async function loadOutreach() {
     strip.innerHTML = OT_STATUSES.map(s => `
       <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 14px;cursor:pointer;transition:border-color .12s;"
            onclick="document.getElementById('ot-filter-status').value='${s.key}';loadOutreach()">
-        <div style="font-size:10px;color:${s.color};font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${s.label}</div>
+        <div style="font-size:10px;color:${s.color};font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${esc(s.label)}</div>
         <div style="font-size:22px;font-weight:800;color:var(--t1);margin-top:2px;">${counts[s.key]}</div>
       </div>`).join('');
   }
@@ -1430,13 +1455,13 @@ async function loadOutreach() {
     const st = OT_STATUSES.find(s => s.key === l.status) || OT_STATUSES[0];
     const isOverdue = l.followUp && l.followUp <= today && l.status !== 'converted' && l.status !== 'dead';
     return `<tr>
-      <td style="font-weight:600;">${l.name||'—'}</td>
-      <td style="color:var(--t3);">${l.company||'—'}</td>
-      <td style="color:var(--t3);font-size:12px;">${l.phone||'—'}</td>
-      <td style="color:var(--t3);font-size:12px;">${l.email||'—'}</td>
-      <td><span style="background:rgba(0,0,0,.3);color:${st.color};border:1px solid ${st.color}33;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">${st.label}</span></td>
+      <td style="font-weight:600;">${esc(l.name||'—')}</td>
+      <td style="color:var(--t3);">${esc(l.company||'—')}</td>
+      <td style="color:var(--t3);font-size:12px;">${esc(l.phone||'—')}</td>
+      <td style="color:var(--t3);font-size:12px;">${esc(l.email||'—')}</td>
+      <td><span style="background:rgba(0,0,0,.3);color:${st.color};border:1px solid ${st.color}33;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">${esc(st.label)}</span></td>
       <td style="font-size:12px;color:${isOverdue?'var(--red)':'var(--t3)'};font-weight:${isOverdue?700:400};">${l.followUp ? fmtDate(l.followUp) + (isOverdue?' ⚠️':'') : '—'}</td>
-      <td style="font-size:11px;color:var(--t4);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.note||'—'}</td>
+      <td style="font-size:11px;color:var(--t4);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.note||'—')}</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="openOtModal('${l.id}')">Edit</button>
         <button class="btn btn-danger btn-sm" onclick="delOtLead('${l.id}')">✕</button>
@@ -1587,10 +1612,10 @@ async function loadTemplates() {
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--b2)'" onmouseout="this.style.borderColor='var(--b1)'">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:11px;font-weight:700;color:${TPL_TAG_COLORS[t.tag]||'var(--t3)'};background:${TPL_TAG_COLORS[t.tag]||'var(--t3)'}18;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.06em;">${t.tag}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--t4);">${t.name}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--t4);">${esc(t.name)}</span>
       </div>
-      <div style="font-size:13px;font-weight:600;color:var(--t1);">📧 ${t.subject}</div>
-      <div style="font-size:11px;color:var(--t3);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow:hidden;mask-image:linear-gradient(180deg,var(--t1) 60%,transparent);">${t.body}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--t1);">📧 ${esc(t.subject)}</div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow:hidden;mask-image:linear-gradient(180deg,var(--t1) 60%,transparent);">${esc(t.body)}</div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-green btn-sm" style="flex:1;" onclick="copyTpl('${t.id}')">📋 Copy</button>
         <button class="btn btn-ghost btn-sm" onclick="openTplModal('${t.id}')">Edit</button>
@@ -1602,7 +1627,7 @@ async function loadTemplates() {
 function copyTpl(id) {
   const t = _tplCache.find(x => x.id === id);
   if (!t) return;
-  const text = `Subject: ${t.subject}\n\n${t.body}`;
+  const text = `Subject: ${esc(t.subject)}\n\n${esc(t.body)}`;
   navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!')).catch(() => showToast('Copy failed — select manually'));
 }
 async function delTpl(id) {

@@ -16917,6 +16917,7 @@ const App = {
           '<div style="display:flex;gap:8px;"><input id="custSearch" class="form-input" placeholder="Search name, email, phone, company" style="width:280px;max-width:100%;">' +
           '<a href="/crm" class="btn-secondary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;">Sales pipeline →</a></div>' +
         '</div>' +
+        '<div id="custChips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;"></div>' +
         '<div id="custTable" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;"><div style="padding:40px;text-align:center;color:var(--text-dim);">Loading customers…</div></div>' +
       '</div>';
     var timer = null;
@@ -16924,6 +16925,21 @@ const App = {
       var r = await self._crmFetch('/api/crm/customers' + (q ? '?q=' + encodeURIComponent(q) : ''));
       var box = document.getElementById('custTable'); if (!box) return;
       if (!r || !r.success) { box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);">Could not load customers.</div>'; return; }
+      var f = self._custFilter || 'all', srt = self._custSort || 'recent';
+      self._custAll = r.customers;
+      var chipDefs = [['all', 'All', r.customers.length], ['open', 'Open tickets', r.customers.filter(function(c) { return c.openTickets > 0; }).length], ['deals', 'Has deals', r.customers.filter(function(c) { return c.openDeals > 0; }).length], ['repeat', 'Repeat (3+ tickets)', r.customers.filter(function(c) { return c.tickets >= 3; }).length]];
+      var chipBox = document.getElementById('custChips');
+      if (chipBox) chipBox.innerHTML = chipDefs.map(function(d) {
+        var on = d[0] === f;
+        return '<button onclick="App._custFilter=\'' + d[0] + '\';App._custReload()" style="font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--border)') + ';background:' + (on ? 'rgba(16,185,129,.12)' : 'none') + ';color:' + (on ? 'var(--accent)' : 'var(--text-muted)') + ';cursor:pointer;">' + d[1] + ' <span style="opacity:.7;">' + d[2] + '</span></button>';
+      }).join('') +
+        '<span style="flex:1;"></span><select class="form-input" style="font-size:12px;padding:5px 8px;" onchange="App._custSort=this.value;App._custReload()"><option value="recent"' + (srt === 'recent' ? ' selected' : '') + '>Most recent</option><option value="tickets"' + (srt === 'tickets' ? ' selected' : '') + '>Most tickets</option><option value="name"' + (srt === 'name' ? ' selected' : '') + '>Name A–Z</option></select>' +
+        '<button class="btn-secondary btn-sm" onclick="App._custExport()">Export CSV</button>';
+      r.customers = r.customers.filter(function(c) { return f === 'all' || (f === 'open' && c.openTickets > 0) || (f === 'deals' && c.openDeals > 0) || (f === 'repeat' && c.tickets >= 3); });
+      if (srt === 'tickets') r.customers.sort(function(a, b) { return b.tickets - a.tickets; });
+      else if (srt === 'name') r.customers.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+      self._custShown = r.customers;
+      r.total = r.customers.length;
       var cnt = document.getElementById('custCount');
       if (cnt) cnt.textContent = r.total + (r.total === 1 ? ' customer' : ' customers') + (q ? ' match' : '') + ' — everything they have asked and bought, in one place.';
       if (!r.customers.length) {
@@ -16945,9 +16961,17 @@ const App = {
         '</div>';
       }).join('');
     };
+    self._custReload = function() { var i = document.getElementById('custSearch'); load(i ? i.value.trim() : ''); };
     var inp = document.getElementById('custSearch');
     if (inp) inp.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(function() { load(inp.value.trim()); }, 250); });
     load('');
+  },
+
+  _custExport: function() {
+    var rows = App._custShown || []; if (!rows.length) { App.showToast('Nothing to export', 'error'); return; }
+    var q = function(v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+    var lines = [['Name', 'Email', 'Phone', 'Company', 'Tickets', 'Open tickets', 'Open deals', 'Last contact'].join(',')].concat(rows.map(function(c) { return [c.name, c.email, c.phone, c.company, c.tickets, c.openTickets, c.openDeals, c.lastTicketDate || ''].map(q).join(','); }));
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })); a.download = 'customers.csv'; document.body.appendChild(a); a.click(); a.remove();
   },
 
   // One customer, everything together

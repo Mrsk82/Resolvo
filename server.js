@@ -11674,6 +11674,8 @@ function crmAuth(req,res){
   return su;
 }
 function crmDb(slug){return _openDB(slug);}
+// Record ids from clients (import scripts reuse them) may only contain letters, digits, '-' and '_'.
+function _safeRecId(v){const s=String(v==null?'':v);return /^[A-Za-z0-9_-]{1,64}$/.test(s)?s:uuidv4();}
 // Lightweight session-info endpoint — used by crm.html to show the brand
 // name in its sidebar (previously 404'd, silently swallowed there).
 app.get('/api/me',(req,res)=>{
@@ -11790,10 +11792,12 @@ app.get('/api/crm/customers',(req,res)=>{
     const d=tk.createdDate||null;if(d&&(!o.last||new Date(d)>new Date(o.last)))o.last=d;
   }
   const q=String(req.query.q||'').toLowerCase().trim();
+  const allDeals=crmAll(db,'crm_deals').filter(d=>d.stage!=='won'&&d.stage!=='lost');
   let rows=crmAll(db,'crm_contacts').map(c=>{
     const agg={total:0,open:0,last:null};
     for(const k of _custKeysOfContact(c)){const o=byKey[k];if(o){agg.total+=o.total;agg.open+=o.open;if(o.last&&(!agg.last||new Date(o.last)>new Date(agg.last)))agg.last=o.last;}}
-    return{id:c.id,name:c.name||'',email:c.email||'',phone:c.phone||'',company:c.company||'',source:c.source||'',tickets:agg.total,openTickets:agg.open,lastTicketDate:agg.last,createdDate:c.createdDate||null};
+    const cn=String(c.name||'').toLowerCase();const dealCount=allDeals.filter(d=>d.contactId===c.id||(!d.contactId&&cn&&String(d.contact||'').toLowerCase()===cn)).length;
+    return{id:c.id,name:c.name||'',email:c.email||'',phone:c.phone||'',company:c.company||'',source:c.source||'',tickets:agg.total,openTickets:agg.open,openDeals:dealCount,lastTicketDate:agg.last,createdDate:c.createdDate||null};
   });
   if(q)rows=rows.filter(r=>(r.name+' '+r.email+' '+r.phone+' '+r.company).toLowerCase().includes(q));
   rows.sort((a,b)=>new Date(b.lastTicketDate||b.createdDate||0)-new Date(a.lastTicketDate||a.createdDate||0));
@@ -11831,7 +11835,7 @@ app.get('/api/crm/contacts',(req,res)=>{
 app.post('/api/crm/contacts',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
   const db=crmDb(su.brandSlug);
-  const c={id:uuidv4(),...req.body,createdDate:nowIST(),ownerId:su.userId};
+  const c={...req.body,id:uuidv4(),createdDate:nowIST(),ownerId:su.userId};
   crmSave(db,'crm_contacts',c);res.json({success:true,contact:c});
 });
 app.put('/api/crm/contacts/:id',(req,res)=>{
@@ -11857,7 +11861,7 @@ app.get('/api/crm/companies',(req,res)=>{
 });
 app.post('/api/crm/companies',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const c={id:uuidv4(),...req.body,createdDate:nowIST()};
+  const c={...req.body,id:uuidv4(),createdDate:nowIST()};
   crmSave(crmDb(su.brandSlug),'crm_companies',c);res.json({success:true,company:c});
 });
 app.put('/api/crm/companies/:id',(req,res)=>{
@@ -11884,7 +11888,7 @@ app.get('/api/crm/deals',(req,res)=>{
 });
 app.post('/api/crm/deals',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const d={id:uuidv4(),...req.body,stage:req.body.stage||'prospect',createdDate:nowIST(),ownerId:su.userId};
+  const d={...req.body,id:uuidv4(),stage:req.body.stage||'prospect',createdDate:nowIST(),ownerId:su.userId};
   crmSave(crmDb(su.brandSlug),'crm_deals',d);res.json({success:true,deal:d});
 });
 app.put('/api/crm/deals/:id',(req,res)=>{
@@ -11919,7 +11923,7 @@ app.get('/api/crm/activities',(req,res)=>{
 });
 app.post('/api/crm/activities',(req,res)=>{
   const su=crmAuth(req,res);if(!su)return res.status(401).json({error:'Unauthorized'});
-  const a={id:uuidv4(),...req.body,createdDate:nowIST(),ownerId:su.userId};
+  const a={...req.body,id:uuidv4(),createdDate:nowIST(),ownerId:su.userId};
   crmSave(crmDb(su.brandSlug),'crm_activities',a);res.json({success:true,activity:a});
 });
 app.put('/api/crm/activities/:id',(req,res)=>{
@@ -11949,14 +11953,14 @@ app.get('/api/crm/outreach',(req,res)=>{
 });
 app.post('/api/crm/outreach',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
-  const o={...sanitizeObj(req.body),id:req.body.id||uuidv4(),createdAt:req.body.createdAt||nowIST(),updatedAt:nowIST()};
+  const o={...sanitizeObj(req.body),id:_safeRecId(req.body.id),createdAt:req.body.createdAt||nowIST(),updatedAt:nowIST()};
   crmSave(crmDb(su.brandSlug),'crm_outreach',o); res.json({success:true,outreach:o});
 });
 app.post('/api/crm/outreach/bulk',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
   const db=crmDb(su.brandSlug);
   const items=req.body.items||[];
-  items.forEach(o=>{ const rec={...sanitizeObj(o),id:o.id||uuidv4(),updatedAt:nowIST()}; crmSave(db,'crm_outreach',rec); });
+  items.forEach(o=>{ const rec={...sanitizeObj(o),id:_safeRecId(o.id),updatedAt:nowIST()}; crmSave(db,'crm_outreach',rec); });
   res.json({success:true,count:items.length});
 });
 app.put('/api/crm/outreach/:id',(req,res)=>{
@@ -11980,7 +11984,7 @@ app.get('/api/crm/templates',(req,res)=>{
 });
 app.post('/api/crm/templates',(req,res)=>{
   const su=crmAuth(req,res); if(!su)return res.status(401).json({error:'Unauthorized'});
-  const t={...sanitizeObj(req.body),id:req.body.id||uuidv4(),createdAt:nowIST()};
+  const t={...sanitizeObj(req.body),id:_safeRecId(req.body.id),createdAt:nowIST()};
   crmSave(crmDb(su.brandSlug),'crm_templates',t); res.json({success:true,template:t});
 });
 app.put('/api/crm/templates/:id',(req,res)=>{
