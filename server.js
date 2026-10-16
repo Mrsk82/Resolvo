@@ -7701,6 +7701,10 @@ async function createTicketFromEmail(slug, emailData) {
 const _pollInProgress = new Set();
 const _pollQueued = new Set(); // follow-up poll requested while one was in progress
 async function pollBrandInbox(slug) {
+  try {
+    const _c = readBrandDB(slug).emailTicketing;
+    if (_c && _c.gmailOAuth && _c.gmailOAuth.refreshToken) return; // Gmail Push delivers mail instantly; IMAP is not used
+  } catch (e) {}
   if (_pollInProgress.has(slug)) {
     // Queue a follow-up so we don't lose an email that arrived mid-poll
     _pollQueued.add(slug);
@@ -12311,8 +12315,30 @@ function _migratePasswords(){
   if(guessable||hashed)console.log(`[Security] passwords: ${guessable} guessable default(s) locked (use Forgot password), ${hashed} plain-text password(s) converted to hashes`);
 }
 
+// Brands that receive mail through Gmail Push do not use IMAP. Remove the stale IMAP login details
+// (host, port, password) so nothing can try them again. Brands without Gmail Push keep theirs.
+function _retireStaleImap(){
+  let n=0;
+  try{
+    const owner=readOwner();
+    for(const b of (owner.brands||[])){
+      let db;try{db=readBrandDB(b.slug);}catch(e){continue;}
+      const et=db.emailTicketing;
+      if(!et||!et.gmailOAuth||!et.gmailOAuth.refreshToken)continue;
+      if(!et.pass&&!et.host&&!et.port)continue;
+      delete et.pass;delete et.host;delete et.port;delete et.lastUID;
+      et.imapRetiredAt=nowIST();
+      writeBrandDB(b.slug,db);
+      if(activePollers[b.slug]){try{activePollers[b.slug].stop();}catch(e){}delete activePollers[b.slug];}
+      n++;
+    }
+  }catch(e){console.error('[Security] IMAP cleanup failed:',e.message);}
+  if(n)console.log(`[Security] Removed stale IMAP credentials for ${n} brand(s) that use Gmail Push`);
+}
+
 app.listen(PORT,()=>{
   _migratePasswords();
+  _retireStaleImap();
   const eon=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase());
   console.log(`\n╔══════════════════════════════════════════════════════╗`);
   console.log(`║   Resolvo SaaS  —  ${BASE_URL.padEnd(34)}║`);
