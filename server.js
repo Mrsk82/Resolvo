@@ -791,7 +791,7 @@ app.post('/api/login',(req,res)=>{
       brand.tier='Free';
     }
     const token=uuidv4(),bdf=db.featureFlags||{};
-    sessions[token]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#10B981',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:user.role==='Admin',firstLogin:user.firstLogin===true,mustChangePassword:user.mustChangePassword===true,id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+ttl};
+    sessions[token]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#10B981',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',trialEnds:brand.trialEnds||null,resolvedFeatureFlags:resolveFeatureFlags(brand,bdf),isMajorAdmin:user.role==='Admin',firstLogin:user.firstLogin===true,mustChangePassword:user.mustChangePassword===true,id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+ttl};
     const od=readOwner();const bi=od.brands.findIndex(b=>b.slug===brand.slug);
     if(bi>=0){od.brands[bi].lastActive=nowIST();writeOwner(od);}
     return res.json({success:true,token,isOwner:false,user:sessions[token]});
@@ -1682,13 +1682,13 @@ app.get('/api/owner/referrals',ownerOnly,(req,res)=>{
 app.get('/api/onboarding-status',(req,res)=>{
   const su=getSessionUser(req);if(!su||su.isOwner)return res.json({success:false});
   const db=readBrandDB(su.brandSlug);
+  // Steps a small support team needs to start answering customers (ordered by value).
   const steps=[
-    {id:'create_issue',label:'Create your first issue',done:(db.issues||[]).length>0,link:'#create-issue',icon:'🎫'},
-    {id:'invite_user',label:'Invite a teammate',done:(db.users||[]).length>1,link:'#user-management',icon:'👥'},
-    {id:'connect_email',label:'Connect email inbox',done:!!(db.emailTicketing?.enabled),link:'#email-ticketing',icon:'📬'},
-    {id:'set_sla',label:'Configure SLA rules',done:!!(db.slaConfig?.Critical),link:'#sla-settings',icon:'⏱'},
-    {id:'setup_queue',label:'Enable assignment queue',done:!!(db.queueConfig?.enabled),link:'#settings|queue-config',icon:'🔄'},
-    {id:'view_reports',label:'Check your first report',done:!!(db.activityLog?.length>5),link:'#reports',icon:'📊'},
+    {id:'connect_email',label:'Connect your support email',hint:'Customer emails arrive as tickets',done:!!(db.emailTicketing?.enabled),link:'#email-ticketing',icon:'📬'},
+    {id:'first_ticket',label:'Create your first ticket',hint:'See how a conversation looks',done:(db.tickets||[]).length>0,link:'#ticket-inbox',icon:'🎫'},
+    {id:'invite_user',label:'Invite a teammate',hint:'Share the inbox with your team',done:(db.users||[]).length>1,link:'#user-management',icon:'👥'},
+    {id:'setup_queue',label:'Turn on auto-assignment',hint:'New tickets go to the right person',done:!!(db.queueConfig?.enabled),link:'#settings|queue-config',icon:'🔄'},
+    {id:'canned',label:'Add a saved reply',hint:'Answer common questions in one click',done:(db.cannedResponses||[]).length>0,link:'#settings',icon:'💬'},
   ];
   const completed=steps.filter(s=>s.done).length;
   return res.json({success:true,steps,completed,total:steps.length,percent:Math.round(completed/steps.length*100)});

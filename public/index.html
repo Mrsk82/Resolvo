@@ -30143,6 +30143,45 @@ App.renderGoodMorning = async function(containerId) {
       '</div>' +
     '</div>';
 
+  // Welcome / setup card for workspaces that haven't finished onboarding (non-owner users only)
+  try {
+    if (cu && !cu.isOwner) {
+      var hideKey = 'onb_hidden_' + (cu.brandSlug || '');
+      var hidden = false; try { hidden = localStorage.getItem(hideKey) === '1'; } catch (e) {}
+      var od = App._onboardingData;
+      if (!od) {
+        var rr = await fetch('/api/onboarding-status', { headers: { 'x-session-token': localStorage.getItem('tt_session_token') || '' } }).then(function(x) { return x.json(); });
+        if (rr && rr.success) { od = rr; App._onboardingData = rr; }
+      }
+      if (od && od.percent < 100 && !hidden) {
+        var trialHtml = '';
+        if (cu.brandTier === 'Trial' && cu.trialEnds) {
+          var left = Math.max(0, Math.ceil((new Date(cu.trialEnds).getTime() - Date.now()) / 86400000));
+          trialHtml = '<span style="font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:' + (left <= 3 ? 'rgba(239,68,68,.15)' : 'rgba(16,185,129,.14)') + ';color:' + (left <= 3 ? '#f87171' : 'var(--accent)') + ';white-space:nowrap;">Trial · ' + left + (left === 1 ? ' day' : ' days') + ' left</span>';
+        }
+        var stepsHtml = (od.steps || []).map(function(s, i) {
+          var act = s.id === 'first_ticket' ? 'App._showCreateManualTicket()' : s.id === 'setup_queue' ? "App.navigate('settings',{tab:'queue-config'})" : s.id === 'canned' ? "App.navigate('settings',{tab:'canned'})" : "App.navigate('" + String(s.link || '').replace('#', '') + "')";
+          return '<div ' + (s.done ? '' : 'onclick="' + act + '" role="button" tabindex="0"') + ' style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;border:1px solid ' + (s.done ? 'rgba(16,185,129,.35)' : 'var(--border)') + ';background:' + (s.done ? 'rgba(16,185,129,.06)' : 'var(--bg-elevated)') + ';cursor:' + (s.done ? 'default' : 'pointer') + ';min-width:0;">' +
+            '<span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:' + (s.done ? 'var(--accent)' : 'var(--bg-card)') + ';color:' + (s.done ? '#06231a' : 'var(--text-dim)') + ';border:1.5px solid ' + (s.done ? 'var(--accent)' : 'var(--border)') + ';">' + (s.done ? '✓' : (i + 1)) + '</span>' +
+            '<span style="min-width:0;flex:1;"><span style="display:block;font-size:13px;font-weight:700;color:' + (s.done ? 'var(--text-dim)' : 'var(--text-primary)') + ';' + (s.done ? 'text-decoration:line-through;' : '') + '">' + App._esc(s.label) + '</span>' +
+            (s.hint && !s.done ? '<span style="display:block;font-size:11px;color:var(--text-muted);margin-top:1px;">' + App._esc(s.hint) + '</span>' : '') + '</span>' +
+            (s.done ? '' : '<span style="color:var(--accent);font-size:14px;">→</span>') + '</div>';
+        }).join('');
+        container.insertAdjacentHTML('beforeend',
+          '<div id="onbCard" style="margin-top:14px;padding:18px 20px;border-radius:14px;border:1px solid var(--border-accent, rgba(16,185,129,.3));background:linear-gradient(135deg,rgba(16,185,129,.09),rgba(99,102,241,.07));">' +
+            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
+              '<div><div style="font-size:16px;font-weight:800;color:var(--text-primary);">Get set up to answer your first customers</div>' +
+              '<div style="font-size:12.5px;color:var(--text-muted);margin-top:3px;">' + od.completed + ' of ' + od.total + ' done &middot; about 10 minutes</div></div>' +
+              '<div style="display:flex;align-items:center;gap:10px;">' + trialHtml +
+              '<button onclick="try{localStorage.setItem(\'' + hideKey + '\',\'1\')}catch(e){}document.getElementById(\'onbCard\').remove()" style="background:none;border:0;color:var(--text-dim);font-size:12px;cursor:pointer;padding:4px 6px;">Hide</button></div>' +
+            '</div>' +
+            '<div style="height:6px;border-radius:4px;background:var(--border);margin:14px 0;overflow:hidden;"><div style="height:6px;width:' + od.percent + '%;background:var(--accent);border-radius:4px;transition:width .4s;"></div></div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">' + stepsHtml + '</div>' +
+          '</div>');
+      }
+    }
+  } catch (e) {}
+
   // Trigger count-up for Nova
   if (document.documentElement.getAttribute('data-theme') === 'nova') {
     setTimeout(function() { NovaSystem._patchCounters && NovaSystem._patchCounters(); }, 100);
