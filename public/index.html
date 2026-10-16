@@ -11893,6 +11893,7 @@ const App = {
               '</div>'+
               '<div style="display:flex;gap:6px;">'+
                 '<button onclick="App._ownerNotifyTrial(\''+t.slug+'\','+t.daysLeft+')" class="btn-secondary btn-sm">Notify</button>'+
+                '<button onclick="App._ownerExtendTrial(\''+t.slug+'\')" class="btn-secondary btn-sm">Set days</button>'+
                 '<button onclick="App._ownerChangeTier(\''+t.slug+'\',\'Free\')" class="btn-secondary btn-sm">→ Free</button>'+
                 '<button onclick="App._ownerChangeTier(\''+t.slug+'\',\'Pro\')" class="btn-primary btn-sm">→ Pro</button>'+
               '</div>'+
@@ -11909,6 +11910,17 @@ const App = {
     var r = await fetch('/api/owner/trial-notify', {method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({slug,daysLeft})}).then(x=>x.json()).catch(()=>({success:false}));
     if (r&&r.success) App.showToast('Trial expiry notification sent','success');
     else App.showToast('Failed to send notification','error');
+  },
+
+  _ownerExtendTrial: async function(slug) {
+    var d = prompt('Trial ends how many days from today? (e.g. 60 for a design partner)', '60');
+    if (d === null) return;
+    var days = parseInt(d, 10);
+    if (!(days >= 1 && days <= 180)) { App.showToast('Enter a number from 1 to 180', 'error'); return; }
+    var token = localStorage.getItem('tt_session_token')||'';
+    var r = await fetch('/api/owner/brands/'+encodeURIComponent(slug)+'/extend-trial', {method:'POST',headers:{'Content-Type':'application/json','x-session-token':token},body:JSON.stringify({days:days,designPartner:true})}).then(x=>x.json()).catch(()=>({success:false}));
+    if (r && r.success) { App.showToast('Trial set to '+days+' days','success'); document.querySelector('.modal-overlay')?.remove(); App._ownerShowTrials(); }
+    else App.showToast((r && r.error) || 'Could not update the trial','error');
   },
 
   _ownerChangeTier: async function(slug, tier) {

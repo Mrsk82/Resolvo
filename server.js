@@ -1769,6 +1769,20 @@ app.put('/api/owner/brands/:slug',ownerOnly,(req,res)=>{
   if(req.body.status)ownerAuditLog(owner,'brand_status_changed',{brandSlug:req.params.slug,status:req.body.status},req.owner.email);
   writeOwner(owner);res.json({success:true});
 });
+// Set (or extend) a brand's trial: the trial ends `days` from today. Used for design partners (e.g. 60 days).
+app.post('/api/owner/brands/:slug/extend-trial',ownerOnly,(req,res)=>{
+  const days=parseInt(req.body&&req.body.days,10);
+  if(!(days>=1&&days<=180))return res.json({success:false,error:'Days must be between 1 and 180.'});
+  const owner=readOwner();const idx=(owner.brands||[]).findIndex(b=>b.slug===req.params.slug);
+  if(idx===-1)return res.json({success:false,error:'Not found.'});
+  const b=owner.brands[idx];
+  if(b.tier==='Pro'||b.tier==='Enterprise')return res.json({success:false,error:'This brand is already on a paid plan.'});
+  const prevTier=b.tier,prevEnd=b.trialEnds||null;
+  b.tier='Trial';b.trialEnds=new Date(Date.now()+days*86400000).toISOString();
+  if(req.body.designPartner===true)b.designPartner=true;
+  ownerAuditLog(owner,'trial_extended',{brandSlug:b.slug,days,from:prevTier,previousEnd:prevEnd,newEnd:b.trialEnds},req.owner.email);
+  writeOwner(owner);res.json({success:true,trialEnds:b.trialEnds});
+});
 app.delete('/api/owner/brands/:slug',ownerOnly,(req,res)=>{
   const owner=readOwner();const idx=(owner.brands||[]).findIndex(b=>b.slug===req.params.slug);if(idx===-1)return res.json({success:false,error:'Not found.'});
   owner.brands[idx].status='suspended';ownerAuditLog(owner,'brand_suspended',{brandSlug:req.params.slug},req.owner.email);writeOwner(owner);res.json({success:true});
@@ -6239,7 +6253,9 @@ app.post('/api/signup',async(req,res)=>{
 
 // ── DEMO REQUEST ─────────────────────────────────────────────────────────────
 app.post('/api/demo-request',async(req,res)=>{
-  const{name,email,company,message}=req.body;
+  const _b=req.body||{};
+  const name=String(_b.name||'').trim().slice(0,120),email=String(_b.email||'').trim().slice(0,200),company=String(_b.company||'').trim().slice(0,160),message=String(_b.message||'').trim().slice(0,2000);
+  if(email&&!/^[^@\s<>"']+@[^@\s<>"']+\.[^@\s<>"']+$/.test(email))return res.json({success:false,error:'Please enter a valid email address.'});
   if(_rateLimited(_demoReqHits,_clientIp(req),5,3600000))return res.status(429).json({success:false,error:'Too many requests. Please email contact@resolvogroup.com.'});
   if(!name||!email)return res.json({success:false,error:'Name and email required.'});
   const owner=readOwner();
@@ -6248,9 +6264,9 @@ app.post('/api/demo-request',async(req,res)=>{
   const existing=owner.prospects.find(p=>(p.email||'').toLowerCase()===email.toLowerCase());
   if(existing){existing.updatedAt=nowIST();}else{owner.prospects.push({id:uuidv4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:nowIST(),updatedAt:nowIST(),lastContact:null});}
   writeOwner(owner);
-  await sendEmail(owner.email,`Demo Request: ${name} from ${company||'unknown'}`,`<p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}<br><strong>Company:</strong> ${company||'—'}<br><strong>Message:</strong> ${message||'—'}</p><p><a href="mailto:${email}">Reply to ${name}</a></p>`,`Demo request from ${name} (${email}) — ${company||''}`).catch(()=>{});
+  await sendEmail(owner.email,`Demo Request: ${_escHtml(name)} from ${_escHtml(company||'unknown')}`,`<p><strong>Name:</strong> ${_escHtml(name)}<br><strong>Email:</strong> ${_escHtml(email)}<br><strong>Company:</strong> ${_escHtml(company||'—')}<br><strong>Message:</strong> ${_escHtml(message||'—')}</p><p><a href="mailto:${_escHtml(email)}">Reply to ${_escHtml(name)}</a></p>`,`Demo request from ${_escHtml(name)} (${_escHtml(email)}) — ${_escHtml(company||'')}`).catch(()=>{});
   // Auto-reply to prospect
-  await sendEmail(email,`Thanks for your interest in Resolvo!`,`<div style="font-family:Arial;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#10B981;">Hi ${name}! 👋</h2><p>Thank you for your interest in Resolvo. We've received your request and will be in touch within 24 hours.</p><p>In the meantime, feel free to start a free trial:</p><a href="${BASE_URL}" style="display:inline-block;padding:12px 32px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Start Free Trial →</a><p style="margin-top:20px;color:#6b7280;font-size:13px;">— Team Resolvo<br><a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p></div>`,`Hi ${name}, we received your demo request and will be in touch shortly.`).catch(()=>{});
+  await sendEmail(email,`Thanks for your interest in Resolvo!`,`<div style="font-family:Arial;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#10B981;">Hi ${_escHtml(name)}! 👋</h2><p>Thank you for your interest in Resolvo. We've received your request and will be in touch within 24 hours.</p><p>In the meantime, feel free to start a free trial:</p><a href="${BASE_URL}" style="display:inline-block;padding:12px 32px;background:#10B981;color:#000;border-radius:8px;text-decoration:none;font-weight:700;">Start Free Trial →</a><p style="margin-top:20px;color:#6b7280;font-size:13px;">— Team Resolvo<br><a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></p></div>`,`Hi ${_escHtml(name)}, we received your demo request and will be in touch shortly.`).catch(()=>{});
   res.json({success:true,message:'Request received! Check your email — we\'ll be in touch within 24 hours.'});
 });
 
@@ -6261,6 +6277,7 @@ app.get('/vs/jira',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-jira
 app.get('/vs/freshdesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-freshdesk.html')));
 app.get('/vs/zendesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-zendesk.html')));
 app.get('/vs/sachdesk',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-sachdesk.html')));
+app.get('/partners',(req,res)=>res.sendFile(path.join(__dirname,'public','partners.html')));
 app.get('/vs/linear',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-linear.html')));
 app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
 app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));
