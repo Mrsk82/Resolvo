@@ -11825,7 +11825,8 @@ function crmFindByKey(db,key){return crmAll(db,'crm_contacts').find(c=>_custKeys
 function crmBuild360(slug,contact){
   const db=crmDb(slug);
   const keys=new Set(_custKeysOfContact(contact));
-  const tickets=(readBrandDB(slug).tickets||[]).filter(tk=>{const k=_custKeyOf(tk.from);return k&&keys.has(k);})
+  const bdb=readBrandDB(slug);
+  const tickets=(bdb.tickets||[]).filter(tk=>{const k=_custKeyOf(tk.from);return k&&keys.has(k);})
     .sort((a,b)=>new Date(b.createdDate||0)-new Date(a.createdDate||0));
   const nm=String(contact.name||'').toLowerCase();
   const mine=x=>x.contactId===contact.id||(!x.contactId&&nm&&String(x.contact||'').toLowerCase()===nm);
@@ -11835,15 +11836,22 @@ function crmBuild360(slug,contact){
   const done=s=>s==='resolved'||s==='closed';
   const csat=tickets.filter(x=>x.csatScore!=null).map(x=>Number(x.csatScore)).filter(n=>!isNaN(n));
   const openDeals=deals.filter(d=>d.stage!=='won'&&d.stage!=='lost');
+  const frts=tickets.map(x=>x.firstResponseMinutes).filter(n=>typeof n==='number');
+  const vip=bdb.vipConfig||{};const em=String(contact.email||'').toLowerCase();
+  const isVIP=!!em&&((vip.emails||[]).some(e=>String(e).toLowerCase()===em)||(vip.domains||[]).some(d=>em.endsWith('@'+String(d).toLowerCase())));
+  const oldest=tickets.length?tickets[tickets.length-1].createdDate:null;
   return{
-    contact,company,
+    contact,company,isVIP,
     tickets:tickets.slice(0,100).map(x=>({id:x.id,subject:x.subject||'(No subject)',status:x.status,priority:x.priority,createdDate:x.createdDate||null,lastActivity:x.lastActivity||x.createdDate||null,assignedTo:x.assignedTo||'',channel:x.channel||x.source||'email',csatScore:x.csatScore==null?null:x.csatScore})),
     deals:deals.map(d=>({id:d.id,title:d.title,stage:d.stage,value:d.value||0,expectedClose:d.expectedClose||null,createdDate:d.createdDate||null})),
     activities:activities.map(a=>({id:a.id,type:a.type,subject:a.subject,notes:a.notes||'',dueDate:a.dueDate||null,completedDate:a.completedDate||null,createdDate:a.createdDate||null})),
     stats:{totalTickets:tickets.length,openTickets:tickets.filter(x=>!done(x.status)).length,resolvedTickets:tickets.filter(x=>done(x.status)).length,
       avgCsat:csat.length?Math.round(csat.reduce((a,b)=>a+b,0)/csat.length*10)/10:null,
       openDeals:openDeals.length,openDealValue:openDeals.reduce((s,d)=>s+(Number(d.value)||0),0),
-      lastTicketDate:tickets.length?(tickets[0].createdDate||null):null}
+      lastTicketDate:tickets.length?(tickets[0].createdDate||null):null,
+      avgFirstReplyMin:frts.length?Math.round(frts.reduce((a,b)=>a+b,0)/frts.length):null,
+      resolutionRate:tickets.length?Math.round(tickets.filter(x=>done(x.status)).length/tickets.length*100):null,
+      firstContact:oldest}
   };
 }
 // Customer for a ticket sender: find (or create) the CRM contact and return the whole picture.

@@ -17037,6 +17037,14 @@ const App = {
     var c = r.customer, ct = c.contact, s = c.stats;
     self._custLast = self._custLast || {}; self._custLast[ct.id] = c;
     var ini = String(ct.name || ct.email || '?').trim().charAt(0).toUpperCase();
+    var badge = function(txt, bg, fg) { return '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:' + bg + ';color:' + fg + ';">' + txt + '</span>'; };
+    var badges = '';
+    if (c.isVIP) badges += badge('★ VIP customer', 'var(--medium-dim)', 'var(--medium)');
+    if ((s.totalTickets || 0) >= 3) badges += badge('Repeat customer', 'var(--accent-dim)', 'var(--accent)');
+    else if ((s.totalTickets || 0) === 1) badges += badge('New customer', 'rgba(79,107,237,.12)', 'var(--accent-2)');
+    if (s.openTickets) badges += badge(s.openTickets + ' open', 'var(--high-dim)', 'var(--high)');
+    if (s.openDeals) badges += badge(s.openDeals + ' open deal' + (s.openDeals > 1 ? 's' : ''), 'var(--low-dim)', 'var(--low)');
+    var replyTxt = s.avgFirstReplyMin == null ? '—' : (s.avgFirstReplyMin < 60 ? s.avgFirstReplyMin + 'm' : (Math.round(s.avgFirstReplyMin / 6) / 10) + 'h');
     var stat = function(label, val, sub) {
       return '<div style="flex:1;min-width:130px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);">' + label + '</div>' +
@@ -17071,7 +17079,8 @@ const App = {
         '<div style="display:flex;align-items:center;gap:14px;margin:10px 0 18px;flex-wrap:wrap;">' +
           '<div style="width:52px;height:52px;border-radius:50%;background:var(--accent-dim,rgba(16,185,129,.15));color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">' + self._esc(ini) + '</div>' +
           '<div style="flex:1;min-width:200px;"><div style="font-size:22px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;">' + self._esc(ct.name || ct.email || ct.phone) + '</div>' +
-          '<div style="font-size:13px;color:var(--text-muted);">' + self._esc([ct.role, ct.company].filter(Boolean).join(' · ') || (ct.email || ct.phone || '')) + '</div></div>' +
+          '<div style="font-size:13px;color:var(--text-muted);margin-bottom:7px;">' + self._esc([ct.role, ct.company].filter(Boolean).join(' · ') || (ct.email || ct.phone || '')) + '</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + badges + '</div></div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
             (ct.email ? '<button class="btn-secondary btn-sm" onclick="App._custNewTicket(\'' + ct.id + '\')">+ New ticket</button>' : '') +
             '<button class="btn-secondary btn-sm" onclick="App._custNewDeal(\'' + ct.id + '\')">+ Deal</button>' +
@@ -17080,19 +17089,20 @@ const App = {
         '</div>' +
         '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' +
           stat('Tickets', s.totalTickets, s.openTickets + ' open · ' + s.resolvedTickets + ' resolved') +
+          stat('Resolution rate', s.resolutionRate == null ? '—' : s.resolutionRate + '%', 'of their tickets') +
+          stat('Avg. first reply', replyTxt, s.avgFirstReplyMin == null ? 'no replies yet' : 'to this customer') +
           stat('Satisfaction', s.avgCsat != null ? s.avgCsat : '—', s.avgCsat != null ? 'average CSAT' : 'no ratings yet') +
           stat('Open deals', s.openDeals, self._custRupees(s.openDealValue)) +
-          stat('Last ticket', self._custAgo(s.lastTicketDate), '') +
         '</div>' +
         '<div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">' +
           '<div style="flex:2;min-width:300px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">' +
             '<div id="custTabs" style="display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;">' +
-              ['all:All', 'ticket:Tickets', 'deal:Deals', 'note:Notes'].map(function(x, ix) { var p = x.split(':'); return '<button data-f="' + p[0] + '" style="font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid ' + (ix === 0 ? 'var(--accent)' : 'var(--border)') + ';background:' + (ix === 0 ? 'rgba(16,185,129,.12)' : 'none') + ';color:' + (ix === 0 ? 'var(--accent)' : 'var(--text-muted)') + ';cursor:pointer;">' + p[1] + '</button>'; }).join('') +
+              ['all:Timeline', 'ticket:Tickets', 'deal:Deals', 'note:Notes'].map(function(x, ix) { var p = x.split(':'); return '<button data-f="' + p[0] + '" style="font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid ' + (ix === 0 ? 'var(--accent)' : 'var(--border)') + ';background:' + (ix === 0 ? 'rgba(16,185,129,.12)' : 'none') + ';color:' + (ix === 0 ? 'var(--accent)' : 'var(--text-muted)') + ';cursor:pointer;">' + p[1] + '</button>'; }).join('') +
             '</div><div id="custTimeline">' + tl('all') + '</div></div>' +
           '<div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:14px;">' +
             '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
               '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Details</div>' +
-              row('Email', ct.email) + row('Phone', ct.phone) + row('Company', ct.company) + row('Role', ct.role) + row('Source', ct.source) + row('Customer since', ct.createdDate ? new Date(ct.createdDate).toLocaleDateString() : '') +
+              row('Email', ct.email) + row('Phone', ct.phone) + row('Company', ct.company) + row('Role', ct.role) + row('Source', ct.source) + row('First contact', s.firstContact ? new Date(s.firstContact).toLocaleDateString() : '') + row('Customer since', ct.createdDate ? new Date(ct.createdDate).toLocaleDateString() : '') +
               (c.company && c.company.industry ? row('Industry', c.company.industry) : '') +
             '</div>' +
             '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
