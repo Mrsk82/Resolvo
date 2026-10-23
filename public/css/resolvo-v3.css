@@ -278,3 +278,13 @@ html[data-theme^="resolvo"] .quick-capture-fab { background: var(--accent) !impo
 /* the off-screen slide panel must not cast a shadow into the page while closed */
 html[data-theme^="resolvo"] .slide-panel { box-shadow: none !important; }
 html[data-theme^="resolvo"] .slide-panel.open, html[data-theme^="resolvo"] .slide-panel.active, html[data-theme^="resolvo"] .slide-panel.visible { box-shadow: var(--shadow-md) !important; }
+
+/* ---------- stage 2: wider canvas, compact sidebar footer, inbox polish ---------- */
+html[data-theme^="resolvo"] .content-area { width: 100% !important; max-width: 1640px !important; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
+.v3-page { max-width: 1560px; }
+html[data-theme^="resolvo"] #sidebarLegalLinks { padding: 6px 0 0 !important; line-height: 1.5; }
+html[data-theme^="resolvo"] #sidebarLegalLinks br { display: none; }
+html[data-theme^="resolvo"] #onboardingBar { margin: 8px 0 !important; }
+html[data-theme^="resolvo"] .tt-split-panel { border-radius: 16px !important; overflow: hidden; border: 1px solid var(--border) !important; background: var(--bg-card) !important; box-shadow: var(--shadow) !important; }
+html[data-theme^="resolvo"] #splitDetailPane { background: var(--bg-card) !important; }
+html[data-theme^="resolvo"] .split-cust .crm-wrap > div { background: var(--bg-elevated) !important; }

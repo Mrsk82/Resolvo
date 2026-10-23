@@ -7873,7 +7873,7 @@ tbody tr.row-selected {
   gtag('config', 'G-27BVPWPG8N');
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/resolvo-v3.css?v=2">
+  <link rel="stylesheet" href="/css/resolvo-v3.css?v=3">
 </head>
 <body>
   <div id="app">
@@ -16202,11 +16202,18 @@ const App = {
     var threadHtml = thread.map(function(m) {
       var isIncoming = m.type === 'incoming';
       var isNote = m.type === 'note';
-      var bg = isNote ? 'rgba(217,119,6,.07)' : isIncoming ? 'var(--bg-elevated)' : 'var(--accent-dim)';
-      return '<div style="background:'+bg+';border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
-        '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">' + self._esc(m.fromName||m.from||'') + (isNote?' <span style="color:#D97706;">· NOTE</span>':'') + '</div>' +
-        '<div style="font-size:12px;color:var(--text-primary);white-space:pre-wrap;">' + self._esc((m.body||'').slice(0,600)) + '</div>' +
-      '</div>';
+      var who = self._esc(m.fromName || m.from || '');
+      var ini = who ? who.charAt(0).toUpperCase() : '?';
+      var when = m.timestamp ? self._custAgo(m.timestamp) : '';
+      var bg = isNote ? 'rgba(217,164,0,.12)' : isIncoming ? 'var(--bg-elevated)' : 'var(--accent-dim)';
+      var bd = isNote ? 'rgba(217,164,0,.35)' : isIncoming ? 'var(--border)' : 'var(--border-accent)';
+      var right = !isIncoming && !isNote;
+      return '<div style="display:flex;gap:10px;margin-bottom:14px;' + (right ? 'flex-direction:row-reverse;' : '') + '">' +
+        '<div style="width:30px;height:30px;border-radius:50%;flex:none;background:' + (right ? 'var(--accent)' : 'var(--bg-hover)') + ';color:' + (right ? 'var(--text-on-accent)' : 'var(--text-secondary)') + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">' + ini + '</div>' +
+        '<div style="max-width:84%;min-width:0;">' +
+          '<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;' + (right ? 'text-align:right;' : '') + '"><b style="color:var(--text-secondary)">' + who + '</b>' + (isNote ? ' · <span style="color:var(--medium);font-weight:700">INTERNAL NOTE</span>' : '') + (when ? ' · ' + when : '') + '</div>' +
+          '<div style="background:' + bg + ';border:1px solid ' + bd + ';border-radius:' + (right ? '14px 4px 14px 14px' : '4px 14px 14px 14px') + ';padding:10px 13px;font-size:13px;line-height:1.55;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;">' + self._esc((m.body || '').slice(0, 1500)) + '</div>' +
+        '</div></div>';
     }).join('');
     pane.innerHTML =
       '<style>.split-row{display:flex;flex-direction:column}.split-main{min-width:0;flex:1}.split-cust{padding:0 20px 4px;border-bottom:1px solid var(--border)}.split-cust .crm-wrap>div{margin-top:12px}' +
