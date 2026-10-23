@@ -7873,7 +7873,7 @@ tbody tr.row-selected {
   gtag('config', 'G-27BVPWPG8N');
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/resolvo-v3.css?v=3">
+  <link rel="stylesheet" href="/css/resolvo-v3.css?v=6">
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=3">
   <script src="/js/rv-ui.js?v=1"></script>
@@ -8030,7 +8030,7 @@ tbody tr.row-selected {
 
           <!-- ADMIN settings etc — only shown to admins -->
           <div class="nav-section nav-admin" id="adminNav" style="display:none">
-            <span class="nav-label">Admin</span>
+            <span class="nav-label">Administration</span>
             <a href="#" class="nav-item" data-page="user-management" data-tooltip="Users">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
               <span class="nav-text">Users</span>
@@ -8187,13 +8187,17 @@ tbody tr.row-selected {
           </div>
 
           <!-- AI Command Bar -->
+          <button type="button" class="shell-search" id="shellSearch" onclick="Search.open()" aria-label="Search tickets and customers">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Search tickets, customers…</span><kbd>/</kbd>
+          </button>
           <div class="ai-bar-wrap" id="aiBarWrap">
             <span class="ai-bar-icon" id="aiBarIcon">AI</span>
             <input
               type="text"
               class="ai-bar"
               id="aiBar"
-              placeholder='Ask Gemini: "show critical bugs" or "create: login crash on Safari"'
+              placeholder='Ask AI: "show critical tickets"'
               autocomplete="off"
               spellcheck="false"
             >
@@ -8268,10 +8272,14 @@ tbody tr.row-selected {
             </div>
 
             <div style="width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0;"></div>
-            <button class="btn-primary" onclick="App.navigate('create-issue')" title="Create ticket (C)" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              New Issue
+            <button class="btn-primary" id="topbarPrimary" onclick="App._shellPrimary()" title="New ticket (C)" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span id="topbarPrimaryLabel">New ticket</span>
             </button>
+            <div class="rv rv-menu" id="shellProfile">
+              <button type="button" class="shell-avatar" id="shellAvatar" data-rv-menu aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">A</button>
+              <div class="rv-menu__panel" id="shellProfileMenu" role="menu"></div>
+            </div>
           </div>
 
           <!-- Smart Search Panel -->
@@ -31254,7 +31262,7 @@ App.renderDashboardV3 = async function() {
   var qa = function(icon, label, fn) { return RV.btn({ label: label, icon: icon, onclick: fn, attrs: { style: 'width:100%;justify-content:flex-start' } }); };
 
   area.innerHTML = '<div class="rv" style="max-width:var(--rv-content-max);margin:0 auto">' +
-    RV.pageHead({ title: greet + ', ' + first, sub: 'Here is what is happening with your support today.', actions: RV.btn({ label: 'New ticket', kind: 'primary', icon: 'plus', onclick: 'App._showCreateManualTicket()' }) }) +
+    RV.pageHead({ title: greet + ', ' + first, sub: 'Here is what is happening with your support today.' }) +
     '<div class="rv-stack">' +
       '<div id="v3onb"></div>' + empty + attHtml +
       '<div class="rv-grid rv-grid--kpi">' + kpis + '</div>' +
@@ -31295,6 +31303,51 @@ App._v3OpenRecent = function(i) { var t = (App._v3Recent || [])[i]; if (t) App.r
     if (App._isV3 && App._isV3()) return App.renderDashboardV3();
     return _prev.apply(this, arguments);
   };
+})();
+
+// ── APPLICATION SHELL (header + sidebar behaviour) ─────────────────────────
+// One contextual primary action in the header, an account menu, remembered sidebar state.
+App._shellTicketPages = ['dashboard', 'ticket-inbox', 'customers', 'customer', 'ticket-detail', 'reports', 'analytics', 'workload', 'customer-health', 'first-response'];
+App._shellIssuePages = ['issue-list', 'my-issues', 'kanban', 'sprints', 'issue-detail'];
+App._shellPrimary = function() {
+  var p = App.currentPage || 'dashboard';
+  if (App._shellIssuePages.indexOf(p) >= 0) App.navigate('create-issue');
+  else App._showCreateManualTicket();
+};
+App._shellSync = function(page) {
+  var btn = document.getElementById('topbarPrimary'); if (!btn) return;
+  var isT = App._shellTicketPages.indexOf(page) >= 0, isI = App._shellIssuePages.indexOf(page) >= 0;
+  btn.style.display = (isT || isI) ? 'inline-flex' : 'none';
+  var lab = document.getElementById('topbarPrimaryLabel'); if (lab) lab.textContent = isI ? 'New issue' : 'New ticket';
+  btn.title = (isI ? 'New issue' : 'New ticket') + ' (C)';
+  App._shellRenderProfile();
+};
+App._shellRenderProfile = function() {
+  var menu = document.getElementById('shellProfileMenu'), av = document.getElementById('shellAvatar');
+  if (!menu || !av || !window.RV) return;
+  var cu = App.currentUser || App._currentUser || {};
+  var name = cu.name || cu.email || 'Account';
+  av.textContent = String(name).trim().charAt(0).toUpperCase() || 'A';
+  var dark = Themes && Themes.current === 'resolvo-dark';
+  menu.innerHTML =
+    '<div style="padding:8px 12px 10px;border-bottom:1px solid var(--rv-border);margin-bottom:4px"><div style="font-weight:700;font-size:14px;color:var(--rv-text)">' + RV.esc(name) + '</div>' +
+    '<div style="font-size:12px;color:var(--rv-text-muted)">' + RV.esc(cu.email || '') + (cu.role ? ' · ' + RV.esc(cu.role) : '') + '</div></div>' +
+    '<button type="button" role="menuitem" class="rv-menu__item" onclick="Themes.apply(Themes.current===\'resolvo-dark\'?\'resolvo\':\'resolvo-dark\',true);App._shellRenderProfile()">' + (dark ? 'Switch to light mode' : 'Switch to dark mode') + '</button>' +
+    '<button type="button" role="menuitem" class="rv-menu__item" onclick="Keyboard && Keyboard._toggleKbdHelp()">Keyboard shortcuts</button>' +
+    '<button type="button" role="menuitem" class="rv-menu__item" onclick="App.navigate(\'upgrade\')">Plan and upgrade</button>' +
+    '<div class="rv-menu__sep"></div>' +
+    '<button type="button" role="menuitem" class="rv-menu__item" onclick="App._logout()">Sign out</button>';
+};
+(function() {
+  var _prev = App.navigate;
+  App.navigate = function(page) { var r = _prev.apply(this, arguments); try { App._shellSync(page); } catch (e) {} return r; };
+  // remember the collapsed sidebar between visits
+  try { if (localStorage.getItem('tt_sb_collapsed') === '1') { var sb = document.getElementById('sidebar'); if (sb) sb.classList.add('collapsed'); } } catch (e) {}
+  var tg = document.getElementById('sidebarToggle');
+  if (tg) tg.addEventListener('click', function() { setTimeout(function() { try { localStorage.setItem('tt_sb_collapsed', document.getElementById('sidebar').classList.contains('collapsed') ? '1' : '0'); } catch (e) {} }, 0); });
+  setTimeout(function() { try { App._shellSync(App.currentPage || 'dashboard'); } catch (e) {} }, 1500);
+  var aw = document.getElementById('aiBarWrap'), ab = document.getElementById('aiBar');
+  if (aw && ab) aw.addEventListener('click', function() { ab.focus(); });
 })();
 
 // Auto-init Clarity on page load if it was the last saved theme

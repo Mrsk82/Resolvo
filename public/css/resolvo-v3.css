@@ -126,7 +126,7 @@ html[data-theme^="resolvo"] .sidebar {
   background: var(--bg-sidebar) !important;
   border-right: 1px solid var(--border) !important;
   box-shadow: none !important;
-  width: 236px !important;
+  width: var(--rv-sidebar-w, 248px) !important;
 }
 html[data-theme^="resolvo"] .sidebar-header { padding: 18px 18px 10px !important; border-bottom: 0 !important; background: transparent !important; }
 html[data-theme^="resolvo"] .sidebar .brand-name { color: var(--text-primary) !important; font-weight: 800 !important; font-size: 18px !important; letter-spacing: -.02em; }
@@ -288,3 +288,77 @@ html[data-theme^="resolvo"] #onboardingBar { margin: 8px 0 !important; }
 html[data-theme^="resolvo"] .tt-split-panel { border-radius: 16px !important; overflow: hidden; border: 1px solid var(--border) !important; background: var(--bg-card) !important; box-shadow: var(--shadow) !important; }
 html[data-theme^="resolvo"] #splitDetailPane { background: var(--bg-card) !important; }
 html[data-theme^="resolvo"] .split-cust .crm-wrap > div { background: var(--bg-elevated) !important; }
+
+/* ---------- phase 3: application shell ---------- */
+/* collapsible sidebar that actually collapses (the earlier fixed width broke it) */
+html[data-theme^="resolvo"] .sidebar { width: var(--rv-sidebar-w, 248px) !important; }
+html[data-theme^="resolvo"] .sidebar.collapsed { width: var(--rv-sidebar-w-collapsed, 68px) !important; }
+@media (min-width: 769px) {
+  html[data-theme^="resolvo"] .main-content { margin-left: var(--rv-sidebar-w, 248px) !important; }
+  html[data-theme^="resolvo"] .sidebar.collapsed ~ .main-content { margin-left: var(--rv-sidebar-w-collapsed, 68px) !important; }
+}
+html[data-theme^="resolvo"] .sidebar.collapsed .user-card { margin: 6px 10px !important; padding: 8px 0 !important; justify-content: center; }
+html[data-theme^="resolvo"] .sidebar.collapsed .sidebar-header { padding: 14px 8px 6px !important; flex-direction: column; gap: 8px; }
+html[data-theme^="resolvo"] .sidebar.collapsed .nav-item { margin: 2px 10px !important; padding: 10px 0 !important; justify-content: center !important; }
+html[data-theme^="resolvo"] .sidebar-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* compact footer so navigation keeps the room */
+html[data-theme^="resolvo"] .sidebar-footer { padding: 8px 12px 10px !important; gap: 6px !important; }
+html[data-theme^="resolvo"] #onboardingBar { display: none !important; }
+html[data-theme^="resolvo"] #sidebarLegalLinks { padding: 4px 0 0 !important; font-size: 10.5px !important; text-align: center; }
+html[data-theme^="resolvo"] #brandTierBadge { padding: 5px 8px !important; }
+
+/* header: search, AI entry, one primary action, account menu */
+.shell-search { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 200px; max-width: 380px; height: 38px; padding: 0 12px; border: 1px solid var(--rv-border); border-radius: 10px;
+  background: var(--rv-surface-2); color: var(--rv-text-faint); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.shell-search:hover { border-color: var(--rv-accent); background: var(--rv-surface); }
+.shell-search:focus-visible { outline: 2px solid var(--rv-focus); outline-offset: 2px; }
+.shell-search span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shell-search kbd { font: 600 11px/1 var(--rv-font-mono); border: 1px solid var(--rv-border); border-radius: 6px; padding: 3px 6px; background: var(--rv-surface); color: var(--rv-text-muted); }
+.shell-avatar { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--rv-border); background: var(--rv-accent-soft); color: var(--rv-accent-strong); font: 800 14px var(--rv-font); cursor: pointer; }
+.shell-avatar:hover { border-color: var(--rv-accent); }
+.shell-avatar:focus-visible { outline: 2px solid var(--rv-focus); outline-offset: 2px; }
+html[data-theme^="resolvo"] .topbar-right .rv-menu__panel { right: 0; left: auto; min-width: 230px; }
+html[data-theme^="resolvo"] .topbar-icon-group button[aria-label="Open search"] { display: none; }   /* replaced by the search field; the shortcut still works */
+html[data-theme^="resolvo"] .ai-bar-wrap { max-width: 300px; flex: 0 1 300px; }
+@media (max-width: 1100px) { .shell-search span { display: none; } .shell-search { flex: 0 0 40px; min-width: 40px; justify-content: center; padding: 0; } .shell-search kbd { display: none; } }
+@media (max-width: 900px) {
+  html[data-theme^="resolvo"] .topbar-icon-group button[aria-label="Open search"] { display: inline-flex; }
+  .shell-search { display: none; }
+}
+
+/* header never wraps: the search field and AI entry give up space first */
+html[data-theme^="resolvo"] .topbar { flex-wrap: nowrap !important; gap: 12px; }
+html[data-theme^="resolvo"] .topbar-left { min-width: 0; flex: 0 1 auto; }
+html[data-theme^="resolvo"] .topbar-right { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+html[data-theme^="resolvo"] .page-title, html[data-theme^="resolvo"] .breadcrumb { white-space: nowrap; }
+html[data-theme^="resolvo"] .ai-bar-wrap { flex: 0 1 240px; max-width: 240px; min-width: 0; }
+.shell-search { flex: 1 1 200px; max-width: 340px; }
+/* tighter than 1360: the AI field becomes an icon that opens on click */
+@media (max-width: 1360px) {
+  html[data-theme^="resolvo"] .ai-bar-wrap { flex: 0 0 44px; max-width: 44px; overflow: hidden; cursor: pointer; }
+  html[data-theme^="resolvo"] .ai-bar-wrap .ai-bar { width: 0; padding: 0; opacity: 0; }
+  html[data-theme^="resolvo"] .ai-bar-wrap:focus-within { flex: 0 1 300px; max-width: 300px; overflow: visible; position: relative; z-index: 5; }
+  html[data-theme^="resolvo"] .ai-bar-wrap:focus-within .ai-bar { width: 100%; padding: revert; opacity: 1; }
+}
+/* phones: drawer sits above the header, header stays one compact row */
+@media (max-width: 768px) {
+  html[data-theme^="resolvo"] .sidebar { z-index: 1300 !important; }
+  html[data-theme^="resolvo"] #sidebarBackdrop { z-index: 1250 !important; }
+}
+@media (max-width: 720px) {
+  html[data-theme^="resolvo"] .topbar { height: 56px !important; min-height: 56px; padding: 0 12px !important; gap: 8px; }
+  html[data-theme^="resolvo"] .topbar-left .breadcrumb { display: none; }
+  html[data-theme^="resolvo"] .page-title { font-size: 16px !important; overflow: hidden; text-overflow: ellipsis; max-width: 38vw; }
+  html[data-theme^="resolvo"] .topbar-right { gap: 4px; margin-left: auto; }
+  html[data-theme^="resolvo"] .topbar-icon-group { gap: 0; }
+  html[data-theme^="resolvo"] .topbar-icon-group button[onclick*="CmdPalette"], html[data-theme^="resolvo"] .topbar-right > div[style*="width:1px"] { display: none !important; }
+  html[data-theme^="resolvo"] #topbarPrimaryLabel { display: none; }
+  html[data-theme^="resolvo"] #topbarPrimary { padding: 0 !important; width: 38px; height: 38px; justify-content: center; border-radius: 10px !important; }
+}
+
+@media (max-width: 768px) {
+  html[data-theme^="resolvo"] .topbar-left { display: grid !important; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
+  html[data-theme^="resolvo"] .topbar-hamburger { grid-row: 1 / span 2; }
+  html[data-theme^="resolvo"] .topbar-left .page-title { grid-column: 2; margin: 0; }
+  html[data-theme^="resolvo"] .topbar-left .breadcrumb { grid-column: 2; }
+}
