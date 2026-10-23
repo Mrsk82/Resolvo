@@ -31087,6 +31087,13 @@ App._v3Ico = function(n) {
   return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (P[n] || '') + '</svg>';
 };
 
+App._v3Days = function() { var d = 14; try { d = parseInt(localStorage.getItem('tt_dash_days'), 10) || 14; } catch (e) {} return [7, 14, 30].indexOf(d) >= 0 ? d : 14; };
+App._v3SetDays = function(n) { try { localStorage.setItem('tt_dash_days', String(n)); } catch (e) {} App.renderDashboardV3(); };
+App._v3RangeTabs = function() {
+  var cur = App._v3Days();
+  return '<div role="group" aria-label="Chart range" style="display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;">' +
+    [7, 14, 30].map(function(n) { var on = n === cur; return '<button onclick="App._v3SetDays(' + n + ')" aria-pressed="' + on + '" style="padding:5px 12px;font-size:12px;font-weight:700;border:0;cursor:pointer;background:' + (on ? 'var(--accent)' : 'var(--bg-surface)') + ';color:' + (on ? 'var(--text-on-accent)' : 'var(--text-muted)') + ';">' + n + 'd</button>'; }).join('') + '</div>';
+};
 App._v3Ago = function(d) {
   if (!d) return '';
   var t = new Date(d).getTime(); if (isNaN(t)) return '';
@@ -31121,7 +31128,8 @@ App._v3Bars = function(vol) {
   for (i = 0; i < vol.length; i++) {
     var bh = (vol[i] / top) * ch, x = pl + i * bw + bw * 0.2;
     g += '<rect x="' + x.toFixed(1) + '" y="' + (pt + ch - bh).toFixed(1) + '" width="' + (bw * 0.6).toFixed(1) + '" height="' + Math.max(bh, vol[i] ? 2 : 0).toFixed(1) + '" rx="4" fill="var(--accent)" opacity="' + (i === vol.length - 1 ? 1 : 0.72) + '"><title>' + vol[i] + ' tickets</title></rect>';
-    if (i % 2 === (vol.length - 1) % 2) {
+    var _every = Math.max(2, Math.ceil(vol.length / 7));
+    if ((vol.length - 1 - i) % _every === 0) {
       var dt = new Date(today.getTime() - (vol.length - 1 - i) * 86400000);
       g += '<text x="' + (x + bw * 0.3).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="middle" font-size="11" fill="var(--text-dim)">' + dt.getDate() + ' ' + dt.toLocaleDateString(undefined, { month: 'short' }) + '</text>';
     }
@@ -31159,7 +31167,7 @@ App.renderDashboardV3 = async function() {
   var greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 
   var res = await Promise.all([
-    self.callAsync('getSummaryStats'),
+    self.callAsync('getSummaryStats', { days: self._v3Days() }),
     self.callAsync('getTickets', { status: 'all', sort: 'newest', limit: 6 }),
     self.callAsync('getCSATResults')
   ]);
@@ -31170,7 +31178,7 @@ App.renderDashboardV3 = async function() {
   var frt = sup.avgFirstResponseMin;
   var frtTxt = frt == null ? '—' : (frt < 60 ? frt + '<small>m</small>' : (Math.round(frt / 6) / 10) + '<small>h</small>');
   var csat = cs && cs.success && cs.positiveRate != null ? cs.positiveRate : null;
-  var last7 = vol.slice(-7).reduce(function(a, b) { return a + b; }, 0), prev7 = vol.slice(0, -7).reduce(function(a, b) { return a + b; }, 0);
+  var last7 = vol.slice(-7).reduce(function(a, b) { return a + b; }, 0), prev7 = vol.slice(-14, -7).reduce(function(a, b) { return a + b; }, 0);
   var delta = '';
   if (vol.length >= 14 && prev7 > 0) {
     var pct = Math.round((last7 - prev7) / prev7 * 100);
@@ -31258,14 +31266,14 @@ App.renderDashboardV3 = async function() {
   area.innerHTML =
     '<div class="v3-page">' +
       '<div class="v3-head"><div><div class="v3-hello">' + greet + ', ' + self._esc(first) + ' 👋</div><div class="v3-sub">Here is what is happening with your support today.</div></div>' +
-        '<div style="display:flex;gap:10px;align-items:center"><span class="v3-pill" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-secondary);padding:8px 14px;font-weight:600">Last ' + (vol.length || 14) + ' days</span>' +
+        '<div style="display:flex;gap:10px;align-items:center">' +
         '<button class="btn-primary" onclick="App._showCreateManualTicket()">+ New ticket</button></div></div>' +
       '<div id="v3onb"></div>' +
       emptyHtml +
       attHtml +
       '<div class="v3-grid v3-kpis">' + kpis + '</div>' +
       '<div class="v3-grid v3-row2">' +
-        '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Ticket volume</div><div class="v3-legend"><span><i style="background:var(--accent)"></i>Tickets created per day</span></div></div>' + (vol.length ? self._v3Bars(vol) : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No data yet</div>') + '</div>' +
+        '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Ticket volume</div>' + self._v3RangeTabs() + '</div>' + (vol.length ? self._v3Bars(vol) : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No data yet</div>') + '</div>' +
         '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Channel distribution</div></div>' +
           (chTotal ? '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' + self._v3Donut(chParts, chTotal, chColors) + '<div style="flex:1;min-width:150px">' + chList + '</div></div>' : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No tickets yet</div>') + '</div>' +
       '</div>' +

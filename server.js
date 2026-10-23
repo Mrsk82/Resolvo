@@ -5195,7 +5195,8 @@ app.post('/api/call',async(req,res)=>{
       wDB(db);return{success:true,updated};
     },
     // Summary stats for dashboard
-    getSummaryStats:()=>{
+    getSummaryStats:(opts)=>{
+      const _vDays=Math.min(90,Math.max(7,parseInt(opts&&opts.days,10)||14));
       const db=rDB();const now=new Date();const nowMs=now.getTime();
       const issues=db.issues||[];const tickets=db.tickets||[];const users=(db.users||[]).filter(u=>u.active);
       // ── Issues (product) ──
@@ -5222,7 +5223,7 @@ app.post('/api/call',async(req,res)=>{
       const frt=tickets.filter(t=>t.firstResponseMinutes!=null).map(t=>t.firstResponseMinutes);
       const avgFirstResponseMin=frt.length?Math.round(frt.reduce((a,b)=>a+b,0)/frt.length):null;
       const byChannel={};tickets.forEach(t=>{const c=t.channel||t.source||'email';byChannel[c]=(byChannel[c]||0)+1;});
-      const volume=[];for(let i=13;i>=0;i--){const day=istDateStr(nowMs-i*86400000);volume.push(tickets.filter(t=>(t.createdDate||'').startsWith(day)).length);}
+      const volume=[];for(let i=_vDays-1;i>=0;i--){const day=istDateStr(nowMs-i*86400000);volume.push(tickets.filter(t=>(t.createdDate||'').startsWith(day)).length);}
       const surveys=db.csatSurveys||[];
       const leaderboard=users.map(u=>{
         const a=tickets.filter(t=>t.assignedTo===u.email);
