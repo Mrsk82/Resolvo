@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="midnight">
+<html lang="en" data-theme="resolvo">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="/manifest.json">
+  <script>try{var _s=localStorage;if(!_s.getItem('tt_v3')){_s.setItem('tt_v3','1');if(!_s.getItem('tt_theme')||_s.getItem('tt_theme')==='midnight')_s.setItem('tt_theme','resolvo');}document.documentElement.setAttribute('data-theme',_s.getItem('tt_theme')||'resolvo');}catch(e){}</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
@@ -7872,6 +7873,7 @@ tbody tr.row-selected {
   gtag('config', 'G-27BVPWPG8N');
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/resolvo-v3.css?v=1">
 </head>
 <body>
   <div id="app">
@@ -8070,6 +8072,14 @@ tbody tr.row-selected {
           <!-- Theme picker panel (floats above footer) -->
           <div class="theme-picker" id="themePicker">
             <div class="theme-picker-title">Choose Theme</div>
+            <div class="theme-option" data-theme-pick="resolvo" onclick="Themes.set('resolvo',this)">
+              <div class="theme-swatch"><span style="background:#F4F6FA"></span><span style="background:#0F9F6E"></span><span style="background:#FFFFFF"></span></div>
+              <span class="theme-label">Resolvo Light</span>
+            </div>
+            <div class="theme-option" data-theme-pick="resolvo-dark" onclick="Themes.set('resolvo-dark',this)">
+              <div class="theme-swatch"><span style="background:#0B1220"></span><span style="background:#1FC28A"></span><span style="background:#111A2C"></span></div>
+              <span class="theme-label">Resolvo Dark</span>
+            </div>
             <div class="theme-option active" data-theme-pick="midnight" onclick="Themes.set('midnight',this)">
               <div class="theme-swatch"><span style="background:#0d0e14"></span><span style="background:#f5a623"></span><span style="background:#1a1b27"></span><span style="background:#ff4757"></span></div>
               <span class="theme-label">Midnight</span>
@@ -9388,8 +9398,10 @@ const AI = {
 // ============================================================
 
 const Themes = {
-  THEMES: ['midnight','arctic','forest','sunset','ocean','slate','uiux'],
+  THEMES: ['resolvo','resolvo-dark','midnight','arctic','forest','sunset','ocean','slate','uiux'],
   LABELS: {
+    resolvo: 'Resolvo Light',
+    'resolvo-dark': 'Resolvo Dark',
     midnight: 'Midnight',
     arctic:   'Arctic Light',
     forest:   'Forest',
@@ -9403,14 +9415,15 @@ const Themes = {
     clarity:  '⬡ Clarity'
   },
   ICONS: {
+    resolvo:'☀', 'resolvo-dark':'☾',
     midnight:'■', arctic:'○', forest:'▲', sunset:'●', ocean:'□', slate:'◆', uiux:'◈',
     neon:'◉', rosegold:'◇', nova:'✦', clarity:'⬡'
   },
 
-  current: 'midnight',
+  current: 'resolvo',
 
   init() {
-    const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('tt_theme')) || 'midnight';
+    const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('tt_theme')) || 'resolvo';
     this.apply(saved, false);
   },
 
@@ -12289,7 +12302,7 @@ const App = {
     
     this.updateMobileNav(page);
     switch(page) {
-      case 'dashboard': (this.renderNovaBentoDashboard ? this.renderNovaBentoDashboard() : this.renderDashboard()); break;
+      case 'dashboard': (this._isV3 && this._isV3() ? this.renderDashboardV3() : (this.renderNovaBentoDashboard ? this.renderNovaBentoDashboard() : this.renderDashboard())); break;
       case 'create-issue': this.renderCreateIssue(params); break;
       case 'issue-list': this.renderIssueList(); break;
       case 'my-issues': this.renderMyIssues(); break;
@@ -31035,6 +31048,229 @@ const ClaritySystem = {
     }
   }
 };
+
+// ── DASHBOARD v3 (Resolvo Light / Dark) ─────────────────────────────────────
+// Uses the data the old dashboard already loads (getDashboardStats, getTickets, getCSATResults).
+// Nothing here is estimated: a figure we cannot compute from real data is simply not shown.
+App._isV3 = function() { return /^resolvo/.test(document.documentElement.getAttribute('data-theme') || ''); };
+
+App._v3Ico = function(n) {
+  var P = {
+    ticket: '<path d="M3 9a2 2 0 0 0 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M13 5v14" stroke-dasharray="2 3"/>',
+    inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+    check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    chart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+    team: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    mail: '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/>'
+  };
+  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (P[n] || '') + '</svg>';
+};
+
+App._v3Ago = function(d) {
+  if (!d) return '';
+  var t = new Date(d).getTime(); if (isNaN(t)) return '';
+  var m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + 'm ago';
+  var h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+  var dd = Math.floor(h / 24); if (dd < 30) return dd + 'd ago';
+  return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+};
+
+App._v3Spark = function(series, color) {
+  if (!series || series.length < 2) return '';
+  var max = Math.max.apply(null, series), min = Math.min.apply(null, series);
+  var w = 74, h = 28, rng = (max - min) || 1;
+  var pts = series.map(function(v, i) { return (i / (series.length - 1) * w).toFixed(1) + ',' + (h - 3 - ((v - min) / rng) * (h - 6)).toFixed(1); }).join(' ');
+  return '<svg class="spark" viewBox="0 0 74 28" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+};
+
+App._v3Bars = function(vol) {
+  var W = 640, H = 210, pl = 34, pb = 26, pt = 8, pr = 6;
+  var max = Math.max.apply(null, vol.concat([1]));
+  var step = max <= 4 ? 1 : max <= 10 ? 2 : max <= 20 ? 5 : Math.ceil(max / 4 / 5) * 5;
+  var top = Math.ceil(max / step) * step;
+  var cw = W - pl - pr, ch = H - pt - pb, bw = cw / vol.length;
+  var g = '', i, y, v;
+  for (v = 0; v <= top; v += step) {
+    y = pt + ch - (v / top) * ch;
+    g += '<line x1="' + pl + '" y1="' + y.toFixed(1) + '" x2="' + (W - pr) + '" y2="' + y.toFixed(1) + '" stroke="var(--border)" stroke-width="1"/>' +
+         '<text x="' + (pl - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--text-dim)">' + v + '</text>';
+  }
+  var today = new Date();
+  for (i = 0; i < vol.length; i++) {
+    var bh = (vol[i] / top) * ch, x = pl + i * bw + bw * 0.2;
+    g += '<rect x="' + x.toFixed(1) + '" y="' + (pt + ch - bh).toFixed(1) + '" width="' + (bw * 0.6).toFixed(1) + '" height="' + Math.max(bh, vol[i] ? 2 : 0).toFixed(1) + '" rx="4" fill="var(--accent)" opacity="' + (i === vol.length - 1 ? 1 : 0.72) + '"><title>' + vol[i] + ' tickets</title></rect>';
+    if (i % 2 === (vol.length - 1) % 2) {
+      var dt = new Date(today.getTime() - (vol.length - 1 - i) * 86400000);
+      g += '<text x="' + (x + bw * 0.3).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="middle" font-size="11" fill="var(--text-dim)">' + dt.getDate() + ' ' + dt.toLocaleDateString(undefined, { month: 'short' }) + '</text>';
+    }
+  }
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Tickets created per day, last ' + vol.length + ' days">' + g + '</svg>';
+};
+
+App._v3Donut = function(parts, total, colors) {
+  var r = 52, c = 2 * Math.PI * r, off = 0, s = '';
+  parts.forEach(function(p, i) {
+    var len = total ? (p[1] / total) * c : 0;
+    s += '<circle cx="70" cy="70" r="' + r + '" fill="none" stroke="' + colors[i % colors.length] + '" stroke-width="16" stroke-dasharray="' + len.toFixed(2) + ' ' + (c - len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 70 70)"/>';
+    off += len;
+  });
+  return '<svg viewBox="0 0 140 140" style="width:150px;height:150px;flex:none" role="img" aria-label="Tickets by channel"><circle cx="70" cy="70" r="' + r + '" fill="none" stroke="var(--border-light)" stroke-width="16"/>' + s +
+    '<text x="70" y="68" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text-primary)">' + total + '</text><text x="70" y="86" text-anchor="middle" font-size="11" fill="var(--text-muted)">Total</text></svg>';
+};
+
+App._v3Channel = function(c) {
+  c = String(c || 'email').toLowerCase();
+  var map = { email: ['Email', '✉'], web: ['Website', '🌐'], widget: ['Website', '🌐'], whatsapp: ['WhatsApp', '💬'], instagram: ['Instagram', '📷'], facebook: ['Facebook', '👍'], manual: ['Manual', '✎'], sample: ['Sample', '✎'], sms: ['SMS', '✆'], call: ['Phone', '☎'], voice: ['Phone', '☎'] };
+  return map[c] || [c.charAt(0).toUpperCase() + c.slice(1), '•'];
+};
+
+App.renderDashboardV3 = async function() {
+  var self = this;
+  self.setPage('Dashboard', 'Overview');
+  var area = document.getElementById('contentArea');
+  if (!area) return;
+  area.innerHTML = '<div class="v3-page"><div class="v3-card" style="padding:40px;text-align:center;color:var(--text-muted)">Loading your dashboard…</div></div>';
+
+  var cu = self.currentUser || self._currentUser || {};
+  var first = String(cu.name || 'there').split(' ')[0];
+  var h = new Date().getHours();
+  var greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+
+  var res = await Promise.all([
+    self.callAsync('getSummaryStats'),
+    self.callAsync('getTickets', { status: 'all', sort: 'newest', limit: 6 }),
+    self.callAsync('getCSATResults')
+  ]);
+  var st = res[0] || {}, tk = res[1] || {}, cs = res[2] || {};
+  var sup = st.support || {};
+  var vol = (sup.volume && sup.volume.length) ? sup.volume : [];
+  var total = st.totalTickets || 0, open = sup.openTickets || 0, resolved = Math.max(0, total - open);
+  var frt = sup.avgFirstResponseMin;
+  var frtTxt = frt == null ? '—' : (frt < 60 ? frt + '<small>m</small>' : (Math.round(frt / 6) / 10) + '<small>h</small>');
+  var csat = cs && cs.success && cs.positiveRate != null ? cs.positiveRate : null;
+  var last7 = vol.slice(-7).reduce(function(a, b) { return a + b; }, 0), prev7 = vol.slice(0, -7).reduce(function(a, b) { return a + b; }, 0);
+  var delta = '';
+  if (vol.length >= 14 && prev7 > 0) {
+    var pct = Math.round((last7 - prev7) / prev7 * 100);
+    delta = '<div class="v3-kpi-d ' + (pct >= 0 ? 'up' : 'down') + '">' + (pct >= 0 ? '↑' : '↓') + ' ' + Math.abs(pct) + '% vs previous 7 days</div>';
+  } else delta = '<div class="v3-kpi-d">' + last7 + ' in the last 7 days</div>';
+
+  var kpi = function(label, val, sub, ico, bg, fg, go, spark) {
+    return '<div class="v3-card v3-kpi" onclick="' + go + '"><div class="v3-kpi-ico" style="background:' + bg + ';color:' + fg + ';">' + ico + '</div>' +
+      '<div class="v3-kpi-l">' + label + '</div><div class="v3-kpi-v">' + val + '</div>' + sub + (spark || '') + '</div>';
+  };
+  var kpis =
+    kpi('Total tickets', total, delta, self._v3Ico('ticket'), 'rgba(79,107,237,.12)', 'var(--accent-2)', "App.navigate('ticket-inbox')", self._v3Spark(vol, 'var(--accent-2)')) +
+    kpi('Open tickets', open, '<div class="v3-kpi-d">' + (sup.unassigned || 0) + ' unassigned</div>', self._v3Ico('inbox'), 'var(--critical-dim)', 'var(--critical)', "App._ticketFilter='open';App.navigate('ticket-inbox')") +
+    kpi('Resolved', resolved, '<div class="v3-kpi-d">' + (sup.resolvedToday || 0) + ' resolved today</div>', self._v3Ico('check'), 'var(--low-dim)', 'var(--low)', "App._ticketFilter='resolved';App.navigate('ticket-inbox')") +
+    kpi('Avg. first reply', frtTxt, '<div class="v3-kpi-d">' + (frt == null ? 'No replies yet' : 'across all tickets') + '</div>', self._v3Ico('clock'), 'var(--medium-dim)', 'var(--medium)', "App.navigate('first-response')") +
+    kpi('Happy customers', csat == null ? '—' : csat + '<small>%</small>', '<div class="v3-kpi-d">' + (csat == null ? 'No survey replies yet' : (cs.responded || 0) + ' survey replies') + '</div>', self._v3Ico('star'), 'var(--medium-dim)', 'var(--medium)', "App.navigate('reports')");
+
+  // attention strip
+  var att = [];
+  if (sup.slaBreached) att.push('<b style="color:var(--critical)">' + sup.slaBreached + '</b> breached SLA');
+  if (sup.slaDue) att.push('<b style="color:var(--high)">' + sup.slaDue + '</b> due within 4h');
+  if (sup.unassigned) att.push('<b>' + sup.unassigned + '</b> unassigned');
+  var attHtml = att.length ? '<div class="v3-card" style="padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><span style="font-weight:700;color:var(--text-primary)">Needs attention</span><span style="color:var(--text-muted);font-size:13px;">' + att.join(' &nbsp;·&nbsp; ') + '</span><span style="flex:1"></span><button class="v3-link" onclick="App.navigate(\'ticket-inbox\')">Open inbox →</button></div>' : '';
+
+  // channels
+  var chColors = ['#0F9F6E', '#4F6BED', '#F59E0B', '#E5484D', '#A855F7', '#14B8A6', '#94A3B8'];
+  var chParts = Object.keys(sup.byChannel || {}).map(function(k) { return [k, sup.byChannel[k]]; }).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 7);
+  var chTotal = chParts.reduce(function(a, p) { return a + p[1]; }, 0);
+  var chList = chParts.map(function(p, i) {
+    var nm = self._v3Channel(p[0]);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;"><i style="width:9px;height:9px;border-radius:50%;background:' + chColors[i % chColors.length] + ';flex:none"></i><span style="flex:1;color:var(--text-secondary)">' + nm[0] + '</span><b style="color:var(--text-primary)">' + p[1] + '</b><span style="color:var(--text-dim);width:36px;text-align:right">' + Math.round(p[1] / (chTotal || 1) * 100) + '%</span></div>';
+  }).join('');
+
+  // recent tickets
+  var rows = (tk.tickets || []).slice(0, 6);
+  var pri = { Critical: ['var(--critical-dim)', 'var(--critical)'], High: ['var(--high-dim)', 'var(--high)'], Medium: ['var(--medium-dim)', 'var(--medium)'], Low: ['var(--low-dim)', 'var(--low)'] };
+  var stc = { new: ['rgba(79,107,237,.12)', 'var(--accent-2)'], open: ['var(--accent-dim)', 'var(--accent)'], pending: ['var(--medium-dim)', 'var(--medium)'], resolved: ['var(--low-dim)', 'var(--low)'], closed: ['var(--border-light)', 'var(--text-muted)'] };
+  var recent = rows.length ? '<div style="overflow-x:auto"><table class="v3-tbl"><thead><tr><th>Ticket</th><th>Customer</th><th>Subject</th><th>Channel</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody>' +
+    rows.map(function(t) {
+      var p = pri[t.priority] || pri.Medium, s = stc[String(t.status || 'open').toLowerCase()] || stc.open, ch = self._v3Channel(t.channel || t.source);
+      return '<tr onclick="App.renderTicketDetail(\'' + t.id + '\')">' +
+        '<td style="font-family:var(--font-mono);font-size:11.5px;color:var(--accent)">' + self._esc(String(t.id).replace('TKT-', '#')) + '</td>' +
+        '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + self._esc(String(t.fromName || t.from || '')) + '</td>' +
+        '<td style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)">' + self._esc(t.subject || '') + '</td>' +
+        '<td title="' + ch[0] + '" style="white-space:nowrap"><span class="v3-chip" style="margin-right:0">' + self._esc(ch[0].charAt(0)) + '</span></td>' +
+        '<td><span class="v3-pill" style="background:' + p[0] + ';color:' + p[1] + '">' + self._esc(t.priority || 'Medium') + '</span></td>' +
+        '<td><span class="v3-pill" style="background:' + s[0] + ';color:' + s[1] + '">' + self._esc(String(t.status || 'open').replace(/^./, function(c) { return c.toUpperCase(); })) + '</span></td>' +
+        '<td style="color:var(--text-muted);white-space:nowrap">' + self._v3Ago(t.lastActivity || t.createdDate) + '</td></tr>';
+    }).join('') + '</tbody></table></div>'
+    : '<div style="padding:28px;text-align:center;color:var(--text-muted);font-size:13px">No tickets yet. When customers write in, they appear here.</div>';
+
+  // team performance
+  var lb = sup.leaderboard || [];
+  var maxRes = Math.max.apply(null, lb.map(function(a) { return a.resolved; }).concat([1]));
+  var team = lb.length ? lb.map(function(a) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)"><span class="v3-av">' + self._esc(String(a.name || '?').charAt(0).toUpperCase()) + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px"><b style="color:var(--text-primary)">' + self._esc(a.name) + '</b><span style="color:var(--text-muted)">' + a.resolved + ' resolved · ' + a.open + ' open</span></div>' +
+      '<div class="v3-bar" style="margin-top:6px"><i style="width:' + Math.round(a.resolved / maxRes * 100) + '%"></i></div></div></div>';
+  }).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Assign tickets to see how your team is doing.</div>';
+
+  // activity (from the latest tickets, no invented events)
+  var acts = rows.slice(0, 5).map(function(t) {
+    var done = /resolved|closed/i.test(t.status || '');
+    return '<div class="v3-act"><div class="v3-act-ico" style="background:' + (done ? 'var(--low-dim)' : 'var(--accent-dim)') + ';color:' + (done ? 'var(--low)' : 'var(--accent)') + '">' + self._v3Ico(done ? 'check' : 'mail') + '</div>' +
+      '<div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (done ? 'Ticket resolved' : 'New ticket') + ' · ' + self._esc(String(t.fromName || t.from || '').slice(0, 20)) + '</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + self._esc(t.subject || '') + '</div></div>' +
+      '<div style="font-size:11.5px;color:var(--text-dim);flex:none">' + self._v3Ago(t.lastActivity || t.createdDate) + '</div></div>';
+  }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nothing yet.</div>';
+
+  var qa = function(ico, label, go) { return '<button class="v3-qa" onclick="' + go + '"><span style="width:22px;display:inline-flex;justify-content:center;color:var(--accent)">' + ico + '</span>' + label + '</button>'; };
+
+  area.innerHTML =
+    '<div class="v3-page">' +
+      '<div class="v3-head"><div><div class="v3-hello">' + greet + ', ' + self._esc(first) + ' 👋</div><div class="v3-sub">Here is what is happening with your support today.</div></div>' +
+        '<div style="display:flex;gap:10px;align-items:center"><span class="v3-pill" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-secondary);padding:8px 14px;font-weight:600">Last ' + (vol.length || 14) + ' days</span>' +
+        '<button class="btn-primary" onclick="App._showCreateManualTicket()">+ New ticket</button></div></div>' +
+      '<div id="v3onb"></div>' +
+      attHtml +
+      '<div class="v3-grid v3-kpis">' + kpis + '</div>' +
+      '<div class="v3-grid v3-row2">' +
+        '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Ticket volume</div><div class="v3-legend"><span><i style="background:var(--accent)"></i>Tickets created per day</span></div></div>' + (vol.length ? self._v3Bars(vol) : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No data yet</div>') + '</div>' +
+        '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Channel distribution</div></div>' +
+          (chTotal ? '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' + self._v3Donut(chParts, chTotal, chColors) + '<div style="flex:1;min-width:150px">' + chList + '</div></div>' : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No tickets yet</div>') + '</div>' +
+      '</div>' +
+      '<div class="v3-grid v3-row3">' +
+        '<div style="display:grid;gap:16px;min-width:0">' +
+          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Recent tickets</div><button class="v3-link" onclick="App.navigate(\'ticket-inbox\')">View all</button></div>' + recent + '</div>' +
+          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Team performance</div></div>' + team + '</div>' +
+        '</div>' +
+        '<div style="display:grid;gap:16px;align-content:start;min-width:0">' +
+          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Live activity</div><button class="v3-link" onclick="App.navigate(\'ticket-inbox\')">View all</button></div>' + acts + '</div>' +
+          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Quick actions</div></div>' +
+            qa(self._v3Ico('plus'), 'Create ticket', 'App._showCreateManualTicket()') + qa(self._v3Ico('user'), 'Add customer', "App.navigate('customers')") + qa(self._v3Ico('chart'), 'View reports', "App.navigate('reports')") + qa(self._v3Ico('team'), 'Manage team', "App.navigate('user-management')") + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  // the "get set up" card (only for workspaces that have not finished setup)
+  try {
+    var box = document.getElementById('v3onb');
+    if (box && self.renderGoodMorning) {
+      await self.renderGoodMorning('v3onb');
+      var gm = box.querySelector('.gm-header'); if (gm) gm.remove();
+      var oc = document.getElementById('onbCard'); if (oc) { oc.style.marginTop = '0'; oc.style.marginBottom = '16px'; oc.style.background = 'var(--bg-card)'; }
+    }
+  } catch (e) {}
+};
+
+
+// Route every dashboard render through v3 when a Resolvo theme is active (last override wins).
+(function() {
+  var _prev = App.renderDashboard;
+  App.renderDashboard = function() {
+    if (App._isV3 && App._isV3()) return App.renderDashboardV3();
+    return _prev.apply(this, arguments);
+  };
+})();
 
 // Auto-init Clarity on page load if it was the last saved theme
 (function initClarityOnLoad() {

@@ -1,0 +1,280 @@
+/* ==========================================================================
+   Resolvo v3 design system  —  themes "resolvo" (light) and "resolvo-dark"
+   Loaded AFTER the inline styles in index.html, so everything here is scoped
+   to html[data-theme^="resolvo"] and wins over the older themes.
+   ========================================================================== */
+
+/* ---------- 1. Tokens ---------------------------------------------------- */
+html[data-theme="resolvo"] {
+  color-scheme: light;
+  --bg-base: #F4F6FA;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #F7F9FC;
+  --bg-hover: #F0F3F8;
+  --bg-input: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-topbar: #FFFFFF;
+  --bg-selected: #E8F7F1;
+
+  --accent: #0F9F6E;
+  --accent-dark: #0B7F58;
+  --accent-light: #E8F7F1;
+  --accent-dim: rgba(15,159,110,0.10);
+  --accent-glow: rgba(15,159,110,0.25);
+  --accent-2: #4F6BED;
+  --accent-3: #F59E0B;
+  --accent-color: #0F9F6E;
+  --green: #0F9F6E;
+  --indigo: #4F6BED;
+  --danger: #E5484D;
+
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+  --text-dim: #94A3B8;
+  --text-disabled: #CBD5E1;
+  --text-on-accent: #FFFFFF;
+
+  --border: #E6EAF0;
+  --border-light: #EEF1F6;
+  --border-accent: rgba(15,159,110,0.35);
+
+  --shadow: 0 1px 2px rgba(15,23,42,.05), 0 4px 16px rgba(15,23,42,.05);
+  --shadow-md: 0 2px 6px rgba(15,23,42,.06), 0 10px 28px rgba(15,23,42,.08);
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.06);
+  --shadow-accent: 0 6px 18px rgba(15,159,110,.22);
+
+  --critical: #E5484D; --critical-dim: rgba(229,72,77,.10);
+  --high: #F2780C;     --high-dim: rgba(242,120,12,.12);
+  --medium: #D9A400;   --medium-dim: rgba(217,164,0,.14);
+  --low: #16A34A;      --low-dim: rgba(22,163,74,.12);
+
+  --status-open: #4F6BED; --status-ack: #3B82F6; --status-progress: #0F9F6E;
+  --status-testing: #A855F7; --status-resolved: #16A34A; --status-closed: #94A3B8;
+  --status-blocked: #E5484D;
+
+  --glass-blur: none; --glass-border: var(--border); --glass-inset: none;
+  --radius: 10px; --radius-lg: 14px;
+}
+
+html[data-theme="resolvo-dark"] {
+  color-scheme: dark;
+  --bg-base: #0B1220;
+  --bg-surface: #111A2C;
+  --bg-card: #111A2C;
+  --bg-elevated: #16213A;
+  --bg-hover: #1B2842;
+  --bg-input: #0E1626;
+  --bg-sidebar: #0E1626;
+  --bg-topbar: #0E1626;
+  --bg-selected: rgba(20,184,128,.14);
+
+  --accent: #1FC28A;
+  --accent-dark: #16A673;
+  --accent-light: rgba(31,194,138,.14);
+  --accent-dim: rgba(31,194,138,.14);
+  --accent-glow: rgba(31,194,138,.30);
+  --accent-2: #7C93FF;
+  --accent-3: #FBBF24;
+  --accent-color: #1FC28A;
+  --green: #1FC28A;
+  --indigo: #7C93FF;
+  --danger: #F87171;
+
+  --text-primary: #E8EEF9;
+  --text-secondary: #C3CDE0;
+  --text-muted: #8B98B2;
+  --text-dim: #5F6D89;
+  --text-disabled: #475672;
+  --text-on-accent: #04130D;
+
+  --border: #1F2C45;
+  --border-light: #182238;
+  --border-accent: rgba(31,194,138,.40);
+
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.28);
+  --shadow-md: 0 2px 6px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.36);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-accent: 0 6px 18px rgba(31,194,138,.25);
+
+  --critical: #F87171; --critical-dim: rgba(248,113,113,.14);
+  --high: #FB923C;     --high-dim: rgba(251,146,60,.15);
+  --medium: #FBBF24;   --medium-dim: rgba(251,191,36,.15);
+  --low: #34D399;      --low-dim: rgba(52,211,153,.14);
+
+  --status-open: #7C93FF; --status-ack: #60A5FA; --status-progress: #1FC28A;
+  --status-testing: #C084FC; --status-resolved: #34D399; --status-closed: #6B7A99;
+  --status-blocked: #F87171;
+
+  --glass-blur: none; --glass-border: var(--border); --glass-inset: none;
+  --radius: 10px; --radius-lg: 14px;
+}
+
+/* ---------- 2. Page + type ----------------------------------------------- */
+html[data-theme^="resolvo"] body,
+html[data-theme^="resolvo"] #app { background: var(--bg-base) !important; color: var(--text-primary); }
+html[data-theme^="resolvo"] body { font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+html[data-theme^="resolvo"] .main-content,
+html[data-theme^="resolvo"] .content-area { background: var(--bg-base) !important; }
+html[data-theme^="resolvo"] .content-area { padding: 22px 28px 48px !important; }
+html[data-theme^="resolvo"] ::selection { background: var(--accent-dim); }
+html[data-theme^="resolvo"] * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+/* ---------- 3. Sidebar ---------------------------------------------------- */
+html[data-theme^="resolvo"] .sidebar {
+  background: var(--bg-sidebar) !important;
+  border-right: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  width: 236px !important;
+}
+html[data-theme^="resolvo"] .sidebar-header { padding: 18px 18px 10px !important; border-bottom: 0 !important; background: transparent !important; }
+html[data-theme^="resolvo"] .sidebar .brand-name { color: var(--text-primary) !important; font-weight: 800 !important; font-size: 18px !important; letter-spacing: -.02em; }
+html[data-theme^="resolvo"] .sidebar .brand img { width: 30px !important; height: 30px !important; border-radius: 9px !important; }
+html[data-theme^="resolvo"] .sidebar-toggle { color: var(--text-dim) !important; background: transparent !important; border: 0 !important; }
+html[data-theme^="resolvo"] .user-card {
+  margin: 4px 14px 10px !important; padding: 10px 12px !important; border-radius: 12px !important;
+  background: var(--bg-elevated) !important; border: 1px solid var(--border) !important;
+}
+html[data-theme^="resolvo"] .user-name { color: var(--text-primary) !important; font-weight: 700 !important; font-size: 13px !important; }
+html[data-theme^="resolvo"] .user-role { color: var(--text-muted) !important; font-size: 11px !important; font-family: inherit !important; letter-spacing: 0 !important; text-transform: none !important; }
+html[data-theme^="resolvo"] .user-avatar { background: var(--accent-dim) !important; color: var(--accent) !important; border: 0 !important; }
+html[data-theme^="resolvo"] .sidebar-nav { padding: 4px 0 12px !important; }
+html[data-theme^="resolvo"] .nav-label {
+  color: var(--text-dim) !important; font-size: 10.5px !important; font-weight: 700 !important;
+  letter-spacing: .09em !important; text-transform: uppercase; padding: 14px 22px 6px !important; font-family: inherit !important;
+}
+html[data-theme^="resolvo"] .nav-item {
+  color: var(--text-secondary) !important; margin: 1px 12px !important; padding: 9px 12px !important;
+  border-radius: 10px !important; font-size: 13.5px !important; font-weight: 500 !important;
+  border: 0 !important; background: transparent !important; gap: 11px;
+}
+html[data-theme^="resolvo"] .nav-item .nav-icon { color: var(--text-muted) !important; opacity: 1 !important; }
+html[data-theme^="resolvo"] .nav-item:hover { background: var(--bg-hover) !important; color: var(--text-primary) !important; }
+html[data-theme^="resolvo"] .nav-item.active {
+  background: var(--bg-selected) !important; color: var(--accent-dark) !important; font-weight: 700 !important;
+  box-shadow: none !important;
+}
+html[data-theme="resolvo-dark"] .nav-item.active { color: var(--accent) !important; }
+html[data-theme^="resolvo"] .nav-item.active .nav-icon { color: var(--accent) !important; }
+html[data-theme^="resolvo"] .nav-item.active::before { display: none !important; }
+html[data-theme^="resolvo"] .sidebar-footer { border-top: 1px solid var(--border) !important; background: transparent !important; padding: 10px 14px 14px !important; }
+html[data-theme^="resolvo"] #brandTierBadge {
+  background: var(--accent-light) !important; color: var(--accent-dark) !important; border: 1px solid var(--border-accent) !important;
+  border-radius: 10px !important; padding: 7px 10px !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .02em !important;
+}
+html[data-theme="resolvo-dark"] #brandTierBadge { color: var(--accent) !important; }
+html[data-theme^="resolvo"] #sidebarLegalLinks, html[data-theme^="resolvo"] #sidebarLegalLinks a { color: var(--text-dim) !important; font-size: 11px !important; }
+
+/* ---------- 4. Topbar ----------------------------------------------------- */
+html[data-theme^="resolvo"] .topbar {
+  background: var(--bg-topbar) !important; border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important; backdrop-filter: none !important; height: 64px !important; padding: 0 24px !important;
+}
+html[data-theme^="resolvo"] .page-title { color: var(--text-primary) !important; font-size: 17px !important; font-weight: 800 !important; letter-spacing: -.02em; font-family: inherit !important; }
+html[data-theme^="resolvo"] .breadcrumb, html[data-theme^="resolvo"] .breadcrumb * { color: var(--text-dim) !important; font-size: 11px !important; font-family: inherit !important; }
+html[data-theme^="resolvo"] .ai-bar-wrap {
+  background: var(--bg-elevated) !important; border: 1px solid var(--border) !important; border-radius: 12px !important;
+  box-shadow: none !important; height: 40px;
+}
+html[data-theme^="resolvo"] .ai-bar-wrap:focus-within { border-color: var(--border-accent) !important; background: var(--bg-surface) !important; }
+html[data-theme^="resolvo"] .ai-bar { color: var(--text-primary) !important; background: transparent !important; font-size: 13px !important; }
+html[data-theme^="resolvo"] .ai-bar::placeholder { color: var(--text-dim) !important; }
+html[data-theme^="resolvo"] .ai-bar-icon { color: var(--accent) !important; background: var(--accent-dim) !important; border-radius: 7px !important; font-weight: 800 !important; }
+html[data-theme^="resolvo"] .topbar-stats { display: none !important; }  /* the mini stats strip is replaced by the dashboard KPIs */
+html[data-theme^="resolvo"] .topbar-badge { border-radius: 20px !important; }
+html[data-theme^="resolvo"] .topbar .btn-primary { padding: 9px 16px !important; }
+
+/* ---------- 5. Buttons, inputs, badges ------------------------------------ */
+html[data-theme^="resolvo"] .btn-primary {
+  background: var(--accent) !important; color: var(--text-on-accent) !important; border: 0 !important;
+  border-radius: 10px !important; font-weight: 700 !important; box-shadow: var(--shadow-accent) !important;
+}
+html[data-theme^="resolvo"] .btn-primary:hover { background: var(--accent-dark) !important; transform: none !important; }
+html[data-theme^="resolvo"] .btn-secondary, html[data-theme^="resolvo"] .btn-ghost {
+  background: var(--bg-surface) !important; color: var(--text-secondary) !important; border: 1px solid var(--border) !important;
+  border-radius: 10px !important; font-weight: 600 !important; box-shadow: none !important;
+}
+html[data-theme^="resolvo"] .btn-secondary:hover, html[data-theme^="resolvo"] .btn-ghost:hover { background: var(--bg-hover) !important; color: var(--text-primary) !important; }
+html[data-theme^="resolvo"] .form-input, html[data-theme^="resolvo"] .form-textarea, html[data-theme^="resolvo"] .form-select,
+html[data-theme^="resolvo"] input[type="text"], html[data-theme^="resolvo"] input[type="email"], html[data-theme^="resolvo"] input[type="search"],
+html[data-theme^="resolvo"] input[type="number"], html[data-theme^="resolvo"] input[type="password"], html[data-theme^="resolvo"] input[type="date"],
+html[data-theme^="resolvo"] textarea, html[data-theme^="resolvo"] select {
+  background: var(--bg-input) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; border-radius: 10px !important;
+}
+html[data-theme^="resolvo"] .form-input:focus, html[data-theme^="resolvo"] .form-textarea:focus, html[data-theme^="resolvo"] input:focus,
+html[data-theme^="resolvo"] textarea:focus, html[data-theme^="resolvo"] select:focus {
+  border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-dim) !important; outline: none !important;
+}
+html[data-theme^="resolvo"] ::placeholder { color: var(--text-dim) !important; }
+
+/* ---------- 6. Cards, tables, modals -------------------------------------- */
+html[data-theme^="resolvo"] .modal { background: var(--bg-surface) !important; border: 1px solid var(--border) !important; border-radius: 16px !important; box-shadow: var(--shadow-md) !important; }
+html[data-theme^="resolvo"] .modal-header { border-bottom: 1px solid var(--border) !important; }
+html[data-theme^="resolvo"] .modal-footer { border-top: 1px solid var(--border) !important; }
+html[data-theme^="resolvo"] .modal-overlay { background: rgba(15,23,42,.45) !important; backdrop-filter: blur(2px); }
+html[data-theme^="resolvo"] table { border-color: var(--border) !important; }
+html[data-theme^="resolvo"] th { background: var(--bg-elevated) !important; color: var(--text-muted) !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--border) !important; }
+html[data-theme^="resolvo"] td { border-bottom: 1px solid var(--border-light) !important; color: var(--text-secondary); }
+html[data-theme^="resolvo"] tr:hover td { background: var(--bg-hover) !important; }
+html[data-theme^="resolvo"] .toast { background: var(--bg-surface) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; box-shadow: var(--shadow-md) !important; border-radius: 12px !important; }
+html[data-theme^="resolvo"] .clarity-rollback-pill, html[data-theme^="resolvo"] .nova-rollback-pill { display: none !important; }
+html[data-theme^="resolvo"] .quick-capture-fab { background: var(--accent) !important; color: var(--text-on-accent) !important; box-shadow: var(--shadow-accent) !important; }
+
+/* ---------- 7. v3 building blocks (used by the new dashboard) -------------- */
+.v3-page { max-width: 1320px; margin: 0 auto; }
+.v3-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.v3-hello { font-size: 24px; font-weight: 800; letter-spacing: -.03em; color: var(--text-primary); }
+.v3-sub { font-size: 13.5px; color: var(--text-muted); margin-top: 3px; }
+.v3-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px; min-width: 0; }
+.v3-card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.v3-card-t { font-size: 14.5px; font-weight: 700; color: var(--text-primary); letter-spacing: -.01em; }
+.v3-link { font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; text-decoration: none; background: none; border: 0; }
+.v3-link:hover { text-decoration: underline; }
+.v3-grid { display: grid; gap: 16px; }
+.v3-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 16px; }
+.v3-kpi { position: relative; padding: 16px 18px; cursor: pointer; transition: border-color .15s, transform .15s; }
+.v3-kpi:hover { border-color: var(--border-accent); transform: translateY(-1px); }
+.v3-kpi-l { font-size: 12.5px; color: var(--text-muted); font-weight: 600; }
+.v3-kpi-v { font-size: 30px; font-weight: 800; letter-spacing: -.035em; color: var(--text-primary); margin: 6px 0 2px; line-height: 1.1; }
+.v3-kpi-v small { font-size: 15px; font-weight: 600; color: var(--text-muted); }
+.v3-kpi-d { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.v3-kpi-d.up { color: var(--low); } .v3-kpi-d.down { color: var(--critical); }
+.v3-kpi-ico { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.v3-kpi svg.spark { position: absolute; right: 16px; top: 40px; width: 60px; height: 24px; opacity: .9; }
+.v3-kpi-ico svg { display: block; }
+.v3-row2 { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); margin-bottom: 16px; }
+.v3-row3 { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); }
+.v3-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+.v3-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.v3-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.v3-tbl th { text-align: left; padding: 8px 10px; }
+.v3-tbl td { padding: 11px 10px; vertical-align: middle; }
+.v3-tbl tr { cursor: pointer; }
+.v3-pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.v3-av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-dim); color: var(--accent); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.v3-bar { height: 6px; border-radius: 4px; background: var(--border-light); overflow: hidden; }
+.v3-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.v3-act { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border-light); align-items: flex-start; }
+.v3-act:last-child { border-bottom: 0; }
+.v3-act-ico { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex: none; font-size: 14px; }
+.v3-qa { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; margin-bottom: 8px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 11px; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+.v3-qa:hover { border-color: var(--border-accent); background: var(--bg-hover); color: var(--text-primary); }
+@media (max-width: 1180px) { .v3-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .v3-row2, .v3-row3 { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .v3-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } html[data-theme^="resolvo"] .content-area { padding: 16px 14px 40px !important; } }
+
+.v3-chip { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; font-size: 11px; font-weight: 800; margin-right: 7px; vertical-align: middle; background: var(--bg-hover); color: var(--text-secondary); }
+
+/* phones: a compact topbar so it never covers the page */
+@media (max-width: 720px) {
+  html[data-theme^="resolvo"] .topbar { height: auto !important; min-height: 56px; padding: 8px 12px !important; flex-wrap: nowrap !important; gap: 8px; }
+  html[data-theme^="resolvo"] .ai-bar-wrap, html[data-theme^="resolvo"] #agentStatusWrap, html[data-theme^="resolvo"] #cmdCenterBtn,
+  html[data-theme^="resolvo"] .kbd-help-btn, html[data-theme^="resolvo"] #criticalBadge { display: none !important; }
+  html[data-theme^="resolvo"] .page-title { font-size: 16px !important; }
+  html[data-theme^="resolvo"] .topbar .btn-primary { padding: 8px 12px !important; font-size: 12px !important; }
+  .v3-hello { font-size: 21px; }
+}
+
+/* the off-screen slide panel must not cast a shadow into the page while closed */
+html[data-theme^="resolvo"] .slide-panel { box-shadow: none !important; }
+html[data-theme^="resolvo"] .slide-panel.open, html[data-theme^="resolvo"] .slide-panel.active, html[data-theme^="resolvo"] .slide-panel.visible { box-shadow: var(--shadow-md) !important; }
