@@ -7874,6 +7874,9 @@ tbody tr.row-selected {
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=3">
+  <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
+  <link rel="stylesheet" href="/css/rv-components.css?v=3">
+  <script src="/js/rv-ui.js?v=1"></script>
 </head>
 <body>
   <div id="app">
@@ -31159,147 +31162,130 @@ App.renderDashboardV3 = async function() {
   self.setPage('Dashboard', 'Overview');
   var area = document.getElementById('contentArea');
   if (!area) return;
-  area.innerHTML = '<div class="v3-page"><div class="v3-card" style="padding:40px;text-align:center;color:var(--text-muted)">Loading your dashboard…</div></div>';
+  area.innerHTML = '<div class="rv"><div class="rv-grid rv-grid--kpi">' + [1, 2, 3, 4, 5].map(function() { return RV.card({ body: RV.skeleton(3) }); }).join('') + '</div></div>';
 
   var cu = self.currentUser || self._currentUser || {};
   var first = String(cu.name || 'there').split(' ')[0];
   var h = new Date().getHours();
   var greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  var days = self._v3Days();
 
   var res = await Promise.all([
-    self.callAsync('getSummaryStats', { days: self._v3Days() }),
+    self.callAsync('getSummaryStats', { days: days }),
     self.callAsync('getTickets', { status: 'all', sort: 'newest', limit: 6 }),
     self.callAsync('getCSATResults')
   ]);
-  var st = res[0] || {}, tk = res[1] || {}, cs = res[2] || {};
+  var st = res[0], tk = res[1] || {}, cs = res[2] || {};
+  if (!st || st.success === false) {
+    area.innerHTML = '<div class="rv">' + RV.pageHead({ title: greet + ', ' + first }) + RV.card({ body: RV.alert('danger', RV.icon('alert', 16) + '<span>The dashboard could not load. ' + RV.btn({ label: 'Try again', size: 'sm', onclick: 'App.renderDashboardV3()' }) + '</span>') }) + '</div>';
+    return;
+  }
   var sup = st.support || {};
-  var vol = (sup.volume && sup.volume.length) ? sup.volume : [];
+  var vol = sup.volume || [];
   var total = st.totalTickets || 0, open = sup.openTickets || 0, resolved = Math.max(0, total - open);
   var frt = sup.avgFirstResponseMin;
-  var frtTxt = frt == null ? '—' : (frt < 60 ? frt + '<small>m</small>' : (Math.round(frt / 6) / 10) + '<small>h</small>');
+  var frtHtml = frt == null ? '—' : (frt < 60 ? frt + '<small>m</small>' : (Math.round(frt / 6) / 10) + '<small>h</small>');
   var csat = cs && cs.success && cs.positiveRate != null ? cs.positiveRate : null;
   var last7 = vol.slice(-7).reduce(function(a, b) { return a + b; }, 0), prev7 = vol.slice(-14, -7).reduce(function(a, b) { return a + b; }, 0);
-  var delta = '';
-  if (vol.length >= 14 && prev7 > 0) {
-    var pct = Math.round((last7 - prev7) / prev7 * 100);
-    delta = '<div class="v3-kpi-d ' + (pct >= 0 ? 'up' : 'down') + '">' + (pct >= 0 ? '↑' : '↓') + ' ' + Math.abs(pct) + '% vs previous 7 days</div>';
-  } else delta = '<div class="v3-kpi-d">' + last7 + ' in the last 7 days</div>';
+  var deltaNote, deltaKind = '';
+  if (vol.length >= 14 && prev7 > 0) { var pct = Math.round((last7 - prev7) / prev7 * 100); deltaNote = Math.abs(pct) + '% ' + (pct >= 0 ? 'up' : 'down') + ' vs previous 7 days'; deltaKind = pct >= 0 ? 'up' : 'down'; }
+  else deltaNote = last7 + ' in the last 7 days';
 
-  var kpi = function(label, val, sub, ico, bg, fg, go, spark) {
-    return '<div class="v3-card v3-kpi" onclick="' + go + '"><div class="v3-kpi-ico" style="background:' + bg + ';color:' + fg + ';">' + ico + '</div>' +
-      '<div class="v3-kpi-l">' + label + '</div><div class="v3-kpi-v">' + val + '</div>' + sub + (spark || '') + '</div>';
-  };
+  var go = function(filter) { return "App._ticketFilter='" + filter + "';App.navigate('ticket-inbox')"; };
   var kpis =
-    kpi('Total tickets', total, delta, self._v3Ico('ticket'), 'rgba(79,107,237,.12)', 'var(--accent-2)', "App.navigate('ticket-inbox')", self._v3Spark(vol, 'var(--accent-2)')) +
-    kpi('Open tickets', open, '<div class="v3-kpi-d">' + (sup.unassigned || 0) + ' unassigned</div>', self._v3Ico('inbox'), 'var(--critical-dim)', 'var(--critical)', "App._ticketFilter='open';App.navigate('ticket-inbox')") +
-    kpi('Resolved', resolved, '<div class="v3-kpi-d">' + (sup.resolvedToday || 0) + ' resolved today</div>', self._v3Ico('check'), 'var(--low-dim)', 'var(--low)', "App._ticketFilter='resolved';App.navigate('ticket-inbox')") +
-    kpi('Avg. first reply', frtTxt, '<div class="v3-kpi-d">' + (frt == null ? 'No replies yet' : 'across all tickets') + '</div>', self._v3Ico('clock'), 'var(--medium-dim)', 'var(--medium)', "App.navigate('first-response')") +
-    kpi('Happy customers', csat == null ? '—' : csat + '<small>%</small>', '<div class="v3-kpi-d">' + (csat == null ? 'No survey replies yet' : (cs.responded || 0) + ' survey replies') + '</div>', self._v3Ico('star'), 'var(--medium-dim)', 'var(--medium)', "App.navigate('reports')");
+    RV.stat({ label: 'Total tickets', value: total, note: deltaNote, noteKind: deltaKind, icon: 'ticket', iconKind: 'info', onclick: go('all') }) +
+    RV.stat({ label: 'Open tickets', value: open, note: (sup.unassigned || 0) + ' unassigned', icon: 'inbox', iconKind: 'danger', onclick: go('open') }) +
+    RV.stat({ label: 'Resolved', value: resolved, note: (sup.resolvedToday || 0) + ' resolved today', icon: 'check', iconKind: 'success', onclick: go('resolved') }) +
+    RV.stat({ label: 'Avg. first reply', valueHtml: frtHtml, note: frt == null ? 'No replies yet' : 'across all tickets', icon: 'clock', iconKind: 'warning', onclick: "App.navigate('first-response')" }) +
+    RV.stat({ label: 'Happy customers', valueHtml: csat == null ? '—' : csat + '<small>%</small>', note: csat == null ? 'No survey replies yet' : (cs.responded || 0) + ' survey replies', icon: 'star', iconKind: 'warning', onclick: "App.navigate('reports')" });
 
-  // attention strip
+  // attention strip: each count opens the inbox (unassigned has its own filtered view; SLA views arrive with the inbox work)
   var att = [];
-  if (sup.slaBreached) att.push('<b style="color:var(--critical)">' + sup.slaBreached + '</b> breached SLA');
-  if (sup.slaDue) att.push('<b style="color:var(--high)">' + sup.slaDue + '</b> due within 4h');
-  if (sup.unassigned) att.push('<b>' + sup.unassigned + '</b> unassigned');
-  var attHtml = att.length ? '<div class="v3-card" style="padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><span style="font-weight:700;color:var(--text-primary)">Needs attention</span><span style="color:var(--text-muted);font-size:13px;">' + att.join(' &nbsp;·&nbsp; ') + '</span><span style="flex:1"></span><button class="v3-link" onclick="App.navigate(\'ticket-inbox\')">Open inbox →</button></div>' : '';
+  if (sup.slaBreached) att.push('<button class="rv-link" onclick="' + go('all') + '"><b style="color:var(--rv-danger)">' + sup.slaBreached + '</b> breached SLA</button>');
+  if (sup.slaDue) att.push('<button class="rv-link" onclick="' + go('all') + '"><b style="color:var(--rv-high)">' + sup.slaDue + '</b> due within 4h</button>');
+  if (sup.unassigned) att.push('<button class="rv-link" onclick="' + go('unassigned') + '"><b>' + sup.unassigned + '</b> unassigned</button>');
+  var attHtml = att.length ? RV.alert('warning', RV.icon('alert', 16) + '<strong>Needs attention</strong><span class="rv-cluster">' + att.join('<span aria-hidden="true">·</span>') + '</span>') : '';
+
+  var empty = total ? '' : RV.card({ body: RV.empty({ icon: 'inbox', title: 'No tickets yet. This is where your customer conversations will appear.',
+    text: 'Connect your support email so customer messages arrive as tickets, or load 5 sample tickets to try replying, assigning and the customer card first. Sample tickets are marked and never send email.',
+    actions: RV.btn({ label: 'Try with 5 sample tickets', kind: 'primary', onclick: 'App._sampleTickets(true)' }) + RV.btn({ label: 'Connect support email', onclick: "App.navigate('email-ticketing')" }) + RV.btn({ label: 'Create a ticket', onclick: 'App._showCreateManualTicket()' }) }) });
 
   // channels
   var chColors = ['#0F9F6E', '#4F6BED', '#F59E0B', '#E5484D', '#A855F7', '#14B8A6', '#94A3B8'];
   var chParts = Object.keys(sup.byChannel || {}).map(function(k) { return [k, sup.byChannel[k]]; }).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 7);
   var chTotal = chParts.reduce(function(a, p) { return a + p[1]; }, 0);
   var chList = chParts.map(function(p, i) {
-    var nm = self._v3Channel(p[0]);
-    return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;"><i style="width:9px;height:9px;border-radius:50%;background:' + chColors[i % chColors.length] + ';flex:none"></i><span style="flex:1;color:var(--text-secondary)">' + nm[0] + '</span><b style="color:var(--text-primary)">' + p[1] + '</b><span style="color:var(--text-dim);width:36px;text-align:right">' + Math.round(p[1] / (chTotal || 1) * 100) + '%</span></div>';
+    return '<div class="rv-cluster" style="flex-wrap:nowrap;padding:4px 0;font-size:var(--rv-text-sm)"><i class="rv-dot" style="color:' + chColors[i % chColors.length] + '"></i><span style="flex:1;color:var(--rv-text-2)">' + RV.esc(self._v3Channel(p[0])[0]) + '</span><b>' + p[1] + '</b><span style="color:var(--rv-text-faint);width:38px;text-align:right">' + Math.round(p[1] / (chTotal || 1) * 100) + '%</span></div>';
   }).join('');
 
   // recent tickets
   var rows = (tk.tickets || []).slice(0, 6);
-  var pri = { Critical: ['var(--critical-dim)', 'var(--critical)'], High: ['var(--high-dim)', 'var(--high)'], Medium: ['var(--medium-dim)', 'var(--medium)'], Low: ['var(--low-dim)', 'var(--low)'] };
-  var stc = { new: ['rgba(79,107,237,.12)', 'var(--accent-2)'], open: ['var(--accent-dim)', 'var(--accent)'], pending: ['var(--medium-dim)', 'var(--medium)'], resolved: ['var(--low-dim)', 'var(--low)'], closed: ['var(--border-light)', 'var(--text-muted)'] };
-  var recent = rows.length ? '<div style="overflow-x:auto"><table class="v3-tbl"><thead><tr><th>Ticket</th><th>Customer</th><th>Subject</th><th>Channel</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody>' +
-    rows.map(function(t) {
-      var p = pri[t.priority] || pri.Medium, s = stc[String(t.status || 'open').toLowerCase()] || stc.open, ch = self._v3Channel(t.channel || t.source);
-      return '<tr onclick="App.renderTicketDetail(\'' + t.id + '\')">' +
-        '<td style="font-family:var(--font-mono);font-size:11.5px;color:var(--accent)">' + self._esc(String(t.id).replace('TKT-', '#')) + '</td>' +
-        '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + self._esc(String(t.fromName || t.from || '')) + '</td>' +
-        '<td style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)">' + self._esc(t.subject || '') + '</td>' +
-        '<td title="' + ch[0] + '" style="white-space:nowrap"><span class="v3-chip" style="margin-right:0">' + self._esc(ch[0].charAt(0)) + '</span></td>' +
-        '<td><span class="v3-pill" style="background:' + p[0] + ';color:' + p[1] + '">' + self._esc(t.priority || 'Medium') + '</span></td>' +
-        '<td><span class="v3-pill" style="background:' + s[0] + ';color:' + s[1] + '">' + self._esc(String(t.status || 'open').replace(/^./, function(c) { return c.toUpperCase(); })) + '</span></td>' +
-        '<td style="color:var(--text-muted);white-space:nowrap">' + self._v3Ago(t.lastActivity || t.createdDate) + '</td></tr>';
-    }).join('') + '</tbody></table></div>'
-    : '<div style="padding:28px;text-align:center;color:var(--text-muted);font-size:13px">No tickets yet. When customers write in, they appear here.</div>';
+  var recent = RV.table({ rows: rows, rowClick: 'App._v3OpenRecent',
+    empty: { icon: 'inbox', title: 'No tickets yet', text: 'When customers write in, they appear here.' },
+    columns: [
+      { label: 'Ticket', render: function(t) { return '<span class="rv-mono" style="color:var(--rv-accent-strong)">' + RV.esc(String(t.id).replace('TKT-', '#')) + '</span>'; } },
+      { label: 'Customer', className: 'rv-cell-clip rv-cell-clip--sm', render: function(t) { return '<span class="rv-cell-primary">' + RV.esc(t.fromName || t.from || '') + '</span>'; } },
+      { label: 'Subject', className: 'rv-cell-clip rv-cell-clip--sm', render: function(t) { return RV.esc(t.subject || ''); } },
+      { label: 'Channel', render: function(t) { return RV.esc(self._v3Channel(t.channel || t.source)[0]); } },
+      { label: 'Priority', render: function(t) { return RV.priority(t.priority); } },
+      { label: 'Status', render: function(t) { return RV.status(t.status); } },
+      { label: 'Updated', render: function(t) { return RV.esc(self._v3Ago(t.lastActivity || t.createdDate)); } }
+    ] });
+  self._v3Recent = rows;
 
-  // team performance
+  // team
   var lb = sup.leaderboard || [];
   var maxRes = Math.max.apply(null, lb.map(function(a) { return a.resolved; }).concat([1]));
   var team = lb.length ? lb.map(function(a) {
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)"><span class="v3-av">' + self._esc(String(a.name || '?').charAt(0).toUpperCase()) + '</span>' +
-      '<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px"><b style="color:var(--text-primary)">' + self._esc(a.name) + '</b><span style="color:var(--text-muted)">' + a.resolved + ' resolved · ' + a.open + ' open</span></div>' +
-      '<div class="v3-bar" style="margin-top:6px"><i style="width:' + Math.round(a.resolved / maxRes * 100) + '%"></i></div></div></div>';
-  }).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Assign tickets to see how your team is doing.</div>';
+    return '<div class="rv-cluster" style="flex-wrap:nowrap;padding:8px 0;border-bottom:1px solid var(--rv-border-soft)">' + RV.avatar(a.name, 'sm') +
+      '<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;gap:8px;font-size:var(--rv-text-base)"><b>' + RV.esc(a.name) + '</b><span style="color:var(--rv-text-muted);font-size:var(--rv-text-sm)">' + a.resolved + ' resolved · ' + a.open + ' open</span></div>' +
+      '<div style="margin-top:6px">' + RV.progress(a.resolved / maxRes * 100) + '</div></div></div>';
+  }).join('') : RV.empty({ icon: 'team', title: 'No team activity yet', text: 'Assign tickets to see how your team is doing.' });
 
-  // activity (from the latest tickets, no invented events)
+  // live activity from the latest tickets (no invented events)
   var acts = rows.slice(0, 5).map(function(t) {
     var done = /resolved|closed/i.test(t.status || '');
-    return '<div class="v3-act"><div class="v3-act-ico" style="background:' + (done ? 'var(--low-dim)' : 'var(--accent-dim)') + ';color:' + (done ? 'var(--low)' : 'var(--accent)') + '">' + self._v3Ico(done ? 'check' : 'mail') + '</div>' +
-      '<div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (done ? 'Ticket resolved' : 'New ticket') + ' · ' + self._esc(String(t.fromName || t.from || '').slice(0, 20)) + '</div>' +
-      '<div style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + self._esc(t.subject || '') + '</div></div>' +
-      '<div style="font-size:11.5px;color:var(--text-dim);flex:none">' + self._v3Ago(t.lastActivity || t.createdDate) + '</div></div>';
-  }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nothing yet.</div>';
+    return '<div class="rv-cluster" style="flex-wrap:nowrap;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--rv-border-soft)"><span class="rv-stat__icon ' + (done ? 'rv-stat__icon--success' : '') + '" style="position:static;flex:none;width:30px;height:30px">' + RV.icon(done ? 'check' : 'mail', 15) + '</span>' +
+      '<div style="min-width:0;flex:1"><div class="rv-cell-primary rv-cell-clip" style="max-width:none">' + (done ? 'Ticket resolved' : 'New ticket') + ' · ' + RV.esc(String(t.fromName || t.from || '').slice(0, 22)) + '</div>' +
+      '<div class="rv-cell-clip" style="max-width:none;color:var(--rv-text-muted);font-size:var(--rv-text-sm)">' + RV.esc(t.subject || '') + '</div></div>' +
+      '<span style="font-size:var(--rv-text-xs);color:var(--rv-text-faint);flex:none">' + RV.esc(self._v3Ago(t.lastActivity || t.createdDate)) + '</span></div>';
+  }).join('') || RV.empty({ icon: 'mail', title: 'Nothing yet' });
 
-  var emptyHtml = '';
-  if (!total) {
-    emptyHtml = '<div class="v3-card" style="margin-bottom:16px;padding:26px 24px;display:flex;gap:22px;align-items:center;flex-wrap:wrap;">' +
-      '<div style="width:54px;height:54px;border-radius:16px;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none;">' + self._v3Ico('inbox').replace('width="17" height="17"', 'width="26" height="26"') + '</div>' +
-      '<div style="flex:1;min-width:240px"><div style="font-size:17px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em">No tickets yet. This is where your customer conversations will appear.</div>' +
-      '<div style="font-size:13.5px;color:var(--text-muted);margin-top:4px;line-height:1.55">Connect your support email so customer messages arrive as tickets, or load 5 sample tickets to try replying, assigning and the customer card first. Sample tickets are marked and never send email.</div></div>' +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-        '<button class="btn-primary" onclick="App._sampleTickets(true)">Try with 5 sample tickets</button>' +
-        '<button class="btn-secondary" onclick="App.navigate(\'email-ticketing\')">Connect support email</button>' +
-        '<button class="btn-secondary" onclick="App._showCreateManualTicket()">Create a ticket</button>' +
-      '</div></div>';
-  }
+  var qa = function(icon, label, fn) { return RV.btn({ label: label, icon: icon, onclick: fn, attrs: { style: 'width:100%;justify-content:flex-start' } }); };
 
-  var qa = function(ico, label, go) { return '<button class="v3-qa" onclick="' + go + '"><span style="width:22px;display:inline-flex;justify-content:center;color:var(--accent)">' + ico + '</span>' + label + '</button>'; };
-
-  area.innerHTML =
-    '<div class="v3-page">' +
-      '<div class="v3-head"><div><div class="v3-hello">' + greet + ', ' + self._esc(first) + ' 👋</div><div class="v3-sub">Here is what is happening with your support today.</div></div>' +
-        '<div style="display:flex;gap:10px;align-items:center">' +
-        '<button class="btn-primary" onclick="App._showCreateManualTicket()">+ New ticket</button></div></div>' +
-      '<div id="v3onb"></div>' +
-      emptyHtml +
-      attHtml +
-      '<div class="v3-grid v3-kpis">' + kpis + '</div>' +
-      '<div class="v3-grid v3-row2">' +
-        '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Ticket volume</div>' + self._v3RangeTabs() + '</div>' + (vol.length ? self._v3Bars(vol) : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No data yet</div>') + '</div>' +
-        '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Channel distribution</div></div>' +
-          (chTotal ? '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' + self._v3Donut(chParts, chTotal, chColors) + '<div style="flex:1;min-width:150px">' + chList + '</div></div>' : '<div style="padding:40px;text-align:center;color:var(--text-muted)">No tickets yet</div>') + '</div>' +
+  area.innerHTML = '<div class="rv" style="max-width:var(--rv-content-max);margin:0 auto">' +
+    RV.pageHead({ title: greet + ', ' + first, sub: 'Here is what is happening with your support today.', actions: RV.btn({ label: 'New ticket', kind: 'primary', icon: 'plus', onclick: 'App._showCreateManualTicket()' }) }) +
+    '<div class="rv-stack">' +
+      '<div id="v3onb"></div>' + empty + attHtml +
+      '<div class="rv-grid rv-grid--kpi">' + kpis + '</div>' +
+      '<div class="rv-grid rv-grid--main">' +
+        RV.card({ title: 'Ticket volume', actions: RV.range([{ value: 7, label: '7d' }, { value: 14, label: '14d' }, { value: 30, label: '30d' }], days, 'App._v3SetDays'),
+          body: vol.length ? self._v3Bars(vol) : RV.empty({ icon: 'chart', title: 'No data yet' }) }) +
+        RV.card({ title: 'Channel distribution', body: chTotal ? '<div class="rv-cluster" style="gap:18px;align-items:center">' + self._v3Donut(chParts, chTotal, chColors) + '<div style="flex:1;min-width:150px">' + chList + '</div></div>' : RV.empty({ icon: 'inbox', title: 'No tickets yet' }) }) +
       '</div>' +
-      '<div class="v3-grid v3-row3">' +
-        '<div style="display:grid;gap:16px;min-width:0">' +
-          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Recent tickets</div><button class="v3-link" onclick="App.navigate(\'ticket-inbox\')">View all</button></div>' + recent + '</div>' +
-          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Team performance</div></div>' + team + '</div>' +
+      '<div class="rv-grid rv-grid--main">' +
+        '<div class="rv-stack">' +
+          RV.card({ title: 'Recent tickets', flush: true, actions: '<button class="rv-link" onclick="App.navigate(\'ticket-inbox\')">View all</button>', body: recent }) +
+          RV.card({ title: 'Team performance', body: team }) +
         '</div>' +
-        '<div style="display:grid;gap:16px;align-content:start;min-width:0">' +
-          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Live activity</div><button class="v3-link" onclick="App.navigate(\'ticket-inbox\')">View all</button></div>' + acts + '</div>' +
-          '<div class="v3-card"><div class="v3-card-h"><div class="v3-card-t">Quick actions</div></div>' +
-            qa(self._v3Ico('plus'), 'Create ticket', 'App._showCreateManualTicket()') + qa(self._v3Ico('user'), 'Add customer', "App.navigate('customers')") + qa(self._v3Ico('chart'), 'View reports', "App.navigate('reports')") + qa(self._v3Ico('team'), 'Manage team', "App.navigate('user-management')") + '</div>' +
+        '<div class="rv-stack">' +
+          RV.card({ title: 'Live activity', actions: '<button class="rv-link" onclick="App.navigate(\'ticket-inbox\')">View all</button>', body: acts }) +
+          RV.card({ title: 'Quick actions', body: '<div class="rv-stack" style="gap:8px">' + qa('plus', 'Create ticket', 'App._showCreateManualTicket()') + qa('user', 'Add customer', "App.navigate('customers')") + qa('chart', 'View reports', "App.navigate('reports')") + qa('team', 'Manage team', "App.navigate('user-management')") + '</div>' }) +
         '</div>' +
       '</div>' +
-    '</div>';
+    '</div></div>';
 
-  // the "get set up" card (only for workspaces that have not finished setup)
+  // the "get set up" card for workspaces that have not finished setup
   try {
     var box = document.getElementById('v3onb');
     if (box && self.renderGoodMorning) {
       await self.renderGoodMorning('v3onb');
       var gm = box.querySelector('.gm-header'); if (gm) gm.remove();
-      var oc = document.getElementById('onbCard'); if (oc) { oc.style.marginTop = '0'; oc.style.marginBottom = '16px'; oc.style.background = 'var(--bg-card)'; }
+      var oc = document.getElementById('onbCard'); if (oc) { oc.style.marginTop = '0'; oc.style.background = 'var(--rv-surface)'; }
     }
   } catch (e) {}
 };
+App._v3OpenRecent = function(i) { var t = (App._v3Recent || [])[i]; if (t) App.renderTicketDetail(t.id); };
 
 
 // Route every dashboard render through v3 when a Resolvo theme is active (last override wins).

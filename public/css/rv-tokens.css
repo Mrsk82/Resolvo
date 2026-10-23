@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Resolvo design tokens (rv-*). One place for colour, type, space, radius,
+   shadow, layering and motion. Components in rv-components.css use ONLY these.
+
+   How colour works today: each --rv-* colour reads the app's existing theme
+   variable (--bg-card, --accent, ...) and falls back to the Resolvo Light value.
+   So the components follow whichever theme is active (Resolvo Light/Dark or an
+   older one) and also render correctly on a page with no theme at all
+   (public/styleguide.html). When old themes are retired, the right-hand values
+   become the only values and the fallbacks stay as they are.
+
+   Breakpoints (CSS cannot put these in variables, so use these exact numbers):
+     sm 640   md 768   lg 1024   xl 1280   2xl 1536
+   ========================================================================== */
+:root {
+  /* ----- colour: surfaces ------------------------------------------------ */
+  --rv-bg:            var(--bg-base,     #F4F6FA);   /* page */
+  --rv-surface:       var(--bg-card,     #FFFFFF);   /* cards, panels */
+  --rv-surface-2:     var(--bg-elevated, #F7F9FC);   /* inset areas, table headers */
+  --rv-hover:         var(--bg-hover,    #F0F3F8);
+  --rv-selected:      var(--bg-selected, #E8F7F1);
+  --rv-input:         var(--bg-input,    #FFFFFF);
+  --rv-border:        var(--border,      #E6EAF0);
+  --rv-border-soft:   var(--border-light,#EEF1F6);
+
+  /* ----- colour: text ----------------------------------------------------- */
+  --rv-text:          var(--text-primary,   #0F172A);
+  --rv-text-2:        var(--text-secondary, #334155);
+  --rv-text-muted:    var(--text-muted,     #64748B);
+  --rv-text-faint:    var(--text-dim,       #94A3B8);
+  --rv-on-accent:     var(--text-on-accent, #FFFFFF);
+
+  /* ----- colour: brand and meaning ---------------------------------------- */
+  --rv-accent:        var(--accent,      #0F9F6E);   /* primary action: emerald */
+  --rv-accent-strong: var(--accent-dark, #0B7F58);
+  --rv-accent-soft:   var(--accent-dim,  rgba(15,159,110,.10));
+  --rv-link:          var(--accent-2,    #4F6BED);   /* links, selected navigation: restrained blue */
+  --rv-info:          var(--accent-2,    #4F6BED);
+  --rv-info-soft:     rgba(79,107,237,.12);
+  --rv-success:       var(--low,         #16A34A);
+  --rv-success-soft:  var(--low-dim,     rgba(22,163,74,.12));
+  --rv-warning:       var(--medium,      #D9A400);
+  --rv-warning-soft:  var(--medium-dim,  rgba(217,164,0,.14));
+  --rv-danger:        var(--critical,    #E5484D);
+  --rv-danger-soft:   var(--critical-dim,rgba(229,72,77,.10));
+  --rv-high:          var(--high,        #F2780C);
+  --rv-high-soft:     var(--high-dim,    rgba(242,120,12,.12));
+  --rv-focus:         var(--accent,      #0F9F6E);
+
+  /* ----- typography -------------------------------------------------------- */
+  --rv-font:          'Inter', -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --rv-font-mono:     ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --rv-text-xs:   11px;   /* labels, metadata */
+  --rv-text-sm:   12.5px; /* secondary descriptions, table content */
+  --rv-text-base: 14px;   /* body */
+  --rv-text-md:   15px;   /* card titles */
+  --rv-text-lg:   17px;   /* section headings */
+  --rv-text-xl:   20px;
+  --rv-text-2xl:  24px;   /* page titles */
+  --rv-text-3xl:  30px;   /* KPI values */
+  --rv-leading-tight: 1.2;
+  --rv-leading-base:  1.5;
+  --rv-leading-loose: 1.65;
+  --rv-weight-regular: 400;
+  --rv-weight-medium:  500;
+  --rv-weight-semibold:600;
+  --rv-weight-bold:    700;
+  --rv-weight-heavy:   800;
+
+  /* ----- spacing (4px base) ------------------------------------------------ */
+  --rv-space-1: 4px;  --rv-space-2: 8px;  --rv-space-3: 12px; --rv-space-4: 16px;
+  --rv-space-5: 20px; --rv-space-6: 24px; --rv-space-8: 32px; --rv-space-10: 40px; --rv-space-12: 48px;
+
+  /* ----- radius ------------------------------------------------------------ */
+  --rv-radius-sm: 6px; --rv-radius-md: 10px; --rv-radius-lg: 14px; --rv-radius-xl: 18px; --rv-radius-pill: 999px;
+
+  /* ----- elevation --------------------------------------------------------- */
+  --rv-shadow-1: 0 1px 2px rgba(15,23,42,.05), 0 2px 8px rgba(15,23,42,.04);
+  --rv-shadow-2: 0 2px 6px rgba(15,23,42,.06), 0 10px 28px rgba(15,23,42,.08);
+  --rv-shadow-3: 0 8px 20px rgba(15,23,42,.10), 0 24px 56px rgba(15,23,42,.14);
+
+  /* ----- layering ---------------------------------------------------------- */
+  --rv-z-sticky: 100; --rv-z-dropdown: 300; --rv-z-drawer: 600; --rv-z-modal: 700; --rv-z-toast: 800; --rv-z-tooltip: 900;
+
+  /* ----- motion ------------------------------------------------------------ */
+  --rv-ease: cubic-bezier(.2,.7,.2,1);
+  --rv-dur-fast: 120ms; --rv-dur-base: 200ms; --rv-dur-slow: 320ms;
+
+  /* ----- layout ------------------------------------------------------------ */
+  --rv-sidebar-w: 248px; --rv-sidebar-w-collapsed: 68px; --rv-header-h: 60px;
+  --rv-content-max: 1600px; --rv-touch: 40px;   /* minimum comfortable touch target */
+}
+@media (max-width: 768px) { :root { --rv-touch: 44px; } }
+@media (prefers-reduced-motion: reduce) { :root { --rv-dur-fast: 0ms; --rv-dur-base: 0ms; --rv-dur-slow: 0ms; } }

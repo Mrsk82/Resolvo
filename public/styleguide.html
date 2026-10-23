@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="resolvo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Resolvo Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/resolvo-v3.css">
+<link rel="stylesheet" href="/css/rv-tokens.css">
+<link rel="stylesheet" href="/css/rv-components.css">
+<style>
+  body { margin: 0; background: var(--rv-bg); color: var(--rv-text); font-family: var(--rv-font); }
+  .sg { max-width: 1180px; margin: 0 auto; padding: var(--rv-space-6) var(--rv-space-4) 80px; }
+  .sg > h2 { font-size: var(--rv-text-lg); margin: var(--rv-space-10) 0 var(--rv-space-3); letter-spacing: -.01em; }
+  .sg > h2 small { font-weight: 500; color: var(--rv-text-muted); font-size: var(--rv-text-sm); margin-left: 8px; }
+  .sg-row { display: flex; flex-wrap: wrap; gap: var(--rv-space-3); align-items: center; }
+  .sg-swatch { width: 120px; } .sg-swatch i { display: block; height: 44px; border-radius: var(--rv-radius-md); border: 1px solid var(--rv-border); margin-bottom: 6px; }
+  .sg-swatch b { display: block; font-size: var(--rv-text-xs); } .sg-swatch span { font: 11px var(--rv-font-mono); color: var(--rv-text-muted); }
+  .sg-bar { position: sticky; top: 0; z-index: 50; background: var(--rv-surface); border-bottom: 1px solid var(--rv-border); }
+  .sg-bar div { max-width: 1180px; margin: 0 auto; padding: var(--rv-space-3) var(--rv-space-4); display: flex; justify-content: space-between; align-items: center; gap: var(--rv-space-3); flex-wrap: wrap; }
+</style>
+</head>
+<body class="rv">
+<div class="sg-bar"><div><strong>Resolvo design system</strong>
+  <span class="rv-cluster"><span class="rv-hint">Theme</span>
+  <span class="rv-range" role="group" aria-label="Theme"><button class="rv-range__opt" id="t-light" aria-pressed="true" onclick="setT('resolvo')">Light</button><button class="rv-range__opt" id="t-dark" aria-pressed="false" onclick="setT('resolvo-dark')">Dark</button></span></span></div></div>
+<main class="sg" id="sg"></main>
+<script src="/js/rv-ui.js"></script>
+<script>
+function setT(t) { document.documentElement.setAttribute('data-theme', t); document.getElementById('t-light').setAttribute('aria-pressed', t === 'resolvo'); document.getElementById('t-dark').setAttribute('aria-pressed', t !== 'resolvo'); }
+var sw = function (name, v) { return '<div class="sg-swatch"><i style="background:var(' + v + ')"></i><b>' + name + '</b><span>' + v + '</span></div>'; };
+var rows = [
+  { id: 'TKT-8F21A', who: 'Priya Mehta', subject: 'Order not received yet', s: 'open', p: 'High', when: '5m ago' },
+  { id: 'TKT-8F20B', who: 'Rohan Verma', subject: 'Refund request for order #1234', s: 'pending', p: 'Medium', when: '12m ago' },
+  { id: 'TKT-8F19C', who: 'Sneha Kapoor', subject: 'Product quality issue', s: 'resolved', p: 'Low', when: '28m ago' }
+];
+var html = '';
+html += RV.pageHead({ title: 'Page title', sub: 'A supporting line that explains what this page is for.', actions: RV.btn({ label: 'Secondary' }) + RV.btn({ label: 'New ticket', kind: 'primary', icon: 'plus', onclick: "RV.toast('Ticket created', 'success')" }) });
+
+html += '<h2>Colour tokens<small>--rv-*  (follow the active theme)</small></h2><div class="sg-row">' +
+  sw('Page', '--rv-bg') + sw('Surface', '--rv-surface') + sw('Surface 2', '--rv-surface-2') + sw('Border', '--rv-border') + sw('Text', '--rv-text') + sw('Muted', '--rv-text-muted') +
+  sw('Accent', '--rv-accent') + sw('Link/Info', '--rv-info') + sw('Success', '--rv-success') + sw('Warning', '--rv-warning') + sw('Danger', '--rv-danger') + '</div>';
+
+html += '<h2>Type scale</h2><div class="rv-stack">' +
+  '<div style="font-size:var(--rv-text-3xl);font-weight:800;letter-spacing:-.035em">30 / KPI value</div><div style="font-size:var(--rv-text-2xl);font-weight:800;letter-spacing:-.03em">24 / Page title</div>' +
+  '<div style="font-size:var(--rv-text-lg);font-weight:700">17 / Section heading</div><div style="font-size:var(--rv-text-md);font-weight:700">15 / Card title</div>' +
+  '<div>14 / Body text. The quick brown fox jumps over the lazy dog.</div><div style="font-size:var(--rv-text-sm);color:var(--rv-text-muted)">12.5 / Secondary description and table content</div>' +
+  '<div style="font-size:var(--rv-text-xs);color:var(--rv-text-faint);font-weight:700;letter-spacing:.06em;text-transform:uppercase">11 / Label and metadata</div></div>';
+
+html += '<h2>Buttons</h2><div class="rv-row sg-row">' + RV.btn({ label: 'Primary', kind: 'primary' }) + RV.btn({ label: 'Secondary' }) + RV.btn({ label: 'Ghost', kind: 'ghost' }) +
+  RV.btn({ label: 'Delete', kind: 'danger' }) + RV.btn({ label: 'Small', size: 'sm' }) + RV.btn({ label: 'Large', kind: 'primary', size: 'lg' }) + RV.btn({ label: 'Disabled', disabled: true }) +
+  RV.btn({ label: 'Saving', kind: 'primary', loading: true }) + RV.iconBtn({ icon: 'sparkle', label: 'AI assistant' }) + '</div>';
+
+html += '<h2>Form controls</h2><div class="rv-grid rv-grid--2">' +
+  RV.field({ id: 'f1', label: 'Customer name', control: '<input id="f1" class="rv-input" placeholder="Priya Mehta">', hint: 'As it appears on their orders.' }) +
+  RV.field({ id: 'f2', label: 'Priority', control: '<select id="f2" class="rv-select"><option>Medium</option><option>High</option></select>' }) +
+  RV.field({ id: 'f3', label: 'Email', control: '<input id="f3" class="rv-input" value="not-an-email" aria-invalid="true">', error: 'Enter a valid email address.' }) +
+  '<div class="rv-field"><span class="rv-label">Search</span>' + RV.search({ placeholder: 'Search tickets, customers...', kbd: 'Ctrl K' }) + '</div>' +
+  RV.field({ id: 'f4', label: 'Reply', control: '<textarea id="f4" class="rv-textarea" placeholder="Write a reply..."></textarea>' }) +
+  '<div class="rv-field"><span class="rv-label">Notifications</span><label class="rv-switch"><input type="checkbox" checked><span class="rv-switch__track"></span>Email me about new tickets</label></div></div>';
+
+html += '<h2>Badges, status and priority</h2><div class="sg-row">' + ['new', 'open', 'pending', 'escalated', 'resolved', 'closed'].map(RV.status).join('') + '<span style="width:16px"></span>' +
+  ['Critical', 'High', 'Medium', 'Low'].map(RV.priority).join('') + '<span style="width:16px"></span>' + RV.badge('Info', 'info') + RV.badge('VIP', 'warning') + RV.badge('Neutral') + '<span class="rv-count">12</span>' +
+  '<span style="width:16px"></span>' + RV.avatar('Priya Mehta', 'sm') + RV.avatar('Rohan Verma') + RV.avatar('Sneha Kapoor', 'lg') + RV.avatar('Karan Shah', 'xl') + '</div>';
+
+html += '<h2>Tabs<small>arrow keys move between tabs</small></h2><div class="rv-stack"><div id="tabs1">' + RV.tabs([{ id: 'all', label: 'All', count: 482 }, { id: 'open', label: 'Open', count: 96 }, { id: 'prog', label: 'In progress', count: 52 }, { id: 'res', label: 'Resolved', count: 342 }], 'all', { label: 'Ticket views' }) + '</div>' +
+  '<div id="tabs2">' + RV.tabs([{ id: 'a', label: 'My tickets' }, { id: 'b', label: 'Unassigned' }, { id: 'c', label: 'Critical' }], 'a', { pills: true }) + '</div>' +
+  '<div>' + RV.range([{ value: 7, label: '7d' }, { value: 14, label: '14d' }, { value: 30, label: '30d' }], 14, 'void') + '</div></div>';
+
+html += '<h2>Cards and KPIs</h2><div class="rv-grid rv-grid--kpi">' +
+  RV.stat({ label: 'Total tickets', value: '482', note: 'up 12% vs previous 7 days', noteKind: 'up', icon: 'ticket', iconKind: 'info' }) +
+  RV.stat({ label: 'Open tickets', value: '96', note: '8 unassigned', icon: 'inbox', iconKind: 'danger', onclick: "RV.toast('Opens the filtered inbox')" }) +
+  RV.stat({ label: 'Resolved', value: '342', note: '24 today', icon: 'check', iconKind: 'success' }) +
+  RV.stat({ label: 'Avg. first reply', valueHtml: '18<small>m</small>', note: 'across all tickets', icon: 'clock', iconKind: 'warning' }) +
+  RV.stat({ label: 'Happy customers', valueHtml: '92<small>%</small>', note: '58 survey replies', icon: 'star', iconKind: 'warning' }) + '</div>' +
+  '<div class="rv-grid rv-grid--main" style="margin-top:16px">' + RV.card({ title: 'Card with actions', actions: RV.btn({ label: 'View all', kind: 'ghost', size: 'sm' }), body: '<p style="margin:0;color:var(--rv-text-muted)">Cards hold one idea each. Titles are 15px bold; the body uses the standard 14px text.</p>' }) +
+  RV.card({ title: 'Needs attention', body: RV.alert('warning', RV.icon('alert', 16) + '<span><b>6</b> tickets breached SLA</span>') }) + '</div>';
+
+html += '<h2>Table<small>scrolls sideways on small screens, rows are keyboard focusable</small></h2>' + RV.card({ flush: true, body: RV.table({
+  columns: [{ label: 'Ticket', render: function (r) { return '<span class="rv-mono" style="color:var(--rv-accent-strong)">' + RV.esc(r.id) + '</span>'; } }, { label: 'Customer', render: function (r) { return '<span class="rv-cluster">' + RV.avatar(r.who, 'sm') + '<span class="rv-cell-primary">' + RV.esc(r.who) + '</span></span>'; } },
+    { label: 'Subject', className: 'rv-cell-clip', render: function (r) { return RV.esc(r.subject); } }, { label: 'Priority', render: function (r) { return RV.priority(r.p); } }, { label: 'Status', render: function (r) { return RV.status(r.s); } }, { label: 'Updated', render: function (r) { return RV.esc(r.when); } },
+    { label: '', render: function () { return RV.menu({ items: [{ label: 'Assign to me', icon: 'user', onclick: "RV.toast('Assigned', 'success')" }, { label: 'Mark resolved', icon: 'check', onclick: "RV.toast('Resolved', 'success')" }, '-', { label: 'Delete', icon: 'x', onclick: "RV.toast('Could not delete', 'error')" }] }); } }],
+  rows: rows, rowClick: 'void' }) + RV.pagination({ summary: 'Showing 1 to 3 of 482', hasPrev: false, hasNext: true, next: 'void 0' }) });
+
+html += '<h2>States</h2><div class="rv-grid rv-grid--2">' + RV.card({ title: 'Empty', body: RV.empty({ title: 'No tickets yet', text: 'Connect your support email, or try the app with sample tickets.', actions: RV.btn({ label: 'Try sample tickets', kind: 'primary' }) + RV.btn({ label: 'Connect email' }) }) }) +
+  RV.card({ title: 'Loading', body: RV.skeleton(4) + '<div style="margin-top:12px">' + RV.progress(62) + '</div>' }) +
+  RV.card({ title: 'Error', body: RV.alert('danger', RV.icon('alert', 16) + '<span>Could not load tickets. <button class="rv-link" onclick="RV.toast(\'Retrying...\')">Try again</button></span>') }) +
+  RV.card({ title: 'Overlays', body: '<div class="rv-cluster">' + RV.btn({ label: 'Open modal', onclick: 'openM()' }) + RV.btn({ label: 'Open drawer', onclick: 'openD()' }) + RV.btn({ label: 'Success toast', onclick: "RV.toast('Saved', 'success')" }) + RV.btn({ label: 'Error toast', onclick: "RV.toast('Something went wrong', 'error')" }) + '</div>' }) + '</div>';
+
+document.getElementById('sg').innerHTML = html;
+RV.onTabs(document.getElementById('tabs1'), function (id) { document.getElementById('tabs1').innerHTML = RV.tabs([{ id: 'all', label: 'All', count: 482 }, { id: 'open', label: 'Open', count: 96 }, { id: 'prog', label: 'In progress', count: 52 }, { id: 'res', label: 'Resolved', count: 342 }], id, { label: 'Ticket views' }); });
+function openM() { RV.modal({ title: 'Create ticket', body: RV.field({ id: 'm1', label: 'Subject', control: '<input id="m1" class="rv-input">' }), foot: RV.btn({ label: 'Cancel', onclick: 'RV.closeModal(this.closest(\'.rv-overlay\'))' }) + RV.btn({ label: 'Create', kind: 'primary', onclick: "RV.toast('Created','success');RV.closeModal(this.closest('.rv-overlay'))" }) }); }
+function openD() { RV.drawer('sgDrawer', '<div class="rv-modal__head"><h2 class="rv-card__title">Ticket details</h2>' + RV.iconBtn({ icon: 'x', label: 'Close', onclick: "document.getElementById('sgDrawer').classList.remove('is-open')" }) + '</div><div class="rv-modal__body">Drawers hold detail panels without leaving the page.</div>'); }
+</script>
+</body>
+</html>
