@@ -31223,6 +31223,19 @@ App.renderDashboardV3 = async function() {
       '<div style="font-size:11.5px;color:var(--text-dim);flex:none">' + self._v3Ago(t.lastActivity || t.createdDate) + '</div></div>';
   }).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nothing yet.</div>';
 
+  var emptyHtml = '';
+  if (!total) {
+    emptyHtml = '<div class="v3-card" style="margin-bottom:16px;padding:26px 24px;display:flex;gap:22px;align-items:center;flex-wrap:wrap;">' +
+      '<div style="width:54px;height:54px;border-radius:16px;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none;">' + self._v3Ico('inbox').replace('width="17" height="17"', 'width="26" height="26"') + '</div>' +
+      '<div style="flex:1;min-width:240px"><div style="font-size:17px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em">No tickets yet. This is where your customer conversations will appear.</div>' +
+      '<div style="font-size:13.5px;color:var(--text-muted);margin-top:4px;line-height:1.55">Connect your support email so customer messages arrive as tickets, or load 5 sample tickets to try replying, assigning and the customer card first. Sample tickets are marked and never send email.</div></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+        '<button class="btn-primary" onclick="App._sampleTickets(true)">Try with 5 sample tickets</button>' +
+        '<button class="btn-secondary" onclick="App.navigate(\'email-ticketing\')">Connect support email</button>' +
+        '<button class="btn-secondary" onclick="App._showCreateManualTicket()">Create a ticket</button>' +
+      '</div></div>';
+  }
+
   var qa = function(ico, label, go) { return '<button class="v3-qa" onclick="' + go + '"><span style="width:22px;display:inline-flex;justify-content:center;color:var(--accent)">' + ico + '</span>' + label + '</button>'; };
 
   area.innerHTML =
@@ -31231,6 +31244,7 @@ App.renderDashboardV3 = async function() {
         '<div style="display:flex;gap:10px;align-items:center"><span class="v3-pill" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-secondary);padding:8px 14px;font-weight:600">Last ' + (vol.length || 14) + ' days</span>' +
         '<button class="btn-primary" onclick="App._showCreateManualTicket()">+ New ticket</button></div></div>' +
       '<div id="v3onb"></div>' +
+      emptyHtml +
       attHtml +
       '<div class="v3-grid v3-kpis">' + kpis + '</div>' +
       '<div class="v3-grid v3-row2">' +
