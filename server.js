@@ -2428,7 +2428,16 @@ app.post('/api/call',async(req,res)=>{
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
         if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
-        if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>t.assignedTo===filters.assignedTo);
+        if(filters.active)tickets=tickets.filter(t=>!['resolved','closed'].includes(t.status));
+        if(filters.assignedTo==='none')tickets=tickets.filter(t=>!t.assignedTo);
+        else if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>(t.assignedTo||'').toLowerCase()===String(filters.assignedTo).toLowerCase());
+        if(filters.tag){const tg=String(filters.tag).toLowerCase();tickets=tickets.filter(t=>(t.tags||[]).some(x=>String(x).toLowerCase()===tg));}
+        if(filters.team){const tm=String(filters.team).toLowerCase();const members=new Set((db.users||[]).filter(u=>String(u.team||'').toLowerCase()===tm).map(u=>String(u.email||'').toLowerCase()));tickets=tickets.filter(t=>members.has(String(t.assignedTo||'').toLowerCase()));}
+        if(filters.dateFrom&&/^\d{4}-\d{2}-\d{2}$/.test(filters.dateFrom)){const f=new Date(filters.dateFrom+'T00:00:00+05:30').getTime();tickets=tickets.filter(t=>new Date(t.createdDate).getTime()>=f);}
+        if(filters.dateTo&&/^\d{4}-\d{2}-\d{2}$/.test(filters.dateTo)){const f=new Date(filters.dateTo+'T23:59:59.999+05:30').getTime();tickets=tickets.filter(t=>new Date(t.createdDate).getTime()<=f);}
+        if(filters.sla==='breached'||filters.sla==='atrisk'){
+          tickets=tickets.filter(t=>{if(['resolved','closed'].includes(t.status))return false;const s=getTicketSLAInfo(db,t);return filters.sla==='breached'?!!s.slaBreached:(!s.slaBreached&&!!s.slaRisk);});
+        }
         if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||(t.priority||'').toLowerCase().includes(q)||(t.sentimentLevel||'').toLowerCase().includes(q));}
         // Sort — 'newest' (default) already applied above; re-sort for the other modes
         if(filters.sort&&filters.sort!=='newest'){
@@ -2460,9 +2469,18 @@ app.post('/api/call',async(req,res)=>{
       const terminalIds=allSt.filter(s=>s.isTerminal||s.triggersCsat).map(s=>s.id);
       const perStatus={};allSt.forEach(s=>{perStatus[s.id]=(db.tickets||[]).filter(t=>t.status===s.id).length;});
       const openTickets=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status));
-      const slaAtRisk=openTickets.filter(t=>{const s=getTicketSLAInfo(db,t);return s.slaBreached||s.slaRisk;}).length;
+      let slaBreachedN=0,slaDueN=0;openTickets.forEach(t=>{const s=getTicketSLAInfo(db,t);if(s.slaBreached)slaBreachedN++;else if(s.slaRisk)slaDueN++;});
+      const slaAtRisk=slaBreachedN+slaDueN;
+      const criticalN=openTickets.filter(t=>t.priority==='Critical').length;
+      const _uByEmail={};(db.users||[]).forEach(u=>{_uByEmail[String(u.email||'').toLowerCase()]=u;});
+      const _asg={},_tags={},_teams={};
+      openTickets.forEach(t=>{const e=String(t.assignedTo||'').toLowerCase();if(e){_asg[e]=(_asg[e]||0)+1;const u=_uByEmail[e];if(u&&u.team)_teams[u.team]=(_teams[u.team]||0)+1;}});
+      (db.tickets||[]).forEach(t=>(t.tags||[]).forEach(g=>{if(g&&g!=='sample')_tags[g]=(_tags[g]||0)+1;}));
+      const facets={assignees:(db.users||[]).filter(u=>u.active!==false).map(u=>({email:u.email,name:u.name||u.email,count:_asg[String(u.email||'').toLowerCase()]||0})).sort((a,b)=>b.count-a.count||String(a.name).localeCompare(String(b.name))),
+        teams:Object.keys(_teams).map(k=>({team:k,count:_teams[k]})).sort((a,b)=>b.count-a.count),
+        tags:Object.keys(_tags).map(k=>({tag:k,count:_tags[k]})).sort((a,b)=>b.count-a.count).slice(0,30)};
       const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,unread:unreadCount}};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);

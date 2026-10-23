@@ -7875,8 +7875,10 @@ tbody tr.row-selected {
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=6">
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
-  <link rel="stylesheet" href="/css/rv-components.css?v=3">
+  <link rel="stylesheet" href="/css/rv-components.css?v=4">
   <script src="/js/rv-ui.js?v=1"></script>
+  <link rel="stylesheet" href="/css/rv-inbox.css?v=1">
+  <script src="/js/rv-inbox.js?v=3"></script>
 </head>
 <body>
   <div id="app">
@@ -31200,18 +31202,22 @@ App.renderDashboardV3 = async function() {
   else deltaNote = last7 + ' in the last 7 days';
 
   var go = function(filter) { return "App._ticketFilter='" + filter + "';App.navigate('ticket-inbox')"; };
+  var view = function(v) { return "App._inboxView('" + v + "')"; };
+  var tc = (tk && tk.counts) || {};
   var kpis =
-    RV.stat({ label: 'Total tickets', value: total, note: deltaNote, noteKind: deltaKind, icon: 'ticket', iconKind: 'info', onclick: go('all') }) +
-    RV.stat({ label: 'Open tickets', value: open, note: (sup.unassigned || 0) + ' unassigned', icon: 'inbox', iconKind: 'danger', onclick: go('open') }) +
-    RV.stat({ label: 'Resolved', value: resolved, note: (sup.resolvedToday || 0) + ' resolved today', icon: 'check', iconKind: 'success', onclick: go('resolved') }) +
+    RV.stat({ label: 'Total tickets', value: total, note: deltaNote, noteKind: deltaKind, icon: 'ticket', iconKind: 'info', onclick: view('all') }) +
+    RV.stat({ label: 'Open tickets', value: open, note: (sup.unassigned || 0) + ' unassigned', icon: 'inbox', iconKind: 'danger', onclick: view('status:open') }) +
+    RV.stat({ label: 'Resolved', value: resolved, note: (sup.resolvedToday || 0) + ' resolved today', icon: 'check', iconKind: 'success', onclick: view('status:resolved') }) +
     RV.stat({ label: 'Avg. first reply', valueHtml: frtHtml, note: frt == null ? 'No replies yet' : 'across all tickets', icon: 'clock', iconKind: 'warning', onclick: "App.navigate('first-response')" }) +
     RV.stat({ label: 'Happy customers', valueHtml: csat == null ? '—' : csat + '<small>%</small>', note: csat == null ? 'No survey replies yet' : (cs.responded || 0) + ' survey replies', icon: 'star', iconKind: 'warning', onclick: "App.navigate('reports')" });
 
   // attention strip: each count opens the inbox (unassigned has its own filtered view; SLA views arrive with the inbox work)
   var att = [];
-  if (sup.slaBreached) att.push('<button class="rv-link" onclick="' + go('all') + '"><b style="color:var(--rv-danger)">' + sup.slaBreached + '</b> breached SLA</button>');
-  if (sup.slaDue) att.push('<button class="rv-link" onclick="' + go('all') + '"><b style="color:var(--rv-high)">' + sup.slaDue + '</b> due within 4h</button>');
-  if (sup.unassigned) att.push('<button class="rv-link" onclick="' + go('unassigned') + '"><b>' + sup.unassigned + '</b> unassigned</button>');
+  var nBreach = tc.slaBreached != null ? tc.slaBreached : sup.slaBreached, nDue = tc.slaDue != null ? tc.slaDue : sup.slaDue, nCrit = tc.critical || 0, nUn = tc.unassigned != null ? tc.unassigned : sup.unassigned;
+  if (nBreach) att.push('<button class="rv-link" onclick="' + view('sla-breached') + '"><b style="color:var(--rv-danger)">' + nBreach + '</b> breached SLA</button>');
+  if (nDue) att.push('<button class="rv-link" onclick="' + view('sla-risk') + '"><b style="color:var(--rv-high)">' + nDue + '</b> at risk</button>');
+  if (nCrit) att.push('<button class="rv-link" onclick="' + view('critical') + '"><b style="color:var(--rv-danger)">' + nCrit + '</b> critical</button>');
+  if (nUn) att.push('<button class="rv-link" onclick="' + view('unassigned') + '"><b>' + nUn + '</b> unassigned</button>');
   var attHtml = att.length ? RV.alert('warning', RV.icon('alert', 16) + '<strong>Needs attention</strong><span class="rv-cluster">' + att.join('<span aria-hidden="true">·</span>') + '</span>') : '';
 
   var empty = total ? '' : RV.card({ body: RV.empty({ icon: 'inbox', title: 'No tickets yet. This is where your customer conversations will appear.',
@@ -31348,6 +31354,33 @@ App._shellRenderProfile = function() {
   setTimeout(function() { try { App._shellSync(App.currentPage || 'dashboard'); } catch (e) {} }, 1500);
   var aw = document.getElementById('aiBarWrap'), ab = document.getElementById('aiBar');
   if (aw && ab) aw.addEventListener('click', function() { ab.focus(); });
+})();
+
+// ── Inbox routing: new three-panel inbox for the Resolvo themes; classic inbox otherwise or if the new one fails ──
+(function() {
+  var legacy = App.renderTicketInbox;
+  App._renderTicketInboxClassic = legacy;
+  App.renderTicketInbox = function() {
+    var args = arguments, self = this;
+    var classic = false; try { classic = localStorage.getItem('tt_inbox_classic') === '1'; } catch (e) {}
+    if (!classic && App._isV3 && App._isV3() && window.RVI) {
+      return window.RVI.render().catch(function(err) { console.error('[inbox] new layout failed, using the classic inbox:', err); return legacy.apply(self, args); });
+    }
+    return legacy.apply(self, args);
+  };
+  // dashboard and other links: open a named view
+  App._inboxView = function(v) { if (window.RVI) RVI.setView(v); App.navigate('ticket-inbox'); };
+  // an earlier-ticket link on the customer card opens inside the new inbox when it is on screen
+  var _prevOpen = App._custOpenTicket;
+  App._custOpenTicket = function(id) {
+    if (window.RVI && document.getElementById('rvi')) return RVI.open(id);
+    return _prevOpen.apply(this, arguments);
+  };
+  // applying a classic saved view must also clear the newer filters
+  if (window.TicketSavedViews && TicketSavedViews.apply) {
+    var _apply = TicketSavedViews.apply;
+    TicketSavedViews.apply = function() { try { App._ticketAssignee = 'all'; App._ticketTeam = ''; App._ticketTag = ''; App._ticketFrom = ''; App._ticketTo = ''; App._ticketSla = ''; App._ticketActive = false; } catch (e) {} return _apply.apply(this, arguments); };
+  }
 })();
 
 // Auto-init Clarity on page load if it was the last saved theme
