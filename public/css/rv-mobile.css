@@ -1,0 +1,80 @@
+/* Phone layer (<= 768px). Loaded after resolvo-v3.css so it wins where both speak.
+   Rules here fix things found in the Oct 2026 phone audit; desktop is untouched. */
+
+@media (max-width: 768px) {
+  /* ---- bottom bar: Inbox / Customers / New / Insights / More ---- */
+  .mobile-bottom-nav {
+    display: flex; align-items: stretch; justify-content: space-around;
+    padding: 0 4px env(safe-area-inset-bottom, 0px); min-height: 60px;
+    background: var(--bg-surface, #fff); border-top: 1px solid var(--border, #e5e7eb);
+    box-shadow: 0 -4px 18px rgba(15, 23, 42, .05);
+  }
+  .mobile-bottom-nav .mobile-nav-item {
+    position: relative; flex: 1 1 0; min-width: 0; gap: 2px; padding: 8px 2px 6px;
+    justify-content: center; font-size: 11px; font-weight: 600; letter-spacing: .01em;
+    color: var(--text-dim, #6b7280); -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-bottom-nav .mobile-nav-item.active { color: var(--accent, #0F9F6E); }
+  .mobile-bottom-nav .mbn-ico { display: block; width: 24px; height: 24px; }
+  .mobile-bottom-nav .mbn-ico svg { width: 24px; height: 24px; display: block; }
+  .mobile-bottom-nav .mbn-badge {
+    position: absolute; top: 3px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
+    border-radius: 9px; background: #e5484d; color: #fff; font-size: 10px; font-weight: 700; line-height: 17px; text-align: center;
+  }
+  .mobile-bottom-nav .mbn-badge[hidden] { display: none; }
+  /* the one place to start a new ticket on a phone */
+  .mobile-bottom-nav .mbn-new { flex: 0 0 64px; }
+  .mobile-bottom-nav .mbn-new .mbn-ico {
+    width: 48px; height: 48px; margin-top: -14px; border-radius: 50%; background: var(--accent, #0F9F6E); color: #fff;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(15, 159, 110, .38);
+  }
+  .mobile-bottom-nav .mbn-new .mbn-ico svg { width: 26px; height: 26px; }
+  .mobile-bottom-nav .mbn-new span:last-child { color: var(--text-dim, #6b7280); }
+  .mobile-bottom-nav .mobile-nav-item:active .mbn-ico { transform: scale(.94); }
+
+  .main-content { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important; }
+  html[data-theme^="resolvo"] .content-area { padding-bottom: 28px !important; }
+
+  /* one new-ticket button, not three */
+  #quickCaptureFab, #topbarPrimary { display: none !important; }
+
+  /* ---- header: menu button, title and actions on one centred line ---- */
+  html[data-theme^="resolvo"] .topbar-left { display: flex !important; flex-direction: row !important; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0 !important; flex: 1 1 auto; }
+  html[data-theme^="resolvo"] .topbar-left .page-title { margin: 0; line-height: 1.2; max-width: none; flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+  html[data-theme^="resolvo"] .topbar-hamburger { flex: none; }
+  html[data-theme^="resolvo"] .topbar-right { flex: none; align-items: center; }
+  html[data-theme^="resolvo"] #agentStatusWrap { display: none; }
+
+  /* ---- dashboard and other stat grids: two across, compact ---- */
+  .rv-grid--kpi { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+  .rv-grid--kpi .rv-stat { padding: 12px 14px; }
+  .rv-grid--kpi .rv-stat__value { font-size: 26px; }
+  .rv-grid--kpi .rv-stat__label { font-size: 12px; }
+  .rv-grid--kpi .rv-stat__icon { display: none; }
+  .rv-grid--kpi .rv-stat__note { font-size: 11px; }
+
+  /* alerts: let the message wrap instead of squeezing the label */
+  .rv-alert { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .rv-alert .rv-cluster { flex-wrap: wrap; row-gap: 4px; min-width: 0; }
+  .rv-alert strong { white-space: nowrap; }
+
+  /* ---- customers: a list of cards, not a four-column table ---- */
+  .cust-top { gap: 10px !important; }
+  .cust-search-row { width: 100%; }
+  .cust-search-row #custSearch { width: auto !important; flex: 1 1 0; min-width: 0; }
+  .cust-search-row a { white-space: nowrap; flex: none; }
+  #custChips { flex-wrap: nowrap !important; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; margin-right: -14px; padding-right: 14px; }
+  #custChips::-webkit-scrollbar { display: none; }
+  #custChips > * { flex: none; }
+  #custChips > span:not([class]) { display: none; }
+  #custChips .btn-secondary { display: none; }
+  .cust-head { display: none !important; }
+  .cust-row { grid-template-columns: minmax(0, 1fr) auto !important; gap: 2px 12px !important; padding: 12px 14px !important; }
+  .cust-row > :nth-child(1) { grid-column: 1; grid-row: 1 / span 2; }
+  .cust-row > :nth-child(2) { display: none; }
+  .cust-row > :nth-child(3) { grid-column: 2; grid-row: 1; justify-self: end; text-align: right; }
+  .cust-row > :nth-child(4) { grid-column: 2; grid-row: 2; justify-self: end; text-align: right; }
+
+  /* touch targets */
+  .rv-btn, .rv-tab, .rv-menu__item { min-height: 40px; }
+}

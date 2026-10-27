@@ -7875,6 +7875,7 @@ tbody tr.row-selected {
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
+  <link rel="stylesheet" href="/css/rv-mobile.css?v=2">
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=1"></script>
@@ -8463,26 +8464,26 @@ tbody tr.row-selected {
   </div>
 
   <!-- Mobile Bottom Navigation -->
-  <nav class="mobile-bottom-nav" id="mobileNav">
-    <button class="mobile-nav-item active" onclick="App.navigate('dashboard')" data-page="dashboard">
-      <span class="mobile-nav-icon">⌂</span>
-      <span>Dashboard</span>
+  <nav class="mobile-bottom-nav" id="mobileNav" aria-label="Main">
+    <button class="mobile-nav-item" onclick="App.navigate('ticket-inbox')" data-page="ticket-inbox">
+      <span class="mbn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+      <span>Inbox</span><span class="mbn-badge" id="mobileInboxBadge" hidden></span>
     </button>
-    <button class="mobile-nav-item" onclick="App.navigate('issue-list')" data-page="issue-list">
-      <span class="mobile-nav-icon">≡</span>
-      <span>Issues</span>
+    <button class="mobile-nav-item" onclick="App.navigate('customers')" data-page="customers">
+      <span class="mbn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span>Customers</span>
     </button>
-    <button class="mobile-nav-item" onclick="App.navigate('kanban')" data-page="kanban">
-      <span class="mobile-nav-icon">■</span>
-      <span>Kanban</span>
-    </button>
-    <button class="mobile-nav-item" onclick="App.showQuickCapture()">
-      <span class="mobile-nav-icon">+</span>
+    <button class="mobile-nav-item mbn-new" onclick="App._shellPrimary()" aria-label="New ticket">
+      <span class="mbn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
       <span>New</span>
     </button>
-    <button class="mobile-nav-item" onclick="App.navigate('my-issues')" data-page="my-issues">
-      <span class="mobile-nav-icon">👤</span>
-      <span>Mine</span>
+    <button class="mobile-nav-item" onclick="App.navigate('insights')" data-page="insights">
+      <span class="mbn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+      <span>Insights</span>
+    </button>
+    <button class="mobile-nav-item" onclick="document.getElementById('topbarHamburger').click()" aria-label="Open menu">
+      <span class="mbn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span>
+      <span>More</span>
     </button>
   </nav>
 
@@ -16961,10 +16962,10 @@ const App = {
     var area = document.getElementById('contentArea');
     area.innerHTML =
       '<div style="max-width:1100px;margin:0 auto;padding:4px 0 40px;">' +
-        '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">' +
+        '<div class="cust-top" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">' +
           '<div><div style="font-size:22px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;">Customers</div>' +
           '<div id="custCount" style="font-size:13px;color:var(--text-muted);margin-top:2px;">Everyone who has contacted you, with their tickets and deals in one place.</div></div>' +
-          '<div style="display:flex;gap:8px;"><input id="custSearch" class="form-input" placeholder="Search name, email, phone, company" style="width:280px;max-width:100%;">' +
+          '<div class="cust-search-row" style="display:flex;gap:8px;"><input id="custSearch" class="form-input" placeholder="Search name, email, phone, company" style="width:280px;max-width:100%;">' +
           '<a href="/crm" class="btn-secondary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;">Sales pipeline →</a></div>' +
         '</div>' +
         '<div id="custDup"></div>' +
@@ -16999,10 +17000,10 @@ const App = {
           '<div style="font-size:13px;color:var(--text-muted);">' + (q ? 'Try a different name or email.' : 'Customers appear here automatically the first time someone emails or messages you.') + '</div></div>';
         return;
       }
-      var head = '<div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);"><div>Customer</div><div>Company</div><div>Tickets</div><div>Last contact</div></div>';
+      var head = '<div class="cust-head" style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);"><div>Customer</div><div>Company</div><div>Tickets</div><div>Last contact</div></div>';
       box.innerHTML = head + r.customers.map(function(c) {
         var ini = String(c.name || c.email || '?').trim().charAt(0).toUpperCase();
-        return '<div onclick="App.navigate(\'customer\',{id:\'' + c.id + '\'})" style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'">' +
+        return '<div class="cust-row" onclick="App.navigate(\'customer\',{id:\'' + c.id + '\'})" style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'">' +
           '<div style="display:flex;align-items:center;gap:10px;min-width:0;"><div style="width:32px;height:32px;border-radius:50%;background:var(--accent-dim,rgba(16,185,129,.15));color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">' + self._esc(ini) + '</div>' +
             '<div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.name || c.email || c.phone) + (c.health && c.health.l ? ' <span class="cust-h cust-h--' + c.health.k + '">' + c.health.l + '</span>' : '') + '</div>' +
             '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.email || c.phone) + (c.altCount ? ' <span title="Also reaches you from ' + c.altCount + ' other address' + (c.altCount === 1 ? '' : 'es') + '">+' + c.altCount + '</span>' : '') + '</div></div></div>' +
@@ -26087,9 +26088,19 @@ const App = {
   // MOBILE NAV ACTIVE STATE
   // ============================================================
   updateMobileNav: function(page) {
+    var group = { 'ticket-detail': 'ticket-inbox', 'customer': 'customers', 'reports': 'insights', 'analytics': 'insights', 'workload': 'insights', 'customer-health': 'insights' };
+    var cur = group[page] || page;
     document.querySelectorAll('.mobile-nav-item[data-page]').forEach(function(btn) {
-      btn.classList.toggle('active', btn.dataset.page === page);
+      btn.classList.toggle('active', btn.dataset.page === cur);
     });
+    this._syncMobileBadge();
+  },
+  // The Inbox tab shows the same unread count as the sidebar badge.
+  _syncMobileBadge: function() {
+    var src = document.getElementById('ticketNewBadge'), dst = document.getElementById('mobileInboxBadge');
+    if (!dst) return;
+    var n = src && src.style.display !== 'none' ? parseInt(src.textContent, 10) : 0;
+    dst.hidden = !(n > 0); dst.textContent = n > 99 ? '99+' : String(n || '');
   },
 
 

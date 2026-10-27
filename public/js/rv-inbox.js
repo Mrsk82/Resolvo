@@ -204,6 +204,7 @@
     S.statuses = (res[2] && res[2].success && res[2].statuses) ? res[2].statuses.slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); }) : [
       { id: 'new', label: 'New' }, { id: 'open', label: 'Open' }, { id: 'pending', label: 'Pending' }, { id: 'on-hold', label: 'On hold' }, { id: 'escalated', label: 'Escalated' }, { id: 'resolved', label: 'Resolved' }, { id: 'closed', label: 'Closed' }];
     a._customStatuses = S.statuses; a.allTickets = S.tickets; a._selectedTickets = a._selectedTickets || new Set();
+    setTimeout(function () { if (a._syncMobileBadge) a._syncMobileBadge(); }, 0);
     var badge = document.getElementById('ticketNewBadge'); if (badge) { if (S.counts.new > 0) { badge.style.display = ''; badge.textContent = S.counts.new; } else badge.style.display = 'none'; }
 
     // connection banner: only when something needs attention
