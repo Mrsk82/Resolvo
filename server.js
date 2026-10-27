@@ -2480,7 +2480,12 @@ app.post('/api/call',async(req,res)=>{
         teams:Object.keys(_teams).map(k=>({team:k,count:_teams[k]})).sort((a,b)=>b.count-a.count),
         tags:Object.keys(_tags).map(k=>({tag:k,count:_tags[k]})).sort((a,b)=>b.count-a.count).slice(0,30)};
       const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      // Focus mode: "waiting on customer" = open ticket where we spoke last (or status pending); "resolved today" uses the IST day
+      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&_awaitingCustomer(t);
+      const istDay=nowIST().slice(0,10);
+      const waitingN=(db.tickets||[]).filter(isWaiting).length;
+      const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -7146,6 +7151,8 @@ function generateTicketId(slug) {
 // the ticket — not just "something changed" (which would include the
 // agent's own reply falsely re-marking their own ticket as unread).
 function _lastIncomingMsg(t){return (t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0];}
+// True when the team spoke last (internal notes ignored) or the ticket is parked as pending: the ball is with the customer
+function _awaitingCustomer(t){if(t.status==='pending')return true;const m=(t.thread||[]).filter(x=>x.type!=='note').slice(-1)[0];return !!m&&m.type!=='incoming';}
 function _isTicketUnread(t,email){
   const lastIn=_lastIncomingMsg(t);
   if(!lastIn)return false;

@@ -7877,8 +7877,8 @@ tbody tr.row-selected {
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=4">
   <script src="/js/rv-ui.js?v=1"></script>
-  <link rel="stylesheet" href="/css/rv-inbox.css?v=1">
-  <script src="/js/rv-inbox.js?v=3"></script>
+  <link rel="stylesheet" href="/css/rv-inbox.css?v=3">
+  <script src="/js/rv-inbox.js?v=6"></script>
 </head>
 <body>
   <div id="app">
@@ -29844,6 +29844,7 @@ const RowPreview = {
     document.addEventListener('mouseover', function(e) {
       var issueRow = e.target.closest('tbody tr[data-issue-id]');
       var ticketRow = e.target.closest('.ticket-row[data-ticket-id]');
+      if (ticketRow && ticketRow.classList.contains('rvi-row')) ticketRow = null;   // the new inbox rows already show a preview line; a floating card would cover the conversation
       if (!issueRow && !ticketRow) { self.hide(); return; }
       clearTimeout(self._timeout);
       if (issueRow) {
@@ -31369,7 +31370,7 @@ App._shellRenderProfile = function() {
     return legacy.apply(self, args);
   };
   // dashboard and other links: open a named view
-  App._inboxView = function(v) { if (window.RVI) RVI.setView(v); App.navigate('ticket-inbox'); };
+  App._inboxView = function(v) { if (window.RVI) { RVI.setView(v); RVI.leaveFocus(); } App.navigate('ticket-inbox'); };
   // an earlier-ticket link on the customer card opens inside the new inbox when it is on screen
   var _prevOpen = App._custOpenTicket;
   App._custOpenTicket = function(id) {

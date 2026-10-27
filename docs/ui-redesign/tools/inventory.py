@@ -51,7 +51,7 @@ async def main():
         out["_shell"] = await pg.evaluate("""() => { const c = s => [...document.querySelectorAll(s)].map(e => (e.getAttribute('aria-label') || e.title || e.innerText || e.id || '').replace(/\\s+/g,' ').trim().slice(0,32)).filter(Boolean); return { sidebarItems: c('.sidebar .nav-item'), topbar: c('.topbar button, .topbar a, .topbar input') }; }""")
         await b.close()
     json.dump(out, open(os.path.join(OUT, f"inventory_{TAG}.json"), "w"), indent=1)
-    tot = {k: sum(len(v[k]) for kk, v in out.items() if kk != '_shell' for k in [k]) for k in ("buttons", "links", "inputs", "selects", "checkboxes")}
+    tot = {f: sum(len(v[f]) for kk, v in out.items() if kk != '_shell') for f in ("buttons", "links", "inputs", "selects", "checkboxes")}
     print("routes inventoried:", len(out) - 1, "| totals:", tot)
     print("sidebar items:", len(out["_shell"]["sidebarItems"]), "| topbar controls:", len(out["_shell"]["topbar"]))
     for k, v in out.items():
