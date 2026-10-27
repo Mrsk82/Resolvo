@@ -308,6 +308,11 @@
     e.preventDefault(); e.stopPropagation(); return true;
   }
 
+  // a ticket that was raised to the tech team links to its issue (and back)
+  function issueLink(t) {
+    var id = t && t.linkedIssueId ? String(t.linkedIssueId).replace(/[^A-Za-z0-9_-]/g, '') : ''; if (!id) return '';
+    return '<button type="button" class="rv-btn rv-btn--sm" title="This ticket was raised to the tech team" onclick="App.navigate(\'issue-detail\',{id:\'' + id + '\'})">Issue ' + esc(id) + ' &rarr;</button>';
+  }
   function threadHtml(t) {
     return (t.thread || []).map(function (m) {
       var inc = m.type === 'incoming', note = m.type === 'note', who = m.fromName || m.from || (inc ? 'Customer' : 'Agent');
@@ -336,7 +341,7 @@
         w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].concat(snoozeItems(t), ['-', currentView() === 'promo' ? { label: 'This is a real customer: move to inbox', onclick: "document.querySelector('#rviMoveBack').click()" } : null, { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].filter(Boolean)) }) + '<button type="button" id="rviMoveBack" data-act="not-promo" hidden></button></div></header>' +
       '<div class="rvi-conv__bar"><select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
         '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + priOpts.map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
-        '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select>' + slaChip(t) +
+        '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select>' + slaChip(t) + issueLink(t) +
         '<span style="flex:1"></span>' + (['resolved', 'closed'].indexOf(t.status) < 0 ? w.RV.btn({ label: 'Resolve', kind: 'primary', size: 'sm', icon: 'check', attrs: { 'data-act': 'resolve' } }) : '') + '</div>' +
       waitingNudge(t) + '<div class="rvi-thread" id="rviThread">' + thread + '</div>' +
       '<div class="rvi-composer' + (isNote ? ' rvi-composer--note' : '') + '">' +
@@ -552,7 +557,7 @@
         w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + safeId + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + safeId + "')" }].concat(snoozeItems(t), ['-', { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + safeId + "')" }]) }) + '</div>' +
       '<article class="rvf-card"><header class="rvf-card__head">' + w.RV.avatar(who, 'lg') + '<div style="flex:1;min-width:0"><h2>' + esc(t.subject || '(No subject)') + '</h2>' +
         '<div class="rv-hint"><b class="rvi-conv__who">' + esc(who) + '</b>' + (t.from && t.from !== who ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div>' +
-        '<div class="rv-cluster" style="margin-top:8px">' + statusBadge(t.status) + w.RV.priority(t.priority) + slaChip(t) + (asgName ? w.RV.badge(asgName, '') : w.RV.badge('Unassigned', 'danger')) + '</div></div></header>' +
+        '<div class="rv-cluster" style="margin-top:8px">' + statusBadge(t.status) + w.RV.priority(t.priority) + slaChip(t) + (asgName ? w.RV.badge(asgName, '') : w.RV.badge('Unassigned', 'danger')) + issueLink(t) + '</div></div></header>' +
         '<div class="rvf-folds"><details class="rvf-fold"><summary>Status, priority and owner</summary><div class="rvf-fold__body">' +
           '<select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
           '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + ['Critical', 'High', 'Medium', 'Low'].map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +

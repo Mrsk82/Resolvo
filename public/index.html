@@ -7879,7 +7879,7 @@ tbody tr.row-selected {
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-inbox.css?v=12">
-  <script src="/js/rv-inbox.js?v=13"></script>
+  <script src="/js/rv-inbox.js?v=14"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-insights.css?v=1">
@@ -7942,7 +7942,7 @@ tbody tr.row-selected {
             </a>
             <a href="/dashboard.html" class="nav-item" data-tooltip="Custom Dashboard" id="customDashNav">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
-              <span class="nav-text">My Dashboard</span>
+              <span class="nav-text">Custom Dashboard</span>
             </a>
           </div>
 
@@ -7987,18 +7987,6 @@ tbody tr.row-selected {
             <a href="#" class="nav-item" data-page="settings" data-nav-params='{"tab":"knowledge-base"}' data-tooltip="Knowledge Base">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
               <span class="nav-text">Knowledge Base</span>
-            </a>
-          </div>
-
-          <div class="nav-section">
-            <span class="nav-label">Automation</span>
-            <a href="#" class="nav-item" data-page="settings" data-nav-params='{"tab":"automation"}' data-tooltip="Automation Rules">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
-              <span class="nav-text">Automation Rules</span>
-            </a>
-            <a href="#" class="nav-item" data-page="settings" data-nav-params='{"tab":"escalation"}' data-tooltip="Escalation Rules">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-              <span class="nav-text">Escalation Rules</span>
             </a>
           </div>
 
@@ -31394,6 +31382,87 @@ App._shellRenderProfile = function() {
   setTimeout(function() { try { App._shellSync(App.currentPage || 'dashboard'); } catch (e) {} }, 1500);
   var aw = document.getElementById('aiBarWrap'), ab = document.getElementById('aiBar');
   if (aw && ab) aw.addEventListener('click', function() { ab.focus(); });
+})();
+
+// ── Command palette (Ctrl+K): tickets and customers by name, support actions, Insights ──
+(function() {
+  if (typeof CmdPalette === 'undefined') return;
+  var esc = function(x) { return App._esc(x); };
+  var item = function(icon, title, sub, action, sel) { return '<div class="cmd-item' + (sel ? ' selected' : '') + '" onclick="CmdPalette.run(\'' + action + '\')"><div class="cmd-item-icon">' + icon + '</div><div class="cmd-item-body"><div class="cmd-item-title">' + esc(title) + '</div><div class="cmd-item-sub">' + esc(sub) + '</div></div></div>'; };
+  var ACTIONS = [
+    ['+', 'Create a ticket', 'Add a customer conversation by hand', 'new-ticket', 'new ticket create add'],
+    ['✉', 'Open the inbox', 'Customer conversations', 'ticket-inbox', 'inbox tickets conversations'],
+    ['◎', 'Work through my queue', 'Focus mode: one ticket at a time', 'focus-queue', 'focus queue work needs'],
+    ['⚠', 'Promotions and alerts', 'Newsletters kept out of your queue', 'promos', 'promotions newsletters alerts spam'],
+    ['▥', 'Insights: overview', 'Volume, speed, customers, team', 'insights', 'insights overview analytics reports'],
+    ['?', 'Insights: questions', 'Plain answers about how support is going', 'insights-q', 'questions how going'],
+    ['👥', 'Insights: team', 'Workload and speed per person', 'insights-t', 'team workload agents'],
+    ['👤', 'Customers', 'Everyone who has contacted you', 'customers', 'customers contacts people'],
+    ['⚙', 'Settings', 'Workspace configuration', 'settings', 'settings configuration'],
+    ['⚡', 'Automation rules', 'If this happens, do that', 'settings:automation', 'automation rules'],
+    ['⏱', 'SLA settings', 'Response and resolution targets', 'settings:sla', 'sla targets response'],
+    ['✉', 'Email setup', 'Connect Gmail or IMAP', 'settings:email', 'email gmail imap connect'],
+    ['≡', 'All issues', 'Tech team issues', 'issue-list', 'issues bugs'],
+    ['▦', 'Kanban board', 'Issues by status', 'kanban', 'kanban board'],
+    ['◑', 'Switch theme', 'Light or dark', 'theme', 'theme dark light']
+  ];
+  var _run = CmdPalette.run;
+  CmdPalette.run = function(a) {
+    var A = String(a);
+    if (A === 'new-ticket') { this.close(); App._showCreateManualTicket(); return; }
+    if (A === 'focus-queue') { this.close(); if (window.RVI) RVI.startFocus(); return; }
+    if (A === 'promos') { this.close(); App._inboxView('promo'); return; }
+    if (A === 'insights') { this.close(); App.navigate('insights'); return; }
+    if (A === 'insights-q') { this.close(); App.navigate('insights', { tab: 'questions' }); return; }
+    if (A === 'insights-t') { this.close(); App.navigate('insights', { tab: 'team' }); return; }
+    if (A.indexOf('ticket:') === 0) { this.close(); App._openInInbox(A.slice(7)); return; }
+    if (A.indexOf('customer:') === 0) { this.close(); App.navigate('customer', { id: A.slice(9) }); return; }
+    return _run.apply(this, arguments);
+  };
+  var _defaults = CmdPalette._loadDefaults;
+  CmdPalette._loadDefaults = function() {
+    if (!(App._isV3 && App._isV3())) return _defaults.apply(this, arguments);
+    var r = document.getElementById('cmdResults'); if (!r) return;
+    r.innerHTML = '<div class="cmd-section-label">Quick actions</div>' + ACTIONS.slice(0, 8).map(function(x, i) { return item(x[0], x[1], x[2], x[3], i === 0); }).join('');
+  };
+  var _search = CmdPalette.search, seq = 0;
+  CmdPalette.search = async function(query) {
+    if (!(App._isV3 && App._isV3())) return _search.apply(this, arguments);
+    var q = String(query || '').trim(); if (!q) { this._loadDefaults(); return; }
+    var lq = q.toLowerCase(), results = document.getElementById('cmdResults'); if (!results) return;
+    var mine = ++seq, acts = ACTIONS.filter(function(x) { return (x[1] + ' ' + x[2] + ' ' + x[4]).toLowerCase().indexOf(lq) >= 0; }).slice(0, 5);
+    var draw = function(tk, cu, firstSel) {
+      var h = '';
+      if (tk.length) h += '<div class="cmd-section-label">Tickets</div>' + tk.map(function(t, i) { return item('✉', t.subject || '(No subject)', String(t.fromName || t.from || '') + ' · ' + t.id, 'ticket:' + String(t.id).replace(/[^A-Za-z0-9_-]/g, ''), i === 0); }).join('');
+      if (cu.length) h += '<div class="cmd-section-label">Customers</div>' + cu.map(function(c) { return item('👤', c.name || c.email || c.phone, (c.email || c.phone || '') + ' · ' + c.tickets + ' ticket' + (c.tickets === 1 ? '' : 's'), 'customer:' + String(c.id).replace(/[^A-Za-z0-9_-]/g, ''), !tk.length && cu[0] === c); }).join('');
+      if (acts.length) h += '<div class="cmd-section-label">Go to</div>' + acts.map(function(x, i) { return item(x[0], x[1], x[2], x[3], !tk.length && !cu.length && i === 0); }).join('');
+      results.innerHTML = h || '<div class="cmd-empty">Nothing found for "<strong>' + esc(q) + '</strong>"</div>'; CmdPalette._sel = 0;
+    };
+    draw([], [], true);   // the "Go to" matches show at once; tickets and customers fill in as they arrive
+    try {
+      var rs = await Promise.all([App.callAsync('getTickets', { status: 'all', search: q, limit: 5, promo: 'all', sort: 'newest' }), App._crmFetch('/api/crm/customers?q=' + encodeURIComponent(q))]);
+      if (mine !== seq) return;
+      draw((rs[0] && rs[0].tickets) || [], ((rs[1] && rs[1].customers) || []).slice(0, 4));
+    } catch (e) {}
+  };
+})();
+
+// ── An issue raised from a ticket says so, with a link back ──
+(function() {
+  var orig = App.renderIssueDetail; if (typeof orig !== 'function') return;
+  App.renderIssueDetail = async function(id) {
+    var r = await orig.apply(this, arguments);
+    try {
+      var g = await App.callAsync('getIssueById', id), tid = g && g.success && g.issue && g.issue.linkedTicketId, area = document.getElementById('contentArea');
+      if (tid && area && !document.getElementById('issueFromTicket')) {
+        var d = document.createElement('div'); d.id = 'issueFromTicket'; d.className = 'rv';
+        d.innerHTML = '<div class="rv-alert rv-alert--info" style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span style="flex:1">Raised from support ticket <b>' + App._esc(tid) + '</b>' + (g.issue.customerName ? ' for ' + App._esc(g.issue.customerName) : '') + '.</span><button type="button" class="rv-btn rv-btn--sm" id="issueFromTicketBtn">Open the ticket</button></div>';
+        area.insertBefore(d, area.firstChild);
+        document.getElementById('issueFromTicketBtn').onclick = function() { App._openInInbox(tid); };
+      }
+    } catch (e) {}
+    return r;
+  };
 })();
 
 // ── Insights: one page; Reports and Customer health keep their pages and gain the same tab bar ──
