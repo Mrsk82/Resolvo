@@ -2426,6 +2426,8 @@ app.post('/api/call',async(req,res)=>{
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status==='snoozed')tickets=tickets.filter(isSnoozed);
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
+        if(filters.promo==='exclude')tickets=tickets.filter(t=>!_ticketIsPromo(t));
+        else if(filters.promo==='only')tickets=tickets.filter(t=>_ticketIsPromo(t));
         if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.active)tickets=tickets.filter(t=>!['resolved','closed'].includes(t.status));
@@ -2481,11 +2483,12 @@ app.post('/api/call',async(req,res)=>{
         tags:Object.keys(_tags).map(k=>({tag:k,count:_tags[k]})).sort((a,b)=>b.count-a.count).slice(0,30)};
       const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
       // Focus mode: "waiting on customer" = open ticket where we spoke last (or status pending); "resolved today" uses the IST day
-      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&_awaitingCustomer(t);
+      const _promoIds=new Set((db.tickets||[]).filter(_ticketIsPromo).map(t=>t.id));
+      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&!_promoIds.has(t.id)&&_awaitingCustomer(t);
       const istDay=nowIST().slice(0,10);
       const waitingN=(db.tickets||[]).filter(isWaiting).length;
       const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),...getTicketSLAInfo(db,t)})),counts:{all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id),...getTicketSLAInfo(db,t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=getTicketSLAInfo(db,t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!terminalIds.includes(t.status)).length};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -4189,7 +4192,7 @@ app.post('/api/call',async(req,res)=>{
       // Only assign 'new' real tickets — skip automated senders and auto-resolved
       const unassigned=(db.tickets||[]).filter(t=>
         !t.assignedTo&&t.status==='new'&&
-        !SPAM_PAT.test(t.from||'')&&!t.autoResolved
+        !SPAM_PAT.test(t.from||'')&&!t.autoResolved&&!_ticketIsPromo(t)
       ).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate)); // oldest first
       let assigned=0,skipped=0;
       for(const t of unassigned){
@@ -4704,6 +4707,46 @@ app.post('/api/call',async(req,res)=>{
     // (ISO datetime), same idea as Gmail snooze. getTickets filters snoozed
     // tickets out automatically and re-surfaces them once `until` passes —
     // no cron/sweep needed, it's just a filter on the current time.
+    // Promotions and alerts: close them in one go (no customer emails go out), and optionally stop their senders creating tickets again.
+    closePromoTickets:(opts)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB(),now=nowIST(),ids=Array.isArray(opts&&opts.ids)?new Set(opts.ids):null;
+      let closed=0;const senders=new Set();
+      (db.tickets||[]).forEach(t=>{
+        if(['resolved','closed'].includes(t.status)||!_ticketIsPromo(t)||(ids&&!ids.has(t.id)))return;
+        t.status='closed';t.resolvedDate=t.resolvedDate||now;t.lastActivity=now;t.autoResolved=true;
+        t.timeline=t.timeline||[];t.timeline.push({event:'status_changed',by:su.email,byName:su.name||su.email,at:now,detail:'closed as a promotion or automated alert'});
+        closed++;if(t.from)senders.add(String(t.from).toLowerCase());
+      });
+      let blocked=0;
+      if(opts&&opts.blockSenders){
+        db.emailTicketing=db.emailTicketing||{};
+        const ex=new Set((db.emailTicketing.senderBlocklist||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
+        senders.forEach(e=>{if(!ex.has(e)){ex.add(e);blocked++;}});
+        db.emailTicketing.senderBlocklist=[...ex].join(',');
+      }
+      wDB(db);return{success:true,closed,blocked};
+    },
+    // A person says this ticket is a real customer, so it moves back to the working inbox for good.
+    markNotPromo:(ticketId)=>{const db=rDB(),t=(db.tickets||[]).find(x=>x.id===ticketId);if(!t)return{success:false,error:'Ticket not found'};t.notPromo=true;wDB(db);return{success:true};},
+    // Give several tickets to one person at once. One summary email instead of one per ticket.
+    bulkAssignTickets:(ids,agentEmail)=>{
+      if(!Array.isArray(ids)||!ids.length)return{success:false,error:'Choose at least one ticket'};
+      if(ids.length>500)return{success:false,error:'Choose 500 tickets or fewer at a time'};
+      const db=rDB();
+      if(agentEmail&&!(db.users||[]).some(u=>String(u.email).toLowerCase()===String(agentEmail).toLowerCase()&&u.active!==false))return{success:false,error:'That person is not on your team'};
+      const set=new Set(ids),now=nowIST();let n=0;
+      (db.tickets||[]).forEach(t=>{if(set.has(t.id)){t.assignedTo=agentEmail||'';t.lastActivity=now;n++;}});
+      wDB(db);
+      if(agentEmail&&n){
+        const a=(db.users||[]).find(u=>String(u.email).toLowerCase()===String(agentEmail).toLowerCase());
+        if(a&&(a.notifyPrefs||{}).onNewTicket!==false&&a.email!==su.email){
+          const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+          sendBrandEmail(slug,a.email,`[${brand.name||slug}] ${n} tickets assigned to you`,`<p>${_escHtml(su.name||su.email)} assigned ${n} ticket${n===1?'':'s'} to you. <a href="${BASE_URL}">Open your inbox</a>.</p>`,`${n} tickets assigned to you: ${BASE_URL}`).catch(()=>{});
+        }
+      }
+      return{success:true,assigned:n};
+    },
     snoozeTicket:(ticketId,until)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Not found'};
@@ -7151,6 +7194,28 @@ function generateTicketId(slug) {
 // the ticket — not just "something changed" (which would include the
 // agent's own reply falsely re-marking their own ticket as unread).
 function _lastIncomingMsg(t){return (t.thread||[]).filter(m=>m.type==='incoming').slice(-1)[0];}
+// Newsletters, promotions and system alerts that became tickets before the mail filter existed (or slipped past it).
+// Email only, never one a person has answered. Used to keep them out of the working queue, not to delete anything.
+const _PROMO_LOCAL=/^(no-?reply|do-?not-?reply|newsletter|news|digest|updates?|marketing|promo(tions?)?|offers?|deals?|notifications?|alerts?|mailer|info|hello|hi|team|billing|support-noreply)$/;
+const _PROMO_HOST=/^(mail|email|e|news|send|mg|em|mailer|bounce|notify|campaign|info|updates?)\./;
+const _PROMO_BODY=/(unsubscribe|view (this email )?in (your )?browser|manage (your )?(email )?preferences|update (your )?(email )?preferences|you (are )?receiv(ed|ing) this (email|message) because|to stop receiving)/i;
+function _ticketIsPromo(t){
+  try{
+    if(t.notPromo)return false;
+    if(t.isSample||t.isBulk)return !!t.isBulk;
+    const ch=t.channel||t.source||'email';
+    if(ch!=='email'&&ch!=='imap'&&ch!=='gmail')return false;
+    if((t.thread||[]).some(m=>m.type==='outgoing'||m.type==='reply'||(m.type&&!['incoming','note'].includes(m.type))))return false;
+    const from=String(t.from||'').toLowerCase(),at=from.indexOf('@');if(at<1)return false;
+    const local=from.slice(0,at),host=from.slice(at+1);
+    if(/^(mailer-daemon|postmaster|bounce)/.test(local))return true;
+    const first=((t.thread||[])[0]||{}).body||t.body||'';
+    const body=String(first).slice(0,6000);
+    if(_PROMO_BODY.test(body))return true;
+    if(_PROMO_HOST.test(host)&&_PROMO_LOCAL.test(local))return true;
+    return /^(no-?reply|do-?not-?reply|newsletter|notifications?|alerts?)$/.test(local);
+  }catch(e){return false;}
+}
 // True when the team spoke last (internal notes ignored) or the ticket is parked as pending: the ball is with the customer
 function _awaitingCustomer(t){if(t.status==='pending')return true;const m=(t.thread||[]).filter(x=>x.type!=='note').slice(-1)[0];return !!m&&m.type!=='incoming';}
 function _isTicketUnread(t,email){

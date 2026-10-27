@@ -7877,8 +7877,8 @@ tbody tr.row-selected {
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=1"></script>
-  <link rel="stylesheet" href="/css/rv-inbox.css?v=9">
-  <script src="/js/rv-inbox.js?v=10"></script>
+  <link rel="stylesheet" href="/css/rv-inbox.css?v=11">
+  <script src="/js/rv-inbox.js?v=12"></script>
 </head>
 <body>
   <div id="app">
@@ -31204,7 +31204,7 @@ App.renderDashboardV3 = async function() {
 
   var go = function(filter) { return "App._ticketFilter='" + filter + "';App.navigate('ticket-inbox')"; };
   var view = function(v) { return "App._inboxView('" + v + "')"; };
-  var tc = (tk && tk.counts) || {};
+  var tc = Object.assign({}, (tk && tk.counts) || {}, ((tk && tk.counts) || {}).inbox || {});   // counts without promotions and alerts
   var kpis =
     RV.stat({ label: 'Total tickets', value: total, note: deltaNote, noteKind: deltaKind, icon: 'ticket', iconKind: 'info', onclick: view('all') }) +
     RV.stat({ label: 'Open tickets', value: open, note: (sup.unassigned || 0) + ' unassigned', icon: 'inbox', iconKind: 'danger', onclick: view('status:open') }) +
@@ -31392,7 +31392,7 @@ App._shellRenderProfile = function() {
   // applying a classic saved view must also clear the newer filters
   if (window.TicketSavedViews && TicketSavedViews.apply) {
     var _apply = TicketSavedViews.apply;
-    TicketSavedViews.apply = function() { try { App._ticketAssignee = 'all'; App._ticketTeam = ''; App._ticketTag = ''; App._ticketFrom = ''; App._ticketTo = ''; App._ticketSla = ''; App._ticketActive = false; } catch (e) {} return _apply.apply(this, arguments); };
+    TicketSavedViews.apply = function() { try { App._ticketAssignee = 'all'; App._ticketTeam = ''; App._ticketTag = ''; App._ticketFrom = ''; App._ticketTo = ''; App._ticketSla = ''; App._ticketActive = false; App._ticketPromo = ''; } catch (e) {} return _apply.apply(this, arguments); };
   }
 })();
 

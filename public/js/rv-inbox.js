@@ -11,7 +11,9 @@
   var S = { sel: null, ticket: null, tickets: [], total: 0, counts: {}, facets: { assignees: [], teams: [], tags: [] }, statuses: [], users: null, cls: null,
             drafts: {}, mode: 'reply', limit: 25, filtersOpen: false, canned: null, loaded: false, reqId: 0,
             focus: null, fAll: [], fTab: 'needs', fCur: 0, fOpen: null, fResolved: null, fTotal: 0, fKeys: null };
-  var EXTRA = ['_ticketAssignee', '_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo', '_ticketSla', '_ticketActive'];
+  var EXTRA = ['_ticketAssignee', '_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo', '_ticketSla', '_ticketActive', '_ticketPromo'];
+  // the server also sends counts that leave out promotions and automated alerts; those are the numbers people work from
+  function normCounts(c) { c = c || {}; return Object.assign({}, c, c.inbox || {}, { raw: c }); }
   var KEYS = ['_ticketFilter', '_ticketChannel', '_ticketPriority', '_ticketSort', '_ticketSearch'].concat(EXTRA);
 
   // ---------- filter state (kept on App so the classic helpers and the dashboard links keep working) ----------
@@ -21,15 +23,17 @@
   }
   function persist() { try { var o = {}; KEYS.forEach(function (k) { if (A()[k] !== undefined) o[k] = A()[k]; }); localStorage.setItem('tt_inbox_filters', JSON.stringify(o)); } catch (e) {} }
   function resetAll() { var a = A(); a._ticketFilter = 'all'; a._ticketChannel = 'all'; a._ticketPriority = 'all'; a._ticketSearch = ''; a._ticketSort = 'newest'; resetExtra(); }
-  function resetExtra() { var a = A(); a._ticketAssignee = 'all'; a._ticketTeam = ''; a._ticketTag = ''; a._ticketFrom = ''; a._ticketTo = ''; a._ticketSla = ''; a._ticketActive = false; }
+  function resetExtra() { var a = A(); a._ticketAssignee = 'all'; a._ticketTeam = ''; a._ticketTag = ''; a._ticketFrom = ''; a._ticketTo = ''; a._ticketSla = ''; a._ticketActive = false; a._ticketPromo = ''; }
   function query() {
     var a = A();
     return { status: a._ticketFilter || 'all', channel: a._ticketChannel || 'all', priority: a._ticketPriority || 'all', sort: a._ticketSort || 'newest', search: a._ticketSearch || '', limit: S.limit,
-      assignedTo: a._ticketAssignee || 'all', team: a._ticketTeam || '', tag: a._ticketTag || '', dateFrom: a._ticketFrom || '', dateTo: a._ticketTo || '', sla: a._ticketSla || '', active: !!a._ticketActive };
+      assignedTo: a._ticketAssignee || 'all', team: a._ticketTeam || '', tag: a._ticketTag || '', dateFrom: a._ticketFrom || '', dateTo: a._ticketTo || '', sla: a._ticketSla || '', active: !!a._ticketActive,
+      promo: a._ticketPromo === 'only' ? 'only' : ((a._ticketSearch || '') ? 'all' : 'exclude') };
   }
   function currentView() {
     var a = A(), f = a._ticketFilter || 'all';
     var plain = (a._ticketChannel || 'all') === 'all' && !(a._ticketSearch) && (a._ticketAssignee || 'all') === 'all' && !a._ticketTeam && !a._ticketTag && !a._ticketFrom && !a._ticketTo;
+    if (a._ticketPromo === 'only') return 'promo';
     if (a._ticketSla === 'breached') return 'sla-breached';
     if (a._ticketSla === 'atrisk') return 'sla-risk';
     if (a._ticketPriority === 'Critical' && a._ticketActive && f === 'all') return 'critical';
@@ -44,6 +48,7 @@
     else if (v === 'critical') { a._ticketPriority = 'Critical'; a._ticketActive = true; }
     else if (v === 'sla-risk') a._ticketSla = 'atrisk';
     else if (v === 'sla-breached') a._ticketSla = 'breached';
+    else if (v === 'promo') a._ticketPromo = 'only';
     else if (/^status:/.test(String(v))) a._ticketFilter = String(v).slice(7).replace(/[^A-Za-z0-9_-]/g, '');
     S.limit = 25; persist();
   };
@@ -77,12 +82,12 @@
       }).join('') + '<button type="button" class="rvi-view" data-act="save-view" style="color:var(--rv-link)"><span>+ Save current filters</span></button>';
     }
     return '<h3>Views</h3>' + v('mine', 'My tickets', c.mine) + v('unassigned', 'Unassigned', c.unassigned, true) + v('all', 'All tickets', c.all) + v('critical', 'Critical', c.critical, true) +
-      v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + saved +
+      v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + saved +
       '<div class="rvi-queue"><div id="queueAgentList"><span class="rv-hint">Loading queue...</span></div></div>';
   }
   function pillsRow() {
     var c = S.counts || {}, cur = currentView();
-    var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed]];
+    var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed], ['promo', 'Promos', c.promo]];
     return '<div class="rvi-pills rv-tabs rv-tabs--pills" role="tablist" aria-label="Inbox views">' + items.map(function (i) {
       return '<button type="button" role="tab" class="rv-tab" data-act="view" data-view="' + i[0] + '" aria-selected="' + (cur === i[0]) + '">' + esc(i[1]) + (i[2] != null ? '<span class="rv-tab__count">' + i[2] + '</span>' : '') + '</button>'; }).join('') + '</div>';
   }
@@ -117,6 +122,18 @@
     if (a._ticketFrom || a._ticketTo) add('Created: ' + (a._ticketFrom || '...') + ' to ' + (a._ticketTo || '...'), 'dates');
     if (a._ticketSearch) add('Search: "' + a._ticketSearch + '"', 'search');
     return out.length ? '<div class="rvi-chips">' + out.join('') + '</div>' : '';
+  }
+  // Promotions and alerts view: say what it is and offer the clean-up (admins only)
+  function promoBar() {
+    if (currentView() !== 'promo') return '';
+    var admin = A().currentUser && A().currentUser.role === 'Admin', n = (S.counts || {}).promo || 0;
+    return '<div class="rvi-promo"><b>Newsletters and automated alerts</b><span class="rv-hint">These are kept out of your working queue. Anything that is really a customer can be moved back from the ticket menu.</span>' +
+      (admin && n ? '<div class="rv-cluster">' + w.RV.btn({ label: 'Close all ' + n, size: 'sm', attrs: { 'data-act': 'promo-close' } }) + w.RV.btn({ label: 'Close all and block senders', size: 'sm', attrs: { 'data-act': 'promo-block' } }) + '</div>' : '') + '</div>';
+  }
+  // "Assign to..." for the selected tickets
+  function assignSelect() {
+    var us = ((S.facets || {}).assignees || []);
+    return '<select class="rv-select rvi-assign" id="bulkAssignSel" aria-label="Assign selected tickets to" data-bulk="assign"><option value="">Assign to...</option><option value="__me">Me</option>' + us.map(function (u) { return '<option value="' + esc(u.email) + '">' + esc(u.name) + '</option>'; }).join('') + '</select>';
   }
   function filterCount() { var a = A(), n = 0; var f = a._ticketFilter || 'all'; if (f !== 'all' && ['mine', 'unassigned', 'snoozed'].indexOf(f) < 0) n++; ['_ticketChannel', '_ticketPriority', '_ticketAssignee'].forEach(function (k) { if ((a[k] || 'all') !== 'all') n++; }); ['_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo'].forEach(function (k) { if (a[k]) n++; }); return n; }
 
@@ -164,9 +181,9 @@
       '<div class="rvi-tools__row"><input type="checkbox" id="selectAllTickets" data-act="checkall" aria-label="Select all tickets" style="accent-color:var(--rv-accent)">' +
       '<div style="flex:1;min-width:0">' + w.RV.search({ id: 'ticketSearch', placeholder: 'Search tickets', label: 'Search tickets', value: a._ticketSearch || '' }) + '</div>' +
       '<button type="button" class="rv-btn rv-btn--sm" data-act="filters" aria-expanded="' + S.filtersOpen + '" aria-controls="rviFilters">Filters' + (n ? ' (' + n + ')' : '') + '</button>' + menu + '</div>' +
-      pillsRow() + filterPanel() + chips() +
+      pillsRow() + filterPanel() + chips() + promoBar() +
       '<div id="ticketBulkBar" class="rvi-bulk"><span id="ticketSelectedCount" style="font-size:var(--rv-text-sm);font-weight:700">0 selected</span>' +
-      w.RV.btn({ label: 'Mark resolved', size: 'sm', attrs: { 'data-act': 'bulk-resolved' } }) + w.RV.btn({ label: 'Close', size: 'sm', attrs: { 'data-act': 'bulk-closed' } }) + w.RV.btn({ label: 'Delete', size: 'sm', kind: 'danger', attrs: { 'data-act': 'bulk-delete' } }) + w.RV.btn({ label: 'Clear', size: 'sm', kind: 'ghost', attrs: { 'data-act': 'bulk-clear' } }) + '</div></div>';
+      assignSelect() + w.RV.btn({ label: 'Mark resolved', size: 'sm', attrs: { 'data-act': 'bulk-resolved' } }) + w.RV.btn({ label: 'Close', size: 'sm', attrs: { 'data-act': 'bulk-closed' } }) + w.RV.btn({ label: 'Delete', size: 'sm', kind: 'danger', attrs: { 'data-act': 'bulk-delete' } }) + w.RV.btn({ label: 'Clear', size: 'sm', kind: 'ghost', attrs: { 'data-act': 'bulk-clear' } }) + '</div></div>';
   }
 
   // ---------- render ----------
@@ -181,7 +198,7 @@
       admin ? fetch('/api/email-ticketing/status', { headers: { 'x-session-token': a.sessionToken } }).then(function (r) { return r.json(); }).catch(function () { return null; }) : Promise.resolve(null)]);
     var r = res[0];
     if (!r || !r.success) throw new Error((r && r.error) || 'tickets did not load');
-    S.counts = r.counts || {}; S.facets = r.facets || { assignees: [], teams: [], tags: [] };
+    S.counts = normCounts(r.counts); S.facets = r.facets || { assignees: [], teams: [], tags: [] };
     if (focus) { S.fAll = r.tickets || []; S.fTotal = r.total != null ? r.total : S.fAll.length; S.fResolved = null; S.tickets = S.fAll; S.total = S.fTotal; }
     else { S.tickets = r.tickets || []; S.total = r.total != null ? r.total : S.tickets.length; }
     S.statuses = (res[2] && res[2].success && res[2].statuses) ? res[2].statuses.slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); }) : [
@@ -213,7 +230,7 @@
   RVI.refresh = async function () {
     var a = A(); var r = await a.callAsync('getTickets', query());
     if (!r || !r.success) { w.RV.toast((r && r.error) || 'Could not refresh the list', 'error'); return; }
-    S.tickets = r.tickets || []; S.total = r.total != null ? r.total : S.tickets.length; S.counts = r.counts || S.counts; S.facets = r.facets || S.facets; a.allTickets = S.tickets;
+    S.tickets = r.tickets || []; S.total = r.total != null ? r.total : S.tickets.length; S.counts = r.counts ? normCounts(r.counts) : S.counts; S.facets = r.facets || S.facets; a.allTickets = S.tickets;
     var q = function (id) { return document.getElementById(id); };
     if (q('rviRows')) q('rviRows').innerHTML = listRows();
     if (q('rviViews')) q('rviViews').innerHTML = viewsPanel();
@@ -239,6 +256,58 @@
     drawConv(keepScroll);
     a.callAsync('markTicketViewed', id).then(function () { var row = document.querySelector('.rvi-row[data-ticket-id="' + id + '"]'); if (row) { row.classList.remove('is-unread'); var d = row.querySelector('.rvi-row__dot'); if (d) d.remove(); } });
   };
+  // ---------- reply helpers: waiting nudge, quick snooze, "/" for saved replies ----------
+  function waitingNudge(t) {
+    if (!t || isDone(t.status)) return '';
+    var msgs = (t.thread || []).filter(function (m) { return m.type !== 'note'; }), last = msgs[msgs.length - 1];
+    if (!last || last.type !== 'incoming' || !last.timestamp) return '';
+    var h = (Date.now() - Date.parse(last.timestamp)) / 3600000; if (!(h >= 4)) return '';
+    var txt = h >= 48 ? Math.round(h / 24) + ' days' : Math.round(h) + ' hours';
+    return '<div class="rvi-nudge" role="status"><span aria-hidden="true">&#9201;</span> <b>' + esc(String(t.fromName || 'The customer').split(' ')[0]) + ' has been waiting ' + txt + ' for a reply.</b>' + (t.slaBreached ? ' The target time has passed.' : '') + '</div>';
+  }
+  function snoozeItems(t) {
+    var id = String(t.id).replace(/[^A-Za-z0-9_-]/g, '');
+    return [{ label: 'Snooze for 3 hours', onclick: "RVI.snooze('" + id + "','3h')" }, { label: 'Snooze until tomorrow 9am', onclick: "RVI.snooze('" + id + "','tomorrow')" }, { label: 'Snooze until Monday 9am', onclick: "RVI.snooze('" + id + "','monday')" }];
+  }
+  RVI.snooze = async function (id, kind) {
+    var d = new Date(), a = A();
+    if (kind === '3h') d = new Date(Date.now() + 3 * 3600000);
+    else { d.setHours(9, 0, 0, 0); if (kind === 'monday') { do { d.setDate(d.getDate() + 1); } while (d.getDay() !== 1); } else d.setDate(d.getDate() + 1); }
+    var r = await a.callAsync('snoozeTicket', id, d.toISOString());
+    if (!r || !r.success) { fail((r && r.error) || 'Could not snooze it'); return; }
+    w.RV.toast('Snoozed until ' + d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + '. It comes back to your queue then.', 'success');
+    if (S.focus) { advance(id); } else { S.sel = null; var root = document.getElementById('rvi'); if (root) root.classList.remove('is-reading'); var cv = document.getElementById('rviConv'); if (cv) cv.innerHTML = convEmpty(); RVI.refresh(); }
+  };
+  // typing "/" at the start of a word in the reply box offers saved replies
+  var slash = { items: [], active: 0, start: 0 };
+  function slashClose() { var el = document.getElementById('rviSlash'); if (el) el.remove(); slash.items = []; }
+  async function slashUpdate(ta) {
+    var m = /(^|\s)\/([\w-]*)$/.exec(ta.value.slice(0, ta.selectionStart));
+    if (!m || S.mode === 'note') { slashClose(); return; }
+    if (!S.canned) { var cr = await A().callAsync('getCannedResponses'); S.canned = (cr && cr.responses) || []; }
+    var q = m[2].toLowerCase(); slash.start = ta.selectionStart - m[2].length - 1;
+    slash.items = (S.canned || []).filter(function (c) { return !q || (String(c.title || '') + ' ' + String(c.shortcut || '')).toLowerCase().indexOf(q) >= 0; }).slice(0, 6); slash.active = 0;
+    var box = document.getElementById('rviSlash');
+    if (!slash.items.length) { if (box) box.remove(); if (!S.canned.length) { w.RV.toast('No saved replies yet. Add some in Settings.', 'info'); } return; }
+    if (!box) { box = document.createElement('div'); box.id = 'rviSlash'; box.className = 'rvi-slash'; box.setAttribute('role', 'listbox'); ta.parentNode.insertBefore(box, ta); }
+    box.innerHTML = slash.items.map(function (c, i) { return '<button type="button" role="option" class="rvi-slash__item" data-act="slash" data-slash="' + i + '" aria-selected="' + (i === slash.active) + '"><b>' + esc(c.title || c.shortcut || 'Reply') + '</b><span>' + esc(String(c.body || c.text || c.content || '').slice(0, 80)) + '</span></button>'; }).join('');
+  }
+  function slashPick(i) {
+    var c = slash.items[i], ta = document.getElementById('replyText'); if (!c || !ta) return;
+    var body = String(c.body || c.text || c.content || ''), end = ta.selectionStart;
+    ta.value = ta.value.slice(0, slash.start) + body + ta.value.slice(end); ta.selectionStart = ta.selectionEnd = slash.start + body.length; ta.focus();
+    ta.dispatchEvent(new Event('input', { bubbles: true })); slashClose();
+  }
+  function slashKey(e) {
+    if (!slash.items.length) return false;
+    var k = e.key;
+    if (k === 'ArrowDown' || k === 'ArrowUp') { slash.active = (slash.active + (k === 'ArrowDown' ? 1 : slash.items.length - 1)) % slash.items.length; document.querySelectorAll('.rvi-slash__item').forEach(function (b, i) { b.setAttribute('aria-selected', String(i === slash.active)); }); }
+    else if (k === 'Enter' || k === 'Tab') slashPick(slash.active);
+    else if (k === 'Escape') slashClose();
+    else return false;
+    e.preventDefault(); e.stopPropagation(); return true;
+  }
+
   function threadHtml(t) {
     return (t.thread || []).map(function (m) {
       var inc = m.type === 'incoming', note = m.type === 'note', who = m.fromName || m.from || (inc ? 'Customer' : 'Agent');
@@ -264,17 +333,17 @@
       '<header class="rvi-conv__head"><button type="button" class="rv-iconbtn rvi-back" data-act="back" aria-label="Back to the ticket list">&larr;</button>' + w.RV.avatar(who0, null) +
         '<div class="rvi-conv__title"><h2 title="' + esc(t.subject) + '">' + esc(t.subject || '(No subject)') + '</h2><div class="rv-hint"><b class="rvi-conv__who">' + esc(who0) + '</b>' + (t.from && t.from !== who0 ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div></div>' +
         '<div class="rv-cluster" style="flex-wrap:nowrap">' + '<button type="button" class="rv-btn rv-btn--sm rvi-custbtn" data-act="cust" aria-label="Show customer details">Customer</button>' +
-        w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }, '-', { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }] }) + '</div></header>' +
+        w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].concat(snoozeItems(t), ['-', currentView() === 'promo' ? { label: 'This is a real customer: move to inbox', onclick: "document.querySelector('#rviMoveBack').click()" } : null, { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].filter(Boolean)) }) + '<button type="button" id="rviMoveBack" data-act="not-promo" hidden></button></div></header>' +
       '<div class="rvi-conv__bar"><select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
         '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + priOpts.map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
         '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select>' + slaChip(t) +
         '<span style="flex:1"></span>' + (['resolved', 'closed'].indexOf(t.status) < 0 ? w.RV.btn({ label: 'Resolve', kind: 'primary', size: 'sm', icon: 'check', attrs: { 'data-act': 'resolve' } }) : '') + '</div>' +
-      '<div class="rvi-thread" id="rviThread">' + thread + '</div>' +
+      waitingNudge(t) + '<div class="rvi-thread" id="rviThread">' + thread + '</div>' +
       '<div class="rvi-composer' + (isNote ? ' rvi-composer--note' : '') + '">' +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply to customer</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
         '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' +
-        '<textarea class="rv-textarea" id="replyText" aria-label="' + (isNote ? 'Internal note' : 'Reply') + '" placeholder="' + (isNote ? 'Write a note for your team...' : 'Write a reply...') + '">' + esc(draft) + '</textarea>' +
+        '<textarea class="rv-textarea" id="replyText" aria-label="' + (isNote ? 'Internal note' : 'Reply') + '" placeholder="' + (isNote ? 'Write a note for your team...' : 'Write a reply... (type / for saved replies)') + '">' + esc(draft) + '</textarea>' +
         '<div class="rv-cluster">' + (isNote ? '' : w.RV.btn({ label: 'AI suggestion', icon: 'sparkle', size: 'sm', attrs: { 'data-act': 'ai', id: 'aiSuggestTrigger_' + t.id } })) +
           w.RV.btn({ label: 'Saved replies', size: 'sm', attrs: { 'data-act': 'canned' } }) + '<span style="flex:1"></span><span class="rvi-kbdhint"><kbd class="rvi-kbd">Ctrl</kbd> <kbd class="rvi-kbd">Enter</kbd></span>' +
           w.RV.btn({ label: isNote ? 'Add note' : 'Send reply', kind: 'primary', attrs: { 'data-act': 'send', id: 'rviSend' } }) + '</div></div>';
@@ -284,6 +353,13 @@
   }
 
   // ---------- actions ----------
+  async function bulkAssign(sel) {
+    var a = A(), ids = a._selectedTickets ? Array.from(a._selectedTickets) : [], who = sel.value; if (!who || !ids.length) return;
+    if (who === '__me') who = (a.currentUser || {}).email;
+    var r = await a.callAsync('bulkAssignTickets', ids, who);
+    if (!r || !r.success) { sel.value = ''; fail((r && r.error) || 'Nothing was assigned'); return; }
+    w.RV.toast('Assigned ' + r.assigned + ' ticket' + (r.assigned === 1 ? '' : 's'), 'success'); a._selectedTickets.clear(); RVI.refresh();
+  }
   function fail(msg) { w.RV.toast(msg || 'That did not work. Nothing was changed.', 'error'); }
   // The same ticket view is shown in the three-panel inbox and in Focus mode; these two keep whichever is on screen up to date.
   function reopen(id, keep) { return S.focus ? focusOpenId(id, keep) : RVI.open(id, keep); }
@@ -344,7 +420,7 @@
     if (S.focus == null) { var v = null; try { v = localStorage.getItem('tt_inbox_focus'); } catch (e) {} S.focus = v === '1' ? true : v === '0' ? false : w.innerWidth < 720; }
     return !!S.focus;
   }
-  function focusQuery() { return { status: 'all', channel: 'all', priority: 'all', sort: 'sla', search: '', limit: 200, assignedTo: 'all', active: true }; }
+  function focusQuery() { return { status: 'all', channel: 'all', priority: 'all', sort: 'sla', search: '', limit: 200, assignedTo: 'all', active: true, promo: 'exclude' }; }
   RVI.setFocus = function (on) { S.focus = !!on; S.sel = null; S.fOpen = null; S.fTab = 'needs'; try { localStorage.setItem('tt_inbox_focus', on ? '1' : '0'); } catch (e) {} A().renderTicketInbox(); };
   RVI.leaveFocus = function () { S.focus = false; S.fOpen = null; };   // a link that names a view (dashboard) shows the full inbox
   RVI.isFocus = function () { return focusOn(); };
@@ -423,7 +499,7 @@
   async function focusRefresh() {
     var a = A(), r = await a.callAsync('getTickets', focusQuery());
     if (!r || !r.success || !document.getElementById('rvf')) return;
-    S.fAll = r.tickets || []; S.fTotal = r.total != null ? r.total : S.fAll.length; S.counts = r.counts || S.counts; S.tickets = S.fAll; a.allTickets = S.fAll;
+    S.fAll = r.tickets || []; S.fTotal = r.total != null ? r.total : S.fAll.length; S.counts = r.counts ? normCounts(r.counts) : S.counts; S.tickets = S.fAll; a.allTickets = S.fAll;
     if (S.fTab === 'resolved') await loadResolved();
     if (!S.fOpen) paintQueue(); else { var st = document.getElementById('rvfStats'); if (st) st.innerHTML = statsHtml(); }
     var badge = document.getElementById('ticketNewBadge'); if (badge) { if (S.counts.new > 0) { badge.style.display = ''; badge.textContent = S.counts.new; } else badge.style.display = 'none'; }
@@ -471,7 +547,7 @@
       '<div class="rvf-rhead"><button type="button" class="rv-btn rv-btn--ghost" data-act="fback">&larr; Queue</button><span class="rv-hint" id="rvfPos" aria-live="polite">' + (idx >= 0 ? (idx + 1) + ' of ' + n : '') + '</span><span style="flex:1"></span>' +
         '<button type="button" class="rv-iconbtn" data-act="fprev" aria-label="Previous ticket (K)"' + (idx <= 0 ? ' disabled' : '') + '>&uarr;</button>' +
         '<button type="button" class="rv-iconbtn" data-act="fnext" aria-label="Next ticket (J)"' + (idx < 0 || idx >= n - 1 ? ' disabled' : '') + '>&darr;</button>' +
-        w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + safeId + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + safeId + "')" }, '-', { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + safeId + "')" }] }) + '</div>' +
+        w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + safeId + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + safeId + "')" }].concat(snoozeItems(t), ['-', { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + safeId + "')" }]) }) + '</div>' +
       '<article class="rvf-card"><header class="rvf-card__head">' + w.RV.avatar(who, 'lg') + '<div style="flex:1;min-width:0"><h2>' + esc(t.subject || '(No subject)') + '</h2>' +
         '<div class="rv-hint"><b class="rvi-conv__who">' + esc(who) + '</b>' + (t.from && t.from !== who ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div>' +
         '<div class="rv-cluster" style="margin-top:8px">' + statusBadge(t.status) + w.RV.priority(t.priority) + slaChip(t) + (asgName ? w.RV.badge(asgName, '') : w.RV.badge('Unassigned', 'danger')) + '</div></div></header>' +
@@ -480,7 +556,7 @@
           '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + ['Critical', 'High', 'Medium', 'Low'].map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
           '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select></div></details>' +
         '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details></div>' +
-        '<div class="rvi-thread rvf-thread" id="rviThread">' + threadHtml(t) + '</div></article>' +
+        '<div class="rvi-thread rvf-thread" id="rviThread">' + threadHtml(t) + '</div></article>' + waitingNudge(t) +
       '<div class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + '">' +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
@@ -546,7 +622,7 @@
       if (!document.getElementById('rvf')) { document.removeEventListener('keydown', onKey, true); S.fKeys = false; return; }
       if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.rv-overlay')) return;
       var ae = document.activeElement, typing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable);
-      if (typing) { if (e.key === 'Escape') ae.blur(); return; }
+      if (typing) { if (e.key === 'Escape' && !document.getElementById('rviSlash')) ae.blur(); return; }
       var k = e.key, reading = !!S.fOpen, took = true;
       if (k === 'j' || (k === 'ArrowDown' && !reading)) reading ? focusStep(1) : moveFocus(1);   // arrows only move in the queue; in a ticket they scroll
       else if (k === 'k' || (k === 'ArrowUp' && !reading)) reading ? focusStep(-1) : moveFocus(-1);
@@ -591,12 +667,26 @@
       if (act === 'save-view') { w.TicketSavedViews.promptSave(); return; }
       if (act === 'bulk-resolved') { a._bulkTicketAction('status', 'resolved'); return; }
       if (act === 'bulk-closed') { a._bulkTicketAction('status', 'closed'); return; }
+      if (act === 'promo-close' || act === 'promo-block') {
+        var block = act === 'promo-block', n0 = (S.counts || {}).promo || 0;
+        var ov0 = w.RV.modal({ title: 'Close ' + n0 + ' promotions and alerts?', body: '<p style="margin:0">They are closed without emailing anyone.' + (block ? ' Their senders are also blocked, so they will not create tickets again.' : '') + ' You can still find them under Promotions and alerts.</p>',
+          foot: w.RV.btn({ label: 'Cancel', onclick: "RV.closeModal(this.closest('.rv-overlay'))" }) + w.RV.btn({ label: 'Close ' + n0, kind: 'primary', attrs: { id: 'rviPromoOk' } }) });
+        ov0.querySelector('#rviPromoOk').addEventListener('click', async function () {
+          var r0 = await a.callAsync('closePromoTickets', { blockSenders: block });
+          w.RV.closeModal(ov0);
+          if (!r0 || !r0.success) { fail((r0 && r0.error) || 'Nothing was closed'); return; }
+          w.RV.toast('Closed ' + r0.closed + ' tickets' + (block ? ' and blocked ' + r0.blocked + ' senders' : ''), 'success'); RVI.refresh();
+        });
+        return;
+      }
+      if (act === 'not-promo' && S.ticket) { var r1 = await a.callAsync('markNotPromo', S.ticket.id); if (!r1 || !r1.success) { fail('Could not move it'); return; } w.RV.toast('Moved back to your inbox', 'success'); RVI.refresh(); return; }
       if (act === 'bulk-delete') { a._bulkDeleteTickets(); return; }
       if (act === 'bulk-clear') { a._selectedTickets.clear(); document.querySelectorAll('.ticket-checkbox').forEach(function (c) { c.checked = false; }); a._updateTicketBulkBar(); return; }
       if (act === 'back') { root.classList.remove('is-reading'); S.sel = null; a._splitPaneTicketId = null; document.querySelectorAll('.rvi-row').forEach(function (r) { r.setAttribute('aria-selected', 'false'); }); return; }
       if (act === 'cust') { root.classList.toggle('rvi--cust-open'); S.custOpen = root.classList.contains('rvi--cust-open'); return; }
       if (act === 'resolve' && S.ticket) { RVI.setStatus(S.ticket.id, 'resolved', document.getElementById('c_status')); return; }
       if (act === 'mode') { var ta = document.getElementById('replyText'); if (ta && S.ticket) S.drafts[S.ticket.id + ':' + S.mode] = ta.value; S.mode = el.getAttribute('data-mode'); redraw(true); return; }
+      if (act === 'slash') { slashPick(+el.getAttribute('data-slash')); return; }
       if (act === 'expand') { var bub = el.previousElementSibling, clamped = bub.classList.toggle('is-clamped'); el.textContent = clamped ? 'Show full message' : 'Show less'; el.setAttribute('aria-expanded', String(!clamped)); return; }
       if (act === 'focus-on') { RVI.setFocus(true); return; }
       if (act === 'focus-off') { RVI.setFocus(false); return; }
@@ -618,6 +708,7 @@
       if (act === 'send') { send(); return; }
     });
     root.addEventListener('keydown', function (e) {
+      if (e.target.id === 'replyText' && slashKey(e)) return;
       var row = e.target.closest && e.target.closest('.rvi-row[data-act="open"]');
       if (row && (e.key === 'Enter' || e.key === ' ') && e.target === row) { e.preventDefault(); RVI.open(row.getAttribute('data-ticket-id')); }
       else if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && e.target === row) { var n = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling; if (n && n.classList.contains('rvi-row')) { e.preventDefault(); n.focus(); } }
@@ -625,10 +716,11 @@
     });
     root.addEventListener('input', function (e) {
       if (e.target.id === 'ticketSearch') { clearTimeout(searchTimer); var v = e.target.value; searchTimer = setTimeout(function () { A()._ticketSearch = v; change(); }, 350); }
-      else if (e.target.id === 'replyText' && S.ticket) S.drafts[S.ticket.id + ':' + S.mode] = e.target.value;
+      else if (e.target.id === 'replyText' && S.ticket) { S.drafts[S.ticket.id + ':' + S.mode] = e.target.value; slashUpdate(e.target); }
     });
     root.addEventListener('change', function (e) {
       var a = A(), el = e.target, f = el.getAttribute('data-filter'), c = el.getAttribute('data-conv');
+      if (el.getAttribute('data-bulk') === 'assign') { bulkAssign(el); return; }
       if (f) {
         var v = el.value;
         if (f === 'f_status') { a._ticketFilter = v; a._ticketSla = ''; } else if (f === 'f_priority') { a._ticketPriority = v; a._ticketActive = false; } else if (f === 'f_channel') a._ticketChannel = v;
