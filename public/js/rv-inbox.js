@@ -159,6 +159,7 @@
       '-', { label: 'Email and spam settings', onclick: "App.navigate('email-ticketing')" }, { label: 'WhatsApp settings', onclick: "App.navigate('whatsapp-settings')" }, { label: 'Queue settings', onclick: "App.navigate('settings',{tab:'queue-config'})" },
       '-', { label: 'Use the classic inbox layout', onclick: 'RVI.useClassic(true)' }].filter(Boolean) });
     return '<div class="rvi-tools"><div class="rvi-tools__head"><span class="rvi-tools__title">Tickets</span><span class="rv-hint" id="rviCount" aria-live="polite">' + S.tickets.length + ' of ' + S.total + '</span><span style="flex:1"></span>' +
+      '<button type="button" class="rv-btn rv-btn--sm rvi-viewsbtn" data-act="views-panel" title="Saved views and queue tools">Views</button>' +
       '<button type="button" class="rv-btn rv-btn--sm" data-act="focus-on" title="One calm queue, one ticket at a time">Focus mode</button></div>' +
       '<div class="rvi-tools__row"><input type="checkbox" id="selectAllTickets" data-act="checkall" aria-label="Select all tickets" style="accent-color:var(--rv-accent)">' +
       '<div style="flex:1;min-width:0">' + w.RV.search({ id: 'ticketSearch', placeholder: 'Search tickets', label: 'Search tickets', value: a._ticketSearch || '' }) + '</div>' +
@@ -566,8 +567,12 @@
   function bind(root) {
     if (!root) return;
     root.addEventListener('click', async function (e) {
+      // a click on the list or the conversation closes whichever side panel is open
+      if (!e.target.closest('.rvi-views, .rvi-cust, [data-act="views-panel"], [data-act="cust"], .rv-overlay, .rv-menu')) { root.classList.remove('rvi--views-open'); if (root.classList.contains('rvi--cust-open')) { root.classList.remove('rvi--cust-open'); S.custOpen = false; } }
       var el = e.target.closest('[data-act]'); if (!el || !root.contains(el)) return;
       var act = el.getAttribute('data-act'), a = A();
+      if (act === 'views-panel') { root.classList.toggle('rvi--views-open'); root.classList.remove('rvi--cust-open'); S.custOpen = false; return; }
+      if (act === 'view' || act === 'saved') root.classList.remove('rvi--views-open');
       if (act === 'check') { e.stopPropagation(); a._toggleTicketSelect(el.getAttribute('data-ticket-id'), el.checked); return; }
       if (act === 'checkall') { a._selectAllTickets(el.checked); return; }
       if (act === 'open') { RVI.open(el.getAttribute('data-ticket-id')); return; }

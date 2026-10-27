@@ -51,3 +51,6 @@ Route and width run (30 routes x 5 widths): same 5 findings as before this phase
 - HTML-only emails still show plain text in the thread.
 - Saved views do not store the newer filters.
 - Agent-role permissions have not been tested in Focus mode (tested as Admin).
+
+## Update 27 Oct: calmer default
+After live review ("too much on the same screen") the inbox opens as **two panels: list and conversation**. The views list (saved views, queue tools) slides in from the left with the **Views** button; the customer card slides in from the right with **Customer**. Clicking the list or conversation closes either. The view pills with counts stay above the list. Phones are unchanged.
