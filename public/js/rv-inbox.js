@@ -211,7 +211,7 @@
     var ps = res[3] && res[3].success ? res[3].status : null, down = ps && !ps.healthy && ps.failureCount >= 3 && !gmail;
     var banner = '';
     if (!enabled && !gmail) banner = w.RV.alert('warning', w.RV.icon('alert', 16) + '<span style="flex:1">' + (hasCred ? '<b>Email ticketing is switched off.</b> No new emails will be fetched.' : '<b>Email is not connected yet.</b> Connect Gmail or IMAP so customer emails arrive as tickets.') + '</span>' + w.RV.btn({ label: hasCred ? 'Switch on' : 'Connect email', size: 'sm', kind: 'primary', onclick: "App.navigate('email-ticketing')" }));
-    else if (down) banner = w.RV.alert('danger', w.RV.icon('alert', 16) + '<span style="flex:1"><b>Inbox disconnected.</b> Emails may be missed (' + esc(ps.failureCount) + ' failures' + (ps.lastError ? ': ' + esc(ps.lastError) : '') + ').</span>' + w.RV.btn({ label: 'Fix', size: 'sm', kind: 'danger', onclick: "App.navigate('email-ticketing')" }));
+    else if (down) banner = w.RV.alert('danger', w.RV.icon('alert', 16) + '<span style="flex:1"><b>Inbox disconnected.</b> New emails may not be arriving. ' + esc(ps.lastErrorFriendly || ps.lastError || '') + '</span>' + w.RV.btn({ label: 'Fix', size: 'sm', kind: 'danger', onclick: "App.navigate('email-ticketing')" }));
 
     if (focus) return drawFocus(area, banner);
     area.innerHTML = '<div class="rv rvi' + (banner ? ' rvi--banner' : '') + (S.sel ? ' is-reading' : '') + (S.custOpen ? ' rvi--cust-open' : '') + '" id="rvi">' + (banner ? '<div class="rvi-banner">' + banner + '</div>' : '') +

@@ -12214,6 +12214,21 @@ const App = {
     if (mc) { mc.scrollLeft = 0; mc.scrollTop = 0; }
   },
 
+  // Pages whose renderers refuse non-admins. Without this gate an agent who opens one (old bookmark, shared link)
+  // is left on a blank page or a spinner with a toast that disappears.
+  _adminOnlyPages: ['settings', 'user-management', 'sla-settings', 'system-settings', 'ai-intelligence', 'brand-features', 'integrations',
+    'email-ticketing', 'announcements', 'escalations', 'teams', 'platform-admin', 'cfd', 'leaderboard'],
+  _renderAdminGate() {
+    const area = document.getElementById('contentArea');
+    document.getElementById('pageTitle').textContent = 'Admins only';
+    const bc = document.getElementById('breadcrumb'); if (bc) bc.textContent = '';
+    const back = "App.navigate('ticket-inbox')";
+    const body = (window.RV && RV.empty)
+      ? RV.empty({ icon: 'lock', title: 'This area is for admins', text: 'Your role can work tickets, customers and insights. To change settings or manage the team, ask a workspace admin.', actions: RV.btn({ kind: 'primary', label: 'Back to inbox', onclick: back }) })
+      : '<div class="empty-state"><p>This area is for admins. Ask a workspace admin for access.</p><button class="btn-primary" onclick="' + back + '">Back to inbox</button></div>';
+    area.innerHTML = '<div style="padding:24px">' + body + '</div>';
+  },
+
   navigate(page, params = {}) {
     this.currentPage = page;
     
@@ -12282,6 +12297,7 @@ const App = {
     content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)"><div class="loader-bar" style="width:180px;margin:0 auto"><div class="loader-fill"></div></div></div>';
     
     this.updateMobileNav(page);
+    if (this._adminOnlyPages.indexOf(page) >= 0 && this.currentUser && this.currentUser.role !== 'Admin') { this._renderAdminGate(); return; }
     switch(page) {
       case 'dashboard': (this._isV3 && this._isV3() ? this.renderDashboardV3() : (this.renderNovaBentoDashboard ? this.renderNovaBentoDashboard() : this.renderDashboard())); break;
       case 'create-issue': this.renderCreateIssue(params); break;
@@ -13761,7 +13777,7 @@ const App = {
               </div>
               <div class="form-grid form-grid-2">
                 <div class="form-group"><label class="form-label">Role</label>
-                  <select id="uRole" class="form-select"><option>Admin</option><option selected>Developer</option><option>CS</option><option>Sales</option><option>QA</option><option>Product</option></select>
+                  <select id="uRole" class="form-select"><option>Admin</option><option>Manager</option><option>Agent</option><option selected>Developer</option><option>CS</option><option>Sales</option><option>QA</option><option>Product</option></select>
                 </div>
                 <div class="form-group"><label class="form-label">Team</label><input id="uTeam" class="form-input" placeholder="Engineering"></div>
               </div>
@@ -13826,7 +13842,7 @@ const App = {
               <div class="form-group"><label class="form-label">Full Name</label><input id="euName" class="form-input" value="${this._esc(user.name||'')}"></div>
               <div class="form-grid form-grid-2">
                 <div class="form-group"><label class="form-label">Role</label>
-                  <select id="euRole" class="form-select">${['Admin','Developer','CS','Sales','QA','Product'].map(r=>`<option ${r===user.role?'selected':''}>${r}</option>`).join('')}</select>
+                  <select id="euRole" class="form-select">${['Admin','Manager','Agent','Developer','CS','Sales','QA','Product'].concat(['Admin','Manager','Agent','Developer','CS','Sales','QA','Product'].indexOf(user.role) < 0 && user.role ? [user.role] : []).map(r=>`<option ${r===user.role?'selected':''}>${this._esc(r)}</option>`).join('')}</select>
                 </div>
                 <div class="form-group"><label class="form-label">Team</label><input id="euTeam" class="form-input" value="${this._esc(user.team||'')}"></div>
               </div>
@@ -15259,7 +15275,7 @@ const App = {
         <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px;">Share a link — anyone with it can join your workspace without being manually added.</p>
         <div class="form-grid form-grid-2">
           <div class="form-group"><label class="form-label">Role for new member</label>
-            <select id="invRole" class="form-select"><option value="Developer">Developer</option><option value="CS">CS</option><option value="QA">QA</option><option value="Sales">Sales</option><option value="Product">Product</option></select>
+            <select id="invRole" class="form-select"><option value="Agent">Agent</option><option value="Manager">Manager</option><option value="Developer">Developer</option><option value="CS">CS</option><option value="QA">QA</option><option value="Sales">Sales</option><option value="Product">Product</option></select>
           </div>
           <div class="form-group"><label class="form-label">Expires in (hours)</label>
             <select id="invExpiry" class="form-select"><option value="24">24 hours</option><option value="48" selected>48 hours</option><option value="168">7 days</option><option value="720">30 days</option></select>
@@ -18450,11 +18466,11 @@ const App = {
             '</div>',
             App._sRow('Enable Email Ticketing','Monitor inbox and auto-create tickets',
               '<input type="checkbox" id="et_enabled" '+(etON?'checked':'')+' style="width:18px;height:18px;accent-color:var(--accent);">'),
-            App._sRow('IMAP Host','Gmail: imap.gmail.com · Outlook: outlook.office365.com',
+            App._sRow('Inbox Email','The support address customers write to',
+              '<input id="et_user" type="email" class="form-input" style="width:230px;" placeholder="support@yourcompany.com" onchange="App._detectEmailHost()" value="'+App._esc(ec.user||'')+'">'),
+            App._sRow('Mail server (IMAP host)','<span id="et_hostnote">Filled in for you when you enter the email address. Gmail: imap.gmail.com</span>',
               '<input id="et_host" class="form-input" style="width:230px;" value="'+App._esc(ec.host||'imap.gmail.com')+'">'),
-            App._sRow('Inbox Email','The email address to monitor',
-              '<input id="et_user" type="email" class="form-input" style="width:230px;" value="'+App._esc(ec.user||'')+'">'),
-            App._sRow('App Password','Gmail: use App Password from myaccount.google.com/apppasswords',
+            App._sRow('App Password','Gmail and Google Workspace need an App Password, not your normal password (create one at myaccount.google.com/apppasswords). Other providers: your mailbox password.',
               '<input id="et_pass" type="password" class="form-input" style="width:230px;" placeholder="'+(ec.pass?'(saved — leave blank to keep)':'Gmail App Password')+'">'),
             App._sRow('Poll Every','How often to check for new emails',
               '<select id="et_interval" class="form-select" style="width:120px;">'+[2,5,10,15,30].map(function(n){return '<option value="'+n+'"'+((ec.intervalMinutes||5)==n?' selected':'')+'>'+n+' min</option>';}).join('')+'</select>'),
@@ -21923,6 +21939,8 @@ const App = {
           </div>
 
           <div id="waTwilioPanel">
+          <!-- Twilio setup guide: live progress, filled in by _loadWhatsAppSetup() -->
+          <div id="waSetup" style="margin-bottom:16px;"></div>
           <!-- Enable toggle -->
           <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -21960,17 +21978,7 @@ const App = {
             </div>
           </div>
 
-          <!-- Twilio setup guide -->
-          <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:18px;margin-bottom:20px;">
-            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;">📋 Twilio Setup (one-time, takes a few minutes)</div>
-            <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-              <li style="font-size:12px;color:var(--text-secondary);">Sign up free at <strong>twilio.com</strong> → go to Messaging → Try WhatsApp (or connect a real WhatsApp Business number for production)</li>
-              <li style="font-size:12px;color:var(--text-secondary);">Copy your <strong>Account SID</strong>, <strong>Auth Token</strong>, and <strong>WhatsApp number</strong> into the fields above → Save</li>
-              <li style="font-size:12px;color:var(--text-secondary);">In Twilio's WhatsApp Sandbox/Sender settings → paste the Webhook URL above as <strong>When a message comes in</strong></li>
-              <li style="font-size:12px;color:var(--text-secondary);">Done ✅ — no server access needed, this is fully self-serve per brand</li>
-            </ol>
-            ${cfg.usingPlatformDefault?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(99,102,241,.15);font-size:11px;color:var(--text-dim);">ℹ️ No credentials saved yet for this brand — currently falling back to the platform's shared test account, if one is configured.</div>`:''}
-          </div>
+          ${cfg.usingPlatformDefault?`<div style="margin:-8px 0 20px;font-size:11px;color:var(--text-dim);">ℹ️ No credentials saved yet for this brand — currently falling back to the platform's shared test account, if one is configured.</div>`:''}
 
           <!-- Save button -->
           <div style="display:flex;gap:10px;">
@@ -21983,6 +21991,7 @@ const App = {
         </div>`;
 
       self._loadWhatsAppCloudPanel();
+      self._loadWhatsAppSetup();
 
       // Toggle knob animation
       var cb = document.getElementById('wa_enabled');
@@ -21992,6 +22001,48 @@ const App = {
         knob.style.transform = this.checked ? 'translateX(20px)' : 'translateX(0)';
         if (track) track.style.background = this.checked ? '#25D366' : '#374151';
       });
+    },
+
+    // Checklist for connecting WhatsApp through Twilio: what is done, what is next, and what to expect while waiting.
+    _loadWhatsAppSetup: async function() {
+      var self = this, box = document.getElementById('waSetup');
+      if (!box) return;
+      var s = await self.callAsync('getWhatsAppSetupStatus');
+      if (!s || !s.success) { box.innerHTML = ''; return; }
+      var v = s.verified, got = !!s.lastInboundAt;
+      function when(iso) { try { var d = new Date(iso), m = Math.round((Date.now() - d.getTime()) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : d.toLocaleDateString(); } catch (e) { return ''; } }
+      function row(state, title, text, action) {
+        var ic = state === 'done' ? '<span style="width:22px;height:22px;border-radius:50%;background:#25D366;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">✓</span>'
+          : state === 'error' ? '<span style="width:22px;height:22px;border-radius:50%;background:var(--critical);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">!</span>'
+          : state === 'wait' ? '<span style="width:22px;height:22px;border-radius:50%;border:2px solid #25D366;display:inline-block;flex-shrink:0;box-sizing:border-box;"></span>'
+          : '<span style="width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:inline-block;flex-shrink:0;box-sizing:border-box;"></span>';
+        return '<div style="display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--border);">' + ic +
+          '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + title + '</div>' +
+          (text ? '<div style="font-size:12px;color:' + (state === 'error' ? 'var(--critical)' : 'var(--text-dim)') + ';margin-top:2px;line-height:1.5;">' + text + '</div>' : '') + '</div>' + (action || '') + '</div>';
+      }
+      var btn = function (label, fn) { return '<button onclick="' + fn + '" class="btn-secondary btn-sm" style="align-self:flex-start;white-space:nowrap;">' + label + '</button>'; };
+      var done = [s.hasCreds, s.hasCreds && v && v.ok, s.hasNumber, got].filter(Boolean).length;
+      box.innerHTML = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;"><div style="font-size:14px;font-weight:700;color:var(--text-primary);">Setup progress</div><div style="font-size:12px;color:var(--text-dim);">' + done + ' of 4 done</div></div>' +
+        row(s.hasCreds ? 'done' : 'todo', 'Create a Twilio account', s.hasCreds ? 'Account details saved.' : 'Sign up at twilio.com (free). Then open <b>Messaging → Try it out → Send a WhatsApp message</b> to turn on the WhatsApp sandbox. From the Twilio console home page, copy your <b>Account SID</b> and <b>Auth Token</b>, paste them above and press Save Settings.') +
+        row(!s.hasCreds ? 'todo' : v ? (v.ok ? 'done' : 'error') : 'wait', 'Check that Twilio accepts your details',
+          !s.hasCreds ? 'Save your Account SID and Auth Token first.' : v ? (v.ok ? 'Connected to Twilio account “' + self._esc(v.name || '') + '” (' + self._esc(v.accountType || 'account') + (v.accountType === 'Trial' ? ', trial: can only message numbers you have verified in Twilio' : '') + '). Checked ' + when(v.at) + '.' : self._esc(v.error || 'Twilio did not accept the details.')) : 'Not checked yet.',
+          s.hasCreds ? btn(v ? 'Check again' : 'Check connection', 'App._checkWhatsAppConnection(this)') : '') +
+        row(s.hasNumber ? 'done' : 'todo', 'Add your WhatsApp number', s.hasNumber ? 'Number saved' + (s.isSandbox ? ' (this is the shared Twilio sandbox number, fine for testing)' : '') + '.' : 'Enter the WhatsApp number in international format, for example +14155238886 for the Twilio sandbox, then press Save Settings.') +
+        row(got ? 'done' : (s.hasCreds && s.hasNumber ? 'wait' : 'todo'), 'Connect Twilio to Resolvo, then send a test message',
+          got ? 'Working. The last message arrived ' + when(s.lastInboundAt) + '; ' + s.inboundCount + ' received so far.' : 'In the Twilio console, open the WhatsApp sandbox settings and paste the webhook address below into <b>When a message comes in</b> (method POST) and save. Then send “hello” from your own phone to the WhatsApp number. It appears here as a ticket within seconds.',
+          btn('Refresh', 'App._loadWhatsAppSetup()')) +
+        '<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;display:grid;gap:12px;">' +
+          '<div><div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">Sandbox now, your own number later</div><div style="font-size:12px;color:var(--text-dim);line-height:1.6;">The Twilio sandbox works in minutes and is the quickest way to see Resolvo handle a WhatsApp chat. Each person who messages it has to join first by sending the “join …” code from the Twilio console, so it is for testing only. To talk to real customers you need your own WhatsApp Business number: Twilio and Meta ask for business verification, which usually takes 1 to 3 working days. Start on the sandbox while that is approved.</div></div>' +
+          '<div><div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">Rules WhatsApp enforces</div><div style="font-size:12px;color:var(--text-dim);line-height:1.6;">You can reply freely for 24 hours after a customer’s last message. After that WhatsApp only allows pre-approved template messages, and Resolvo will tell you when a chat is past that point. Customers can always write to you first.</div></div>' +
+        '</div></div>';
+    },
+
+    _checkWhatsAppConnection: async function(btnEl) {
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Checking…'; }
+      var r = await App.callAsync('verifyWhatsAppTwilio');
+      if (r && !r.success) App.showToast(r.error || 'Could not check', 'error');
+      await App._loadWhatsAppSetup();
     },
 
     _saveWhatsAppInteg2: async function() {
@@ -22437,14 +22488,34 @@ const App = {
       var data = await res.json();
       if (resultEl) {
         if (data.success) {
-          resultEl.innerHTML = '<div style="padding:10px 14px;background:var(--low-dim);border:1px solid var(--low);border-radius:6px;font-size:13px;color:var(--low);">✓ '+data.message+'</div>';
+          resultEl.innerHTML = '<div id="etOk" style="padding:10px 14px;background:var(--low-dim);border:1px solid var(--low);border-radius:6px;font-size:13px;color:var(--low);">✓ '+self._esc(data.message||'Connected.')+' Click Save Email Settings to start receiving tickets.</div>';
         } else {
-          resultEl.innerHTML = '<div style="padding:10px 14px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:6px;font-size:13px;color:var(--critical);">✗ '+data.error+'</div>';
+          var steps = (data.steps||[]).map(function(s){ return '<li style="margin-top:4px;">'+self._esc(s)+'</li>'; }).join('');
+          resultEl.innerHTML = '<div id="etFail" style="padding:12px 14px;background:var(--critical-dim);border:1px solid var(--critical);border-radius:6px;font-size:13px;color:var(--text-primary);">'+
+            '<div style="font-weight:700;color:var(--critical);">✗ '+self._esc(data.error||'Connection failed')+'</div>'+
+            (steps ? '<div style="margin-top:6px;color:var(--text-secondary);">How to fix it:</div><ul style="margin:4px 0 0 18px;padding:0;color:var(--text-secondary);line-height:1.5;">'+steps+'</ul>' : '')+
+            (data.detail ? '<details style="margin-top:8px;font-size:11px;color:var(--text-dim);"><summary style="cursor:pointer;">Technical details</summary><code style="word-break:break-all;">'+self._esc(data.detail)+'</code></details>' : '')+
+          '</div>';
         }
       }
     } catch(e) {
-      if (resultEl) resultEl.innerHTML = '<div style="padding:10px 14px;background:var(--critical-dim);border-radius:6px;font-size:13px;color:var(--critical);">✗ '+e.message+'</div>';
+      if (resultEl) resultEl.innerHTML = '<div style="padding:10px 14px;background:var(--critical-dim);border-radius:6px;font-size:13px;color:var(--critical);">✗ Could not reach Resolvo to run the test. Check your internet connection and try again.</div>';
     }
+  },
+
+  // Fill the IMAP host from the inbox address so nobody has to know what "IMAP host" means.
+  _detectEmailHost: async function() {
+    var self = this, u = document.getElementById('et_user'), h = document.getElementById('et_host');
+    if (!u || !h || !/^\S+@\S+\.\S+$/.test(u.value.trim())) return;
+    try {
+      var r = await fetch('/api/email-ticketing/detect', { method:'POST', headers:{'Content-Type':'application/json','x-session-token':localStorage.getItem('tt_session_token')||''}, body:JSON.stringify({email:u.value.trim()}) });
+      var d = await r.json();
+      if (d && d.success && d.host) {
+        h.value = d.host;
+        var note = document.getElementById('et_hostnote');
+        if (note) note.textContent = d.certain ? 'Detected '+d.provider+'. We filled in the mail server for you.' : 'We guessed the mail server from your domain. Check it with your email provider if the test fails.';
+      }
+    } catch (e) {}
   },
 
   _gmailDisconnect: async function() {

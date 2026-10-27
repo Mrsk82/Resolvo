@@ -2022,13 +2022,17 @@ app.post('/api/call',async(req,res)=>{
       // on the brand's chosen provider — send first so a failure (e.g. not
       // configured) is reported instead of silently no-op'ing.
       if(!isNote&&ticket.channel==='whatsapp'){
+        // WhatsApp rejects free-form replies once 24h have passed since the customer's last message. Say so up front,
+        // instead of letting the provider fail with a numeric code.
+        const lastIn=[...(ticket.thread||[])].reverse().find(m=>m.type==='incoming'),lastAt=lastIn?Date.parse(lastIn.timestamp):NaN;
+        if(!isNaN(lastAt)&&Date.now()-lastAt>24*3600000)return{success:false,code:'wa_window',error:explainWhatsAppError({code:'63016'}).message};
         if((db.whatsappProvider||'twilio')==='cloud'){
           const cloudCfg=db.whatsappCloudConfig||{};
           if(!cloudCfg.phoneNumberId||!cloudCfg.accessTokenRef)return{success:false,error:'WhatsApp (Meta Direct) not configured for this brand. Connect it in Settings first.'};
           const accessToken=Social.decryptSecret(cloudCfg.accessTokenRef);
           const to=ticket.whatsappFrom||_normalizeWaNumber(ticket.from).replace(/^\+/,'');
           const result=await Social.adapters['whatsapp-cloud'].sendMessage({phoneNumberId:cloudCfg.phoneNumberId,accessToken,to,text:replyText});
-          if(result.status!=='SENT')return{success:false,error:'WhatsApp send failed: '+(result.error||'unknown error')};
+          if(result.status!=='SENT'){const x=explainWhatsAppError({message:result.error,code:result.code});return{success:false,code:x.code,error:x.message};}
         }else{
           const waCfg=db.whatsappConfig||{};
           const accountSid=waCfg.accountSid||process.env.TWILIO_ACCOUNT_SID;
@@ -2038,7 +2042,7 @@ app.post('/api/call',async(req,res)=>{
           try{
             const twilio=require('twilio')(accountSid,authToken);
             await twilio.messages.create({from:`whatsapp:${_normalizeWaNumber(fromNumber)}`,to:ticket.from,body:replyText});
-          }catch(e){return{success:false,error:'WhatsApp send failed: '+e.message};}
+          }catch(e){const x=explainWhatsAppError(e);return{success:false,code:x.code,error:x.message};}
         }
       }
       if(!isNote&&ticket.channel==='sms'){
@@ -3637,6 +3641,33 @@ app.post('/api/call',async(req,res)=>{
         _socialAudit(slug,su.email,'account_connect_failed',{platform:'telegram',error:e.message});
         return{success:false,error:e.message.includes('Unauthorized')?'Invalid bot token — copy it again from @BotFather.':e.message};
       }
+    },
+    // ── WhatsApp (Twilio) setup progress ────────────────────────────────────
+    // Local state only (no network): which setup steps are done, so the settings page can show a checklist.
+    getWhatsAppSetupStatus:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB(),cfg=db.whatsappConfig||{},st=db.whatsappStatus||{};
+      const hasCreds=!!(cfg.accountSid&&cfg.authToken),num=_normalizeWaNumber(cfg.number);
+      return{success:true,
+        hasCreds,hasNumber:/^\+?\d{8,15}$/.test(num),enabled:!!cfg.enabled,
+        isSandbox:num.replace('+','')==='14155238886',
+        verified:st.verified||null,lastInboundAt:st.lastInboundAt||null,inboundCount:st.inboundCount||0,
+        webhookUrl:`${BASE_URL}/api/whatsapp/webhook`};
+    },
+    // Asks Twilio whether the saved Account SID and Auth Token work (one small read-only call, on click only).
+    verifyWhatsAppTwilio:async()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB(),cfg=db.whatsappConfig||{};
+      if(!cfg.accountSid||!cfg.authToken)return{success:false,error:'Save your Twilio Account SID and Auth Token first, then check the connection.'};
+      let out;
+      try{
+        const acct=await Promise.race([require('twilio')(cfg.accountSid,cfg.authToken).api.accounts(cfg.accountSid).fetch(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timed out talking to Twilio')),12000))]);
+        out={ok:true,at:nowIST(),accountStatus:acct.status,accountType:acct.type,name:acct.friendlyName};
+      }catch(e){
+        out={ok:false,at:nowIST(),error:explainWhatsAppError(e).message};
+      }
+      const db2=rDB();db2.whatsappStatus={...(db2.whatsappStatus||{}),verified:out};wDB(db2);
+      return{success:true,verified:out};
     },
     // ── WhatsApp direct-Meta ("Tech Provider") integration ──────────────────
     // Alternative to the Twilio-based WhatsApp above — see
@@ -8095,6 +8126,56 @@ async function _doPollBrandInbox(slug) {
   });
 }
 
+// ── Plain-language mail errors ────────────────────────────────────────────
+// IMAP/network errors are written for developers ("Invalid credentials (Failure)"). A support lead connecting
+// their first inbox needs to know what to change. Returns { kind, message, steps[] }; the raw text stays in the logs.
+function explainMailError(raw, host, user) {
+  const e = String(raw || ''), h = String(host || '').toLowerCase(), isGmail = /gmail|googlemail/.test(h), isMs = /office365|outlook|hotmail|live\.com/.test(h);
+  const mk = (kind, message, steps) => ({ kind, message, steps: steps || [] });
+  if (/ENOTFOUND|EAI_AGAIN/i.test(e)) return mk('host', `We could not find a mail server called "${host || ''}".`, ['Check the spelling of the IMAP host.', 'Gmail and Google Workspace: imap.gmail.com. Microsoft 365: outlook.office365.com. Zoho: imap.zoho.in or imap.zoho.com.']);
+  if (/ECONNREFUSED/i.test(e)) return mk('port', 'The mail server refused the connection.', ['Use port 993 with SSL.', 'Check the host name with your email provider.']);
+  if (/Application-specific password|app password|WEBALERT|web login required/i.test(e) || (isGmail && /Invalid credentials|AUTHENTICATIONFAILED|authentication failed|LOGIN failed/i.test(e)))
+    return mk('app-password', 'Google did not accept that password. Gmail needs an App Password, not your normal Google password.', ['Turn on 2-Step Verification in your Google account.', 'Open myaccount.google.com/apppasswords, create an App Password and paste the 16 characters here.', 'In Gmail, open Settings, then Forwarding and POP/IMAP, and make sure IMAP is enabled.', 'On Google Workspace, your admin may need to allow App Passwords. One-click "Connect Gmail Account" above avoids this.']);
+  if (/IMAP.*(disabled|not enabled)|disabled for this/i.test(e)) return mk('imap-off', 'IMAP access is switched off for this mailbox.', ['Turn on IMAP in your email provider\'s settings, then test again.']);
+  if (/Invalid credentials|AUTHENTICATIONFAILED|authentication failed|LOGIN failed|NO \[AUTH|Logon failure|invalid password/i.test(e)) {
+    if (isMs) return mk('auth', 'Microsoft did not accept the sign-in.', ['Many Microsoft 365 workspaces have password sign-in for IMAP turned off. Ask your admin to enable IMAP, or forward this mailbox to a Gmail address and connect that.', 'Check the email address and password.']);
+    return mk('auth', 'The email address or password was not accepted.', ['Check both for typos. Passwords are case sensitive.', 'Some providers need an app-specific password for third-party apps. Look for "app password" in your provider\'s security settings.', 'Check that IMAP is enabled for the mailbox.']);
+  }
+  if (/ETIMEDOUT|timed out|timeout|Timed out/i.test(e)) return mk('timeout', 'The mail server did not answer in time.', ['Check the host name and use port 993.', 'Try again in a minute. If it keeps happening, your provider may be blocking the connection.']);
+  if (/certificate|self.signed|SSL|TLS|wrong version number|EPROTO/i.test(e)) return mk('tls', 'The secure connection to the mail server failed.', ['Use port 993 (SSL). Port 143 is not supported here.', 'Check the host name with your email provider.']);
+  if (/throttl|too many|rate.?limit/i.test(e)) return mk('throttle', 'The mail provider is limiting sign-ins for a while.', ['Wait about 10 minutes and test again.']);
+  return mk('other', 'We could not connect to the mailbox.', ['Check the host, email address and password, then test again.', 'If it still fails, write to contact@resolvogroup.com and we will help you connect it.']);
+}
+// Twilio and Meta report WhatsApp problems as numeric codes. Say what happened and what to do in plain words.
+function explainWhatsAppError(err) {
+  const code = String((err && (err.code || err.status)) || ''), msg = String((err && err.message) || err || '');
+  const mk = (c, message) => ({ code: c, message });
+  if (code === '63016' || /outside the allowed window|131047|re-?engage|24 ?hours?/i.test(msg)) return mk('wa_window', 'WhatsApp only lets you send a free-form reply within 24 hours of the customer\'s last message, and this chat is older. Wait for the customer to write again, or reach them by email or phone.');
+  if (code === '63015' || /sandbox/i.test(msg)) return mk('wa_sandbox', 'This customer has not joined your WhatsApp sandbox. In the sandbox, each phone must first send the "join ..." code shown in your Twilio console. Use your own WhatsApp number to message real customers.');
+  if (['63007', '63005', '63003', '63006'].includes(code) || /Channel .* not found|could not find a Channel/i.test(msg)) return mk('wa_sender', 'Twilio does not recognise the WhatsApp number saved here as a sender. Copy the number exactly as it appears in your Twilio WhatsApp sender settings, with the country code.');
+  if (code === '20003' || code === '401' || /authenticate|Authentication Error|invalid username/i.test(msg)) return mk('wa_auth', 'Twilio did not accept the Account SID or Auth Token. Copy both again from the Twilio console home page and save.');
+  if (code === '21608') return mk('wa_trial', 'Your Twilio account is still a trial, and trial accounts can only message phone numbers verified in Twilio. Upgrade the Twilio account to message anyone.');
+  if (code === '21211' || code === '21614' || code === '63024') return mk('wa_number', 'That does not look like a valid WhatsApp number for this customer.');
+  if (/ENOTFOUND|ETIMEDOUT|ECONNRESET|Timed out/i.test(msg)) return mk('wa_network', 'Could not reach Twilio just now. Try again in a minute.');
+  return mk('wa_other', 'WhatsApp could not send this message' + (msg ? ': ' + msg : '.'));
+}
+// Best-guess IMAP host for an address. Well-known domains first, then the domain's MX record (covers Google Workspace,
+// Zoho and Titan on a company's own domain, which is what most small teams use).
+const _IMAP_BY_DOMAIN = { 'gmail.com': 'imap.gmail.com', 'googlemail.com': 'imap.gmail.com', 'outlook.com': 'outlook.office365.com', 'hotmail.com': 'outlook.office365.com', 'live.com': 'outlook.office365.com', 'yahoo.com': 'imap.mail.yahoo.com', 'yahoo.in': 'imap.mail.yahoo.com', 'zoho.com': 'imap.zoho.com', 'zohomail.in': 'imap.zoho.in' };
+const _IMAP_BY_MX = [[/google\.com$|googlemail\.com$/i, 'imap.gmail.com', 'Google Workspace'], [/outlook\.com$|protection\.outlook/i, 'outlook.office365.com', 'Microsoft 365'], [/zoho\.in$/i, 'imap.zoho.in', 'Zoho Mail'], [/zoho\.(com|eu)$/i, 'imap.zoho.com', 'Zoho Mail'], [/titan\.email$/i, 'imap.titan.email', 'Titan'], [/hostinger\.com$/i, 'imap.hostinger.com', 'Hostinger'], [/yahoodns\.net$/i, 'imap.mail.yahoo.com', 'Yahoo']];
+async function guessImapHost(email) {
+  const domain = String(email || '').split('@')[1] ? String(email).split('@')[1].trim().toLowerCase() : '';
+  if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return null;
+  if (_IMAP_BY_DOMAIN[domain]) return { host: _IMAP_BY_DOMAIN[domain], provider: domain, certain: true };
+  try {
+    const dnsP = require('dns').promises, withTimeout = (p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('dns timeout')), 4000))]);
+    // The system resolver can be unreachable (some hosts and sandboxes); retry through public resolvers before giving up.
+    const mx = await withTimeout(dnsP.resolveMx(domain)).catch(() => { const r = new dnsP.Resolver(); r.setServers(['8.8.8.8', '1.1.1.1']); return withTimeout(r.resolveMx(domain)); });
+    for (const rec of (mx || []).sort((a, b) => a.priority - b.priority)) for (const [re, host, name] of _IMAP_BY_MX) if (re.test(rec.exchange || '')) return { host, provider: name, certain: true };
+    return { host: 'imap.' + domain, provider: domain, certain: false };
+  } catch (e) { return { host: 'imap.' + domain, provider: domain, certain: false }; }
+}
+
 // ── Poller health tracking — alert owner after 3 consecutive failures ─────
 const _pollerFailures = {}; // slug → { count, lastError, lastAlertAt, lastSuccess, lastPollAt }
 function recordPollerFailure(slug, errorMsg) {
@@ -8875,6 +8956,10 @@ app.post('/api/whatsapp/config',(req,res)=>{
     // keep existing token if a masked placeholder comes back unchanged
     authToken:(authToken&&!authToken.startsWith('•'))?authToken.trim():(existing.authToken||'')
   };
+  // A new SID/token has not been checked against Twilio yet, so drop the old "connected" result.
+  if(db.whatsappStatus&&(existing.accountSid!==db.whatsappConfig.accountSid||existing.authToken!==db.whatsappConfig.authToken))db.whatsappStatus={...db.whatsappStatus,verified:null};
+  // A different number has not received anything yet either.
+  if(db.whatsappStatus&&_normalizeWaNumber(existing.number)!==_normalizeWaNumber(db.whatsappConfig.number))db.whatsappStatus={...db.whatsappStatus,lastInboundAt:null,inboundCount:0};
   // also write to features so webhook handler picks it up
   db.features=db.features||{};
   db.features.whatsapp=!!enabled;
@@ -8922,18 +9007,40 @@ app.get('/api/email-ticketing/status', (req, res) => {
   const healthy = isRunning && f.count === 0;
   const lastSuccessAgo = f.lastSuccess ? Math.round((Date.now() - f.lastSuccess) / 1000) : null;
   const lastPollAgo = f.lastPollAt ? Math.round((Date.now() - f.lastPollAt) / 1000) : null;
-  res.json({ success: true, status: { healthy, isRunning, failureCount: f.count, lastError: f.lastError, lastSuccessAgo, lastPollAgo } });
+  const cfg = readBrandDB(slug).emailTicketing || {};
+  const friendly = f.lastError ? explainMailError(f.lastError, cfg.host, cfg.user) : null;
+  res.json({ success: true, status: { healthy, isRunning, failureCount: f.count, lastError: f.lastError, lastErrorFriendly: friendly && friendly.message, lastErrorSteps: friendly ? friendly.steps : [], lastSuccessAgo, lastPollAgo } });
+});
+
+// API: work out the IMAP host from the inbox address (Gmail, Workspace, Zoho, Titan, Microsoft...)
+app.post('/api/email-ticketing/detect', async (req, res) => {
+  const su = getSessionUser(req);
+  if (!su || su.role !== 'Admin') return res.json({ success: false, error: 'Admin only' });
+  const g = await guessImapHost((req.body || {}).email);
+  res.json(g ? { success: true, ...g } : { success: false, error: 'Enter a full email address first.' });
 });
 
 app.post('/api/email-ticketing/test', async (req, res) => {
   const su = getSessionUser(req);
   if (!su || su.role !== 'Admin') return res.json({ success: false, error: 'Admin only' });
-  const { host, port, user, pass, tls } = req.body;
+  const body = req.body || {};
+  const saved = (readBrandDB(su.brandSlug).emailTicketing) || {};
+  const host = String(body.host || '').trim() || 'imap.gmail.com', user = String(body.user || '').trim();
+  // A blank password box means "use the one already saved" (the settings page says "leave blank to keep").
+  const rawPass = body.pass && !String(body.pass).startsWith('•') ? String(body.pass) : (saved.user === user ? saved.pass || '' : '');
+  const pass = rawPass.replace(/\s/g, '');
+  if (!user || !/^\S+@\S+\.\S+$/.test(user)) return res.json({ success: false, kind: 'input', error: 'Enter the full email address of the inbox you want to connect.', steps: [] });
+  if (!pass) return res.json({ success: false, kind: 'input', error: 'Enter the password for this inbox. For Gmail, use an App Password.', steps: ['Gmail: create one at myaccount.google.com/apppasswords (2-Step Verification must be on).'] });
   const Imap = require('imap');
-  const imap = new Imap({ user, password: pass.replace(/\s/g,''), host: host||'imap.gmail.com', port: port||993, tls: tls!==false, tlsOptions:{rejectUnauthorized:false}, authTimeout:10000, connTimeout:15000 });
-  const timeout = setTimeout(() => { try{imap.end();}catch(e){} res.json({success:false,error:'Connection timed out (15s)'}); }, 16000);
-  imap.once('ready', () => { clearTimeout(timeout); imap.end(); res.json({success:true,message:'Connection successful! IMAP credentials are valid.'}); });
-  imap.once('error', (e) => { clearTimeout(timeout); res.json({success:false,error:e.message}); });
+  let finished = false;
+  const finish = (payload) => { if (finished) return; finished = true; clearTimeout(timeout); try { imap.end(); } catch (e) {} res.json(payload); };
+  const fail = (raw) => { const x = explainMailError(raw, host, user); console.warn(`[EmailTest] ${su.brandSlug} ${host}: ${raw}`); finish({ success: false, kind: x.kind, error: x.message, steps: x.steps, detail: String(raw || '') }); };
+  let imap;
+  try { imap = new Imap({ user, password: pass, host, port: parseInt(body.port) || 993, tls: body.tls !== false, tlsOptions: { rejectUnauthorized: false }, authTimeout: 10000, connTimeout: 15000 }); }
+  catch (e) { return res.json({ success: false, kind: 'other', error: 'We could not start the connection test.', steps: [], detail: e.message }); }
+  const timeout = setTimeout(() => fail('Timed out while connecting (15s)'), 16000);
+  imap.once('ready', () => imap.openBox('INBOX', true, (err, box) => finish({ success: true, message: err ? 'Signed in. We could not open the INBOX folder, so check the folder name.' : `Connected. Signed in as ${user}${box ? ' and found ' + box.messages.total + ' messages in the inbox' : ''}.` })));
+  imap.once('error', (e) => fail(e && e.message));
   imap.connect();
 });
 
@@ -8951,7 +9058,7 @@ app.post('/api/email-ticketing/poll', async (req, res) => {
 app.post('/api/email-ticketing/reply', async (req, res) => {
   const su = getSessionUser(req);
   if (!su) return res.json({ success: false, error: 'Not logged in' });
-  if (!['Admin','CS','Developer'].includes(su.role)) return res.json({ success: false, error: 'Not authorised to send email replies' });
+  if (!['Admin','Manager','Agent','CS','Developer','Dev'].includes(su.role)) return res.json({ success: false, error: 'Not authorised to send email replies' });
   const { issueId, replyText } = req.body;
   const db = readBrandDB(su.brandSlug);
   const issue = (db.tickets || []).find(i => i.id === issueId) || (db.issues || []).find(i => i.id === issueId);
@@ -11421,11 +11528,14 @@ function _linkedIdentifiersFor(db,identifier){
 // misconfigured) — the ticket still gets created either way.
 async function handleIncomingWhatsAppMessage(brandSlug,{from,body,profileName,waId},sendBotReply){
   const db=readBrandDB(brandSlug);
+  // Remember that this number really receives messages (before any filtering), so the setup checklist can show it working.
+  {const s=db.whatsappStatus||{};db.whatsappStatus={...s,lastInboundAt:nowIST(),inboundCount:(s.inboundCount||0)+1};}
   const existingIdx=(db.tickets||[]).findIndex(t=>t.whatsappFrom===waId&&t.status==='open');
   // Spam/flood guard only applies to brand-new conversations — an ongoing
   // thread with a real customer should never be silently dropped.
   if(existingIdx<0&&isChannelSpam(db,from,body,'whatsapp')){
     console.log(`[WhatsApp] Dropped spam/duplicate from ${from} (${brandSlug})`);
+    try{writeBrandDB(brandSlug,db);}catch(e){}
     return;
   }
   const ticketId=existingIdx>=0?db.tickets[existingIdx].id:generateId('TKT');
