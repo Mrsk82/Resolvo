@@ -645,10 +645,40 @@
 
   RVI.useClassic = function (on) { try { localStorage.setItem('tt_inbox_classic', on ? '1' : '0'); } catch (e) {} A().renderTicketInbox(); };
 
+  // ---------- phone gestures: swipe right to take a ticket, swipe left to snooze it until tomorrow ----------
+  async function swipeAct(id, kind) {
+    var a = A(), r;
+    if (kind === 'assign') r = await a.callAsync('assignTicket', id, (a.currentUser || {}).email);
+    else { var d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); r = await a.callAsync('snoozeTicket', id, d.toISOString()); }
+    if (!r || !r.success) { fail((r && r.error) || 'That did not work'); return; }
+    w.RV.toast(kind === 'assign' ? 'Assigned to you' : 'Snoozed until tomorrow 9am', 'success');
+    if (S.focus) { if (kind !== 'assign') { S.fAll = (S.fAll || []).filter(function (x) { return x.id !== id; }); paintQueue(); } focusRefresh(); } else RVI.refresh();
+  }
+  function swipes(root) {
+    var sw = null;
+    root.addEventListener('touchstart', function (e) {
+      var row = e.target.closest('.rvi-row, .rvf-item'); if (!row || e.target.closest('input,button:not(.rvf-item),select,a') || e.touches.length !== 1) return;
+      sw = { row: row, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null };
+    }, { passive: true });
+    root.addEventListener('touchmove', function (e) {
+      if (!sw) return; var t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      if (sw.lock === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) sw.lock = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
+      if (sw.lock !== 'x') return;
+      sw.dx = dx; sw.row.style.transform = 'translateX(' + Math.max(-140, Math.min(140, dx)) + 'px)'; sw.row.classList.toggle('is-swipe-r', dx > 70); sw.row.classList.toggle('is-swipe-l', dx < -70);
+    }, { passive: true });
+    root.addEventListener('touchend', function () {
+      if (!sw) return; var x = sw; sw = null; x.row.style.transform = ''; x.row.classList.remove('is-swipe-r', 'is-swipe-l');
+      if (x.lock !== 'x') return; var id = x.row.getAttribute('data-ticket-id');
+      if (x.dx > 90) swipeAct(id, 'assign'); else if (x.dx < -90) swipeAct(id, 'snooze');
+    });
+    root.addEventListener('touchcancel', function () { if (sw) { sw.row.style.transform = ''; sw.row.classList.remove('is-swipe-r', 'is-swipe-l'); sw = null; } });
+  }
+
   // ---------- events (one delegated set; no handler strings built from data) ----------
   var searchTimer = null;
   function bind(root) {
     if (!root) return;
+    swipes(root);
     root.addEventListener('click', async function (e) {
       // a click on the list or the conversation closes whichever side panel is open
       if (!e.target.closest('.rvi-views, .rvi-cust, [data-act="views-panel"], [data-act="cust"], .rv-overlay, .rv-menu')) { root.classList.remove('rvi--views-open'); if (root.classList.contains('rvi--cust-open')) { root.classList.remove('rvi--cust-open'); S.custOpen = false; } }

@@ -427,7 +427,7 @@ const ROW_TABLES={
 // Everything else goes into the kv table as JSON blobs.
 // Small arrays + all config objects.
 const KV_KEYS=[
-  'settings','slaConfig','emailTicketing','features','featureFlags',
+  'settings','slaConfig','emailTicketing','features','featureFlags','pushSubs',
   'queueConfig','bookingConfig','slackAlerts','autoResolveRules',
   'sprints','dependencies','customFields','customFieldValues',
   'onCallSchedule','savedFilters','escalationRules','recurringTemplates',
@@ -2669,6 +2669,7 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=nowIST();wDB(db);
       sendSlackAlert(slug,'assigned',db.tickets[idx]).catch(()=>{});
       notifyTicketAssigned(slug,db,db.tickets[idx],agentEmail);
+      if(agentEmail&&agentEmail!==su.email)pushToUser(slug,agentEmail,{title:'Ticket assigned to you',body:String(db.tickets[idx].subject||'').slice(0,110),url:'/?open='+encodeURIComponent(ticketId),tag:'assign-'+ticketId}).catch(()=>{});
       return{success:true};
     },
     addTicketNote:(ticketId,noteText)=>{
@@ -4841,6 +4842,7 @@ app.post('/api/call',async(req,res)=>{
           sendBrandEmail(slug,a.email,`[${brand.name||slug}] ${n} tickets assigned to you`,`<p>${_escHtml(su.name||su.email)} assigned ${n} ticket${n===1?'':'s'} to you. <a href="${BASE_URL}">Open your inbox</a>.</p>`,`${n} tickets assigned to you: ${BASE_URL}`).catch(()=>{});
         }
       }
+      if(agentEmail&&n&&agentEmail!==su.email)pushToUser(slug,agentEmail,{title:n+' ticket'+(n===1?'':'s')+' assigned to you',body:'Open your inbox',url:'/',tag:'assign-bulk'}).catch(()=>{});
       return{success:true,assigned:n};
     },
     snoozeTicket:(ticketId,until)=>{
@@ -8762,6 +8764,79 @@ async function sendGmailApiReply(slug,ticket,subject,html,text){
 }
 
 // Get Gmail OAuth status for Settings UI
+// ── Web push: alerts on phones and computers (ticket assigned to you, ticket close to or past its target) ──
+// Keys are made once and kept in data/vapid.json (never in git). If the web-push package is missing the feature quietly stays off.
+let _webpush=null,_vapid=null;
+try{
+  _webpush=require('web-push');
+  const vf=path.join(__dirname,'data','vapid.json');
+  try{_vapid=JSON.parse(fs.readFileSync(vf,'utf8'));}catch(e){}
+  if(!_vapid||!_vapid.publicKey||!_vapid.privateKey){_vapid=_webpush.generateVAPIDKeys();try{fs.mkdirSync(path.dirname(vf),{recursive:true});fs.writeFileSync(vf,JSON.stringify(_vapid),{mode:0o600});}catch(e){console.error('[push] could not save keys:',e.message);}}
+  _webpush.setVapidDetails('mailto:'+(process.env.OWNER_EMAIL||'contact@resolvogroup.com'),_vapid.publicKey,_vapid.privateKey);
+}catch(e){_webpush=null;console.log('[push] web-push not available, alerts on devices are off');}
+async function pushToUser(slug,email,payload){
+  if(!_webpush||!email)return 0;
+  try{
+    const db=readBrandDB(slug),subs=(db.pushSubs||[]).filter(x=>String(x.email).toLowerCase()===String(email).toLowerCase());
+    if(!subs.length)return 0;
+    let sent=0;const dead=new Set();
+    await Promise.all(subs.map(async x=>{
+      try{await _webpush.sendNotification(x.subscription,JSON.stringify(payload),{TTL:3600});sent++;}
+      catch(e){if(e&&(e.statusCode===404||e.statusCode===410))dead.add(x.subscription.endpoint);}
+    }));
+    if(dead.size){const d2=readBrandDB(slug);d2.pushSubs=(d2.pushSubs||[]).filter(x=>!dead.has(x.subscription.endpoint));writeBrandDB(slug,d2);}
+    return sent;
+  }catch(e){return 0;}
+}
+app.get('/api/push/config',(req,res)=>{
+  const su=getSessionUser(req);if(!su)return res.status(401).json({success:false});
+  const db=su.brandSlug?readBrandDB(su.brandSlug):{};
+  res.json({success:true,enabled:!!_webpush,publicKey:_webpush?_vapid.publicKey:'',subscribed:(db.pushSubs||[]).some(x=>String(x.email).toLowerCase()===String(su.email).toLowerCase())});
+});
+app.post('/api/push/subscribe',(req,res)=>{
+  const su=getSessionUser(req);if(!su||!su.brandSlug)return res.status(401).json({success:false});
+  if(!_webpush)return res.json({success:false,error:'Alerts on devices are not available on this server'});
+  const sub=(req.body||{}).subscription;
+  if(!sub||typeof sub.endpoint!=='string'||!/^https:\/\//.test(sub.endpoint)||!sub.keys||!sub.keys.p256dh||!sub.keys.auth)return res.status(400).json({success:false,error:'Invalid subscription'});
+  const db=readBrandDB(su.brandSlug);db.pushSubs=(db.pushSubs||[]).filter(x=>x.subscription.endpoint!==sub.endpoint);
+  db.pushSubs.push({email:su.email,subscription:{endpoint:sub.endpoint,keys:{p256dh:String(sub.keys.p256dh),auth:String(sub.keys.auth)}},ua:String(req.headers['user-agent']||'').slice(0,120),createdAt:nowIST()});
+  if(db.pushSubs.length>500)db.pushSubs=db.pushSubs.slice(-500);
+  writeBrandDB(su.brandSlug,db);res.json({success:true});
+});
+app.post('/api/push/test',async(req,res)=>{
+  const su=getSessionUser(req);if(!su||!su.brandSlug)return res.status(401).json({success:false});
+  const n=await pushToUser(su.brandSlug,su.email,{title:'Resolvo test alert',body:'Alerts are working on this device.',url:'/',tag:'test'});
+  res.json({success:true,sent:n});
+});
+app.post('/api/push/unsubscribe',(req,res)=>{
+  const su=getSessionUser(req);if(!su||!su.brandSlug)return res.status(401).json({success:false});
+  const ep=String((req.body||{}).endpoint||'');
+  const db=readBrandDB(su.brandSlug);const before=(db.pushSubs||[]).length;
+  db.pushSubs=(db.pushSubs||[]).filter(x=>!(x.subscription.endpoint===ep&&String(x.email).toLowerCase()===String(su.email).toLowerCase()));
+  writeBrandDB(su.brandSlug,db);res.json({success:true,removed:before-db.pushSubs.length});
+});
+// Every 10 minutes: tell the owner of a ticket when it is close to, or past, its target (once each), or admins if nobody owns it.
+// Nothing is read for a workspace that has no devices registered.
+setInterval(async()=>{
+  if(!_webpush)return;
+  const owner=readOwner();
+  for(const brand of(owner.brands||[]).filter(b=>b.status==='active')){
+    try{
+      const db=readBrandDB(brand.slug);if(!(db.pushSubs||[]).length)continue;
+      const admins=(db.users||[]).filter(u=>u.role==='Admin'&&u.active!==false).map(u=>u.email);let changed=false;
+      for(const t of(db.tickets||[])){
+        if(['resolved','closed'].includes(t.status)||t.isSample||_ticketIsPromo(t))continue;
+        const sla=getTicketSLAInfo(db,t),kind=sla.slaBreached?'breach':(sla.slaRisk?'risk':'');
+        if(!kind||(kind==='risk'&&t.pushRiskAt)||(kind==='breach'&&t.pushBreachAt))continue;
+        const to=t.assignedTo?[t.assignedTo]:admins;
+        for(const e of to)await pushToUser(brand.slug,e,{title:kind==='breach'?'Past its target time':'Close to its target time',body:String(t.subject||'').slice(0,110),url:'/?open='+encodeURIComponent(t.id),tag:'sla-'+t.id});
+        t[kind==='breach'?'pushBreachAt':'pushRiskAt']=nowIST();changed=true;
+      }
+      if(changed)writeBrandDB(brand.slug,db);
+    }catch(e){console.error('[push] sla job:',e.message);}
+  }
+},10*60*1000);
+
 app.get('/api/gmail-oauth/status',(req,res)=>{
   const su=getSessionUser(req);
   if(!su||su.role!=='Admin')return res.json({success:false});

@@ -232,3 +232,11 @@
 .rvd-now__m span { color: var(--rv-text-muted); font-size: var(--rv-text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rvd-now__t { font-size: var(--rv-text-xs); color: var(--rv-text-faint); white-space: nowrap; min-width: 52px; text-align: right; }
 @media (max-width: 640px) { .rvd-now__t { display: none; } }
+
+/* ---- swipe hints on phones ---- */
+.rvi-row, .rvf-item { transition: transform .12s ease-out, background .12s; touch-action: pan-y; }
+.rvi-row.is-swipe-r, .rvf-item.is-swipe-r { background: var(--rv-accent-soft); }
+.rvi-row.is-swipe-l, .rvf-item.is-swipe-l { background: var(--rv-warning-soft); }
+.rvi-row.is-swipe-r::after, .rvf-item.is-swipe-r::after { content: 'Assign to me'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%) translateX(-120%); font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); color: var(--rv-accent-strong); white-space: nowrap; }
+.rvi-row.is-swipe-l::after, .rvf-item.is-swipe-l::after { content: 'Snooze until tomorrow'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%) translateX(120%); font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); color: var(--rv-warning); white-space: nowrap; }
+.rvf-item { position: relative; }
