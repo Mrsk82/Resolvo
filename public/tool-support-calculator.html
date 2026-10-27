@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support team calculator: workload, wait time and helpdesk cost | Resolvo</title>
+<meta name="description" content="A free calculator for small support teams. Enter your messages per day and team size to see your load, the average wait, and what Freshdesk, Zendesk, SachDesk and Resolvo would cost.">
+<link rel="canonical" href="https://app.resolvogroup.com/tools/support-calculator">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta property="og:title" content="Support team calculator: workload, wait time and helpdesk cost"><meta property="og:description" content="A free calculator for small support teams. Enter your messages per day and team size to see your load, the average wait, and what Freshdesk, Zendesk, SachDesk and Resolvo would cost.">
+<meta property="og:type" content="article"><meta property="og:url" content="https://app.resolvogroup.com/tools/support-calculator">
+<meta property="og:image" content="https://app.resolvogroup.com/og-image.png"><meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Support team calculator: workload, wait time and helpdesk cost", "description": "A free calculator for small support teams. Enter your messages per day and team size to see your load, the average wait, and what Freshdesk, Zendesk, SachDesk and Resolvo would cost.", "url": "https://app.resolvogroup.com/tools/support-calculator", "applicationCategory": "BusinessApplication", "operatingSystem": "Any", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What does 'load' mean?", "acceptedAnswer": {"@type": "Answer", "text": "It is how much of your team's available support time is used by incoming messages. Above about 80 percent, replies start to slip. Above 100 percent, a backlog builds every day."}}, {"@type": "Question", "name": "Why is the wait time only an estimate?", "acceptedAnswer": {"@type": "Answer", "text": "It assumes messages arrive evenly through the day and are handled in order. Real days have rushes, so your actual wait at busy hours will be longer."}}, {"@type": "Question", "name": "Are the competitor prices current?", "acceptedAnswer": {"@type": "Answer", "text": "They are list prices we found in September 2026, billed annually and before tax. Please confirm on the vendors' pages."}}, {"@type": "Question", "name": "Does Resolvo price per agent?", "acceptedAnswer": {"@type": "Answer", "text": "No. Resolvo is ₹999 per brand per month on Pro, whether you have two agents or twenty."}}]}</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-27BVPWPG8N");</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#fff;color:#111827;font-family:'Inter',sans-serif;line-height:1.65;}
+nav{background:#fff;border-bottom:1px solid #E5E7EB;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;}
+.logo-name{font-size:16px;font-weight:700;color:#111827;}
+.nav-links{display:flex;align-items:center;gap:16px;}
+.nav-links a{font-size:13px;color:#6B7280;text-decoration:none;}
+.nav-cta{background:#10B981!important;color:#fff!important;padding:8px 18px;border-radius:7px;font-weight:600!important;white-space:nowrap;}
+@media(max-width:520px){.nav-links a:not(.nav-cta){display:none;}nav{padding:12px 16px;}.wrap,.wide{padding:0 16px;}}
+.wrap{max-width:760px;margin:0 auto;padding:0 24px;}
+.wide{max-width:960px;margin:0 auto;padding:0 24px;}
+.hero{padding:64px 0 44px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;}
+.tag{display:inline-block;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:#065F46;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;}
+h1{font-size:clamp(28px,4.4vw,42px);font-weight:800;letter-spacing:-1.2px;margin-bottom:14px;line-height:1.12;color:#111827;text-wrap:balance;}
+.sub{font-size:17px;color:#4B5563;max-width:620px;margin-bottom:26px;}
+.cta-row{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-p{display:inline-block;background:#10B981;color:#fff;padding:12px 26px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;border:0;cursor:pointer;font-family:inherit;}
+.btn-p:hover{background:#059669;}
+.btn-s{display:inline-block;background:#fff;color:#374151;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;border:1px solid #D1D5DB;}
+article{padding:44px 0 8px;}
+article h2{font-size:25px;font-weight:800;letter-spacing:-.5px;margin:40px 0 12px;line-height:1.2;text-wrap:balance;}
+article h2:first-child{margin-top:0;}
+article h3{font-size:17px;font-weight:700;margin:22px 0 6px;}
+article p{font-size:16px;color:#374151;margin-bottom:14px;}
+article ul,article ol{margin:0 0 16px 22px;color:#374151;font-size:16px;}
+article li{margin-bottom:8px;}
+article a{color:#059669;font-weight:600;}
+.note{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px 18px;font-size:14px;color:#4B5563;margin:18px 0;}
+.table-wrap{overflow-x:auto;margin:18px 0 22px;}
+table{width:100%;border-collapse:collapse;border:1px solid #E5E7EB;font-size:14px;min-width:560px;}
+th{padding:12px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6B7280;background:#F9FAFB;border-bottom:1px solid #E5E7EB;}
+td{padding:11px 14px;border-top:1px solid #F3F4F6;vertical-align:top;color:#374151;}
+td.us,th.us{background:#F0FDF4;color:#065F46;font-weight:600;}
+.faq{margin:10px 0 30px;}
+.faq details{border-bottom:1px solid #E5E7EB;padding:14px 0;}
+.faq summary{font-weight:700;cursor:pointer;font-size:16px;}
+.faq p{margin:10px 0 0;font-size:15px;}
+.cta-box{background:#F0FDF4;border:1px solid #A7F3D0;border-radius:14px;padding:36px;margin:40px 0 56px;}
+.cta-box h2{font-size:23px;font-weight:800;letter-spacing:-.4px;margin:0 0 8px!important;}
+.cta-box p{color:#4B5563;margin-bottom:20px;}
+.related{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:10px 0 40px;}
+.related a{display:block;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;text-decoration:none;color:#111827;font-size:14px;font-weight:600;line-height:1.4;}
+.related a span{display:block;font-weight:400;color:#6B7280;font-size:13px;margin-top:3px;}
+footer{border-top:1px solid #E5E7EB;padding:22px;text-align:center;font-size:13px;color:#9CA3AF;}
+footer a{color:#059669;text-decoration:none;}
+
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;align-items:start;margin:8px 0 8px;}
+.panel{border:1px solid #E5E7EB;border-radius:14px;padding:22px;background:#fff;}
+.panel h2{font-size:17px!important;margin:0 0 14px!important;}
+.fld{margin-bottom:14px;}
+.fld label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px;}
+.fld input[type=number],.fld input[type=email],.fld input[type=text]{width:100%;padding:10px 12px;border:1px solid #D1D5DB;border-radius:8px;font-size:15px;font-family:inherit;color:#111827;background:#fff;}
+.fld input:focus{outline:2px solid #10B981;outline-offset:1px;border-color:#10B981;}
+.hint{font-size:12px;color:#6B7280;margin-top:4px;}
+.verdict{border-radius:12px;padding:16px 18px;margin-bottom:14px;font-weight:600;font-size:15px;}
+.v-ok{background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;}
+.v-busy{background:#FFFBEB;color:#92400E;border:1px solid #FDE68A;}
+.v-bad{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+.stat{border:1px solid #E5E7EB;border-radius:10px;padding:12px 14px;}
+.stat b{display:block;font-size:22px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
+.stat span{font-size:12px;color:#6B7280;}
+.meter{height:10px;border-radius:6px;background:#F3F4F6;overflow:hidden;margin:6px 0 4px;}
+.meter i{display:block;height:100%;width:0;background:#10B981;border-radius:6px;transition:width .25s;}
+.cost td,.cost th{font-variant-numeric:tabular-nums;}
+.ok-msg{color:#065F46;font-weight:600;margin-top:10px;font-size:14px;}
+.err-msg{color:#B91C1C;margin-top:10px;font-size:14px;}
+@media(max-width:760px){.calc{grid-template-columns:minmax(0,1fr);}.panel{padding:16px;}}
+.panel table{min-width:400px;}
+</style>
+
+</head>
+<body>
+<nav>
+  <a href="/pitch" class="logo"><img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px;"><span class="logo-name">resolvo</span></a>
+  <div class="nav-links"><a href="/pitch">Home</a><a href="/demo">Demo</a><a href="/blog">Blog</a><a href="/signup" class="nav-cta">Start free</a></div>
+</nav>
+<section class="hero"><div class="wide">
+  <div class="tag">Free tool</div>
+  <h1>Is your support team big enough, and what should it cost?</h1>
+  <p class="sub">Put in a few numbers and you see your load, how long customers wait, and what a helpdesk would cost for a team your size.</p>
+  <div class="cta-row"><a href="/demo" class="btn-p">Try the demo, no signup</a><a href="/signup" class="btn-s">Start 14-day trial</a></div>
+</div></section>
+<div class="wide"><article>
+
+<p style="max-width:640px">Tell us roughly how many customer messages you get and how long each takes. The calculator shows how busy your team is, how long a customer waits before someone starts on their message, and what the main helpdesks would cost for a team your size. Nothing you type leaves this page unless you choose to send it.</p>
+<div class="calc">
+  <div class="panel">
+    <h2>Your team</h2>
+    <div class="fld"><label for="tpd">Customer messages per day (email and WhatsApp)</label><input id="tpd" type="number" min="1" max="5000" value="60"></div>
+    <div class="fld"><label for="mins">Average minutes to handle one message</label><input id="mins" type="number" min="1" max="240" value="6"><div class="hint">Reading, finding the answer, replying. Be honest, it is usually more than you think.</div></div>
+    <div class="fld"><label for="agents">People answering customers</label><input id="agents" type="number" min="1" max="200" value="3"></div>
+    <div class="fld"><label for="hrs">Hours each person spends on support per day</label><input id="hrs" type="number" min="1" max="12" step="0.5" value="5"><div class="hint">Not the whole shift. Meetings and other work take time too.</div></div>
+    <div class="fld"><label for="fx">Rupees per US dollar</label><input id="fx" type="number" min="50" max="200" step="0.5" value="88"><div class="hint">Change this to today's rate. It is only used to show dollar prices in rupees.</div></div>
+  </div>
+  <div>
+    <div class="panel" id="out" aria-live="polite">
+      <h2>What it means</h2>
+      <div id="verdict" class="verdict v-ok"></div>
+      <div class="stats">
+        <div class="stat"><b id="sLoad">-</b><span>of your support time is used</span><div class="meter"><i id="mBar"></i></div></div>
+        <div class="stat"><b id="sWait">-</b><span>average wait before someone starts</span></div>
+        <div class="stat"><b id="sNeed">-</b><span>people for a comfortable load</span></div>
+        <div class="stat"><b id="sPer">-</b><span>messages per person per day</span></div>
+      </div>
+      <p class="hint" id="waitNote">Assumes messages arrive evenly through the day. Real days have rushes, so treat the wait as the best case.</p>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Monthly cost for <span id="nTeam">3</span> people</h2>
+      <div class="table-wrap" style="margin:0"><table class="cost">
+        <thead><tr><th>Tool (list price)</th><th>Per month</th><th>Per year</th></tr></thead>
+        <tbody id="costRows"></tbody></table></div>
+      <p class="hint" style="margin-top:8px">Annual billing, before tax, as we last checked in September 2026. WhatsApp and AI are extra on some of these. <a href="/helpdesk-pricing-india">See the full comparison</a>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:22px">
+  <h2>Want a second opinion on these numbers?</h2>
+  <p style="font-size:15px;margin-bottom:12px">Send them to me, Asif, and I will reply personally with what I would do in your place. I do not add you to any list.</p>
+  <form id="sendForm" novalidate>
+    <div class="fld" style="max-width:420px"><label for="em">Your email</label><input id="em" type="email" autocomplete="email" placeholder="you@yourbrand.com"></div>
+    <div class="fld" style="max-width:420px"><label for="co">Brand or company (optional)</label><input id="co" type="text" autocomplete="organization"></div>
+    <button class="btn-p" type="submit" id="sendBtn">Send these numbers to Asif</button>
+    <div id="sendMsg" role="status"></div>
+  </form>
+</div>
+
+<h2>How the numbers are worked out</h2>
+<ul>
+<li><b>Load</b> is the hours of work arriving each day divided by the hours your team has: messages x minutes each, divided by people x support hours.</li>
+<li><b>Wait</b> uses the Erlang C queueing formula, the standard way call centres estimate how long people wait. It assumes messages arrive evenly and are handled in order.</li>
+<li><b>Comfortable load</b> means about 75 percent of support time used, which leaves room for busy hours and for people to take a break.</li>
+<li><b>Costs</b> are list prices. Freshdesk Growth is $19 per agent, Zendesk Suite Team is $55, and SachDesk Starter is ₹999. Resolvo Pro is ₹999 per brand, whatever the team size.</li>
+</ul>
+<div class="note">This is an estimate to help you decide, not a promise. If your result says your team is stretched, the fix is usually a mix of canned replies, keeping newsletters out of the queue, and one more pair of hands.</div>
+
+<h2>Questions people ask</h2><div class="faq"><details><summary>What does 'load' mean?</summary><p>It is how much of your team's available support time is used by incoming messages. Above about 80 percent, replies start to slip. Above 100 percent, a backlog builds every day.</p></details><details><summary>Why is the wait time only an estimate?</summary><p>It assumes messages arrive evenly through the day and are handled in order. Real days have rushes, so your actual wait at busy hours will be longer.</p></details><details><summary>Are the competitor prices current?</summary><p>They are list prices we found in September 2026, billed annually and before tax. Please confirm on the vendors' pages.</p></details><details><summary>Does Resolvo price per agent?</summary><p>No. Resolvo is ₹999 per brand per month on Pro, whether you have two agents or twenty.</p></details></div>
+<div class="cta-box">
+  <h2>Try it on your own tickets</h2>
+  <p>Per-brand pricing, so your whole team is covered at the same price. 14-day free trial, no card needed. If you'd like me to set it up with you, write to <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a>.</p>
+  <a href="/signup" class="btn-p">Start free</a>
+</div>
+<h2 style="font-size:19px;margin-bottom:10px">Keep reading</h2><div class="related"><a href="/shared-inbox-for-small-teams">Shared inbox for small teams<span>When Gmail stops working and what to use instead</span></a><a href="/whatsapp-helpdesk-india">WhatsApp helpdesk for India<span>Reply to WhatsApp and email from one queue</span></a><a href="/helpdesk-pricing-india">Helpdesk pricing in India<span>Per-agent vs per-brand, with real numbers</span></a></div>
+</article></div>
+<footer>&copy; 2026 Resolvo &middot; <a href="/pitch">Home</a> &middot; <a href="/demo">Demo</a> &middot; <a href="/blog">Blog</a> &middot; <a href="/contact">Contact</a> &middot; <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></footer>
+<script>
+(function(){
+  function $(id){return document.getElementById(id);}
+  function num(id,min,max){var v=parseFloat($(id).value);if(!isFinite(v))v=min;return Math.min(max,Math.max(min,v));}
+  function inr(n){return '\u20B9'+Math.round(n).toLocaleString('en-IN');}
+  function fmtWait(m){if(!isFinite(m))return 'Never ends';if(m<1)return 'Under 1 min';if(m<90)return Math.round(m)+' min';return (m/60).toFixed(1)+' hours';}
+  function erlangC(c,a){var sum=0,term=1,k;for(k=0;k<c;k++){sum+=term;term*=a/(k+1);}var top=term*c/(c-a);return top/(sum+top);}
+  var last={};
+  function calc(){
+    var tpd=num('tpd',1,5000),mins=num('mins',1,240),n=Math.round(num('agents',1,200)),hrs=num('hrs',1,12),fx=num('fx',50,200);
+    var a=tpd*mins/(hrs*60);
+    var load=a/n;
+    var need=Math.max(1,Math.ceil(a/0.75));
+    var per=tpd/n;
+    var wait=null;
+    if(load<1){var lambda=tpd/hrs,mu=60/mins;wait=erlangC(n,a)/(n*mu-lambda)*60;}
+    var v=$('verdict');
+    if(load>=1){v.className='verdict v-bad';v.textContent='Overloaded. There is more work each day than your team has hours, so a backlog grows every day.';}
+    else if(load>=0.8){v.className='verdict v-bad';v.textContent='Stretched. Replies will slip on busy days. You need about '+need+' people for a comfortable load.';}
+    else if(load>=0.6){v.className='verdict v-busy';v.textContent='Busy but healthy. A rush will push you over, so keep an eye on reply times.';}
+    else{v.className='verdict v-ok';v.textContent='Comfortable. Your team has room to handle a busy day.';}
+    $('sLoad').textContent=Math.round(load*100)+'%';
+    $('mBar').style.width=Math.min(100,load*100)+'%';
+    $('mBar').style.background=load>=0.8?'#DC2626':(load>=0.6?'#D97706':'#10B981');
+    $('sWait').textContent=wait===null?'Never ends':fmtWait(wait);
+    $('sNeed').textContent=need+(need===1?' person':' people');
+    $('sPer').textContent=Math.round(per);
+    $('nTeam').textContent=n;
+    var rows=[
+      ['Freshdesk Growth ($19 per agent)',19*n*fx,false],
+      ['Zendesk Suite Team ($55 per agent)',55*n*fx,false],
+      ['SachDesk Starter (\u20B9999 per agent)',999*n,false],
+      ['Resolvo Pro (\u20B9999 per brand)',999,true]
+    ];
+    var h='';
+    rows.forEach(function(r){h+='<tr><td'+(r[2]?' class="us"':'')+'>'+r[0]+'</td><td'+(r[2]?' class="us"':'')+'>'+inr(r[1])+'</td><td'+(r[2]?' class="us"':'')+'>'+inr(r[1]*12)+'</td></tr>';});
+    $('costRows').innerHTML=h;
+    last={tpd:tpd,mins:mins,n:n,hrs:hrs,load:Math.round(load*100),need:need,wait:wait===null?'backlog grows':fmtWait(wait),verdict:v.textContent};
+  }
+  ['tpd','mins','agents','hrs','fx'].forEach(function(id){$(id).addEventListener('input',calc);});
+  calc();
+  $('sendForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var em=$('em').value.trim(),msg=$('sendMsg'),btn=$('sendBtn');
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){msg.className='err-msg';msg.textContent='Please enter a valid email address.';return;}
+    btn.disabled=true;msg.className='hint';msg.textContent='Sending...';
+    var text='Support calculator numbers\n\nMessages per day: '+last.tpd+'\nMinutes per message: '+last.mins+'\nPeople answering: '+last.n+'\nSupport hours per person per day: '+last.hrs+'\nLoad: '+last.load+'%\nPeople for a comfortable load: '+last.need+'\nAverage wait before someone starts: '+last.wait+'\nVerdict: '+last.verdict;
+    fetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:em.split('@')[0],email:em,company:$('co').value.trim(),topic:'Support calculator',message:text})})
+      .then(function(r){if(!r.ok)throw new Error('x');msg.className='ok-msg';msg.textContent='Thanks. I will reply to '+em+' soon.';try{gtag('event','calculator_send');}catch(x){}})
+      .catch(function(){msg.className='err-msg';msg.textContent='That did not go through. Please write to contact@resolvogroup.com instead.';btn.disabled=false;});
+  });
+})();
+</script>
+</body>
+</html>
