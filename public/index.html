@@ -31364,10 +31364,22 @@ App._shellRenderProfile = function() {
   App.renderTicketInbox = function() {
     var args = arguments, self = this;
     var classic = false; try { classic = localStorage.getItem('tt_inbox_classic') === '1'; } catch (e) {}
-    if (!classic && App._isV3 && App._isV3() && window.RVI) {
-      return window.RVI.render().catch(function(err) { console.error('[inbox] new layout failed, using the classic inbox:', err); return legacy.apply(self, args); });
+    var v3 = App._isV3 && App._isV3() && window.RVI;
+    // the classic screen needs a clear way back to the new one, otherwise choosing it from the menu is a dead end
+    var withBar = function(why) {
+      return Promise.resolve(legacy.apply(self, args)).then(function(r) {
+        var area = document.getElementById('contentArea'); if (!area || !v3) return r;
+        var bar = document.createElement('div'); bar.className = 'rv'; bar.id = 'rviBackBar';
+        bar.innerHTML = '<div class="rv-alert rv-alert--info" style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span style="flex:1">' + why + '</span><button type="button" class="rv-btn rv-btn--primary rv-btn--sm" id="rviBackBtn">Switch to the new inbox</button></div>';
+        area.insertBefore(bar, area.firstChild);
+        document.getElementById('rviBackBtn').onclick = function() { RVI.useClassic(false); };
+        return r;
+      });
+    };
+    if (!classic && v3) {
+      return window.RVI.render().catch(function(err) { console.error('[inbox] new layout failed, using the classic inbox:', err); return withBar('The new inbox could not load, so the classic inbox is shown.'); });
     }
-    return legacy.apply(self, args);
+    return classic && v3 ? withBar('You are using the classic inbox layout.') : legacy.apply(self, args);
   };
   // dashboard and other links: open a named view
   App._inboxView = function(v) { if (window.RVI) { RVI.setView(v); RVI.leaveFocus(); } App.navigate('ticket-inbox'); };
