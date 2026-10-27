@@ -22,7 +22,9 @@ async def main():
         txt = await pg.locator("#cmdResults").inner_text()
         check("typing a customer name finds tickets and customers", "tickets" in txt.lower() and "Priya" in txt, txt[:200])
         await pg.screenshot(path=r"C:\Users\Asif\Desktop\New\Resolvo-UI-files\baseline\palette.png")
-        await pg.keyboard.press("Enter"); await pg.wait_for_timeout(2500)
+        await pg.keyboard.press("Enter")
+        try: await pg.wait_for_selector(".rvi-row[aria-selected=true]", timeout=8000)
+        except Exception: pass
         check("Enter opens that ticket in the inbox", await pg.locator("#rvi").count() == 1 and await pg.locator(".rvi-row[aria-selected=true]").count() == 1)
         await pg.keyboard.press("Control+k"); await pg.wait_for_timeout(400); await pg.keyboard.type("insights"); await pg.wait_for_timeout(700)
         check("typing 'insights' lists the Insights pages", "Insights: team" in await pg.locator("#cmdResults").inner_text())

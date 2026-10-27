@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="/manifest.json">
-  <script>try{var _s=localStorage;if(!_s.getItem('tt_v3b')){_s.setItem('tt_v3b','1');_s.setItem('tt_theme','resolvo');}document.documentElement.setAttribute('data-theme',_s.getItem('tt_theme')||'resolvo');}catch(e){}</script>
+  <script>try{var _s=localStorage;if(!_s.getItem('tt_v3b')){_s.setItem('tt_v3b','1');_s.setItem('tt_theme','resolvo');}var _t=_s.getItem('tt_theme')||'resolvo';if(_t!=='resolvo'&&_t!=='resolvo-dark'){_t=/^(arctic|uiux|rosegold|clarity)$/.test(_t)?'resolvo':'resolvo-dark';_s.setItem('tt_theme',_t);}document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
@@ -8068,26 +8068,6 @@ tbody tr.row-selected {
               <div class="theme-swatch"><span style="background:#0B1220"></span><span style="background:#1FC28A"></span><span style="background:#111A2C"></span></div>
               <span class="theme-label">Resolvo Dark</span>
             </div>
-            <div class="theme-option active" data-theme-pick="midnight" onclick="Themes.set('midnight',this)">
-              <div class="theme-swatch"><span style="background:#0d0e14"></span><span style="background:#f5a623"></span><span style="background:#1a1b27"></span><span style="background:#ff4757"></span></div>
-              <span class="theme-label">Midnight</span>
-            </div>
-            <div class="theme-option" data-theme-pick="arctic" onclick="Themes.set('arctic',this)">
-              <div class="theme-swatch"><span style="background:#f0f4f8"></span><span style="background:#2563eb"></span><span style="background:#ffffff"></span><span style="background:#dc2626"></span></div>
-              <span class="theme-label">Arctic Light</span>
-            </div>
-            <div class="theme-option" data-theme-pick="forest" onclick="Themes.set('forest',this)">
-              <div class="theme-swatch"><span style="background:#0a1a0f"></span><span style="background:#4ade80"></span><span style="background:#162d1f"></span><span style="background:#f87171"></span></div>
-              <span class="theme-label">Forest</span>
-            </div>
-            <div class="theme-option" data-theme-pick="ocean" onclick="Themes.set('ocean',this)">
-              <div class="theme-swatch"><span style="background:#060d1a"></span><span style="background:#38bdf8"></span><span style="background:#0f1e35"></span><span style="background:#f87171"></span></div>
-              <span class="theme-label">Ocean</span>
-            </div>
-            <div class="theme-option" data-theme-pick="nova" onclick="Themes.set('nova',this)">
-              <div class="theme-swatch" style="background:linear-gradient(135deg,#04050d,#7c6cf0);border-radius:4px;"><span style="background:#04050d"></span><span style="background:#7c6cf0"></span><span style="background:#e879f9"></span><span style="background:#34d399"></span></div>
-              <span class="theme-label" style="background:linear-gradient(135deg,#7c6cf0,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">✦ Nova</span>
-            </div>
             <!-- Accent + Font Size row -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-top:1px solid var(--border);margin-top:4px;gap:8px;">
               <div style="display:flex;align-items:center;gap:6px;">
@@ -9431,7 +9411,11 @@ const Themes = {
     this.toggle(); // close panel
   },
 
+  // the nine older themes are retired: they map to the closest Resolvo theme (light ones to Light, dark ones to Dark)
+  map(name) { if (name === 'resolvo' || name === 'resolvo-dark') return name; return /^(arctic|uiux|rosegold|clarity)$/.test(String(name)) ? 'resolvo' : 'resolvo-dark'; },
+
   apply(name, save) {
+    name = this.map(name);
     document.documentElement.setAttribute('data-theme', name);
     this.current = name;
     const icon = document.getElementById('themeIcon');
@@ -10069,7 +10053,8 @@ const App = {
 
   _applyBrandCustomization: function(user) {
     // Apply theme
-    const theme = user.brandTheme || localStorage.getItem('tt_brand_theme') || 'midnight';
+    const bt = user.brandTheme || localStorage.getItem('tt_brand_theme') || '';
+    const theme = (bt === 'resolvo' || bt === 'resolvo-dark') ? bt : (localStorage.getItem('tt_theme') || 'resolvo');   // an older brand theme (such as midnight) no longer overrides the person's choice
     if (typeof Themes !== 'undefined') Themes.apply(theme, false);
     // Apply accent color
     const color = user.brandAccentColor || localStorage.getItem('tt_brand_color') || '#10B981';
@@ -14599,12 +14584,13 @@ const App = {
       var tag = (e.target||{}).tagName||'';
       if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.getElementById('rvf') || document.getElementById('rvi') || document.querySelector('.rv-overlay') || (document.activeElement && document.activeElement.isContentEditable)) return;   // the inbox screens use these keys themselves
       switch(e.key) {
-        case 'q': case 'Q': e.preventDefault(); self.showQuickCapture(); break;
-        case 'n': case 'N': e.preventDefault(); self.navigate('create-issue'); break;
-        case 'k': case 'K': e.preventDefault(); self.navigate('kanban'); break;
-        case 'd': case 'D': e.preventDefault(); self.navigate('dashboard'); break;
-        case 'l': case 'L': e.preventDefault(); self.navigate('issue-list'); break;
+        case 'q': case 'Q': e.preventDefault(); App.showQuickCapture(); break;
+        case 'n': case 'N': e.preventDefault(); App.navigate('create-issue'); break;
+        case 'k': case 'K': e.preventDefault(); App.navigate('kanban'); break;
+        case 'd': case 'D': e.preventDefault(); App.navigate('dashboard'); break;
+        case 'l': case 'L': e.preventDefault(); App.navigate('issue-list'); break;
         case '/': e.preventDefault();
           var bar = document.getElementById('aiBar');
           if (bar) bar.focus();
@@ -14614,7 +14600,7 @@ const App = {
           AI.close();
           break;
         case '?':
-          self.showKeyboardHelp();
+          App.showKeyboardHelp();
           break;
       }
     });
