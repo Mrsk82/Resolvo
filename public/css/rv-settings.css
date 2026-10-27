@@ -1,0 +1,51 @@
+/* Resolvo Settings frame (rvs-*): landing cards, side list, and a calmer look for the existing section forms */
+.rvs { max-width: 1180px; margin: 0 auto; }
+.rvs-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--rv-space-4); flex-wrap: wrap; margin-bottom: var(--rv-space-4); }
+.rvs-head h1, .rvs-title h1 { margin: 0; font-size: var(--rv-text-2xl); letter-spacing: -.03em; font-weight: var(--rv-weight-heavy); }
+.rvs-head p, .rvs-title p { margin: 2px 0 0; }
+.rvs-search { max-width: 340px; width: 100%; }
+.rvs-label { font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); letter-spacing: .07em; text-transform: uppercase; color: var(--rv-text-faint); margin: var(--rv-space-4) 0 var(--rv-space-2); }
+.rvs-attn { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--rv-space-3); margin-bottom: var(--rv-space-4); }
+.rvs-acard { display: flex; gap: var(--rv-space-3); align-items: flex-start; text-align: left; padding: var(--rv-space-3) var(--rv-space-4); border-radius: var(--rv-radius-lg); background: var(--rv-warning-soft); border: 1px solid transparent; font: inherit; color: var(--rv-text); cursor: pointer; }
+.rvs-acard:hover { border-color: var(--rv-warning); }
+.rvs-acard b { display: block; } .rvs-acard span:last-child { font-size: var(--rv-text-sm); color: var(--rv-text-2); }
+.rvs-hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: var(--rv-space-4); }
+.rvs-gcard { background: var(--rv-surface); border: 1px solid var(--rv-border); border-radius: var(--rv-radius-lg); box-shadow: var(--rv-shadow-1); padding: var(--rv-space-4); }
+.rvs-gcard h2 { margin: 0; font-size: var(--rv-text-lg); display: flex; align-items: center; gap: var(--rv-space-2); }
+.rvs-gcard > p { margin: 2px 0 var(--rv-space-2); }
+.rvs-glink { display: flex; justify-content: space-between; align-items: center; gap: var(--rv-space-2); width: calc(100% + 16px); margin: 0 -8px; padding: 8px; border: 0; background: none; border-radius: var(--rv-radius-sm); font: inherit; font-weight: var(--rv-weight-medium); color: var(--rv-text-2); text-align: left; cursor: pointer; text-decoration: none; }
+.rvs-glink:hover { background: var(--rv-hover); }
+.rvs-glink small { color: var(--rv-text-muted); font-weight: var(--rv-weight-regular); white-space: nowrap; flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; }
+.rvs-st { display: inline-flex; align-items: center; gap: 5px; font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); border-radius: var(--rv-radius-pill); padding: 2px 8px; white-space: nowrap; height: 20px; }
+.rvs-st::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.rvs-st--ok { background: var(--rv-success-soft); color: var(--rv-success); } .rvs-st--attn { background: var(--rv-warning-soft); color: var(--rv-warning); } .rvs-st--off { background: var(--rv-surface-2); color: var(--rv-text-muted); }
+/* one section: side list + content */
+.rvs-wrap { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: var(--rv-space-5); align-items: start; }
+.rvs-nav { position: sticky; top: var(--rv-space-3); max-height: calc(100dvh - 100px); overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: var(--rv-space-2); }
+.rvs-grp { margin-top: var(--rv-space-1); }
+.rvs-grp summary { list-style: none; cursor: pointer; padding: 8px 10px; font-size: var(--rv-text-xs); font-weight: var(--rv-weight-heavy); letter-spacing: .07em; text-transform: uppercase; color: var(--rv-text-faint); display: flex; justify-content: space-between; }
+.rvs-grp summary::-webkit-details-marker { display: none; } .rvs-grp summary::after { content: '\25BE'; } .rvs-grp:not([open]) summary::after { content: '\25B8'; }
+.rvs-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: 0; background: none; text-align: left; padding: 8px 10px; border-radius: var(--rv-radius-md); font: inherit; color: var(--rv-text-2); font-weight: var(--rv-weight-medium); cursor: pointer; }
+.rvs-item:hover { background: var(--rv-hover); }
+.rvs-item[aria-current="true"] { background: var(--rv-selected); color: var(--rv-accent-strong); font-weight: var(--rv-weight-bold); }
+.rvs-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rv-warning); flex: none; }
+.rvs-main { min-width: 0; }
+.rvs-crumb { font-size: var(--rv-text-xs); color: var(--rv-text-muted); display: flex; gap: 6px; flex-wrap: wrap; } .rvs-crumb a { cursor: pointer; color: var(--rv-text-muted); } .rvs-crumb a:hover { color: var(--rv-accent-strong); text-decoration: underline; } .rvs-crumb b { color: var(--rv-text); }
+.rvs-title { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--rv-space-3); margin: var(--rv-space-2) 0 var(--rv-space-4); }
+.rvs-menu, .rvs-close { display: none; }
+.rvs-all { align-self: flex-start; }
+/* the existing section forms, calmer: cards and rows from _sSection / _sRow */
+.rvs-content .rvs-sec { background: var(--rv-surface); border: 1px solid var(--rv-border); border-radius: var(--rv-radius-lg); box-shadow: var(--rv-shadow-1); padding: var(--rv-space-5); margin-bottom: var(--rv-space-4); }
+.rvs-content .rvs-sec__t { font-size: var(--rv-text-base); font-weight: var(--rv-weight-bold); color: var(--rv-text); margin: 0 0 var(--rv-space-3); }
+.rvs-content .rvs-row { display: flex; align-items: center; justify-content: space-between; gap: var(--rv-space-4); padding: var(--rv-space-3) 0; border-top: 1px solid var(--rv-border-soft); }
+.rvs-content .rvs-sec__t + .rvs-row, .rvs-content .rvs-row:first-child { border-top: 0; }
+.rvs-content .rvs-row__l { flex: 1; min-width: 0; } .rvs-content .rvs-row__l b { display: block; font-weight: var(--rv-weight-semibold); } .rvs-content .rvs-row__l span { display: block; color: var(--rv-text-muted); font-size: var(--rv-text-sm); margin-top: 2px; }
+.rvs-content .rvs-row__r { flex: none; max-width: 60%; }
+@media (max-width: 860px) {
+  .rvs-wrap { grid-template-columns: minmax(0, 1fr); }
+  .rvs-nav { display: none; position: fixed; inset: 0; z-index: 60; background: var(--rv-bg); max-height: none; padding: var(--rv-space-4); }
+  .rvs-nav.open { display: flex; }
+  .rvs-menu, .rvs-close { display: inline-flex; margin-bottom: var(--rv-space-2); }
+  .rvs-all { display: none; }
+  .rvs-content .rvs-row { flex-direction: column; align-items: stretch; } .rvs-content .rvs-row__r { max-width: none; }
+}

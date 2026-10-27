@@ -7879,6 +7879,8 @@ tbody tr.row-selected {
   <script src="/js/rv-ui.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-inbox.css?v=11">
   <script src="/js/rv-inbox.js?v=12"></script>
+  <link rel="stylesheet" href="/css/rv-settings.css?v=1">
+  <script src="/js/rv-settings.js?v=1"></script>
 </head>
 <body>
   <div id="app">
@@ -18248,6 +18250,7 @@ const App = {
     // Settings home: show card grid when navigating to settings without a specific tab
     if (!tab) {
       self.setPage('Settings','Admin / Settings');
+      if (window.RVS && self._isV3 && self._isV3()) { await RVS.hub(area, TABS, self); return; }
       var groupDescs = {
         'Core': 'Brand identity, SLA, team, security and platform settings',
         'Email & Support': 'Email inbox, canned responses, CSAT and booking',
@@ -18366,7 +18369,8 @@ const App = {
     // card swapped in a breadcrumb-only view with no way to jump to another
     // section without going all the way back to the grid first.
     var curTabInfo = TABS.find(function(t){return t.id===self._settingsTab;});
-    area.innerHTML =
+    if (window.RVS && self._isV3 && self._isV3()) { await RVS.shell(area, TABS, self._settingsTab, self); }
+    else area.innerHTML =
       '<div style="display:flex;gap:20px;min-height:calc(100vh - 140px);">'+
         '<div style="width:195px;flex-shrink:0;">'+
           '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:10px;">'+
@@ -20068,6 +20072,7 @@ const App = {
   },
 
   _sSection: function(title, rows) {
+    if (App._isV3 && App._isV3()) return '<div class="rvs-sec"><div class="rvs-sec__t">'+title+'</div>'+(Array.isArray(rows)?rows.join(''):rows)+'</div>';
     return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:16px;">'+
       '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">'+title+'</div>'+
       (Array.isArray(rows)?rows.join(''):rows)+
@@ -20148,6 +20153,7 @@ const App = {
   },
 
   _sRow: function(label, desc, input) {
+    if (App._isV3 && App._isV3()) return '<div class="rvs-row"><div class="rvs-row__l"><b>'+label+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</div><div class="rvs-row__r">'+input+'</div></div>';
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);">'+
       '<div style="flex:1;min-width:0;">'+
         '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">'+label+'</div>'+

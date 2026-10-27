@@ -4727,6 +4727,45 @@ app.post('/api/call',async(req,res)=>{
       }
       wDB(db);return{success:true,closed,blocked};
     },
+    // One call that tells the Settings home page the state of every section (on / off / needs attention) and a short value to show.
+    getSettingsOverview:()=>{
+      const db=rDB(),n=a=>Array.isArray(a)?a.length:0,I={},users=(db.users||[]).filter(u=>u.active!==false),et=db.emailTicketing||{};
+      const set=(id,st,v)=>{I[id]={st,v:v||''};};
+      const cnt=(id,k,one,many,onSt)=>{const c=n(db[k]);set(id,c?(onSt||'ok'):'off',c?(c+' '+(c===1?one:many)):'');};
+      const emailOk=et.enabled===true||!!(et.gmailOAuth&&et.gmailOAuth.refreshToken);
+      const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+      set('general','ok',(db.settings||{}).APP_NAME||brand.name||'');
+      const slaN=Object.keys(db.slaConfig||{}).length;set('sla','ok',slaN?slaN+' priorities':'Default targets');
+      set('team','ok',users.length+(users.length===1?' person':' people'));
+      cnt('shift-scheduling','shifts','shift','shifts');
+      set('features','ok',brand.tier||'');set('advanced-features','off','');set('notify-prefs','ok','');set('data-export','off','');
+      set('email',emailOk?'ok':'attn',emailOk?(et.gmailOAuth&&et.gmailOAuth.email?et.gmailOAuth.email:(et.user||'Connected')):'Not connected');
+      cnt('canned','cannedResponses','reply','replies');cnt('templates','ticketTemplates','template','templates');
+      set('ooo',(db.oooConfig||{}).enabled?'ok':'off',(db.oooConfig||{}).enabled?'On':'Off');
+      set('csat-config',(db.csatConfig||{}).enabled!==false?'ok':'off',(db.csatConfig||{}).enabled!==false?'On':'Off');
+      set('nps-config',(db.npsConfig||{}).enabled?'ok':'off',(db.npsConfig||{}).enabled?'On':'Off');
+      set('bot-rules',n(db.botRules)?'ok':'off',n(db.botRules)?n(db.botRules)+' rules':'Off');
+      set('queue-config',(db.queueConfig||{}).enabled?'ok':'off',(db.queueConfig||{}).enabled?'On':'Off');
+      const vip=db.vipConfig||{};const vn=n(vip.emails)+n(vip.domains);set('vip-config',vn?'ok':'off',vn?vn+' customers or domains':'');
+      set('booking-config',(db.bookingConfig||{}).enabled?'ok':'off',(db.bookingConfig||{}).enabled?'On':'Off');
+      set('customer-portal',(db.portalConfig||{}).enabled?'ok':'off',(db.portalConfig||{}).enabled?'On':'Off');
+      set('ticket-classification','ok',n((db.classificationConfig||{}).types)?n(db.classificationConfig.types)+' types':'');
+      set('status-management','ok',(db.statusConfig||[]).length?(db.statusConfig.length+' statuses'):'Default statuses');
+      set('issue-form','off','');
+      cnt('escalation','escalationRules','rule','rules');cnt('automation','automationRules','rule','rules');
+      const rec=n(db.recurringTicketTemplates);set('recurring-tkt',rec?'ok':'off',rec?rec+' schedules':'');
+      cnt('approval-rules','approvalRules','rule','rules');
+      cnt('knowledge-base','knowledgeBase','article','articles');cnt('roadmap','roadmapItems','item','items');
+      const slackOn=!!((db.settings||{}).SLACK_WEBHOOK_URL);set('slack-alerts',slackOn?'ok':'attn',slackOn?'Connected':'Not set up');
+      set('integrations','ok','');set('api-tokens','off','');cnt('api-keys','apiKeys','key','keys');set('developer-docs','off','');
+      const off2=users.filter(u=>!u.twoFAEnabled).length;set('two-fa',off2===0?'ok':'attn',off2===0?'On for everyone':('Off for '+off2+' '+(off2===1?'person':'people')));
+      set('security','ok','');set('gdpr','off','');
+      const attention=[];
+      if(!emailOk)attention.push({id:'email',title:'Connect your email',text:'Customer emails cannot become tickets until Gmail or IMAP is connected.'});
+      if(!slackOn)attention.push({id:'slack-alerts',title:'Slack alerts are not set up',text:'Get a message when a ticket is new or past its target.'});
+      if(users.length>1&&off2>0)attention.push({id:'two-fa',title:'Two-factor sign-in is off for '+off2+' '+(off2===1?'person':'people'),text:'A second step keeps accounts safe if a password leaks.'});
+      return{success:true,items:I,attention};
+    },
     // A person says this ticket is a real customer, so it moves back to the working inbox for good.
     markNotPromo:(ticketId)=>{const db=rDB(),t=(db.tickets||[]).find(x=>x.id===ticketId);if(!t)return{success:false,error:'Ticket not found'};t.notPromo=true;wDB(db);return{success:true};},
     // Give several tickets to one person at once. One summary email instead of one per ticket.
