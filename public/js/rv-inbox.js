@@ -241,8 +241,12 @@
   function threadHtml(t) {
     return (t.thread || []).map(function (m) {
       var inc = m.type === 'incoming', note = m.type === 'note', who = m.fromName || m.from || (inc ? 'Customer' : 'Agent');
+      // long emails (alerts, newsletters, quoted history) show the first part with a "Show full message" button
+      var raw = m.body && String(m.body).trim() ? String(m.body).trim().replace(/\n{3,}/g, '\n\n').slice(0, 6000) : '';
+      var long = raw.length > 700 || (raw.match(/\n/g) || []).length > 12;
       return '<div class="rvi-msg ' + (inc ? '' : (note ? 'rvi-msg--note' : 'rvi-msg--out')) + '">' + w.RV.avatar(who, null) + '<div class="rvi-msg__body"><div class="rvi-msg__who"><b>' + esc(who) + '</b>' + (note ? ' &middot; <span style="color:var(--rv-warning);font-weight:700">Internal note</span>' : '') + (m.timestamp ? ' &middot; ' + esc(ago(m.timestamp)) : '') + '</div>' +
-        '<div class="rvi-bubble">' + (m.body && String(m.body).trim() ? esc(String(m.body).trim().slice(0, 6000)) : '<span class="rv-hint">(No text content. Open the full page to see the original email.)</span>') + '</div></div></div>';
+        '<div class="rvi-bubble' + (long ? ' rvi-bubble--long is-clamped' : '') + '">' + (raw ? esc(raw) : '<span class="rv-hint">(No text content. Open the full page to see the original email.)</span>') + '</div>' +
+        (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + '</div></div>';
     }).join('') || '<div class="rv-hint" style="text-align:center">No messages yet.</div>';
   }
   function drawConv(keepScroll) {
@@ -404,7 +408,7 @@
     if (q('rvfBody')) q('rvfBody').innerHTML = queueHtml();
   }
   function drawFocus(area, banner) {
-    area.innerHTML = '<div class="rv rvf' + (S.fOpen ? ' is-reading' : '') + '" id="rvf">' + (banner ? '<div class="rvi-banner">' + banner + '</div>' : '') +
+    area.innerHTML = '<div class="rv rvf' + (banner ? ' rvf--banner' : '') + (S.fOpen ? ' is-reading' : '') + '" id="rvf">' + (banner ? '<div class="rvi-banner">' + banner + '</div>' : '') +
       '<section class="rvf-queue" id="rvfQueue" aria-label="Your queue"><div class="rvf-head"><div><h1>' + esc(greeting()) + '</h1><p class="rv-hint">One queue, sorted by what needs you first.</p></div>' +
       '<button type="button" class="rv-btn rv-btn--sm" data-act="focus-off">Full inbox</button></div>' +
       '<div class="rvf-stats" id="rvfStats">' + statsHtml() + '</div><div id="rvfTabs">' + tabsHtml() + '</div><div id="rvfBody" class="rvf-body">' + queueHtml() + '</div></section>' +
@@ -470,11 +474,11 @@
       '<article class="rvf-card"><header class="rvf-card__head">' + w.RV.avatar(who, 'lg') + '<div style="flex:1;min-width:0"><h2>' + esc(t.subject || '(No subject)') + '</h2>' +
         '<div class="rv-hint"><b class="rvi-conv__who">' + esc(who) + '</b>' + (t.from && t.from !== who ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div>' +
         '<div class="rv-cluster" style="margin-top:8px">' + statusBadge(t.status) + w.RV.priority(t.priority) + slaChip(t) + (asgName ? w.RV.badge(asgName, '') : w.RV.badge('Unassigned', 'danger')) + '</div></div></header>' +
-        '<details class="rvf-fold"><summary>Status, priority and owner</summary><div class="rvf-fold__body">' +
+        '<div class="rvf-folds"><details class="rvf-fold"><summary>Status, priority and owner</summary><div class="rvf-fold__body">' +
           '<select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
           '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + ['Critical', 'High', 'Medium', 'Low'].map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
           '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select></div></details>' +
-        '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details>' +
+        '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details></div>' +
         '<div class="rvi-thread rvf-thread" id="rviThread">' + threadHtml(t) + '</div></article>' +
       '<div class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + '">' +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
@@ -485,8 +489,8 @@
           '<span style="flex:1"></span>' + w.RV.btn({ label: isNote ? 'Add note' : 'Send', attrs: { 'data-act': 'send', id: 'rviSend' } }) +
           (isNote ? '' : w.RV.btn({ label: done ? 'Send, then next' : 'Send & resolve, then next', kind: 'primary', attrs: { 'data-act': 'send-resolve', id: 'rvfSendNext' } })) + '</div>' +
         '<div class="rvi-kbdhint rvf-hintline" aria-hidden="true"><kbd class="rvi-kbd">R</kbd> reply &middot; <kbd class="rvi-kbd">E</kbd> resolve &middot; <kbd class="rvi-kbd">J</kbd> <kbd class="rvi-kbd">K</kbd> next / previous &middot; <kbd class="rvi-kbd">Esc</kbd> queue</div></div>';
-    var th = document.getElementById('rviThread'), msgs = th ? th.querySelectorAll('.rvi-msg') : [];
-    if (!keep) { var sc = document.getElementById('contentArea'); if (sc) sc.scrollTop = 0; if (msgs.length > 2) msgs[msgs.length - 1].scrollIntoView({ block: 'nearest' }); }
+    // open at the latest message (the thread scrolls inside the card; on a phone the page scrolls instead)
+    if (!keep) { var sc = document.getElementById('contentArea'); if (sc) sc.scrollTop = 0; var th = document.getElementById('rviThread'); if (th) th.scrollTop = th.scrollHeight; }
   }
   // Move to the next ticket in the queue the user was working through. The finished ticket is dropped from it.
   function advance(doneId) {
@@ -588,6 +592,7 @@
       if (act === 'cust') { root.classList.toggle('rvi--cust-open'); S.custOpen = root.classList.contains('rvi--cust-open'); return; }
       if (act === 'resolve' && S.ticket) { RVI.setStatus(S.ticket.id, 'resolved', document.getElementById('c_status')); return; }
       if (act === 'mode') { var ta = document.getElementById('replyText'); if (ta && S.ticket) S.drafts[S.ticket.id + ':' + S.mode] = ta.value; S.mode = el.getAttribute('data-mode'); redraw(true); return; }
+      if (act === 'expand') { var bub = el.previousElementSibling, clamped = bub.classList.toggle('is-clamped'); el.textContent = clamped ? 'Show full message' : 'Show less'; el.setAttribute('aria-expanded', String(!clamped)); return; }
       if (act === 'focus-on') { RVI.setFocus(true); return; }
       if (act === 'focus-off') { RVI.setFocus(false); return; }
       if (act === 'ftab') { focusTab(el.getAttribute('data-tab')); return; }

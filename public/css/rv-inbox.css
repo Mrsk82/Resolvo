@@ -91,6 +91,9 @@
 .rvi-bubble { padding: 10px 14px; border-radius: 4px 14px 14px 14px; background: var(--rv-surface-2); border: 1px solid var(--rv-border); font-size: var(--rv-text-base); line-height: var(--rv-leading-loose); white-space: pre-wrap; word-break: break-word; }
 .rvi-msg--out .rvi-bubble { background: var(--rv-accent-soft); border-color: var(--rv-accent-soft); border-radius: 14px 4px 14px 14px; }
 .rvi-msg--note .rvi-bubble { background: var(--rv-warning-soft); border: 1px dashed var(--rv-warning); border-radius: 10px; }
+.rvi-bubble--long.is-clamped { max-height: 13em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.rvi-more-msg { margin-top: 4px; border: 0; background: none; padding: 2px 0; font: inherit; font-size: var(--rv-text-sm); font-weight: var(--rv-weight-semibold); color: var(--rv-link); cursor: pointer; }
+.rvi-more-msg:hover { text-decoration: underline; }
 .rvi-composer { border-top: 1px solid var(--rv-border); padding: var(--rv-space-3) var(--rv-space-4) var(--rv-space-4); display: flex; flex-direction: column; gap: var(--rv-space-2); background: var(--rv-surface); }
 .rvi-composer .rv-textarea { min-height: 92px; max-height: 240px; }
 .rvi-composer--note .rv-textarea { background: var(--rv-warning-soft); border-color: var(--rv-warning); }
@@ -132,13 +135,26 @@
 .rvf-keys .rvi-kbd { background: transparent; color: inherit; border-color: rgba(128,128,128,.6); }
 .rvf.is-reading .rvf-keys { display: none; }
 .rvf-read { display: none; }
-.rvf.is-reading .rvf-read { display: block; }
+/* reading: the conversation scrolls inside its card and the composer is docked underneath, so nothing ever sits on top of the email */
+.rvf.is-reading { display: flex; flex-direction: column; height: calc(100dvh - 112px); min-height: 480px; padding-bottom: 0; }
+.rvf--banner.is-reading { height: calc(100dvh - 164px); }
+.rvf.is-reading .rvi-banner { flex: none; }
+.rvf.is-reading .rvf-read { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.rvf-read .rvf-card { flex: 1; min-height: 0; overflow: hidden; }
+.rvf-card__head, .rvf-folds { flex: none; }
+.rvf-card .rvf-thread { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.rvf-folds { display: flex; border-top: 1px solid var(--rv-border-soft); align-items: flex-start; }
+.rvf-folds .rvf-fold { flex: 1 1 50%; min-width: 0; border-top: 0; }
+.rvf-folds .rvf-fold + .rvf-fold { border-left: 1px solid var(--rv-border-soft); }
+.rvf-fold__body--block { max-height: 240px; overflow-y: auto; }
+.rvf-fold[open] .rvf-fold__body .rv-select { flex-basis: 100%; }
+.rvf-read .rvf-rhead { flex: none; }
 .rvf.is-reading .rvf-queue { display: none; }
 .rvf-rhead { display: flex; align-items: center; gap: var(--rv-space-2); margin-bottom: var(--rv-space-3); }
 .rvf-loading { padding: var(--rv-space-5) 0; }
-.rvf-card { background: var(--rv-surface); border: 1px solid var(--rv-border); border-radius: var(--rv-radius-lg); box-shadow: var(--rv-shadow-1); overflow: hidden; }
+.rvf-card { display: flex; flex-direction: column; background: var(--rv-surface); border: 1px solid var(--rv-border); border-radius: var(--rv-radius-lg); box-shadow: var(--rv-shadow-1); overflow: hidden; }
 .rvf-card__head { display: flex; gap: var(--rv-space-3); padding: var(--rv-space-4); align-items: flex-start; }
-.rvf-card__head h2 { margin: 0; font-size: var(--rv-text-xl); letter-spacing: -.02em; font-weight: var(--rv-weight-bold); overflow-wrap: anywhere; }
+.rvf-card__head h2 { margin: 0; font-size: var(--rv-text-lg); letter-spacing: -.02em; font-weight: var(--rv-weight-bold); overflow-wrap: anywhere; }
 .rvf-fold { border-top: 1px solid var(--rv-border-soft); }
 .rvf-fold summary { cursor: pointer; padding: var(--rv-space-3) var(--rv-space-4); font-weight: var(--rv-weight-semibold); color: var(--rv-text-2); font-size: var(--rv-text-sm); }
 .rvf-fold summary:focus-visible { outline: 2px solid var(--rv-focus); outline-offset: -2px; }
@@ -146,9 +162,12 @@
 .rvf-fold__body .rv-select { width: auto; flex: 1 1 150px; min-height: 36px; }
 .rvf-fold__body--block { display: block; font-size: var(--rv-text-sm); }
 .rvf-thread { border-top: 1px solid var(--rv-border-soft); overflow: visible; padding: var(--rv-space-4); }
-.rvf-thread .rvi-msg { scroll-margin-bottom: 280px; }
-.rvf-composer { position: sticky; bottom: var(--rv-space-3); margin-top: var(--rv-space-3); padding: var(--rv-space-3) var(--rv-space-4); display: flex; flex-direction: column; gap: var(--rv-space-2); background: var(--rv-surface); border: 1px solid var(--rv-border); border-radius: var(--rv-radius-lg); box-shadow: var(--rv-shadow-3); z-index: 5; }
-.rvf-composer .rv-textarea { min-height: 84px; max-height: 220px; }
+.rvf-composer { flex: none; margin-top: var(--rv-space-3); padding: var(--rv-space-3) var(--rv-space-4); display: flex; flex-direction: column; gap: var(--rv-space-2); background: var(--rv-surface); border: 1px solid var(--rv-border); border-radius: var(--rv-radius-lg); box-shadow: var(--rv-shadow-2); }
+/* resting composer is slim so it never hides the email; it opens up when you click in or have a draft */
+.rvf-composer .rv-textarea { min-height: 0; height: 44px; max-height: 240px; transition: height var(--rv-dur-base) var(--rv-ease); }
+/* grows only for the text box itself: growing on any focus inside would move the buttons out from under a click */
+.rvf-composer .rv-textarea:focus, .rvf-composer:has(.rv-textarea:not(:placeholder-shown)) .rv-textarea { height: 120px; }
+.rvf-composer:not(:has(.rv-textarea:focus)):not(:has(.rv-textarea:not(:placeholder-shown))) .rvf-hintline { display: none; }
 .rvf-composer .rv-cluster { justify-content: flex-end; }
 .rvf-hintline { text-align: right; }
 @media (hover: none) { .rvf-keys, .rvf-hintline { display: none; } }
@@ -159,8 +178,14 @@
   .rvf-item { grid-template-columns: 36px minmax(0, 1fr) auto; padding: var(--rv-space-3); }
   .rvf-head h1 { font-size: var(--rv-text-xl); }
   .rvf-composer .rv-cluster .rv-btn--primary { flex: 1 1 100%; order: 3; }
-  /* on a phone a stuck composer would cover the message being answered, so it follows the thread instead */
-  .rvf-composer { position: static; box-shadow: var(--rv-shadow-1); }
+  /* on a phone the whole page scrolls and the composer follows the thread (a docked box would take half the screen) */
+  .rvf.is-reading, .rvf--banner.is-reading { display: block; height: auto; min-height: 0; }
+  .rvf.is-reading .rvf-read { display: block; }
+  .rvf-read .rvf-card { overflow: visible; }
+  .rvf-card .rvf-thread { overflow: visible; }
+  .rvf-folds { flex-direction: column; }
+  .rvf-folds .rvf-fold + .rvf-fold { border-left: 0; border-top: 1px solid var(--rv-border-soft); }
+  .rvf-composer { box-shadow: var(--rv-shadow-1); }
   .rvf { padding-bottom: 88px; }
 }
 

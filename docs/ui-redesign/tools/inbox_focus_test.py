@@ -180,8 +180,10 @@ async def main():
         check("B: 'Resolved today' went up by one", (await api(pg, "getTickets", {"status": "all", "limit": 1}))["counts"]["resolvedToday"] == res_before + 1)
         check("B: success toast", any("resolved" in t.lower() for t in await toasts(pg)), await toasts(pg))
 
+        await pg.wait_for_timeout(600)
+        dbg = [await pg.evaluate("(()=>{const b=document.getElementById('rvfSendNext').getBoundingClientRect();const e=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2);return e.id+'|'+e.className+'|'+e.tagName})()"), await pg.locator("#rvfSendNext").is_disabled(), await pg.locator("#rvfSendNext").bounding_box(), await pg.input_value("#replyText"), await pg.locator("#rvfPos").inner_text()]
         await pg.click("#rvfSendNext"); await pg.wait_for_timeout(500)
-        check("B: Send & resolve with an empty reply is refused", any("Write a reply first" in t for t in await toasts(pg)), await toasts(pg))
+        check("B: Send & resolve with an empty reply is refused", any("Write a reply first" in t for t in await toasts(pg)), (await toasts(pg), dbg))
         check("B: ...and nothing changed", (await read_status(pg, got[1]))["status"] not in ("resolved", "closed"))
 
         await blur(pg)

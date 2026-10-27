@@ -146,7 +146,7 @@
 .rv-modal__body { padding: var(--rv-space-5); } .rv-modal__foot { display: flex; justify-content: flex-end; gap: var(--rv-space-2); padding: var(--rv-space-4) var(--rv-space-5); border-top: 1px solid var(--rv-border); }
 .rv-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); z-index: var(--rv-z-drawer); background: var(--rv-surface); border-left: 1px solid var(--rv-border); box-shadow: var(--rv-shadow-3); transform: translateX(100%); transition: transform var(--rv-dur-slow) var(--rv-ease); display: flex; flex-direction: column; }
 .rv-drawer.is-open { transform: none; }
-.rv-toasts { position: fixed; right: var(--rv-space-4); bottom: var(--rv-space-4); z-index: var(--rv-z-toast); display: flex; flex-direction: column; gap: var(--rv-space-2); }
+.rv-toasts { position: fixed; right: var(--rv-space-4); top: 76px;  /* top, so a message never sits on the Send buttons at the bottom */ z-index: var(--rv-z-toast); display: flex; flex-direction: column; gap: var(--rv-space-2); }
 .rv-toast { display: flex; gap: var(--rv-space-3); align-items: flex-start; min-width: 260px; max-width: 380px; background: var(--rv-surface); border: 1px solid var(--rv-border); border-left: 4px solid var(--rv-info); border-radius: var(--rv-radius-md); box-shadow: var(--rv-shadow-2); padding: var(--rv-space-3) var(--rv-space-4); font-size: var(--rv-text-base); }
 .rv-toast--success { border-left-color: var(--rv-success); } .rv-toast--error { border-left-color: var(--rv-danger); } .rv-toast--warning { border-left-color: var(--rv-warning); }
 

@@ -297,8 +297,11 @@ html[data-theme^="resolvo"] .sidebar.collapsed { width: var(--rv-sidebar-w-colla
   html[data-theme^="resolvo"] .main-content { margin-left: var(--rv-sidebar-w, 248px) !important; }
   html[data-theme^="resolvo"] .sidebar.collapsed ~ .main-content { margin-left: var(--rv-sidebar-w-collapsed, 68px) !important; }
 }
-html[data-theme^="resolvo"] .sidebar.collapsed .user-card { margin: 6px 10px !important; padding: 8px 0 !important; justify-content: center; }
-html[data-theme^="resolvo"] .sidebar.collapsed .sidebar-header { padding: 14px 8px 6px !important; flex-direction: column; gap: 8px; }
+html[data-theme^="resolvo"] .sidebar.collapsed .user-card { margin: 2px 10px 6px !important; padding: 6px 0 !important; justify-content: center; background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+/* the header has a fixed height for the open sidebar; in the rail it stacks logo over toggle, so let it grow instead of overlapping the avatar below */
+html[data-theme^="resolvo"] .sidebar.collapsed .sidebar-header { height: auto !important; min-height: 0 !important; padding: 14px 8px 6px !important; flex-direction: column; align-items: center; gap: 10px; }
+html[data-theme^="resolvo"] .sidebar.collapsed .sidebar-toggle { width: 40px !important; height: 36px !important; flex: none; }
+html[data-theme^="resolvo"] .sidebar.collapsed .sidebar-toggle:hover { background: var(--rv-hover); }
 html[data-theme^="resolvo"] .sidebar.collapsed .nav-item { margin: 2px 10px !important; padding: 10px 0 !important; justify-content: center !important; }
 html[data-theme^="resolvo"] .sidebar-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* compact footer so navigation keeps the room */
