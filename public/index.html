@@ -7881,6 +7881,8 @@ tbody tr.row-selected {
   <script src="/js/rv-inbox.js?v=12"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
+  <link rel="stylesheet" href="/css/rv-insights.css?v=1">
+  <script src="/js/rv-insights.js?v=2"></script>
 </head>
 <body>
   <div id="app">
@@ -8002,21 +8004,9 @@ tbody tr.row-selected {
           <!-- ANALYTICS — visible to all -->
           <div class="nav-section">
             <span class="nav-label">Analytics</span>
-            <a href="#" class="nav-item" data-page="reports" data-tooltip="Reports">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
-              <span class="nav-text">Reports</span>
-            </a>
-            <a href="#" class="nav-item" data-page="analytics" data-tooltip="Analytics">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
-              <span class="nav-text">Analytics</span>
-            </a>
-            <a href="#" class="nav-item" data-page="workload" data-tooltip="Workload">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-              <span class="nav-text">Workload</span>
-            </a>
-            <a href="#" class="nav-item" data-page="customer-health" data-tooltip="Customer Health">
-              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
-              <span class="nav-text">Customer Health</span>
+            <a href="#" class="nav-item" data-page="insights" data-tooltip="Insights">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+              <span class="nav-text">Insights</span>
             </a>
             <a href="#" class="nav-item" data-page="export" data-tooltip="Export Data">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
@@ -12301,7 +12291,7 @@ const App = {
     if (bcEl) bcEl.textContent = breadcrumbs[page] || '';
     
     document.querySelectorAll('.nav-item').forEach(i => {
-      var on = i.dataset.page === page;
+      var on = i.dataset.page === page || (i.dataset.page === 'insights' && ['reports','analytics','workload','customer-health'].indexOf(page) >= 0);
       // Several sidebar rows share data-page="settings" and differ only by tab —
       // match the tab too, otherwise Knowledge Base/Automation/Escalation all light up at once.
       if (on && page === 'settings') {
@@ -12331,6 +12321,7 @@ const App = {
       case 'kanban': this.renderKanban(); break;
       case 'sprints': this.renderSprints(); break;
       case 'reports': this.renderReports(params && params.tab); break;
+      case 'insights': this.renderInsights(params && params.tab); break;
       case 'ai-hub': this.renderAIHub(); break;
       case 'revenue-dashboard': this.renderRevenueDashboard(); break;
       case 'customer-health': this.renderCustomerHealth(); break;
@@ -31361,6 +31352,19 @@ App._shellRenderProfile = function() {
   setTimeout(function() { try { App._shellSync(App.currentPage || 'dashboard'); } catch (e) {} }, 1500);
   var aw = document.getElementById('aiBarWrap'), ab = document.getElementById('aiBar');
   if (aw && ab) aw.addEventListener('click', function() { ab.focus(); });
+})();
+
+// ── Insights: one page; Reports and Customer health keep their pages and gain the same tab bar ──
+(function() {
+  App.renderInsights = function(tab) { return window.RVN ? RVN.render(tab) : App.renderReports(); };
+  [['renderReports', 'reports'], ['renderCustomerHealth', 'customers'], ['renderAnalytics', 'overview'], ['renderWorkload', 'team']].forEach(function(p) {
+    var orig = App[p[0]]; if (typeof orig !== 'function') return;
+    App[p[0]] = async function() {
+      var r = await orig.apply(this, arguments);
+      try { if (App._isV3 && App._isV3() && window.RVN) RVN.addStrip(p[0] === 'renderAnalytics' || p[0] === 'renderWorkload' ? '' : p[1]); } catch (e) {}
+      return r;
+    };
+  });
 })();
 
 // ── Inbox routing: new three-panel inbox for the Resolvo themes; classic inbox otherwise or if the new one fails ──

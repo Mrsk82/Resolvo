@@ -4727,6 +4727,62 @@ app.post('/api/call',async(req,res)=>{
       }
       wDB(db);return{success:true,closed,blocked};
     },
+    // Everything the Insights page draws, for the last N days and the N days before (to compare). Promotions and alerts are left out.
+    getInsights:(opts)=>{
+      const days=Math.min(90,Math.max(7,parseInt(opts&&opts.days,10)||14)),db=rDB();
+      const IST=5.5*3600000,dayKey=ms=>new Date(ms+IST).toISOString().slice(0,10);
+      const todayMs=Date.now(),keys=[],labels=[];
+      for(let i=days*2-1;i>=0;i--){const ms=todayMs-i*864e5;keys.push(dayKey(ms));labels.push(new Date(ms+IST).toISOString().slice(5,10));}
+      const idx={};keys.forEach((k,i)=>idx[k]=i);
+      const all=(db.tickets||[]).filter(t=>!_ticketIsPromo(t)),sla=db.slaConfig||{Critical:4,High:8,Medium:24,Low:72};
+      const created=new Array(days*2).fill(0),resolved=new Array(days*2).fill(0);
+      const frt=[[],[]],slaMet=[0,0],slaTot=[0,0],csatYes=[0,0],csatAll=[0,0],ch={},words={},typeCount={};
+      const per={};const agentOf=t=>String(t.assignedTo||'').toLowerCase();
+      const users=(db.users||[]).filter(u=>u.active!==false),uName={};users.forEach(u=>uName[String(u.email).toLowerCase()]=u.name||u.email);
+      const period=ms=>{const k=idx[dayKey(ms)];return k==null?-1:(k>=days?1:0);};   // 1 = this period, 0 = previous
+      const heat=Array.from({length:7},()=>new Array(6).fill(0));
+      const STOP=new Set(['your','with','from','that','this','have','what','when','will','please','about','order','there','their','hello','thanks','thank','regarding','issue','need','help','team','email','ticket','support','reply','request']);
+      all.forEach(t=>{
+        const cMs=Date.parse(t.createdDate);if(isNaN(cMs))return;const ci=idx[dayKey(cMs)],cp=period(cMs);
+        if(ci!=null){created[ci]++;}
+        if(cp===1){
+          const c=(t.channel||t.source||'email');ch[c]=(ch[c]||0)+1;
+          const d=new Date(cMs+IST);heat[(d.getUTCDay()+6)%7][Math.max(0,Math.min(5,Math.floor((d.getUTCHours()-9)/2)))]++;
+          const ty=t.type||'';if(ty)typeCount[ty]=(typeCount[ty]||0)+1;
+          String(t.subject||'').toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).forEach(w=>{if(w.length>=5&&!STOP.has(w))words[w]=(words[w]||0)+1;});
+        }
+        if(cp>=0){
+          const first=(t.thread||[]).find(m=>m.type!=='incoming'&&m.type!=='note');
+          if(first&&first.timestamp){const h=(Date.parse(first.timestamp)-cMs)/3600000;if(h>=0&&h<24*14)frt[cp].push(h);}
+          if(t.csatRating==='yes'||t.csatRating==='no'){csatAll[cp]++;if(t.csatRating==='yes')csatYes[cp]++;}
+        }
+        const rMs=Date.parse(t.resolvedDate||'');
+        if(!isNaN(rMs)&&['resolved','closed'].includes(t.status)){
+          const ri=idx[dayKey(rMs)];if(ri!=null)resolved[ri]++;
+          const rp=period(rMs);
+          if(rp>=0){slaTot[rp]++;const lim=(sla[t.priority]||24)*3600000;if(rMs-cMs<=lim)slaMet[rp]++;}
+        }
+        // per person
+        const a=agentOf(t);if(a){const p=per[a]=per[a]||{email:a,name:uName[a]||a,open:0,resolved:0,frt:[],slaMet:0,slaTot:0,over:0,trend:new Array(days).fill(0)};
+          const open=!['resolved','closed'].includes(t.status);
+          if(open){p.open++;if(getTicketSLAInfo(db,t).slaBreached)p.over++;}
+          if(!isNaN(rMs)&&!open&&period(rMs)===1){p.resolved++;p.slaTot++;if(rMs-cMs<=(sla[t.priority]||24)*3600000)p.slaMet++;const k=idx[dayKey(rMs)]-days;if(k>=0)p.trend[k]++;}
+          const first=(t.thread||[]).find(m=>m.type!=='incoming'&&m.type!=='note');if(first&&first.timestamp&&period(cMs)===1){const h=(Date.parse(first.timestamp)-cMs)/3600000;if(h>=0&&h<24*14)p.frt.push(h);}
+        }
+      });
+      const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null,r1=v=>v==null?null:Math.round(v*10)/10;
+      const sl=a=>a.slice(days),pv=a=>a.slice(0,days),sum=a=>a.reduce((x,y)=>x+y,0);
+      const reasons=Object.keys(typeCount).length>=2?Object.entries(typeCount).sort((x,y)=>y[1]-x[1]).slice(0,6).map(([k,v])=>({label:k,n:v})):Object.entries(words).sort((x,y)=>y[1]-x[1]).slice(0,6).map(([k,v])=>({label:k,n:v}));
+      const open=all.filter(t=>!['resolved','closed'].includes(t.status));
+      return{success:true,days,labels:labels.slice(days),
+        series:{created:sl(created),resolved:sl(resolved),createdPrev:pv(created)},
+        kpi:{created:[sum(sl(created)),sum(pv(created))],resolved:[sum(sl(resolved)),sum(pv(resolved))],
+          frtHours:[r1(avg(frt[1])),r1(avg(frt[0]))],slaPct:[slaTot[1]?Math.round(slaMet[1]/slaTot[1]*100):null,slaTot[0]?Math.round(slaMet[0]/slaTot[0]*100):null],
+          csatPct:[csatAll[1]?Math.round(csatYes[1]/csatAll[1]*100):null,csatAll[0]?Math.round(csatYes[0]/csatAll[0]*100):null],csatN:csatAll[1],open:open.length},
+        channels:Object.entries(ch).sort((x,y)=>y[1]-x[1]).map(([k,v])=>({label:k,n:v})),reasons,reasonsKind:Object.keys(typeCount).length>=2?'type':'words',
+        agents:Object.values(per).map(p=>({email:p.email,name:p.name,open:p.open,resolved:p.resolved,frtHours:r1(avg(p.frt)),slaPct:p.slaTot?Math.round(p.slaMet/p.slaTot*100):null,over:p.over,trend:p.trend})).sort((x,y)=>y.open-x.open),
+        heat,unassignedOpen:open.filter(t=>!t.assignedTo).length};
+    },
     // One call that tells the Settings home page the state of every section (on / off / needs attention) and a short value to show.
     getSettingsOverview:()=>{
       const db=rDB(),n=a=>Array.isArray(a)?a.length:0,I={},users=(db.users||[]).filter(u=>u.active!==false),et=db.emailTicketing||{};
