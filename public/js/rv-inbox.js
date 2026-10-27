@@ -424,6 +424,8 @@
   RVI.setFocus = function (on) { S.focus = !!on; S.sel = null; S.fOpen = null; S.fTab = 'needs'; try { localStorage.setItem('tt_inbox_focus', on ? '1' : '0'); } catch (e) {} A().renderTicketInbox(); };
   RVI.leaveFocus = function () { S.focus = false; S.fOpen = null; };   // a link that names a view (dashboard) shows the full inbox
   RVI.isFocus = function () { return focusOn(); };
+  RVI.preselect = function (id) { S.sel = id; };   // the next inbox render opens this ticket
+  RVI.startFocus = function () { S.focus = true; S.sel = null; S.fOpen = null; S.fTab = 'needs'; try { localStorage.setItem('tt_inbox_focus', '1'); } catch (e) {} A().navigate('ticket-inbox'); };
   function urgencyCmp(x, y) {
     var sx = x.slaBreached ? 0 : (x.slaRisk ? 1 : 2), sy = y.slaBreached ? 0 : (y.slaRisk ? 1 : 2);
     if (sx !== sy) return sx - sy;

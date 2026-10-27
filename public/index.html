@@ -7877,8 +7877,8 @@ tbody tr.row-selected {
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=1"></script>
-  <link rel="stylesheet" href="/css/rv-inbox.css?v=11">
-  <script src="/js/rv-inbox.js?v=12"></script>
+  <link rel="stylesheet" href="/css/rv-inbox.css?v=12">
+  <script src="/js/rv-inbox.js?v=13"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-insights.css?v=1">
@@ -27086,7 +27086,9 @@ const App = {
         var badge = document.createElement('div');
         badge.id = 'brandTierBadge';
         badge.style.cssText = 'padding:6px 14px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:' + (tierColors[tier]||'#636e72') + ';opacity:0.8;border-top:1px solid var(--border);font-family:var(--font-mono);';
-        badge.textContent = '◈ ' + tier + ' Plan';
+        var cuT = self.currentUser || {}, daysLeft = (tier === 'Trial' && cuT.trialEnds) ? Math.max(0, Math.ceil((new Date(cuT.trialEnds).getTime() - Date.now()) / 86400000)) : null;
+        badge.textContent = daysLeft != null ? ('◈ Trial · ' + daysLeft + (daysLeft === 1 ? ' day' : ' days') + ' left') : ('◈ ' + tier + ' Plan');
+        if (daysLeft != null && daysLeft <= 3) badge.style.color = '#f87171';
         var footer = document.querySelector('.sidebar-footer');
         if (footer) footer.insertBefore(badge, footer.firstChild);
       }
@@ -30548,7 +30550,7 @@ App.renderGoodMorning = async function(containerId) {
           trialHtml = '<span style="font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:' + (left <= 3 ? 'rgba(239,68,68,.15)' : 'rgba(16,185,129,.14)') + ';color:' + (left <= 3 ? '#f87171' : 'var(--accent)') + ';white-space:nowrap;">Trial · ' + left + (left === 1 ? ' day' : ' days') + ' left</span>';
         }
         var stepsHtml = (od.steps || []).map(function(s, i) {
-          var act = s.id === 'first_ticket' ? 'App._showCreateManualTicket()' : s.id === 'setup_queue' ? "App.navigate('settings',{tab:'queue-config'})" : s.id === 'canned' ? "App.navigate('settings',{tab:'canned'})" : "App.navigate('" + String(s.link || '').replace('#', '') + "')";
+          var act = s.id === 'try_sample' ? 'App._sampleTickets(true)' : s.id === 'first_reply' ? "App.navigate('ticket-inbox')" : s.id === 'first_ticket' ? 'App._showCreateManualTicket()' : s.id === 'setup_queue' ? "App.navigate('settings',{tab:'queue-config'})" : s.id === 'canned' ? "App.navigate('settings',{tab:'canned'})" : "App.navigate('" + String(s.link || '').replace('#', '') + "')";
           return '<div ' + (s.done ? '' : 'onclick="' + act + '" role="button" tabindex="0"') + ' style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;border:1px solid ' + (s.done ? 'rgba(16,185,129,.35)' : 'var(--border)') + ';background:' + (s.done ? 'rgba(16,185,129,.06)' : 'var(--bg-elevated)') + ';cursor:' + (s.done ? 'default' : 'pointer') + ';min-width:0;">' +
             '<span style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:' + (s.done ? 'var(--accent)' : 'var(--bg-card)') + ';color:' + (s.done ? '#06231a' : 'var(--text-dim)') + ';border:1.5px solid ' + (s.done ? 'var(--accent)' : 'var(--border)') + ';">' + (s.done ? '✓' : (i + 1)) + '</span>' +
             '<span style="min-width:0;flex:1;"><span style="display:block;font-size:13px;font-weight:700;color:' + (s.done ? 'var(--text-dim)' : 'var(--text-primary)') + ';' + (s.done ? 'text-decoration:line-through;' : '') + '">' + App._esc(s.label) + '</span>' +
@@ -31178,20 +31180,23 @@ App.renderDashboardV3 = async function() {
   var greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   var days = self._v3Days();
 
+  // everything comes from the inbox numbers (promotions and automated alerts left out), so the dashboard matches the inbox
   var res = await Promise.all([
-    self.callAsync('getSummaryStats', { days: days }),
-    self.callAsync('getTickets', { status: 'all', sort: 'newest', limit: 6 }),
+    self.callAsync('getInsights', { days: days }),
+    self.callAsync('getTickets', { status: 'all', active: true, sort: 'sla', limit: 40, promo: 'exclude' }),
+    self.callAsync('getTickets', { status: 'all', sort: 'newest', limit: 6, promo: 'exclude' }),
     self.callAsync('getCSATResults')
   ]);
-  var st = res[0], tk = res[1] || {}, cs = res[2] || {};
+  var st = res[0], qk = res[1] || {}, tk = res[2] || {}, cs = res[3] || {};
+  var tc = Object.assign({}, (qk && qk.counts) || {}, ((qk && qk.counts) || {}).inbox || {});
+  var isAdmin = !!(cu && cu.role === 'Admin');
   if (!st || st.success === false) {
     area.innerHTML = '<div class="rv">' + RV.pageHead({ title: greet + ', ' + first }) + RV.card({ body: RV.alert('danger', RV.icon('alert', 16) + '<span>The dashboard could not load. ' + RV.btn({ label: 'Try again', size: 'sm', onclick: 'App.renderDashboardV3()' }) + '</span>') }) + '</div>';
     return;
   }
-  var sup = st.support || {};
-  var vol = sup.volume || [];
-  var total = st.totalTickets || 0, open = sup.openTickets || 0, resolved = Math.max(0, total - open);
-  var frt = sup.avgFirstResponseMin;
+  var vol = (st.series && st.series.created) || [];
+  var total = tc.all || 0, open = tc.open || 0, resolved = tc.resolved || 0;
+  var frt = (st.kpi && st.kpi.frtHours && st.kpi.frtHours[0] != null) ? Math.round(st.kpi.frtHours[0] * 60) : null;
   var frtHtml = frt == null ? '—' : (frt < 60 ? frt + '<small>m</small>' : (Math.round(frt / 6) / 10) + '<small>h</small>');
   var csat = cs && cs.success && cs.positiveRate != null ? cs.positiveRate : null;
   var last7 = vol.slice(-7).reduce(function(a, b) { return a + b; }, 0), prev7 = vol.slice(-14, -7).reduce(function(a, b) { return a + b; }, 0);
@@ -31201,17 +31206,16 @@ App.renderDashboardV3 = async function() {
 
   var go = function(filter) { return "App._ticketFilter='" + filter + "';App.navigate('ticket-inbox')"; };
   var view = function(v) { return "App._inboxView('" + v + "')"; };
-  var tc = Object.assign({}, (tk && tk.counts) || {}, ((tk && tk.counts) || {}).inbox || {});   // counts without promotions and alerts
   var kpis =
     RV.stat({ label: 'Total tickets', value: total, note: deltaNote, noteKind: deltaKind, icon: 'ticket', iconKind: 'info', onclick: view('all') }) +
-    RV.stat({ label: 'Open tickets', value: open, note: (sup.unassigned || 0) + ' unassigned', icon: 'inbox', iconKind: 'danger', onclick: view('status:open') }) +
-    RV.stat({ label: 'Resolved', value: resolved, note: (sup.resolvedToday || 0) + ' resolved today', icon: 'check', iconKind: 'success', onclick: view('status:resolved') }) +
+    RV.stat({ label: 'Open tickets', value: open, note: (tc.unassigned || 0) + ' unassigned', icon: 'inbox', iconKind: 'danger', onclick: view('status:open') }) +
+    RV.stat({ label: 'Resolved', value: resolved, note: ((qk.counts || {}).resolvedToday || 0) + ' resolved today', icon: 'check', iconKind: 'success', onclick: view('status:resolved') }) +
     RV.stat({ label: 'Avg. first reply', valueHtml: frtHtml, note: frt == null ? 'No replies yet' : 'across all tickets', icon: 'clock', iconKind: 'warning', onclick: "App.navigate('first-response')" }) +
-    RV.stat({ label: 'Happy customers', valueHtml: csat == null ? '—' : csat + '<small>%</small>', note: csat == null ? 'No survey replies yet' : (cs.responded || 0) + ' survey replies', icon: 'star', iconKind: 'warning', onclick: "App.navigate('reports')" });
+    RV.stat({ label: 'Happy customers', valueHtml: csat == null ? '—' : csat + '<small>%</small>', note: csat == null ? 'No survey replies yet' : (cs.responded || 0) + ' survey replies', icon: 'star', iconKind: 'warning', onclick: "App.navigate('insights',{tab:'questions'})" });
 
   // attention strip: each count opens the inbox (unassigned has its own filtered view; SLA views arrive with the inbox work)
   var att = [];
-  var nBreach = tc.slaBreached != null ? tc.slaBreached : sup.slaBreached, nDue = tc.slaDue != null ? tc.slaDue : sup.slaDue, nCrit = tc.critical || 0, nUn = tc.unassigned != null ? tc.unassigned : sup.unassigned;
+  var nBreach = tc.slaBreached || 0, nDue = tc.slaDue || 0, nCrit = tc.critical || 0, nUn = tc.unassigned || 0;
   if (nBreach) att.push('<button class="rv-link" onclick="' + view('sla-breached') + '"><b style="color:var(--rv-danger)">' + nBreach + '</b> breached SLA</button>');
   if (nDue) att.push('<button class="rv-link" onclick="' + view('sla-risk') + '"><b style="color:var(--rv-high)">' + nDue + '</b> at risk</button>');
   if (nCrit) att.push('<button class="rv-link" onclick="' + view('critical') + '"><b style="color:var(--rv-danger)">' + nCrit + '</b> critical</button>');
@@ -31224,7 +31228,7 @@ App.renderDashboardV3 = async function() {
 
   // channels
   var chColors = ['#0F9F6E', '#4F6BED', '#F59E0B', '#E5484D', '#A855F7', '#14B8A6', '#94A3B8'];
-  var chParts = Object.keys(sup.byChannel || {}).map(function(k) { return [k, sup.byChannel[k]]; }).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 7);
+  var chParts = (st.channels || []).map(function(c) { return [c.label, c.n]; }).slice(0, 7);
   var chTotal = chParts.reduce(function(a, p) { return a + p[1]; }, 0);
   var chList = chParts.map(function(p, i) {
     return '<div class="rv-cluster" style="flex-wrap:nowrap;padding:4px 0;font-size:var(--rv-text-sm)"><i class="rv-dot" style="color:' + chColors[i % chColors.length] + '"></i><span style="flex:1;color:var(--rv-text-2)">' + RV.esc(self._v3Channel(p[0])[0]) + '</span><b>' + p[1] + '</b><span style="color:var(--rv-text-faint);width:38px;text-align:right">' + Math.round(p[1] / (chTotal || 1) * 100) + '%</span></div>';
@@ -31246,7 +31250,7 @@ App.renderDashboardV3 = async function() {
   self._v3Recent = rows;
 
   // team
-  var lb = sup.leaderboard || [];
+  var lb = (st.agents || []).filter(function(a) { return a.resolved || a.open; }).slice(0, 6);
   var maxRes = Math.max.apply(null, lb.map(function(a) { return a.resolved; }).concat([1]));
   var team = lb.length ? lb.map(function(a) {
     return '<div class="rv-cluster" style="flex-wrap:nowrap;padding:8px 0;border-bottom:1px solid var(--rv-border-soft)">' + RV.avatar(a.name, 'sm') +
@@ -31263,12 +31267,23 @@ App.renderDashboardV3 = async function() {
       '<span style="font-size:var(--rv-text-xs);color:var(--rv-text-faint);flex:none">' + RV.esc(self._v3Ago(t.lastActivity || t.createdDate)) + '</span></div>';
   }).join('') || RV.empty({ icon: 'mail', title: 'Nothing yet' });
 
+  // what needs this person right now: breached and at-risk first, then priority (the server already sorted by SLA)
+  var meE = String(cu.email || '').toLowerCase();
+  var urgent = (qk.tickets || []).filter(function(t) { return !t.awaitingCustomer && (!t.assignedTo || String(t.assignedTo).toLowerCase() === meE); });
+  var nowRows = urgent.slice(0, 5).map(function(t) {
+    var flag = t.slaBreached ? RV.badge('SLA breached', 'danger') : t.slaRisk ? RV.badge('SLA ' + (t.slaHoursRemaining != null ? t.slaHoursRemaining + 'h left' : 'at risk'), 'warning') : RV.status(t.status);
+    return '<button type="button" class="rvd-now" onclick="App._openInInbox(\'' + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + '\')">' + RV.avatar(t.fromName || t.from || '?', null) +
+      '<span class="rvd-now__m"><b>' + RV.esc(String(t.fromName || t.from || 'Unknown').split('@')[0]) + '</b><span>' + RV.esc(t.subject || '(No subject)') + '</span></span>' + flag + '<span class="rvd-now__t">' + RV.esc(self._v3Ago(t.lastActivity || t.createdDate)) + '</span></button>';
+  }).join('');
+  var nowCard = total ? RV.card({ title: 'Needs you now' + (urgent.length ? ' (' + urgent.length + (qk.total > 40 ? '+' : '') + ')' : ''), flush: true,
+    actions: urgent.length ? RV.btn({ label: 'Work through them', size: 'sm', kind: 'primary', onclick: 'RVI.startFocus()' }) : '',
+    body: urgent.length ? '<div class="rvd-nowlist">' + nowRows + '</div>' : RV.empty({ icon: 'check', title: 'You are all caught up', text: 'Nothing needs you right now. New customer messages will appear here.' }) }) : '';
   var qa = function(icon, label, fn) { return RV.btn({ label: label, icon: icon, onclick: fn, attrs: { style: 'width:100%;justify-content:flex-start' } }); };
 
   area.innerHTML = '<div class="rv" style="max-width:var(--rv-content-max);margin:0 auto">' +
     RV.pageHead({ title: greet + ', ' + first, sub: 'Here is what is happening with your support today.' }) +
     '<div class="rv-stack">' +
-      '<div id="v3onb"></div>' + empty + attHtml +
+      '<div id="v3onb"></div>' + empty + nowCard + attHtml +
       '<div class="rv-grid rv-grid--kpi">' + kpis + '</div>' +
       '<div class="rv-grid rv-grid--main">' +
         RV.card({ title: 'Ticket volume', actions: RV.range([{ value: 7, label: '7d' }, { value: 14, label: '14d' }, { value: 30, label: '30d' }], days, 'App._v3SetDays'),
@@ -31278,11 +31293,11 @@ App.renderDashboardV3 = async function() {
       '<div class="rv-grid rv-grid--main">' +
         '<div class="rv-stack">' +
           RV.card({ title: 'Recent tickets', flush: true, actions: '<button class="rv-link" onclick="App.navigate(\'ticket-inbox\')">View all</button>', body: recent }) +
-          RV.card({ title: 'Team performance', body: team }) +
+          (isAdmin ? RV.card({ title: 'Team performance', body: team }) : '') +
         '</div>' +
         '<div class="rv-stack">' +
           RV.card({ title: 'Live activity', actions: '<button class="rv-link" onclick="App.navigate(\'ticket-inbox\')">View all</button>', body: acts }) +
-          RV.card({ title: 'Quick actions', body: '<div class="rv-stack" style="gap:8px">' + qa('plus', 'Create ticket', 'App._showCreateManualTicket()') + qa('user', 'Add customer', "App.navigate('customers')") + qa('chart', 'View reports', "App.navigate('reports')") + qa('team', 'Manage team', "App.navigate('user-management')") + '</div>' }) +
+          RV.card({ title: 'Quick actions', body: '<div class="rv-stack" style="gap:8px">' + qa('plus', 'Create ticket', 'App._showCreateManualTicket()') + qa('user', 'Add customer', "App.navigate('customers')") + qa('chart', 'Open insights', "App.navigate('insights')") + (isAdmin ? qa('team', 'Manage team', "App.navigate('user-management')") : '') + '</div>' }) +
         '</div>' +
       '</div>' +
     '</div></div>';
@@ -31297,6 +31312,7 @@ App.renderDashboardV3 = async function() {
     }
   } catch (e) {}
 };
+App._openInInbox = function(id) { if (window.RVI) { RVI.leaveFocus(); RVI.preselect(id); } App.navigate('ticket-inbox'); };
 App._v3OpenRecent = function(i) { var t = (App._v3Recent || [])[i]; if (t) App.renderTicketDetail(t.id); };
 
 
