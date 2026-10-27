@@ -31356,6 +31356,7 @@ App._shellRenderProfile = function() {
     '<div style="padding:8px 12px 10px;border-bottom:1px solid var(--rv-border);margin-bottom:4px"><div style="font-weight:700;font-size:14px;color:var(--rv-text)">' + RV.esc(name) + '</div>' +
     '<div style="font-size:12px;color:var(--rv-text-muted)">' + RV.esc(cu.email || '') + (cu.role ? ' · ' + RV.esc(cu.role) : '') + '</div></div>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="Themes.apply(Themes.current===\'resolvo-dark\'?\'resolvo\':\'resolvo-dark\',true);App._shellRenderProfile()">' + (dark ? 'Switch to light mode' : 'Switch to dark mode') + '</button>' +
+    '<button type="button" role="menuitem" class="rv-menu__item" onclick="App._showWhatsNew()">What\'s new</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="Keyboard && Keyboard._toggleKbdHelp()">Keyboard shortcuts</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="App.navigate(\'upgrade\')">Plan and upgrade</button>' +
     '<div class="rv-menu__sep"></div>' +
@@ -31371,6 +31372,40 @@ App._shellRenderProfile = function() {
   setTimeout(function() { try { App._shellSync(App.currentPage || 'dashboard'); } catch (e) {} }, 1500);
   var aw = document.getElementById('aiBarWrap'), ab = document.getElementById('aiBar');
   if (aw && ab) aw.addEventListener('click', function() { ab.focus(); });
+})();
+
+// ── "What's new" popup: shown once per person per release, and reopenable from the account menu ──
+(function() {
+  var VER = '2026-10';
+  var ITEMS = [
+    ['🎯', 'Focus mode', 'Work one ticket at a time. Send &amp; resolve, then next. On phones it starts here.'],
+    ['🏠', 'A Today dashboard', 'Opens with the tickets that need you now, closest to their target time first.'],
+    ['📰', 'Promotions and alerts', 'Newsletters and system alerts are kept out of your queue and your counts.'],
+    ['📈', 'Insights', 'Reports, analytics and workload in one place, with plain-language answers and a team scorecard.'],
+    ['🧑', 'Smarter customers', 'Health badges and one-click merging of the same person on email and WhatsApp.'],
+    ['📱', 'On your phone', 'Install it, get alerts for tickets that are yours or close to their target, and swipe to take or snooze.']
+  ];
+  App._showWhatsNew = function() {
+    if (!window.RV) return;
+    var body = '<p style="margin:0 0 14px;color:var(--rv-text-muted)">The same inbox, rebuilt so you can see what matters and move on.</p><div style="display:flex;flex-direction:column;gap:12px">' +
+      ITEMS.map(function(i) { return '<div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px;line-height:1.3" aria-hidden="true">' + i[0] + '</span><div><b>' + i[1] + '</b><div style="font-size:13px;color:var(--rv-text-muted)">' + i[2] + '</div></div></div>'; }).join('') + '</div>';
+    var ov = RV.modal({ title: 'What\'s new in Resolvo', body: body,
+      foot: RV.btn({ label: 'See the full guide', onclick: "window.open('/learn','_blank')" }) + RV.btn({ label: 'Got it', kind: 'primary', attrs: { id: 'rvWnOk' } }) });
+    var ok = ov && ov.querySelector('#rvWnOk'); if (ok) ok.addEventListener('click', function() { RV.closeModal(ov); });
+    try { localStorage.setItem('tt_whatsnew', VER); } catch (e) {}
+  };
+  // first visit after the update: wait for the app to be ready, then show it once (never over a deep link or a dialog)
+  var tries = 0, t = setInterval(function() {
+    if (++tries > 30) { clearInterval(t); return; }
+    if (!(App.currentUser && window.RV && App._isV3 && App._isV3() && document.getElementById('contentArea'))) return;
+    clearInterval(t);
+    var seen = null, force = false; try { seen = localStorage.getItem('tt_whatsnew'); force = localStorage.getItem('tt_whatsnew_force') === '1'; } catch (e) {}
+    if (navigator.webdriver && !force) return;   // automated browsers (tests, screenshots) are not shown it
+    if (seen === VER || /[?&]open=/.test(location.search) || document.querySelector('.rv-overlay')) return;
+    // brand-new workspaces get the setup checklist instead
+    if (App.currentUser.brandTier === 'Trial' && seen === null) { try { localStorage.setItem('tt_whatsnew', VER); } catch (e) {} return; }
+    setTimeout(function() { if (!document.querySelector('.rv-overlay')) App._showWhatsNew(); }, 2200);
+  }, 1000);
 })();
 
 // ── Command palette (Ctrl+K): tickets and customers by name, support actions, Insights ──

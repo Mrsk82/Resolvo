@@ -290,6 +290,9 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
   </div>
   <div class="sb-section">
     <div class="sb-section-title">New Features</div>
+    <a class="sb-item" onclick="showModule('whats-new')" href="#">
+      <div class="sb-check" id="chk-whats-new"></div><span>✨ What's New (Oct 2026) <span style="background:var(--green);color:#0B0F19;font-size:9px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:4px;">New</span></span>
+    </a>
     <a class="sb-item" onclick="showModule('new-features')" href="#">
       <div class="sb-check" id="chk-new-features"></div><span>🆕 New Features Guide</span>
     </a>
@@ -322,7 +325,7 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <h1>Welcome to Resolvo 👋</h1>
         <p>This Learning Center walks you through every feature — from your first issue to queue management, customer portal, knowledge base, custom statuses, data export, and AI-powered analytics.</p>
         <div class="hero-meta">
-          <span>📚 19 Modules</span>
+          <span>📚 20 Modules</span>
           <span>⏱ ~90 min total</span>
           <span>✅ Track your progress</span>
           <span>🖥 Works on all screens</span>
@@ -406,6 +409,8 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <p>Your command center. See everything that matters at a glance — and drill into any number instantly.</p>
         <div class="hero-meta"><span>⏱ 5 min read</span><span>🖱 Interactive charts</span></div>
       </div>
+
+      <div class="info"><strong>✨ Updated October 2026:</strong> The dashboard now opens with a Needs you now list, and its numbers match the inbox. See <a href="#" onclick="showModule('whats-new');return false;">What's New</a>.</div>
 
       <div class="section-block">
         <div class="section-title">KPI Cards</div>
@@ -604,6 +609,8 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <p>A full Freshdesk-style support inbox built in. Customers email you → tickets appear automatically → you reply from the platform and the reply goes back to their email.</p>
         <div class="hero-meta"><span>⏱ 8 min read</span><span>📧 Full email threading</span></div>
       </div>
+
+      <div class="info"><strong>✨ Updated October 2026:</strong> Newsletters and alerts are kept in a Promotions view, and Focus mode lets you work one ticket at a time. See <a href="#" onclick="showModule('whats-new');return false;">What's New</a>.</div>
 
       <div class="section-block">
         <div class="section-title">Setting Up Email Ticketing</div>
@@ -816,6 +823,8 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <div class="hero-meta"><span>⏱ 8 min read</span><span>📊 8 report types</span><span>📤 CSV export</span></div>
       </div>
 
+      <div class="info"><strong>✨ Updated October 2026:</strong> Reports, Analytics, Workload and Customer health now live under one Insights page. See <a href="#" onclick="showModule('whats-new');return false;">What's New</a>.</div>
+
       <div class="section-block">
         <div class="section-title">The 8 Report Tabs</div>
         <div class="mock-nav" style="background:var(--card);border-radius:8px;margin-bottom:20px;">
@@ -948,6 +957,8 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
         <p>All 12 settings tabs explained. Navigate to Settings in the sidebar (Admin-only access required for most tabs).</p>
         <div class="hero-meta"><span>⏱ 8 min read</span><span>🔐 Admin only</span></div>
       </div>
+
+      <div class="info"><strong>✨ Updated October 2026:</strong> Settings opens on a landing page that shows what is on, off or needs attention, with search. See <a href="#" onclick="showModule('whats-new');return false;">What's New</a>.</div>
 
       <div class="section-block">
         <div class="section-title">🏢 General</div>
@@ -1345,6 +1356,124 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 
     <!-- ═══════════════════════════════════════════ -->
     <!-- ═══════════════════════════════════════════ -->
+    <!-- MODULE: WHAT'S NEW (OCT 2026)               -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="module" id="mod-whats-new">
+      <div class="learn-hero">
+        <h1>✨ What's New (Oct 2026)</h1>
+        <p>A calmer inbox, a Today dashboard, Focus mode, Insights, smarter customers and settings, and Resolvo on your phone.</p>
+        <div class="hero-meta"><span>⏱ 8 min read</span><span>✨ 10 updates</span></div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🏠 Today: start with what needs you</div>
+        <div class="section-sub">Dashboard. The first card lists the tickets waiting on you, with the ones closest to their target time first.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Read the list</h4><p>Each row shows the customer, the subject and a badge: SLA breached, SLA hours left, or New.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Click a row</h4><p>The ticket opens in the inbox with the conversation ready.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Or press Work through them</h4><p>Opens Focus mode so you can clear the list one ticket at a time.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Good to know:</strong> The numbers on the dashboard match the inbox exactly. Newsletters and automated alerts are left out of both.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🎯 Focus mode: one ticket at a time</div>
+        <div class="section-sub">Inbox → Focus mode (on phones it starts here). A calm queue sorted by urgency: breached first, then at risk, then priority, then oldest.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Pick a ticket</h4><p>Press J and K to move, Enter to open. Or tap one.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Reply</h4><p>Press R to jump to the reply box. Type, then choose Send, or Send &amp; resolve, then next.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Send &amp; resolve, then next</h4><p>Sends your reply, marks the ticket resolved and opens the next one. It only moves on after the reply really sent. If sending fails, your text stays and nothing is resolved.</p></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Resolve without a reply</h4><p>Press E. If you have an unsent reply, Resolvo asks you to send or clear it first.</p></div></div>
+          <div class="step"><div class="step-num">5</div><div class="step-body"><h4>Go back</h4><p>Press Esc once to leave the reply box, again to return to the queue.</p></div></div>
+        </div>
+        <div class="tip"><strong>💡 Good to know:</strong> If your workspace requires a close reason (disposition), Resolvo asks for it before anything is sent.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📰 Promotions and alerts</div>
+        <div class="section-sub">Inbox → Promotions (or the Views button). Newsletters, marketing emails and system alerts that became tickets are kept out of your queue and your counts.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Look at what was caught</h4><p>Open the Promotions view to see them. Nothing is deleted.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Clear them</h4><p>As an admin: Close all, or Close all and block senders so they never create tickets again. Nobody is emailed.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Move one back</h4><p>If a real customer was caught by mistake, open the ticket, choose ⋯ → This is a real customer: move to inbox. It stays in your inbox for good.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⌨️ Faster replies</div>
+        <div class="section-sub">Three small helpers in the reply box.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><span class="feat-icon">/</span><h4>Type / for saved replies</h4><p>Type / at the start of a word, pick a saved reply with the arrow keys and press Enter.</p></div>
+          <div class="feat-card"><span class="feat-icon">⏱</span><h4>Waiting note</h4><p>On an old ticket you see "Meera has been waiting 5 hours for a reply" so nothing is forgotten.</p></div>
+          <div class="feat-card"><span class="feat-icon">💤</span><h4>Quick snooze</h4><p>⋯ menu → Snooze for 3 hours, until tomorrow 9am or Monday 9am. The ticket comes back to your queue then.</p></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">👥 Assign in bulk</div>
+        <div class="section-sub">Tick several tickets in the inbox list. A new Assign to… menu appears next to Mark resolved.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Choose the tickets</h4><p>Use the checkboxes, or the select-all box at the top of the list.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Assign to…</h4><p>Pick Me or a teammate. They get one summary email, not one per ticket.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📈 Insights</div>
+        <div class="section-sub">Sidebar → Insights. One page with Overview, Questions, Team, Reports and Customers.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><span class="feat-icon">📊</span><h4>Overview</h4><p>Tickets, resolved, first reply, resolved on time and happy customers, with a comparison to the period before.</p></div>
+          <div class="feat-card"><span class="feat-icon">💬</span><h4>Questions</h4><p>Plain answers: are we answering fast enough, are we getting busier, where do tickets come from, who needs help.</p></div>
+          <div class="feat-card"><span class="feat-icon">🧑‍🤝‍🧑</span><h4>Team</h4><p>Who is overloaded, who has tickets past target, a sortable scorecard and a busy-hours map.</p></div>
+          <div class="feat-card"><span class="feat-icon">📄</span><h4>Reports and Customers</h4><p>The reports and customer-health pages you already know, now under the same tab bar.</p></div>
+        </div>
+        <div class="info"><strong>ℹ️ Where did Analytics and Workload go?</strong> They are still available: Insights → Team replaces the workload view, and the old pages open from links inside Insights.</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🧑 Customers: health, last contact, merge</div>
+        <div class="section-sub">Sidebar → Customers.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Read the badges</h4><p>VIP, At risk, Happy or Active next to each name. At risk means a ticket is past target, three or more are open, or recent survey answers were negative.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Filter</h4><p>Use the At risk and VIP chips to focus.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Merge duplicates</h4><p>A banner appears when the same person looks like two customers (for example email and WhatsApp). Review, then Merge. Their addresses, tickets and deals join under one customer; nothing is deleted.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">⚙️ Settings that show what is not set up</div>
+        <div class="section-sub">Sidebar → Settings. The landing page lists every section with its state.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Start at Needs your attention</h4><p>Unconnected email, missing Slack alerts and two-factor sign-in that is off for some people are listed first.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Search</h4><p>Type what you want to do, for example "slack" or "sla".</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Inside a section</h4><p>A list on the left lets you jump to any other section, and a breadcrumb shows where you are. Your existing settings and data are unchanged.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📱 On your phone</div>
+        <div class="section-sub">Open Resolvo in your phone's browser.</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Install it</h4><p>Settings → My Notifications → Install Resolvo, or use your browser menu: Install app / Add to Home Screen. On iPhone use Share → Add to Home Screen.</p></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Turn on alerts</h4><p>Settings → My Notifications → Alert me on this device. You get a notification when a ticket is assigned to you, or is close to or past its target time. Tap it to land on that ticket.</p></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Swipe</h4><p>In the queue, swipe right to assign a ticket to yourself and left to snooze it until tomorrow 9am.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🔎 Ctrl+K and keyboard shortcuts</div>
+        <div class="section-sub">Press Ctrl+K anywhere.</div>
+        <div class="feat-grid">
+          <div class="feat-card"><span class="feat-icon">🔎</span><h4>Find anything</h4><p>Search tickets and customers by name, or jump to Insights, Settings sections, Focus mode and more.</p></div>
+          <div class="feat-card"><span class="feat-icon">⌨️</span><h4>Focus mode keys</h4><p>J / K move, Enter opens, R replies, E resolves, Esc goes back, Ctrl+Shift+Enter sends and resolves.</p></div>
+          <div class="feat-card"><span class="feat-icon">🧭</span><h4>Go-to keys</h4><p>When you are not typing: N new issue, D dashboard, L issue list, K Kanban. They are switched off inside the inbox.</p></div>
+        </div>
+      </div>
+
+      <button class="complete-btn" onclick="markDone('whats-new','new-features')">✓ Mark Complete — Next: New Features Guide →</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
     <!-- MODULE: NEW FEATURES GUIDE                 -->
     <!-- ═══════════════════════════════════════════ -->
     <div class="module" id="mod-new-features">
@@ -1630,7 +1759,7 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
           <div class="feat-card"><h4>✏️ manual</h4><p>Created directly by an agent in the inbox</p></div>
         </div>
       </div>
-      <button class="complete-btn" onclick="markDone('ticket-sources','new-features')">✓ Mark Complete — Next: New Features Guide →</button>
+      <button class="complete-btn" onclick="markDone('ticket-sources','whats-new')">✓ Mark Complete — Next: What's New →</button>
     </div>
 
     <div class="module" id="mod-cheatsheet">
@@ -1925,7 +2054,7 @@ mark{background:rgba(16,185,129,.25);color:var(--green);border-radius:3px;paddin
 </div><!-- /main -->
 
 <script>
-var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','api-tokens','slack-alerts','ticket-sources','new-features','cheatsheet'];
+var MODULES = ['quickstart','dashboard','issues','kanban','tickets','ticket-power','ticket-automation','reports','leaderboard','settings','team','queue','appointments','tasks','api-tokens','slack-alerts','ticket-sources','whats-new','new-features','cheatsheet'];
 var TITLES = {
   quickstart:'🚀 Quick Start',dashboard:'📊 Dashboard',issues:'🎫 Issues & SLA',
   kanban:'🗂 Kanban & Sprints',tickets:'📬 Email Ticketing',
@@ -1933,6 +2062,7 @@ var TITLES = {
   reports:'📈 Reports & Analytics',leaderboard:'🏆 Leaderboard & Forecast',
   settings:'⚙️ Settings Guide',team:'🤝 Team & Users',
   queue:'🔄 Smart Queue',appointments:'📅 Appointments',tasks:'✅ Tasks & Follow-ups',
+  'whats-new':'✨ What\'s New (Oct 2026)',
   'new-features':'🆕 New Features Guide',
   'whatsapp':'📱 WhatsApp Channel',
   cheatsheet:'📋 Full Cheatsheet'
