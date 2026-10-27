@@ -7863,6 +7863,7 @@ tbody tr.row-selected {
 [data-theme="clarity"] .bento-grid { display: none !important; }
 [data-theme="clarity"] .cmd-center-topbar-btn { display: none !important; }
 
+.cust-h{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:1px;background:rgba(100,116,139,.14);color:#64748b}.cust-h--vip{background:rgba(217,164,0,.16);color:#b07d00}.cust-h--risk{background:rgba(229,72,77,.14);color:#d33b40}.cust-h--happy{background:rgba(22,163,74,.14);color:#16a34a}.cust-h--active{background:rgba(79,107,237,.13);color:#4f6bed}
 </style>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
@@ -16974,6 +16975,7 @@ const App = {
           '<div style="display:flex;gap:8px;"><input id="custSearch" class="form-input" placeholder="Search name, email, phone, company" style="width:280px;max-width:100%;">' +
           '<a href="/crm" class="btn-secondary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;">Sales pipeline →</a></div>' +
         '</div>' +
+        '<div id="custDup"></div>' +
         '<div id="custChips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;"></div>' +
         '<div id="custTable" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;"><div style="padding:40px;text-align:center;color:var(--text-dim);">Loading customers…</div></div>' +
       '</div>';
@@ -16984,7 +16986,7 @@ const App = {
       if (!r || !r.success) { box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);">Could not load customers.</div>'; return; }
       var f = self._custFilter || 'all', srt = self._custSort || 'recent';
       self._custAll = r.customers;
-      var chipDefs = [['all', 'All', r.customers.length], ['open', 'Open tickets', r.customers.filter(function(c) { return c.openTickets > 0; }).length], ['deals', 'Has deals', r.customers.filter(function(c) { return c.openDeals > 0; }).length], ['repeat', 'Repeat (3+ tickets)', r.customers.filter(function(c) { return c.tickets >= 3; }).length]];
+      var chipDefs = [['all', 'All', r.customers.length], ['open', 'Open tickets', r.customers.filter(function(c) { return c.openTickets > 0; }).length], ['deals', 'Has deals', r.customers.filter(function(c) { return c.openDeals > 0; }).length], ['repeat', 'Repeat (3+ tickets)', r.customers.filter(function(c) { return c.tickets >= 3; }).length], ['risk', 'At risk', r.customers.filter(function(c) { return c.health && c.health.k === 'risk'; }).length], ['vip', 'VIP', r.customers.filter(function(c) { return c.health && c.health.k === 'vip'; }).length]];
       var chipBox = document.getElementById('custChips');
       if (chipBox) chipBox.innerHTML = chipDefs.map(function(d) {
         var on = d[0] === f;
@@ -16992,7 +16994,7 @@ const App = {
       }).join('') +
         '<span style="flex:1;"></span><select class="form-input" style="font-size:12px;padding:5px 8px;" onchange="App._custSort=this.value;App._custReload()"><option value="recent"' + (srt === 'recent' ? ' selected' : '') + '>Most recent</option><option value="tickets"' + (srt === 'tickets' ? ' selected' : '') + '>Most tickets</option><option value="name"' + (srt === 'name' ? ' selected' : '') + '>Name A–Z</option></select>' +
         '<button class="btn-secondary btn-sm" onclick="App._custExport()">Export CSV</button>';
-      r.customers = r.customers.filter(function(c) { return f === 'all' || (f === 'open' && c.openTickets > 0) || (f === 'deals' && c.openDeals > 0) || (f === 'repeat' && c.tickets >= 3); });
+      r.customers = r.customers.filter(function(c) { return f === 'all' || (f === 'open' && c.openTickets > 0) || (f === 'deals' && c.openDeals > 0) || (f === 'repeat' && c.tickets >= 3) || (f === 'risk' && c.health && c.health.k === 'risk') || (f === 'vip' && c.health && c.health.k === 'vip'); });
       if (srt === 'tickets') r.customers.sort(function(a, b) { return b.tickets - a.tickets; });
       else if (srt === 'name') r.customers.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
       self._custShown = r.customers;
@@ -17010,11 +17012,11 @@ const App = {
         var ini = String(c.name || c.email || '?').trim().charAt(0).toUpperCase();
         return '<div onclick="App.navigate(\'customer\',{id:\'' + c.id + '\'})" style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'">' +
           '<div style="display:flex;align-items:center;gap:10px;min-width:0;"><div style="width:32px;height:32px;border-radius:50%;background:var(--accent-dim,rgba(16,185,129,.15));color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">' + self._esc(ini) + '</div>' +
-            '<div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.name || c.email || c.phone) + '</div>' +
-            '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.email || c.phone) + '</div></div></div>' +
+            '<div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.name || c.email || c.phone) + (c.health && c.health.l ? ' <span class="cust-h cust-h--' + c.health.k + '">' + c.health.l + '</span>' : '') + '</div>' +
+            '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.email || c.phone) + (c.altCount ? ' <span title="Also reaches you from ' + c.altCount + ' other address' + (c.altCount === 1 ? '' : 'es') + '">+' + c.altCount + '</span>' : '') + '</div></div></div>' +
           '<div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (c.company ? self._esc(c.company) : '<span style="color:var(--text-dim);">—</span>') + '</div>' +
           '<div style="font-size:12px;color:var(--text-secondary);">' + c.tickets + (c.openTickets ? ' <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--medium,#F59E0B);">' + c.openTickets + ' open</span>' : '') + '</div>' +
-          '<div style="font-size:12px;color:var(--text-muted);">' + self._custAgo(c.lastTicketDate || c.createdDate) + '</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);">' + self._custAgo(c.lastContact || c.lastTicketDate || c.createdDate) + '</div>' +
         '</div>';
       }).join('');
     };
@@ -17022,6 +17024,30 @@ const App = {
     var inp = document.getElementById('custSearch');
     if (inp) inp.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(function() { load(inp.value.trim()); }, 250); });
     load('');
+    self._custDupCheck();
+  },
+
+  // the same person appearing twice (email and WhatsApp, or typed twice): offer to join them
+  _custDupCheck: async function() {
+    var self = this, box = document.getElementById('custDup'); if (!box) return;
+    var r = await self._crmFetch('/api/crm/duplicates'); box = document.getElementById('custDup'); if (!box) return;
+    self._custDupes = (r && r.success) ? r.groups : [];
+    box.innerHTML = self._custDupes.length ? '<div class="rv"><div class="rv-alert rv-alert--info" style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span style="flex:1"><b>' + self._custDupes.length + ' possible duplicate' + (self._custDupes.length === 1 ? '' : 's') + '.</b> The same person may appear more than once.</span><button type="button" class="rv-btn rv-btn--sm" onclick="App._custDupeReview()">Review</button></div></div>' : '';
+  },
+  _custDupeReview: function() {
+    var self = this, groups = self._custDupes || [];
+    var body = groups.map(function(g, gi) {
+      return '<div style="border:1px solid var(--rv-border);border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="font-size:12px;color:var(--rv-text-muted);margin-bottom:6px">Same name</div>' + g.map(function(c, i) {
+        return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0"><span style="flex:1;min-width:0"><b>' + self._esc(c.name) + '</b><br><span style="font-size:12px;color:var(--rv-text-muted)">' + self._esc(c.email || c.phone || '') + ' &middot; ' + c.tickets + ' ticket' + (c.tickets === 1 ? '' : 's') + '</span></span>' + (i === 0 ? '<span class="rv-hint">keep this one</span>' : '') + '</div>'; }).join('') +
+        '<div style="text-align:right;margin-top:6px"><button type="button" class="rv-btn rv-btn--sm rv-btn--primary" onclick="App._custMerge(' + gi + ')">Merge into ' + self._esc(g[0].name) + '</button></div></div>'; }).join('') || '<p>No duplicates found.</p>';
+    RV.modal({ title: 'Possible duplicates', body: '<p style="margin:0 0 12px;color:var(--rv-text-muted)">Merging joins their email addresses, phone numbers, tickets and deals under one customer. Nothing is deleted from your tickets.</p>' + body });
+  },
+  _custMerge: async function(gi) {
+    var self = this, g = (self._custDupes || [])[gi]; if (!g) return;
+    var r = await self._crmFetch('/api/crm/contacts/merge', { method: 'POST', body: { primaryId: g[0].id, otherIds: g.slice(1).map(function(c) { return c.id; }) } });
+    if (!r || !r.success) { RV.toast((r && r.error) || 'Could not merge', 'error'); return; }
+    RV.toast('Merged into ' + g[0].name, 'success'); var ov = document.querySelector('.rv-overlay'); if (ov) RV.closeModal(ov);
+    self._custReload(); self._custDupCheck();
   },
 
   _custExport: function() {
