@@ -1,976 +1,493 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Live Demo — Resolvo</title>
+<meta name="description" content="Try Resolvo in your browser: Focus mode, a clean inbox, Insights, customers and settings. No signup, made-up data.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-27BVPWPG8N');</script>
 <style>
-/* ── DESIGN SYSTEM (mirrors index.html) ── */
-:root{
-  --bg-base:#0B0F19;--bg-surface:#0f1520;--bg-card:#141c2e;
-  --bg-elevated:#1a2438;--bg-hover:#1f2d45;
-  --accent:#10B981;--accent-dim:rgba(16,185,129,0.12);--accent-glow:rgba(16,185,129,0.3);
-  --critical:#ff4757;--critical-dim:rgba(255,71,87,0.12);
-  --high:#fb923c;--high-dim:rgba(251,146,60,0.12);
-  --medium:#f59e0b;--medium-dim:rgba(245,158,11,0.12);
-  --low:#10B981;--low-dim:rgba(16,185,129,0.12);
-  --status-open:#818cf8;--status-resolved:#10B981;--status-pending:#f59e0b;--status-closed:#6b7280;
-  --text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--text-dim:#334155;
-  --border:rgba(255,255,255,0.07);--border-accent:rgba(16,185,129,0.3);
-  --sidebar-width:240px;--topbar-height:60px;
-  --radius:8px;--radius-md:10px;--radius-lg:14px;
-  --shadow:0 4px 16px rgba(0,0,0,0.3);--shadow-lg:0 8px 32px rgba(0,0,0,0.45);
-  --font-mono:'DM Mono',monospace;
+/* Shared look for the five inbox samples (same tokens as the real Resolvo design layer). */
+:root {
+  --bg:#F4F6FA; --surface:#fff; --surface2:#F7F9FC; --hover:#F0F3F8; --selected:#E8F7F1; --border:#E6EAF0; --soft:#EEF1F6;
+  --text:#0F172A; --text2:#334155; --muted:#64748B; --faint:#94A3B8;
+  --accent:#0F9F6E; --accent-strong:#0B7F58; --accent-soft:rgba(15,159,110,.10); --on-accent:#fff;
+  --info:#4F6BED; --info-soft:rgba(79,107,237,.12); --success:#16A34A; --success-soft:rgba(22,163,74,.12);
+  --warning:#C28A00; --warning-soft:rgba(217,164,0,.15); --danger:#E5484D; --danger-soft:rgba(229,72,77,.10); --high:#F2780C; --high-soft:rgba(242,120,12,.12);
+  --wa:#25D366; --shadow:0 1px 2px rgba(15,23,42,.05),0 4px 16px rgba(15,23,42,.05); --shadow3:0 8px 20px rgba(15,23,42,.10),0 24px 56px rgba(15,23,42,.14);
+  --r:10px; --rl:14px; --font:'Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg-base);color:var(--text-primary);overflow:hidden;}
+:root[data-theme="dark"] {
+  --bg:#0B1220; --surface:#111A2C; --surface2:#16213A; --hover:#1B2842; --selected:rgba(31,194,138,.14); --border:#1F2C45; --soft:#182238;
+  --text:#E8EEF9; --text2:#C3CDE0; --muted:#8B98B2; --faint:#5F6D89; --accent:#1FC28A; --accent-strong:#1FC28A; --accent-soft:rgba(31,194,138,.14); --on-accent:#04130D;
+  --info:#7C93FF; --info-soft:rgba(124,147,255,.16); --success:#34D399; --success-soft:rgba(52,211,153,.14); --warning:#FBBF24; --warning-soft:rgba(251,191,36,.15);
+  --danger:#F87171; --danger-soft:rgba(248,113,113,.14); --high:#FB923C; --high-soft:rgba(251,146,60,.15); --shadow:0 1px 2px rgba(0,0,0,.4); --shadow3:0 8px 20px rgba(0,0,0,.4),0 24px 56px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer} :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover{background:var(--hover)} .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)} .btn.primary:hover{filter:brightness(.93)}
+.btn.ghost{border-color:transparent;background:transparent} .btn.sm{min-height:28px;padding:0 10px;font-size:12px} .icon{width:34px;height:34px;padding:0}
+.badge{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:99px;font-size:11px;font-weight:700;background:var(--surface2);color:var(--text2);white-space:nowrap}
+.badge i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.b-open{background:var(--accent-soft);color:var(--accent-strong)} .b-new{background:var(--info-soft);color:var(--info)} .b-pending{background:var(--warning-soft);color:var(--warning)} .b-resolved{background:var(--success-soft);color:var(--success)}
+.p-Critical{background:var(--danger-soft);color:var(--danger)} .p-High{background:var(--high-soft);color:var(--high)} .p-Medium{background:var(--warning-soft);color:var(--warning)} .p-Low{background:var(--success-soft);color:var(--success)}
+.sla-risk{background:var(--warning-soft);color:var(--warning)} .sla-breach{background:var(--danger-soft);color:var(--danger)} .sla-ok{background:var(--surface2);color:var(--muted)}
+.av{--s:34px;width:var(--s);height:var(--s);border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--s)*.38);background:var(--accent-soft);color:var(--accent-strong);position:relative}
+.av.c1{background:var(--info-soft);color:var(--info)} .av.c2{background:var(--warning-soft);color:var(--warning)} .av.c3{background:var(--danger-soft);color:var(--danger)} .av.c4{background:var(--high-soft);color:var(--high)}
+.av.sm{--s:24px} .av.lg{--s:44px} .av.xl{--s:64px}
+.ch{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;font-size:10px;font-weight:800;color:#fff}
+.ch.whatsapp{background:var(--wa)} .ch.email{background:var(--info)} .ch.instagram{background:#C13584} .ch.widget{background:#6D5BD0} .ch.call{background:#0EA5A4}
+.dot-unread{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none}
+.muted{color:var(--muted)} .faint{color:var(--faint)} .mono{font:600 11px ui-monospace,Menlo,Consolas,monospace}
+.clip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kbd{font:700 11px ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:var(--surface);color:var(--muted)}
+.bubble{padding:10px 14px;border-radius:4px 14px 14px 14px;background:var(--surface2);border:1px solid var(--border);line-height:1.6;max-width:min(560px,88%)}
+.msg{display:flex;gap:10px;align-items:flex-end} .msg.out{flex-direction:row-reverse} .msg.out .bubble{background:var(--accent-soft);border-color:transparent;border-radius:14px 4px 14px 14px}
+.msg.note .bubble{background:var(--warning-soft);border:1px dashed var(--warning);border-radius:10px}
+.when{font-size:11px;color:var(--faint);margin-top:4px}
+textarea.compose{width:100%;min-height:72px;border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font:inherit;background:var(--surface);color:var(--text);resize:vertical}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none} .tab{border:0;background:none;padding:8px 12px;border-radius:99px;color:var(--muted);font-weight:600;font-size:13px;white-space:nowrap}
+.tab[aria-selected=true]{background:var(--accent-soft);color:var(--accent-strong)} .tab em{font-style:normal;margin-left:6px;font-size:11px;color:var(--faint)}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.search{flex:1;min-width:0;max-width:420px;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);color:var(--faint)}
+.search input{border:0;background:none;outline:0;flex:1;min-width:0;font:inherit;color:var(--text)}
+.brand{font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:8px} .brand b{width:26px;height:26px;border-radius:8px;background:var(--accent);display:inline-block}
+.theme{margin-left:auto}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--shadow)}
+.stack{display:flex;flex-direction:column;gap:12px} .row{display:flex;align-items:center;gap:8px}
+.label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);height:100%;padding:24px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
-/* ── DEMO ANNOUNCEMENT BAR ── */
-#demo-bar{
-  position:fixed;top:0;left:0;right:0;z-index:9999;
-  background:linear-gradient(90deg,#059669,#10B981 50%,#059669);
-  padding:9px 24px;display:flex;align-items:center;justify-content:space-between;
-  font-size:12.5px;font-weight:600;color:#fff;
-}
-.demo-bar-l{display:flex;align-items:center;gap:10px;}
-.demo-pulse{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.9;animation:pulseAnim 2s ease-in-out infinite;}
-@keyframes pulseAnim{0%,100%{transform:scale(1);opacity:.9;}50%{transform:scale(.7);opacity:.5;}}
-#demo-bar a{color:#fff;background:rgba(0,0,0,.25);border-radius:6px;padding:5px 14px;text-decoration:none;font-weight:700;font-size:12px;transition:background .15s;}
-#demo-bar a:hover{background:rgba(0,0,0,.4);}
+/* Extra pieces for the Settings and Insights samples (on top of common.css) */
+body{overflow:auto}
+.shell{min-height:100%;display:flex;flex-direction:column}
+.input,.select{height:36px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);padding:0 10px;font:inherit;min-width:0;width:100%}
+.input:focus,.select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.field{display:flex;flex-direction:column;gap:4px} .field>label{font-size:12px;font-weight:700;color:var(--text2)} .field small{color:var(--muted);font-size:12px}
+.switch{position:relative;width:38px;height:22px;flex:none;display:inline-block} .switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:1}
+.switch i{position:absolute;inset:0;border-radius:99px;background:var(--border);transition:background .15s} .switch i::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.switch input:checked+i{background:var(--accent)} .switch input:checked+i::after{transform:translateX(16px)} .switch input:focus-visible+i{outline:2px solid var(--accent);outline-offset:2px}
+.sec{padding:18px 20px} .sec+.sec{border-top:1px solid var(--soft)} .sec h3{margin:0 0 2px;font-size:15px} .sec .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+.line{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--soft)} .line:first-of-type{border-top:0} .line b{display:block;font-weight:600} .line span.d{color:var(--muted);font-size:13px}
+table.t{width:100%;border-collapse:collapse;font-size:13px} table.t th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap} table.t td{padding:9px 10px;border-bottom:1px solid var(--soft);vertical-align:middle}
+.tw{overflow-x:auto}
+.savebar{position:sticky;bottom:12px;margin:16px auto 0;width:fit-content;max-width:100%;display:none;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:99px;background:var(--text);color:var(--surface);box-shadow:var(--shadow3);z-index:30} .savebar.on{display:flex} .savebar .btn{border-radius:99px}
+.crumb{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap} .crumb a{color:var(--muted);text-decoration:none;cursor:pointer} .crumb a:hover{color:var(--accent-strong);text-decoration:underline}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;white-space:nowrap} .st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st.ok{background:var(--success-soft);color:var(--success)} .st.attn{background:var(--warning-soft);color:var(--warning)} .st.off{background:var(--surface2);color:var(--muted)}
+.chipb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--text2)} .chipb[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);padding:2px} .seg button{border:0;background:none;padding:5px 12px;border-radius:8px;font-weight:600;font-size:12px;color:var(--muted)} .seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent-strong)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi2{padding:14px 16px;display:flex;flex-direction:column;gap:2px} .kpi2 .n{font-size:26px;font-weight:800;letter-spacing:-.03em} .kpi2 .l{color:var(--muted);font-size:12px;font-weight:600}
+.delta{font-size:11px;font-weight:800;border-radius:99px;padding:1px 7px;display:inline-flex} .delta.up{background:var(--success-soft);color:var(--success)} .delta.dn{background:var(--danger-soft);color:var(--danger)} .delta.flat{background:var(--surface2);color:var(--muted)}
+.chart{width:100%;display:block} .chart text{fill:var(--faint);font-size:10px;font-family:var(--font)} .chart .grid{stroke:var(--soft)} .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)} .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.bar{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;min-width:60px} .bar>i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.hbar{display:grid;grid-template-columns:110px 1fr 48px;gap:10px;align-items:center;font-size:13px;padding:5px 0}
+.cardh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 0} .cardh h3{margin:0;font-size:14px} .cardb{padding:12px 16px 16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:14px}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap} .pagehead h1{margin:0;font-size:24px;letter-spacing:-.03em} .pagehead p{margin:2px 0 0;color:var(--muted)}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 60px;width:100%}
+.heat{display:grid;grid-template-columns:36px repeat(12,1fr);gap:3px;font-size:10px;color:var(--faint)} .heat i{display:block;height:20px;border-radius:4px;background:var(--accent)}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow3);transform:translateX(105%);transition:transform .25s;display:flex;flex-direction:column;z-index:40} .drawer.open{transform:none}
+.scrim{position:fixed;inset:0;background:rgba(15,23,42,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:35} .scrim.open{opacity:1;pointer-events:auto}
 
-/* ── APP SHELL ── */
-#app{display:flex;height:100vh;padding-top:34px;}
+html,body{height:auto} body{overflow:auto}
+#demo-bar{position:sticky;top:0;z-index:60;background:linear-gradient(90deg,#059669,#10B981 50%,#059669);color:#fff;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600;flex-wrap:wrap}
+#demo-bar a{color:#fff;background:rgba(0,0,0,.25);border-radius:7px;padding:5px 14px;text-decoration:none;font-weight:700;font-size:12.5px;white-space:nowrap}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100vh - 40px)}
+.side{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:4px;position:sticky;top:40px;height:calc(100vh - 40px)}
+.side .brand{padding:6px 8px 14px;font-size:18px}
+.nv{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;border-radius:var(--r);padding:10px 12px;text-align:left;color:var(--text2);font-weight:500}
+.nv:hover{background:var(--hover)} .nv[aria-current=true]{background:var(--selected);color:var(--accent-strong);font-weight:700} .nv b{font-weight:inherit;flex:1} .nv em{font-style:normal;font-size:11px;font-weight:800;background:var(--danger);color:#fff;border-radius:99px;padding:0 7px}
+.who{margin-top:auto;padding:10px;border:1px solid var(--border);border-radius:var(--rl);display:flex;gap:10px;align-items:center;font-size:12px}
+.mainc{min-width:0;display:flex;flex-direction:column}
+.tb{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:40px;z-index:30}
+#main{padding:20px;max-width:1240px;width:100%;margin:0 auto}
+#tip{margin:0 20px;margin-top:12px;display:flex;gap:10px;align-items:center;background:var(--accent-soft);border-radius:var(--r);padding:8px 8px 8px 14px;font-size:13px;color:var(--text2)} #tip b{color:var(--accent-strong)} #tip .btn{margin-left:auto}
+.dtoast{position:fixed;top:56px;right:16px;background:var(--text);color:var(--surface);padding:10px 16px;border-radius:10px;box-shadow:var(--shadow3);z-index:90;font-weight:600;font-size:13px;max-width:min(380px,90vw)}
+.nowl .now{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-top:1px solid var(--soft);background:none;padding:12px 16px}
+.now:hover{background:var(--hover)} .now .m{flex:1;min-width:0;display:flex;flex-direction:column} .now .m span{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .now em{font-style:normal;font-size:12px;color:var(--faint);min-width:50px;text-align:right}
+.attn2{margin-top:12px;background:var(--warning-soft);border-radius:var(--r);padding:10px 14px;font-size:14px}
+.inb{display:grid;grid-template-columns:370px minmax(0,1fr);height:calc(100vh - 150px);min-height:520px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shadow);position:relative}
+.inb.cust{grid-template-columns:370px minmax(0,1fr) 270px}
+.il{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0} .ilh{display:flex;align-items:center;gap:8px;padding:12px}
+.il .tabs{padding:0 10px 8px;border-bottom:1px solid var(--border)} .irows{overflow:auto;flex:1}
+.row-i{display:grid;grid-template-columns:36px 1fr auto;gap:10px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--soft);background:none;padding:12px;align-items:start;position:relative}
+.row-i:hover{background:var(--hover)} .row-i.sel{background:var(--selected)} .row-i.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.row-i .nm{display:flex;gap:6px;align-items:center} .row-i.un .nm b,.row-i.un .sj{font-weight:800} .sj{font-size:13px} .pv{font-size:13px;color:var(--muted)} .tg{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.chip2{font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--soft);border-radius:99px;padding:0 8px;line-height:18px;flex:none}
+.own{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)} .own.none{color:var(--danger);font-weight:700}
+.promo{display:flex;flex-direction:column;gap:6px;margin:10px;padding:10px 12px;background:var(--warning-soft);border-radius:var(--r);font-size:13px}
+.ic{display:flex;flex-direction:column;min-width:0;min-height:0} .ic>.empty{flex:1} .ic>*{flex:none} .ic>.thread{flex:1 1 auto}
+.icu{border-left:1px solid var(--border);background:var(--surface2);padding:14px;overflow:auto}
+.ic .ch-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center} .ch-head h2{margin:0;font-size:17px} .back{display:none}
+.cbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+select{height:32px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);padding:0 8px;font:inherit;font-weight:600;font-size:13px}
+.nudge{padding:8px 16px;background:var(--warning-soft);font-size:13px}
+.thread{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;min-height:120px}
+.comp{border-top:1px solid var(--border);padding:12px 16px;display:flex;flex-direction:column;gap:8px;position:relative}
+.slash{position:absolute;left:16px;right:16px;bottom:calc(100% - 52px);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow3);padding:4px;z-index:5}
+.slash button{display:flex;flex-direction:column;gap:1px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px} .slash button:hover{background:var(--selected)} .slash span{font-size:12px;color:var(--muted)}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .kpi div{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px;text-align:center} .kpi b{display:block;font-size:17px}
+.fwrap{max-width:820px;margin:0 auto}
+.fstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.stat{display:flex;flex-direction:column;gap:2px;text-align:left;padding:12px 16px;border-radius:var(--rl);background:var(--surface);border:1px solid var(--border);font-size:13px} .stat b{font-size:24px;letter-spacing:-.03em} .stat.hot b{color:var(--danger)} .stat[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.fq{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.fitem{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;padding:12px 16px;border-radius:var(--rl);background:var(--surface);border:1px solid var(--border)}
+.fitem:hover,.fitem.foc{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)} .fitem .rt{display:flex;flex-direction:column;align-items:flex-end;gap:6px} .fitem .nm{display:flex;gap:6px;align-items:center}
+.rhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.qs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:14px} .q{padding:18px;display:flex;flex-direction:column;gap:10px} .q .a{font-size:18px;font-weight:700;letter-spacing:-.02em;line-height:1.35;margin:0} .q .a em{font-style:normal;color:var(--accent-strong)} .q .a em.bad{color:var(--danger)}
+.alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px} .al{display:flex;gap:10px;padding:12px 14px;border-radius:var(--rl)} .al.w{background:var(--warning-soft)} .al.d{background:var(--danger-soft)} .al.g{background:var(--success-soft)} .al b{display:block} .al span:last-child{font-size:12px;color:var(--text2)}
+th.s{cursor:pointer;user-select:none} th.s[aria-sort]::after{content:" ▾";color:var(--accent-strong)} th.s[aria-sort=ascending]::after{content:" ▴"}
+.load{display:flex;align-items:center;gap:8px;min-width:130px} .bar2{flex:1;height:8px;border-radius:99px;background:var(--surface2);overflow:hidden} .bar2>i{display:block;height:100%;border-radius:99px}
+.banner{display:flex;align-items:center;gap:12px;background:var(--info-soft);border-radius:var(--r);padding:10px 14px} .banner span{flex:1}
+.hb{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:1px;background:var(--surface2);color:var(--muted)} .hb-vip{background:var(--warning-soft);color:var(--warning)} .hb-risk{background:var(--danger-soft);color:var(--danger)} .hb-happy{background:var(--success-soft);color:var(--success)} .hb-active{background:var(--info-soft);color:var(--info)}
+.hub{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px;margin-top:16px} .gcard{padding:16px} .gcard h3{margin:0 0 2px;font-size:16px}
+.glink{display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;background:none;text-align:left;padding:7px 8px;margin:0 -8px;border-radius:8px;color:var(--text2);font-weight:500;width:calc(100% + 16px)} .glink:hover{background:var(--hover)} .glink small{color:var(--muted);font-weight:400;white-space:nowrap}
+.attn{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:8px} .acard{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--rl);background:var(--warning-soft);text-align:left;width:100%;border:1px solid transparent} .acard:hover{border-color:var(--warning)} .acard b{display:block} .acard span:last-child{font-size:12px;color:var(--text2)}
+#modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:16px} #modal.on{display:flex} .mcard{background:var(--surface);border-radius:var(--rl);padding:20px;max-width:460px;width:100%;box-shadow:var(--shadow3)}
+@media (max-width:1000px){.inb{grid-template-columns:330px minmax(0,1fr)} .inb.cust{grid-template-columns:330px minmax(0,1fr)} .icu{position:absolute;right:0;top:0;bottom:0;width:min(300px,92%);box-shadow:var(--shadow3);z-index:5}}
+@media (max-width:860px){.app{grid-template-columns:1fr} .side{position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;flex-direction:row;justify-content:space-around;padding:6px;z-index:70;border-right:0;border-top:1px solid var(--border)} .side .brand,.who{display:none} .nv{flex-direction:column;gap:2px;padding:6px 8px;font-size:11px;position:relative;width:auto} .nv em{position:absolute;top:2px;right:6px} #main{padding:14px 12px 90px} .tb{top:40px;padding:8px 12px} .fstats{gap:8px}}
+@media (max-width:720px){.inb,.inb.cust{grid-template-columns:minmax(0,1fr);height:auto;min-height:0} .inb .ic{display:none} .inb.reading .il{display:none} .inb.reading .ic{display:flex} .inb.reading .icu{display:none} .back{display:inline-flex} .inb .il{min-height:60vh} .thread{max-height:none}}
 
-/* ── SIDEBAR ── */
-.sidebar{
-  width:var(--sidebar-width);flex-shrink:0;
-  background:var(--bg-surface);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;
-}
-.sidebar-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:18px 16px;border-bottom:1px solid var(--border);min-height:64px;
-}
-.brand{display:flex;align-items:center;gap:8px;}
-.brand-icon{
-  width:28px;height:28px;border-radius:7px;
-  background:linear-gradient(135deg,#10B981,#059669);
-  display:flex;align-items:center;justify-content:center;
-  font-size:14px;font-weight:800;color:#fff;flex-shrink:0;
-}
-.brand-name{font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--text-primary);}
-.demo-chip{font-size:9px;font-weight:700;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-glow);border-radius:4px;padding:2px 6px;letter-spacing:.06em;text-transform:uppercase;}
-
-.user-card{
-  display:flex;align-items:center;gap:10px;padding:14px 16px;
-  border-bottom:1px solid var(--border);min-height:64px;
-}
-.user-avatar{
-  width:34px;height:34px;border-radius:50%;
-  background:var(--accent-dim);border:1.5px solid var(--accent);
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0;
-}
-.user-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.user-role{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em;}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);margin-left:auto;flex-shrink:0;}
-
-.sidebar-nav{flex:1;overflow-y:auto;padding:8px 0;}
-.sidebar-nav::-webkit-scrollbar{width:3px;}
-.sidebar-nav::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:2px;}
-.nav-section{padding:4px 0;}
-.nav-label{display:block;padding:8px 16px 3px;font-size:9px;font-weight:700;letter-spacing:.13em;color:var(--text-dim);text-transform:uppercase;opacity:.6;}
-.nav-item{
-  display:flex;align-items:center;gap:10px;padding:8px 12px;margin:1px 8px;
-  color:var(--text-secondary);font-size:13px;font-weight:500;border-radius:8px;
-  transition:background .12s,color .12s;cursor:pointer;white-space:nowrap;
-}
-.nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}
-.nav-item.active{background:var(--accent-dim);color:var(--accent);font-weight:600;}
-.nav-icon{display:flex;align-items:center;justify-content:center;width:18px;flex-shrink:0;color:inherit;}
-.nav-text{flex:1;}
-.nav-badge{
-  font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;
-  background:rgba(239,68,68,.2);color:#f87171;font-family:var(--font-mono);
-}
-
-.sidebar-footer{
-  padding:10px 16px;border-top:1px solid var(--border);
-}
-.upgrade-btn{
-  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
-  background:var(--accent-dim);border:1px solid var(--border-accent);
-  color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;
-  transition:all .15s;margin-bottom:8px;
-}
-.upgrade-btn:hover{background:rgba(16,185,129,.2);}
-.sidebar-footer-txt{font-size:10px;color:var(--text-dim);font-family:var(--font-mono);}
-
-/* ── MAIN CONTENT ── */
-.main-content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.topbar{
-  min-height:var(--topbar-height);background:var(--bg-surface);
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 20px;flex-shrink:0;gap:12px;
-}
-.topbar-left{display:flex;flex-direction:column;justify-content:center;gap:2px;}
-.page-title{font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:-.2px;}
-.breadcrumb{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);}
-.topbar-actions{display:flex;align-items:center;gap:8px;}
-.btn-primary{
-  display:flex;align-items:center;gap:6px;
-  background:var(--accent);color:#fff;border:none;border-radius:var(--radius);
-  padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
-  transition:opacity .15s;
-}
-.btn-primary:hover{opacity:.88;}
-.btn-ghost{
-  display:flex;align-items:center;gap:6px;
-  background:transparent;color:var(--text-secondary);border:1px solid var(--border);
-  border-radius:var(--radius);padding:7px 13px;font-size:12px;font-weight:500;
-  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;
-}
-.btn-ghost:hover{border-color:rgba(255,255,255,.2);color:var(--text-primary);}
-.btn-ai{
-  display:flex;align-items:center;gap:6px;
-  background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);
-  color:#a5b4fc;border-radius:var(--radius);padding:7px 13px;
-  font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;
-}
-.btn-ai:hover{background:rgba(99,102,241,.2);}
-.kbd{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-family:var(--font-mono);background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--text-muted);}
-
-.page-content{flex:1;overflow-y:auto;padding:20px 24px;}
-.page-content::-webkit-scrollbar{width:4px;}
-.page-content::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:2px;}
-
-/* ── CARDS ── */
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);}
-.card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:14px;}
-
-/* ── STAT CARDS ── */
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
-.stat-card{
-  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);
-  padding:16px 18px;cursor:pointer;transition:border-color .15s,transform .15s;
-}
-.stat-card:hover{border-color:var(--border-accent);transform:translateY(-1px);}
-.stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:10px;}
-.stat-value{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-bottom:5px;}
-.stat-trend{font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;}
-.stat-trend.up{color:var(--critical);}
-.stat-trend.down{color:var(--accent);}
-
-/* ── DASHBOARD GRID ── */
-.dash-grid{display:grid;grid-template-columns:1fr 280px;gap:12px;}
-.dash-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px 20px;}
-
-.chart-wrap{display:flex;align-items:flex-end;gap:4px;height:90px;margin-bottom:8px;}
-.chart-bar{flex:1;border-radius:3px 3px 0 0;background:rgba(16,185,129,.25);transition:background .15s;min-height:4px;}
-.chart-bar:hover,.chart-bar.today{background:var(--accent);}
-.chart-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);}
-
-.lb-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
-.lb-row:last-child{border-bottom:none;}
-.lb-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
-.lb-name{flex:1;font-size:12px;color:var(--text-secondary);}
-.lb-count{font-size:13px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;}
-.lb-csat{font-size:11px;color:var(--accent);margin-left:4px;font-family:var(--font-mono);}
-
-.recent-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px 20px;margin-top:12px;}
-.recent-row{
-  display:flex;align-items:center;gap:12px;padding:9px 8px;margin:0 -8px;
-  border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;border-radius:var(--radius);
-}
-.recent-row:last-child{border-bottom:none;}
-.recent-row:hover{background:var(--bg-elevated);}
-
-/* ── BADGES ── */
-.badge{display:inline-flex;align-items:center;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;font-family:var(--font-mono);}
-.badge-critical{background:var(--critical-dim);color:var(--critical);}
-.badge-high{background:var(--high-dim);color:var(--high);}
-.badge-medium{background:var(--medium-dim);color:var(--medium);}
-.badge-low{background:var(--low-dim);color:var(--low);}
-.badge-open{background:rgba(129,140,248,.12);color:var(--status-open);}
-.badge-pending{background:rgba(245,158,11,.12);color:var(--status-pending);}
-.badge-resolved{background:var(--low-dim);color:var(--status-resolved);}
-.badge-closed{background:rgba(107,114,128,.12);color:var(--status-closed);}
-.badge-breached{background:var(--critical-dim);color:var(--critical);}
-
-/* ── INBOX ── */
-.inbox-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-.search-wrap{position:relative;flex:1;min-width:200px;}
-.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;}
-.search-input{
-  width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-  padding:8px 12px 8px 34px;font-size:13px;color:var(--text-primary);font-family:'Inter',sans-serif;outline:none;
-}
-.search-input::placeholder{color:var(--text-muted);}
-.search-input:focus{border-color:var(--border-accent);}
-.filter-btn{
-  padding:7px 13px;border-radius:var(--radius);font-size:12px;font-weight:500;
-  border:1px solid var(--border);background:transparent;color:var(--text-muted);
-  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap;
-}
-.filter-btn:hover,.filter-btn.active{border-color:var(--border-accent);background:var(--accent-dim);color:var(--accent);}
-
-.ticket-list{display:flex;flex-direction:column;gap:5px;}
-.ticket-row{
-  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);
-  padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;
-  transition:border-color .15s,background .15s;position:relative;overflow:hidden;
-}
-.ticket-row:hover{border-color:var(--border-accent);background:var(--bg-elevated);}
-.ticket-row.unread::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);}
-.ticket-row.breached::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--critical);}
-.t-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
-.t-body{flex:1;min-width:0;}
-.t-name-row{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
-.t-name{font-size:13px;font-weight:600;color:var(--text-primary);}
-.t-id{font-size:10px;font-family:var(--font-mono);color:var(--accent);opacity:.8;}
-.t-subject{font-size:12.5px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
-.t-subject.bold{font-weight:600;color:var(--text-primary);}
-.t-preview{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.t-aside{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
-.t-time{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);}
-.t-sla{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);}
-.t-sla.breached{color:var(--critical);font-weight:700;}
-
-/* ── TICKET DETAIL ── */
-.detail-layout{display:grid;grid-template-columns:1fr 260px;overflow:hidden;}
-.detail-main{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
-.detail-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;flex-shrink:0;}
-.back-btn{
-  display:flex;align-items:center;gap:5px;background:none;border:1px solid var(--border);
-  color:var(--text-secondary);border-radius:var(--radius);padding:6px 11px;font-size:12px;font-weight:500;
-  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;flex-shrink:0;margin-top:3px;
-}
-.back-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text-primary);}
-.detail-tkt-id{font-size:10px;font-family:var(--font-mono);color:var(--accent);margin-bottom:4px;}
-.detail-subject{font-size:15px;font-weight:700;color:var(--text-primary);line-height:1.4;}
-.detail-badge-row{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center;}
-
-.thread{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;}
-.thread::-webkit-scrollbar{width:4px;}
-.thread::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:2px;}
-.msg{border-radius:var(--radius-md);padding:14px 16px;max-width:94%;}
-.msg.customer{background:var(--bg-card);border:1px solid var(--border);align-self:flex-start;}
-.msg.agent{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.15);align-self:flex-end;}
-.msg-meta{font-size:10px;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);}
-.msg-sender{font-weight:700;color:var(--text-secondary);}
-.msg-body{font-size:13px;color:var(--text-secondary);line-height:1.65;}
-
-.reply-wrap{border-top:1px solid var(--border);padding:14px 20px;flex-shrink:0;}
-.reply-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:0;}
-.reply-tab{
-  background:none;border:none;border-bottom:2px solid transparent;
-  padding:7px 14px;font-size:12px;font-weight:600;color:var(--text-muted);
-  cursor:pointer;font-family:'Inter',sans-serif;transition:color .15s;
-}
-.reply-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-.reply-toolbar{
-  display:flex;align-items:center;gap:2px;padding:6px 8px;
-  background:var(--bg-card);border:1px solid var(--border);
-  border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;margin-top:10px;
-}
-.fmt-btn{
-  width:28px;height:28px;background:none;border:none;color:var(--text-muted);
-  cursor:pointer;border-radius:5px;font-size:12px;display:flex;align-items:center;justify-content:center;
-  transition:all .12s;font-family:'Inter',sans-serif;
-}
-.fmt-btn:hover{background:var(--bg-elevated);color:var(--text-primary);}
-.fmt-btn.wide{width:auto;padding:0 8px;font-size:11px;}
-.fmt-sep{width:1px;height:14px;background:var(--border);margin:0 4px;flex-shrink:0;}
-.reply-textarea{
-  width:100%;background:var(--bg-card);border:1px solid var(--border);border-top:none;
-  border-radius:0 0 var(--radius) var(--radius);padding:11px 13px;
-  font-size:13px;color:var(--text-primary);font-family:'Inter',sans-serif;
-  outline:none;resize:none;min-height:80px;line-height:1.6;
-}
-.reply-textarea::placeholder{color:var(--text-muted);}
-.reply-textarea:focus{border-color:var(--border-accent);}
-.reply-actions{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
-.reply-send{
-  background:var(--accent);color:#fff;border:none;border-radius:var(--radius);
-  padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;
-  font-family:'Inter',sans-serif;transition:opacity .15s;
-}
-.reply-send:hover{opacity:.85;}
-.status-select{
-  margin-left:auto;background:var(--bg-card);border:1px solid var(--border);
-  color:var(--text-secondary);border-radius:var(--radius);padding:7px 10px;
-  font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;outline:none;
-}
-.status-select:focus{border-color:var(--border-accent);}
-.ai-typing{display:none;align-items:center;gap:5px;font-size:11px;color:#a5b4fc;font-family:var(--font-mono);}
-.ai-typing.show{display:flex;}
-.ai-dot{width:5px;height:5px;border-radius:50%;background:#a5b4fc;animation:aiDot 1.2s ease-in-out infinite;}
-.ai-dot:nth-child(2){animation-delay:.2s;}
-.ai-dot:nth-child(3){animation-delay:.4s;}
-@keyframes aiDot{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
-
-.detail-sidebar{overflow-y:auto;padding:14px;}
-.detail-sidebar::-webkit-scrollbar{width:3px;}
-.detail-sidebar::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:2px;}
-.meta-block{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 14px;margin-bottom:10px;}
-.meta-block-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:10px;}
-.meta-kv{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;}
-.meta-kv:last-child{margin-bottom:0;}
-.meta-key{color:var(--text-muted);}
-.meta-val{color:var(--text-secondary);font-weight:500;text-align:right;}
-.cust-av-lg{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;margin-bottom:8px;}
-.cust-name-txt{font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px;}
-.cust-email-txt{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:10px;word-break:break-all;}
-.cust-actions{display:flex;gap:6px;}
-.cust-action-btn{
-  font-size:11px;color:var(--accent);border:1px solid var(--border-accent);
-  border-radius:5px;padding:4px 10px;background:none;cursor:pointer;
-  font-family:'Inter',sans-serif;font-weight:600;transition:all .15s;
-}
-.cust-action-btn:hover{background:var(--accent-dim);}
-.cust-action-btn.ghost{color:var(--text-secondary);border-color:var(--border);}
-.cust-action-btn.ghost:hover{background:var(--bg-elevated);}
-
-/* ── KANBAN ── */
-.kanban-wrap{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;}
-.kanban-wrap::-webkit-scrollbar{height:4px;}
-.kanban-wrap::-webkit-scrollbar-thumb{background:var(--bg-elevated);border-radius:2px;}
-.kb-col{flex-shrink:0;width:248px;display:flex;flex-direction:column;}
-.kb-col-head{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius-md) var(--radius-md) 0 0;border-bottom:none;
-}
-.kb-col-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;}
-.kb-col-count{font-size:10px;font-family:var(--font-mono);color:var(--text-muted);background:var(--bg-elevated);border-radius:10px;padding:1px 8px;}
-.kb-cards-wrap{
-  flex:1;overflow-y:auto;padding:6px;
-  background:var(--bg-surface);border:1px solid var(--border);
-  border-radius:0 0 var(--radius-md) var(--radius-md);min-height:120px;
-}
-.kb-card{
-  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-  padding:11px 12px;margin-bottom:5px;cursor:pointer;
-  transition:border-color .15s,transform .15s,box-shadow .15s;position:relative;overflow:hidden;
-}
-.kb-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
-.kb-card.pri-Critical::before{background:var(--critical);}
-.kb-card.pri-High::before{background:var(--high);}
-.kb-card.pri-Medium::before{background:var(--medium);}
-.kb-card.pri-Low::before{background:var(--low);}
-.kb-card:hover{border-color:var(--border-accent);transform:translateY(-2px);box-shadow:var(--shadow);}
-.kb-id{font-size:10px;font-family:var(--font-mono);color:var(--accent);margin-bottom:5px;}
-.kb-title{font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;}
-.kb-foot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.kb-empty{font-size:11px;color:var(--text-dim);text-align:center;padding:18px;border:1px dashed var(--border);border-radius:var(--radius);}
-
-/* ── TOAST ── */
-#toast{
-  position:fixed;bottom:20px;right:20px;z-index:9000;
-  background:var(--bg-elevated);border:1px solid var(--border-accent);border-radius:var(--radius-md);
-  padding:11px 16px;display:none;align-items:center;gap:10px;
-  font-size:13px;color:var(--text-primary);box-shadow:var(--shadow-lg);max-width:340px;
-}
-#toast.show{display:flex;animation:toastIn .2s ease;}
-@keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-#toast-msg{flex:1;line-height:1.5;}
-
-/* ── PHONE / SMALL SCREENS ── */
-.menu-btn{display:none;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;}
-.nav-backdrop{display:none;}
-@media (max-width:820px){
-  #demo-bar{padding:7px 12px;font-size:11.5px;}
-  #demo-bar > div:last-child span{display:none;}
-  #demo-bar .demo-bar-l span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw;}
-  .menu-btn{display:flex;}
-  .sidebar{position:fixed;top:34px;left:0;bottom:0;width:262px;z-index:9000;transform:translateX(-102%);transition:transform .22s ease;box-shadow:var(--shadow-lg);}
-  body.nav-open .sidebar{transform:none;}
-  body.nav-open .nav-backdrop{display:block;position:fixed;inset:34px 0 0 0;background:rgba(0,0,0,.55);z-index:8999;}
-  .topbar{padding:0 12px;gap:8px;}
-  .topbar .btn-ai{display:none;}
-  .topbar-left{min-width:0;flex:1;}
-  .breadcrumb{display:none;}
-  .stat-grid{grid-template-columns:repeat(2,1fr);}
-  .dash-grid{grid-template-columns:1fr;}
-  .detail-layout{grid-template-columns:1fr;overflow-y:auto;}
-  .page-content{padding:12px;}
-}
-</style>
-</head>
+</style></head>
 <body>
-
-<!-- DEMO BAR -->
-<div id="demo-bar">
-  <div class="demo-bar-l">
-    <div class="demo-pulse"></div>
-    <span>Interactive Demo — explore freely, no signup required</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:12px;font-weight:400;opacity:.8;">Ready to go live?</span>
-    <a href="/signup">Start your 14-day free trial &rarr;</a>
-  </div>
+<div id="demo-bar"><span>● Interactive demo: click around, nothing is saved, the data is made up</span><span style="display:flex;gap:8px;align-items:center"><button class="btn sm" id="reset" style="background:rgba(0,0,0,.25);border-color:transparent;color:#fff">Reset demo</button><a href="/signup">Start your 14-day free trial →</a></span></div>
+<div class="app">
+  <aside class="side"><div class="brand"><b></b>Brightkart Support</div><nav id="nav" style="display:contents" aria-label="Main"></nav><div class="who"><span class="av sm">R</span><span><b>Rahul Mehta</b><br><span class="muted">Admin · Support lead</span></span></div></aside>
+  <div class="mainc"><div class="tb"><label class="search" style="max-width:380px"><span>⌕</span><input placeholder="Search tickets, customers…" aria-label="Search" disabled></label><span style="flex:1"></span><button class="btn ghost theme" id="theme" aria-label="Toggle dark mode">◐</button></div><div id="tip"></div><main id="main"></main></div>
 </div>
-
-<!-- APP -->
-<div id="app">
-
-  <div class="nav-backdrop" onclick="document.body.classList.remove('nav-open')"></div>
-  <!-- SIDEBAR -->
-  <aside class="sidebar" onclick="if(event.target.closest('.nav-item'))document.body.classList.remove('nav-open')">
-    <div class="sidebar-header">
-      <div class="brand">
-        <div class="brand-icon">R</div>
-        <span class="brand-name">Resolvo</span>
-      </div>
-      <span class="demo-chip">DEMO</span>
-    </div>
-
-    <div class="user-card">
-      <div class="user-avatar">P</div>
-      <div style="flex:1;min-width:0;">
-        <div class="user-name">Priya Mehta</div>
-        <div class="user-role">Support Agent</div>
-      </div>
-      <div class="status-dot"></div>
-    </div>
-
-    <nav class="sidebar-nav">
-      <div class="nav-section">
-        <span class="nav-label">Main</span>
-        <div class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
-          <span class="nav-text">Dashboard</span>
-        </div>
-        <div class="nav-item" id="nav-inbox" onclick="showView('inbox')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
-          <span class="nav-text">Ticket Inbox</span>
-          <span class="nav-badge" id="inbox-count">8</span>
-        </div>
-        <div class="nav-item" id="nav-kanban" onclick="showView('kanban')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg></span>
-          <span class="nav-text">Kanban Board</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <span class="nav-label">Analytics</span>
-        <div class="nav-item" onclick="demoToast('Reports — SLA compliance, ticket volume, channel breakdown and CSAT trends. Sign up to see your live data.')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
-          <span class="nav-text">Reports</span>
-        </div>
-        <div class="nav-item" onclick="demoToast('Leaderboard — resolved tickets, CSAT scores and first-reply times per agent.')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-          <span class="nav-text">Leaderboard</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <span class="nav-label">Workspace</span>
-        <div class="nav-item" onclick="demoToast('Issue Tracker — link tickets to engineering bugs. Auto-notify customers when the fix ships.')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-          <span class="nav-text">Issue Tracker</span>
-        </div>
-        <div class="nav-item" onclick="demoToast('Settings — email routing, SLA rules, canned responses, team members, webhooks, API keys.')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12H4M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg></span>
-          <span class="nav-text">Settings</span>
-        </div>
-      </div>
-    </nav>
-
-    <div class="sidebar-footer">
-      <div class="upgrade-btn" onclick="window.location='/signup'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        Upgrade Plan
-      </div>
-      <div class="sidebar-footer-txt">v2.4.1 &middot; Demo mode</div>
-    </div>
-  </aside>
-
-  <!-- MAIN -->
-  <div class="main-content">
-    <header class="topbar">
-      <button class="menu-btn" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>
-      <div class="topbar-left">
-        <div class="page-title" id="page-title">Dashboard</div>
-        <div class="breadcrumb" id="page-crumb">resolvo / overview</div>
-      </div>
-      <div class="topbar-actions">
-        <button class="btn-ai" onclick="demoToast('AI Command: type anything — &quot;show open tickets&quot;, &quot;draft refund reply&quot;, &quot;who has the most SLA breaches&quot;')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          AI Command
-          <span class="kbd">&#8984;K</span>
-        </button>
-        <button class="btn-ghost" onclick="demoToast('Notifications — SLA alerts, new assignments, reply notifications.')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span style="font-size:10px;background:var(--critical);color:#fff;border-radius:10px;padding:0 5px;font-family:var(--font-mono);font-weight:700;line-height:1.6;">3</span>
-        </button>
-        <button class="btn-primary" onclick="showView('inbox')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New Ticket
-        </button>
-      </div>
-    </header>
-
-    <main class="page-content" id="page-content"></main>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div id="toast">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-  <span id="toast-msg"></span>
-</div>
-
+<div id="modal" role="dialog" aria-modal="true"></div>
 <script>
-var TICKETS = [
-  {id:'TKT-001',from:'Priya Sharma',email:'priya.sharma@gmail.com',
-   subject:'Order #ORD-8821 not delivered — tracking shows delivered',
-   priority:'Critical',status:'Open',sla:'2h left',breached:false,unread:true,time:'10m ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Priya Sharma',ts:'10:14 AM',
-      body:'Hi,\n\nI ordered a Kurta set (Order #ORD-8821) and the tracking says it was delivered 3 days ago but I never received it. My neighbour did not take it either.\n\nThis is really urgent — I need this for a function this weekend. Please help.'},
-     {type:'agent',sender:'Riya K. (Support)',ts:'10:31 AM',
-      body:'Hi Priya,\n\nI am sorry to hear this. I have immediately escalated to our logistics partner BlueDart and requested a GPS trace on the delivery.\n\nCould you please confirm your full delivery address so I can cross-check? I will update you within 4 hours.\n\nWarm regards,\nRiya'}
-   ]},
-  {id:'TKT-002',from:'Rohit Gupta',email:'rohit.g@outlook.com',
-   subject:'Refund not received after 8 days — Order #ORD-7754',
-   priority:'High',status:'Open',sla:'6h left',breached:false,unread:true,time:'42m ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Rohit Gupta',ts:'9:43 AM',
-      body:'I returned my order 8 days ago and still have not received the refund. The return tracking shows it was delivered to your warehouse. Your policy says 5-7 business days.\n\nWhen will I get my money back?'}
-   ]},
-  {id:'TKT-003',from:'Anita Verma',email:'anita.v@yahoo.in',
-   subject:'Size exchange request — Kurti Medium to Large',
-   priority:'Medium',status:'Pending',sla:'22h left',breached:false,unread:false,time:'2h ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Anita Verma',ts:'Yesterday, 4:15 PM',
-      body:'Hello, I ordered a Kurti in Medium but it runs small. I would like to exchange it for Large in the same Peacock Blue colour. Order #ORD-9102. Can you help?'},
-     {type:'agent',sender:'Kavita N. (Support)',ts:'Yesterday, 4:48 PM',
-      body:'Hi Anita! Of course. I have raised an exchange request for Order #ORD-9102 (M to L, Peacock Blue). A pickup will be scheduled in the next 48 hours and the replacement will ship once we receive your return.'}
-   ]},
-  {id:'TKT-004',from:'Karan Mehta',email:'karan.mehta@gmail.com',
-   subject:'Wrong item delivered — received Pink instead of Red Saree',
-   priority:'High',status:'Open',sla:'BREACHED',breached:true,unread:true,time:'3h ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Karan Mehta',ts:'7:22 AM',
-      body:'I ordered a Red Saree (Order #ORD-9345) but you delivered a Pink one. I needed this for an event TOMORROW. I need the correct item immediately or a full refund today.'}
-   ]},
-  {id:'TKT-005',from:'Sunita Patel',email:'sunita.patel@gmail.com',
-   subject:'URGENT: COD cancelled but courier collected Rs.1,850 cash',
-   priority:'Critical',status:'Open',sla:'BREACHED',breached:true,unread:true,time:'5h ago',channel:'WhatsApp',
-   msgs:[
-     {type:'customer',sender:'Sunita Patel',ts:'5:08 AM',
-      body:'URGENT: My COD order #ORD-8899 was cancelled from your side but the delivery boy still came and collected Rs.1,850 cash from me. I want this money back immediately. This is fraud.'}
-   ]},
-  {id:'TKT-006',from:'Vikram Singh',email:'vikram.singh@hotmail.com',
-   subject:'Delivery delayed 5 days — tracking not updating',
-   priority:'Low',status:'Open',sla:'2d left',breached:false,unread:false,time:'1d ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Vikram Singh',ts:'Yesterday, 11:30 AM',
-      body:'My order #ORD-9011 was supposed to arrive 5 days ago. The tracking has not updated in 3 days. Where is my package?'}
-   ]},
-  {id:'TKT-007',from:'Neha Joshi',email:'neha.j@gmail.com',
-   subject:'Discount code SUMMER20 not applying at checkout',
-   priority:'Medium',status:'Resolved',sla:'Closed',breached:false,unread:false,time:'2d ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Neha Joshi',ts:'2 days ago',
-      body:'The code SUMMER20 is not working. It says "code invalid". I saw this code on your Instagram post yesterday.'},
-     {type:'agent',sender:'Riya K. (Support)',ts:'2 days ago',
-      body:'Hi Neha! SUMMER20 is valid for orders above Rs.999. Your cart total is Rs.850 — add one more item and the code will apply automatically!'},
-     {type:'customer',sender:'Neha Joshi',ts:'2 days ago',
-      body:'That worked! Thank you so much, very helpful.'}
-   ]},
-  {id:'TKT-008',from:'Amit Kumar',email:'amit.kumar@gmail.com',
-   subject:'Return label not received — window closes tomorrow',
-   priority:'High',status:'Pending',sla:'18h left',breached:false,unread:true,time:'6h ago',channel:'Email',
-   msgs:[
-     {type:'customer',sender:'Amit Kumar',ts:'4:55 AM',
-      body:'I requested a return for Order #ORD-8567 three days ago and still have not received the return shipping label by email. The 7-day return window closes TOMORROW. Please send the label urgently.'}
-   ]}
+/* Example data and helpers shared by the Settings and Insights samples. Nothing here is connected to real data. */
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+(function () { const t = $('#theme'); if (t) t.onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? '' : 'dark'; }; addEventListener('message', e => { if (e.data && e.data.theme !== undefined) document.documentElement.dataset.theme = e.data.theme; }); })();
+
+/* ---------- Settings: the real sections, grouped ---------- */
+const SET = [
+  { id: 'workspace', name: 'Workspace', ico: '🏢', blurb: 'Company, hours, people and plan', items: [
+    { id: 'general', l: 'General', d: 'Company name, time zone, language', v: 'Asia/Kolkata · English', st: 'ok' },
+    { id: 'sla', l: 'SLA Configuration', d: 'How fast you promise to reply and resolve', v: '4 priorities', st: 'ok' },
+    { id: 'team', l: 'Team & Roles', d: 'Invite people and set what they can do', v: '6 people', st: 'ok' },
+    { id: 'shift', l: 'Shift Scheduling', d: 'Who is on duty and when', v: 'Not set', st: 'off' },
+    { id: 'plan', l: 'Features & Plan', d: 'Your plan and what is switched on', v: 'Enterprise', st: 'ok' },
+    { id: 'adv', l: 'Advanced Features', d: 'Extra tools for larger teams', v: '', st: 'off' },
+    { id: 'notif', l: 'My Notifications', d: 'What alerts you get, and where', v: 'Email + bell', st: 'ok' },
+    { id: 'export', l: 'Data Export', d: 'Download your tickets and customers', v: '', st: 'off' } ] },
+  { id: 'support', name: 'Channels & replies', ico: '✉️', blurb: 'Where tickets come from and how you answer', items: [
+    { id: 'email', l: 'Email & Ticketing', d: 'Connect Gmail or IMAP so emails become tickets', v: 'Not connected', st: 'attn' },
+    { id: 'canned', l: 'Canned Responses', d: 'Saved replies for common questions', v: '12 replies', st: 'ok' },
+    { id: 'templates', l: 'Ticket Templates', d: 'Pre-filled tickets for repeat requests', v: '3 templates', st: 'ok' },
+    { id: 'ooo', l: 'Out of Office', d: 'Auto-reply when nobody is online', v: 'Off', st: 'off' },
+    { id: 'csat', l: 'CSAT Settings', d: 'Ask customers to rate each resolved ticket', v: 'On', st: 'ok' },
+    { id: 'nps', l: 'NPS Settings', d: 'Periodic recommend-us survey', v: 'Off', st: 'off' },
+    { id: 'bot', l: 'Auto-Reply Bot', d: 'Instant answers from your knowledge base', v: 'On · 3 rules', st: 'ok' },
+    { id: 'queue', l: 'Assignment Queue', d: 'Share new tickets between agents', v: '10 per agent', st: 'ok' },
+    { id: 'vip', l: 'VIP Customers', d: 'Priority handling for key accounts', v: '4 customers', st: 'ok' },
+    { id: 'booking', l: 'Appointment Booking', d: 'Let customers book a time', v: 'Off', st: 'off' },
+    { id: 'portal', l: 'Customer Portal', d: 'A page where customers see their tickets', v: 'Off', st: 'off' } ] },
+  { id: 'workflow', name: 'Workflow', ico: '⚡', blurb: 'Rules that move tickets along', items: [
+    { id: 'class', l: 'Ticket Classification', d: 'Types and dispositions', v: '8 types', st: 'ok' },
+    { id: 'status', l: 'Ticket Statuses', d: 'The steps a ticket goes through', v: '7 statuses', st: 'ok' },
+    { id: 'form', l: 'Issue Form Builder', d: 'Custom fields on issues', v: '', st: 'off' },
+    { id: 'esc', l: 'Escalation Rules', d: 'Warn or reassign when time runs short', v: '2 rules', st: 'ok' },
+    { id: 'auto', l: 'Automation Rules', d: 'If this happens, do that', v: '5 rules', st: 'ok' },
+    { id: 'recur', l: 'Recurring Tickets', d: 'Create tickets on a schedule', v: '', st: 'off' },
+    { id: 'approve', l: 'Approval Workflows', d: 'Manager sign-off before action', v: '', st: 'off' } ] },
+  { id: 'content', name: 'Content', ico: '📚', blurb: 'Help articles and public roadmap', items: [
+    { id: 'kb', l: 'Knowledge Base', d: 'Help articles for customers and the bot', v: '24 articles', st: 'ok' },
+    { id: 'road', l: 'Roadmap', d: 'Show what you are building', v: 'Off', st: 'off' } ] },
+  { id: 'integrations', name: 'Integrations', ico: '🔌', blurb: 'Connect other tools', items: [
+    { id: 'integ', l: 'Integrations', d: 'Slack, WhatsApp, webhooks and more', v: '1 connected', st: 'ok' },
+    { id: 'slack', l: 'Slack Alerts', d: 'Post new and breached tickets to Slack', v: 'Not set up', st: 'attn' },
+    { id: 'tokens', l: 'API Tokens', d: 'Personal tokens for scripts', v: '', st: 'off' },
+    { id: 'keys', l: 'API Keys', d: 'Keys for other systems', v: '1 key', st: 'ok' },
+    { id: 'docs', l: 'Developer Docs', d: 'API reference', v: '', st: 'off' } ] },
+  { id: 'security', name: 'Security & privacy', ico: '🛡️', blurb: 'Protect accounts and data', items: [
+    { id: 'sec', l: 'Security', d: 'Passwords and sessions', v: 'Standard', st: 'ok' },
+    { id: '2fa', l: 'Two-Factor Auth', d: 'Second step when signing in', v: 'Off for 5 people', st: 'attn' },
+    { id: 'gdpr', l: 'GDPR & Privacy', d: 'Export or erase a customer’s data', v: '', st: 'off' } ] }
 ];
+const ALL = SET.flatMap(g => g.items.map(i => ({ ...i, g: g.name, gid: g.id })));
+const stB = s => `<span class="st ${s}">${{ ok: 'On', attn: 'Needs attention', off: 'Off' }[s]}</span>`;
 
-var AGENTS = [
-  {name:'Riya Kapoor',initials:'RK',color:'#6366F1',resolved:24,csat:'96%'},
-  {name:'Kavita Nair',initials:'KN',color:'#10B981',resolved:19,csat:'94%'},
-  {name:'Arjun Dev',initials:'AD',color:'#F59E0B',resolved:15,csat:'91%'},
-  {name:'Meena Shah',initials:'MS',color:'#EC4899',resolved:11,csat:'88%'}
+/* the same detail screen in every settings sample, so the layouts can be compared fairly */
+function slaForm(prefix = 's') {
+  const rows = [['Critical', '30 min', '4 hours'], ['High', '1 hour', '8 hours'], ['Medium', '4 hours', '24 hours'], ['Low', '8 hours', '72 hours']];
+  return `<section class="sec"><h3>Response targets</h3><p class="sub">How quickly you promise to reply and to resolve, by priority. Tickets turn amber at 80% of the time and red when it is passed.</p>
+   <div class="tw"><table class="t"><thead><tr><th>Priority</th><th>First reply within</th><th>Resolve within</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td><span class="badge p-${r[0]}">${r[0]}</span></td><td><input class="input" style="max-width:130px" aria-label="${r[0]} first reply" value="${r[1]}" data-track></td><td><input class="input" style="max-width:130px" aria-label="${r[0]} resolve" value="${r[2]}" data-track></td></tr>`).join('')}</tbody></table></div></section>
+  <section class="sec"><h3>Business hours</h3><p class="sub">The clock only runs during these hours.</p>
+   <div class="line"><div><b>Count business hours only</b><span class="d">Off means the clock runs 24 hours a day</span></div><label class="switch"><input type="checkbox" checked data-track aria-label="Business hours only"><i></i></label></div>
+   <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:6px">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => `<button class="chipb" aria-pressed="${i < 6}" onclick="this.setAttribute('aria-pressed',this.getAttribute('aria-pressed')!=='true');document.dispatchEvent(new Event('tracked'))">${d}</button>`).join('')}<span class="muted" style="margin-left:6px">10:00 to 19:00 India time</span></div></section>
+  <section class="sec"><h3>When time is running out</h3><p class="sub">What happens before a ticket breaches.</p>
+   <div class="line"><div><b>Warn the assignee at 80%</b><span class="d">A bell and an email</span></div><label class="switch"><input type="checkbox" checked data-track aria-label="Warn assignee"><i></i></label></div>
+   <div class="line"><div><b>Tell the team lead at 100%</b><span class="d">When the target is passed</span></div><label class="switch"><input type="checkbox" checked data-track aria-label="Tell lead"><i></i></label></div>
+   <div class="line"><div><b>Post to Slack</b><span class="d">Needs Slack Alerts to be set up</span></div><label class="switch"><input type="checkbox" data-track aria-label="Post to Slack"><i></i></label></div></section>`;
+}
+function genericForm(item) {
+  return `<section class="sec"><h3>${esc(item.l)}</h3><p class="sub">${esc(item.d)}.</p>
+   <div class="line"><div><b>Turn on ${esc(item.l)}</b><span class="d">You can change this any time</span></div><label class="switch"><input type="checkbox" ${item.st === 'ok' ? 'checked' : ''} data-track aria-label="Turn on"><i></i></label></div>
+   <div class="grid2" style="margin-top:8px"><div class="field"><label>Name shown to customers</label><input class="input" value="Resolvo Support" data-track></div><div class="field"><label>Reply-to address</label><input class="input" value="support@yourcompany.com" data-track></div></div></section>`;
+}
+const formFor = it => it.id === 'sla' ? slaForm() : genericForm(it);
+/* unsaved-changes bar used by the samples */
+function wireSave(root, bar) {
+  const on = () => bar.classList.add('on');
+  root.addEventListener('input', e => { if (e.target.matches('[data-track]')) on(); }); root.addEventListener('change', e => { if (e.target.matches('[data-track]')) on(); }); document.addEventListener('tracked', on);
+  $('.discard', bar).onclick = () => { bar.classList.remove('on'); root.dispatchEvent(new Event('discard')); };
+  $('.save', bar).onclick = () => { bar.classList.remove('on'); const t = document.createElement('div'); t.textContent = 'Saved'; t.style.cssText = 'position:fixed;top:16px;right:16px;background:var(--success);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;z-index:99'; document.body.appendChild(t); setTimeout(() => t.remove(), 1800); };
+}
+const SAVEBAR = '<div class="savebar" id="savebar" role="status"><span>You have unsaved changes</span><button class="btn sm ghost discard" style="color:inherit">Discard</button><button class="btn sm primary save">Save changes</button></div>';
+
+/* ---------- Insights: 30 days of example numbers ---------- */
+function rnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+const R = rnd(42), DAYS = 30, NOW = new Date(2026, 9, 26);
+const LAB = Array.from({ length: DAYS }, (_, i) => { const d = new Date(NOW - (DAYS - 1 - i) * 864e5); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); });
+const CREATED = Array.from({ length: DAYS }, (_, i) => { const wd = new Date(NOW - (DAYS - 1 - i) * 864e5).getDay(); return Math.round((wd === 0 || wd === 6 ? 14 : 30) + R() * 12 + i * .25); });
+const RESOLVED = CREATED.map((c, i) => Math.round(c * (.82 + R() * .22)));
+const FRT = Array.from({ length: DAYS }, (_, i) => +(2.6 - i * .018 + R() * .7).toFixed(1));
+const SLAP = Array.from({ length: DAYS }, (_, i) => Math.min(99, Math.round(86 + i * .22 + R() * 5)));
+const CSATP = Array.from({ length: DAYS }, () => +(4.1 + R() * .6).toFixed(1));
+const sum = a => a.reduce((x, y) => x + y, 0), avg = a => sum(a) / a.length;
+const AGENTS = [
+  { n: 'Rahul Mehta', c: 'c1', open: 14, res: 96, frt: 1.8, sla: 94, csat: 4.7, over: 3 }, { n: 'Ananya Rao', c: '', open: 9, res: 88, frt: 2.1, sla: 96, csat: 4.8, over: 0 },
+  { n: 'Karan Malhotra', c: 'c2', open: 7, res: 61, frt: 3.4, sla: 83, csat: 4.2, over: 2 }, { n: 'Priya Sharma', c: 'c3', open: 11, res: 74, frt: 2.6, sla: 90, csat: 4.5, over: 1 }, { n: 'Sneha Iyer', c: 'c4', open: 5, res: 52, frt: 2.2, sla: 92, csat: 4.6, over: 0 }
 ];
+const CHANNELS = [['Email', 412, 'var(--info)'], ['WhatsApp', 268, 'var(--wa)'], ['Web widget', 131, '#6D5BD0'], ['Instagram', 74, '#C13584'], ['Calls', 29, '#0EA5A4']];
+const REASONS = [['Order not delivered', 188], ['Refund status', 143], ['Size exchange', 121], ['Coupon not working', 97], ['Payment failed', 64], ['Other', 301]];
+function av(n, cls = '') { const c = ['', 'c1', 'c2', 'c3', 'c4'][(n.length) % 5]; return `<span class="av sm ${c} ${cls}">${esc(n[0])}</span>`; }
 
-var VOL = [3,5,2,8,6,4,9,7,5,11,8,6,9,12];
-
-var AI_DRAFTS = {
-  'TKT-001':'Hi Priya,\n\nThank you for flagging this urgently. I have raised an immediate investigation with BlueDart (ref: BD-INV-8821) and requested proof-of-delivery with GPS coordinates.\n\nGiven the urgency, I have also initiated a replacement shipment that will be dispatched today via express courier. You should receive a tracking number within 2 hours.\n\nI sincerely apologise for the distress caused.\n\nWarm regards,\nPriya | Resolvo Support',
-  'TKT-002':'Hi Rohit,\n\nThank you for following up. I can confirm your return was received at our warehouse. Refunds typically process in 5-7 business days from receipt.\n\nI have escalated this to our finance team to expedite. You should see the credit within 24-48 hours. I will send a confirmation once it is processed.\n\nApologies for the delay.\n\nBest,\nPriya | Resolvo Support',
-  'TKT-004':'Hi Karan,\n\nI am so sorry about the wrong item. This should not have happened.\n\nI have raised a priority replacement for the Red Saree and a free pickup of the incorrect item is scheduled for today. Your correct order will ship via same-day express.\n\nAs a sincere apology, I have also added a Rs.300 store credit to your account.\n\nWarm regards,\nPriya | Resolvo Support',
-  'TKT-005':'Hi Sunita,\n\nI completely understand your concern and I sincerely apologise. I have confirmed with our logistics team that the COD was incorrectly collected after the cancellation. A full refund of Rs.1,850 will be credited to your bank account within 24 hours.\n\nI will personally follow up with you by 6 PM today with confirmation.\n\nDeepest apologies for this experience.\n\nPriya | Resolvo Support',
-  'TKT-008':'Hi Amit,\n\nApologies for the delay in sending your return label. I have generated it now and it is attached to this email.\n\nYour return window has also been extended by 3 days given the delay on our end. Simply hand the package to any BlueDart pickup or drop at the nearest BlueDart centre.\n\nBest,\nPriya | Resolvo Support'
-};
-
-var priColors = {Critical:'#ff4757',High:'#fb923c',Medium:'#f59e0b',Low:'#10B981'};
-var activeFilter = 'all';
-
-function showView(view, tid) {
-  document.querySelectorAll('.nav-item').forEach(function(el){ el.classList.remove('active'); });
-  var key = (view === 'ticket') ? 'inbox' : view;
-  var nav = document.getElementById('nav-' + key);
-  if (nav) nav.classList.add('active');
-  if (view === 'dashboard') renderDashboard();
-  else if (view === 'inbox') renderInbox();
-  else if (view === 'kanban') renderKanban();
-  else if (view === 'ticket') renderTicket(tid);
+/* inline SVG line/area chart, drawn to one scale */
+function lineChart(series, labels, o = {}) {
+  const W = 640, H = o.h || 220, L = 34, B = 22, T = 10, Rr = 8, all = series.flatMap(s => s.v), max = o.max || Math.ceil(Math.max(...all) * 1.1 / (o.step || 10)) * (o.step || 10), min = 0, tk = o.ticks || 4;
+  const x = i => L + i * (W - L - Rr) / (labels.length - 1), y = v => T + (H - T - B) * (1 - (v - min) / (max - min));
+  const grid = Array.from({ length: tk + 1 }, (_, k) => k / tk).map(f => { const v = Math.round(max * f * 10) / 10, yy = y(v); return `<line class="grid" x1="${L}" x2="${W - Rr}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 3}" text-anchor="end">${v}</text>`; }).join('');
+  const tick = Math.max(1, Math.ceil(labels.length / 7)), xt = labels.map((l, i) => i % tick === 0 || i === labels.length - 1 ? `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === labels.length - 1 ? 'end' : 'middle'}">${l}</text>` : '').join('');
+  const paths = series.map((s, k) => { const d = s.v.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(''), area = k === 0 ? `<path d="${d}L${x(labels.length - 1)},${y(0)}L${x(0)},${y(0)}Z" fill="${s.c}" opacity=".10"/>` : ''; return `${area}<path d="${d}" fill="none" stroke="${s.c}" stroke-width="2.2" stroke-linejoin="round" ${s.dash ? 'stroke-dasharray="5 4"' : ''}/>`; }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label || 'Chart')}">${grid}${xt}${paths}</svg>`;
 }
+function spark(v, c = 'var(--accent)', w = 96, h = 28) { const mx = Math.max(...v), mn = Math.min(...v), x = i => i * (w - 2) / (v.length - 1) + 1, y = a => h - 3 - (a - mn) / ((mx - mn) || 1) * (h - 6); return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${v.map((a, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(a).toFixed(1)}`).join('')}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/></svg>`; }
+function hbars(items, fmt = v => v, color) { const mx = Math.max(...items.map(i => i[1])); return items.map(i => `<div class="hbar"><span class="clip">${esc(i[0])}</span><div class="bar"><i style="width:${i[1] / mx * 100}%;background:${i[2] || color || 'var(--accent)'}"></i></div><b style="text-align:right">${fmt(i[1])}</b></div>`).join(''); }
+const pct = (a, b) => { const d = (a - b) / b * 100; return Math.abs(d) < .5 ? ['flat', '0%'] : [d > 0 ? 'up' : 'dn', (d > 0 ? '+' : '') + d.toFixed(0) + '%']; };
 
-function setContent(html) {
-  document.getElementById('page-content').innerHTML = html;
-}
-
-function renderDashboard() {
-  document.getElementById('page-title').textContent = 'Dashboard';
-  document.getElementById('page-crumb').textContent = 'resolvo / overview';
-
-  var open = 0, breached = 0, i, t;
-  for (i = 0; i < TICKETS.length; i++) {
-    t = TICKETS[i];
-    if (t.status === 'Open') open++;
-    if (t.breached) breached++;
-  }
-
-  var maxVol = 1;
-  for (i = 0; i < VOL.length; i++) { if (VOL[i] > maxVol) maxVol = VOL[i]; }
-  var bars = '';
-  for (i = 0; i < VOL.length; i++) {
-    var h = Math.max(4, Math.round(VOL[i] / maxVol * 100));
-    bars += '<div class="chart-bar' + (i === VOL.length - 1 ? ' today' : '') + '" style="height:' + h + '%;" title="' + VOL[i] + ' tickets"></div>';
-  }
-
-  var lbRows = '';
-  for (i = 0; i < AGENTS.length; i++) {
-    var a = AGENTS[i];
-    lbRows += '<div class="lb-row"><div class="lb-av" style="background:' + a.color + '22;color:' + a.color + ';">' + a.initials + '</div><span class="lb-name">' + a.name + '</span><span class="lb-count">' + a.resolved + '</span><span class="lb-csat">' + a.csat + '</span></div>';
-  }
-
-  var recentRows = '';
-  for (i = 0; i < Math.min(5, TICKETS.length); i++) {
-    t = TICKETS[i];
-    recentRows += '<div class="recent-row" onclick="showView(\'ticket\',\'' + t.id + '\')">' +
-      '<span style="font-size:10px;font-family:var(--font-mono);color:var(--accent);width:68px;flex-shrink:0;">' + t.id + '</span>' +
-      '<span style="flex:1;font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + t.subject + '</span>' +
-      '<span class="badge badge-' + t.priority.toLowerCase() + '" style="margin-left:8px;">' + t.priority + '</span>' +
-      '<span class="badge badge-' + t.status.toLowerCase() + '" style="margin-left:4px;">' + t.status + '</span>' +
-    '</div>';
-  }
-
-  setContent(
-    '<div class="stat-grid">' +
-      sc(String(open), 'Open Tickets', '↑ 2 since yesterday', 'up', '#818cf8') +
-      sc('3', 'Unassigned', 'Need to be picked up', 'up', '#fb923c') +
-      sc(String(breached), 'SLA Breached', 'Avg first reply: 38m', '', '#ff4757') +
-      sc('5', 'Resolved Today', '↓ 1 from yesterday', 'down', '#10B981') +
-    '</div>' +
-    '<div class="dash-grid">' +
-      '<div class="dash-card">' +
-        '<div class="card-title">Ticket Volume · Last 14 days</div>' +
-        '<div class="chart-wrap">' + bars + '</div>' +
-        '<div class="chart-labels"><span>14 days ago</span><span>Today</span></div>' +
-      '</div>' +
-      '<div class="dash-card">' +
-        '<div class="card-title">Agent Leaderboard</div>' +
-        lbRows +
-      '</div>' +
-    '</div>' +
-    '<div class="recent-card">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-        '<div class="card-title" style="margin-bottom:0;">Recent Tickets</div>' +
-        '<span onclick="showView(\'inbox\')" style="font-size:12px;color:var(--accent);cursor:pointer;font-weight:600;">View all →</span>' +
-      '</div>' +
-      recentRows +
-    '</div>'
-  );
-}
-
-function sc(val, label, trend, trendCls, color) {
-  return '<div class="stat-card" onclick="showView(\'inbox\')">' +
-    '<div class="stat-label">' + label + '</div>' +
-    '<div class="stat-value" style="color:' + color + ';">' + val + '</div>' +
-    '<div class="stat-trend ' + trendCls + '">' + trend + '</div>' +
-  '</div>';
-}
-
-function renderInbox(filter) {
-  if (filter) activeFilter = filter;
-  document.getElementById('page-title').textContent = 'Ticket Inbox';
-  document.getElementById('page-crumb').textContent = 'resolvo / inbox';
-
-  var filters = ['all','open','unread','breached','resolved'];
-  var btns = '';
-  for (var f = 0; f < filters.length; f++) {
-    var fl = filters[f];
-    btns += '<button class="filter-btn' + (activeFilter === fl ? ' active' : '') + '" onclick="renderInbox(\'' + fl + '\')">' + fl.charAt(0).toUpperCase() + fl.slice(1) + '</button>';
-  }
-
-  var rows = '';
-  for (var i = 0; i < TICKETS.length; i++) {
-    var t = TICKETS[i];
-    var show = (activeFilter === 'all') ||
-      (activeFilter === 'open' && t.status === 'Open') ||
-      (activeFilter === 'unread' && t.unread) ||
-      (activeFilter === 'breached' && t.breached) ||
-      (activeFilter === 'resolved' && t.status === 'Resolved');
-    if (!show) continue;
-    var pc = priColors[t.priority] || '#94a3b8';
-    var preview = t.msgs[t.msgs.length - 1].body.replace(/\n/g, ' ').substring(0, 90);
-    rows += '<div class="ticket-row' + (t.unread ? ' unread' : '') + (t.breached ? ' breached' : '') + '" onclick="showView(\'ticket\',\'' + t.id + '\')">' +
-      '<div class="t-av" style="background:' + pc + '18;color:' + pc + ';">' + t.from.charAt(0) + '</div>' +
-      '<div class="t-body">' +
-        '<div class="t-name-row">' +
-          '<span class="t-name">' + t.from + '</span>' +
-          '<span class="t-id">' + t.id + '</span>' +
-          (t.channel === 'WhatsApp' ? '<span style="font-size:10px;color:#22c55e;font-weight:600;font-family:var(--font-mono);">· WA</span>' : '') +
-        '</div>' +
-        '<div class="t-subject' + (t.unread ? ' bold' : '') + '">' + t.subject + '</div>' +
-        '<div class="t-preview">' + preview + '…</div>' +
-      '</div>' +
-      '<div class="t-aside">' +
-        '<span class="t-time">' + t.time + '</span>' +
-        '<span class="badge badge-' + t.priority.toLowerCase() + '">' + t.priority + '</span>' +
-        '<span class="t-sla' + (t.breached ? ' breached' : '') + '">' + t.sla + '</span>' +
-      '</div>' +
-    '</div>';
-  }
-
-  if (!rows) rows = '<div style="text-align:center;padding:48px;color:var(--text-muted);font-size:13px;">No tickets in this view</div>';
-
-  setContent(
-    '<div class="inbox-toolbar">' +
-      '<div class="search-wrap">' +
-        '<span class="search-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>' +
-        '<input class="search-input" placeholder="Search tickets, customers, keywords…" oninput="filterSearch(this.value)">' +
-      '</div>' + btns +
-    '</div>' +
-    '<div class="ticket-list" id="ticket-list">' + rows + '</div>'
-  );
-}
-
-function filterSearch(q) {
-  q = (q || '').toLowerCase();
-  var rows = document.querySelectorAll('.ticket-row');
-  var tix = document.querySelectorAll('.ticket-row');
-  for (var i = 0; i < tix.length; i++) {
-    var txt = tix[i].textContent.toLowerCase();
-    tix[i].style.display = (!q || txt.indexOf(q) > -1) ? '' : 'none';
-  }
-}
-
-function renderTicket(id) {
-  var t = null;
-  for (var i = 0; i < TICKETS.length; i++) { if (TICKETS[i].id === id) { t = TICKETS[i]; break; } }
-  if (!t) { showView('inbox'); return; }
-  t.unread = false;
-  document.getElementById('page-title').textContent = t.id;
-  document.getElementById('page-crumb').textContent = 'resolvo / inbox / ' + t.id;
-
-  var pc = priColors[t.priority] || '#94a3b8';
-  var msgs = '';
-  for (var m = 0; m < t.msgs.length; m++) {
-    var msg = t.msgs[m];
-    msgs += '<div class="msg ' + msg.type + '"><div class="msg-meta"><span class="msg-sender">' + msg.sender + '</span><span>' + msg.ts + '</span></div><div class="msg-body">' + msg.body.replace(/\n/g,'<br>') + '</div></div>';
-  }
-
-  var slaHtml = t.breached
-    ? '<span class="badge badge-breached">SLA BREACHED</span>'
-    : '<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">' + t.sla + '</span>';
-
-  var statusOpts = ['Open','Pending','Resolved','Closed'].map(function(s){ return '<option' + (s===t.status?' selected':'') + '>' + s + '</option>'; }).join('');
-
-  setContent(
-    '<div class="detail-layout" style="height:calc(100vh - 140px);">' +
-
-      '<div class="detail-main">' +
-        '<div class="detail-header">' +
-          '<button class="back-btn" onclick="showView(\'inbox\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>' +
-          '<div style="flex:1;">' +
-            '<div class="detail-tkt-id">' + t.id + ' · ' + t.email + '</div>' +
-            '<div class="detail-subject">' + t.subject + '</div>' +
-            '<div class="detail-badge-row">' +
-              '<span class="badge badge-' + t.priority.toLowerCase() + '">' + t.priority + '</span>' +
-              '<span class="badge badge-' + t.status.toLowerCase() + '">' + t.status + '</span>' +
-              slaHtml +
-              (t.channel==='WhatsApp'?'<span style="font-size:10px;color:#22c55e;font-weight:700;font-family:var(--font-mono);">● WhatsApp</span>':'<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">✉ Email</span>') +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="thread" id="thread">' + msgs + '</div>' +
-
-        '<div class="reply-wrap">' +
-          '<div class="reply-tabs"><button class="reply-tab active">Reply to Customer</button><button class="reply-tab" onclick="demoToast(\'Internal notes are visible only to your team, not the customer.\')">Internal Note</button></div>' +
-          '<div class="reply-toolbar">' +
-            '<button class="fmt-btn" onclick="fmtWrap(\'**\',\'**\')"><b>B</b></button>' +
-            '<button class="fmt-btn" onclick="fmtWrap(\'_\',\'_\')"><i style="font-size:13px;">I</i></button>' +
-            '<button class="fmt-btn" onclick="fmtWrap(\'`\',\'`\')" style="font-family:var(--font-mono);font-size:11px;">&lt;/&gt;</button>' +
-            '<div class="fmt-sep"></div>' +
-            '<button class="fmt-btn wide" onclick="demoToast(\'⚡ Canned responses — type / to trigger. 12 saved responses for common queries.\')">&#9889; Canned</button>' +
-            '<button class="fmt-btn wide" onclick="demoToast(\'📅 Booking link inserted — customer picks a call slot directly from the reply.\')">&#128197; Book Call</button>' +
-          '</div>' +
-          '<textarea class="reply-textarea" id="reply-box" rows="3" placeholder="Type your reply… or click AI Draft below"></textarea>' +
-          '<div class="reply-actions">' +
-            '<button class="reply-send" onclick="sendReply(\'' + t.id + '\')">Send Reply</button>' +
-            '<button class="btn-ai" onclick="aiDraft(\'' + t.id + '\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> AI Draft Reply</button>' +
-            '<div class="ai-typing" id="ai-typing"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span style="margin-left:4px;">AI is drafting…</span></div>' +
-            '<select class="status-select" onchange="demoToast(\'Status updated to \' + this.options[this.selectedIndex].text)">' + statusOpts + '</select>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="detail-sidebar">' +
-        '<div class="meta-block">' +
-          '<div class="meta-block-title">Customer</div>' +
-          '<div class="cust-av-lg" style="background:' + pc + '18;color:' + pc + ';">' + t.from.charAt(0) + '</div>' +
-          '<div class="cust-name-txt">' + t.from + '</div>' +
-          '<div class="cust-email-txt">' + t.email + '</div>' +
-          '<div class="cust-actions">' +
-            '<button class="cust-action-btn" onclick="demoToast(\'Composing email to ' + t.from + '…\')">&#x2709; Email</button>' +
-            '<button class="cust-action-btn ghost" onclick="demoToast(\'Viewing history for ' + t.from + ' — 3 previous tickets, Rs.4,200 LTV, CSAT: 4.8\')">History</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="meta-block">' +
-          '<div class="meta-block-title">Ticket Info</div>' +
-          '<div class="meta-kv"><span class="meta-key">Priority</span><span class="meta-val"><span class="badge badge-' + t.priority.toLowerCase() + '">' + t.priority + '</span></span></div>' +
-          '<div class="meta-kv"><span class="meta-key">Status</span><span class="meta-val"><span class="badge badge-' + t.status.toLowerCase() + '">' + t.status + '</span></span></div>' +
-          '<div class="meta-kv"><span class="meta-key">SLA</span><span class="meta-val" style="color:' + (t.breached?'var(--critical)':'var(--text-secondary)') + ';font-family:var(--font-mono);">' + t.sla + '</span></div>' +
-          '<div class="meta-kv"><span class="meta-key">Channel</span><span class="meta-val">' + t.channel + '</span></div>' +
-          '<div class="meta-kv"><span class="meta-key">Assignee</span><span class="meta-val">Riya K.</span></div>' +
-          '<div class="meta-kv"><span class="meta-key">Team</span><span class="meta-val">Support</span></div>' +
-        '</div>' +
-        '<div class="meta-block">' +
-          '<div class="meta-block-title">Timing</div>' +
-          '<div class="meta-kv"><span class="meta-key">Created</span><span class="meta-val">' + t.time + '</span></div>' +
-          '<div class="meta-kv"><span class="meta-key">1st Reply</span><span class="meta-val" style="color:var(--accent);">17 min</span></div>' +
-          '<div class="meta-kv"><span class="meta-key">SLA Target</span><span class="meta-val">4h (Critical)</span></div>' +
-        '</div>' +
-        '<button onclick="demoToast(\'Linked to Issue Tracker — engineering gets notified when the bug is fixed, and customer is auto-notified.\')" style="width:100%;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);color:#a5b4fc;border-radius:var(--radius);padding:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Inter\',sans-serif;margin-top:2px;">🔗 Link to Issue Tracker</button>' +
-      '</div>' +
-    '</div>'
-  );
-
-  var th = document.getElementById('thread');
-  if (th) th.scrollTop = th.scrollHeight;
-}
-
-function renderKanban() {
-  document.getElementById('page-title').textContent = 'Kanban Board';
-  document.getElementById('page-crumb').textContent = 'resolvo / kanban';
-
-  var cols = [
-    {name:'Open',color:'var(--status-open)',ids:['TKT-001','TKT-002','TKT-004','TKT-005','TKT-006']},
-    {name:'Pending',color:'var(--status-pending)',ids:['TKT-003','TKT-008']},
-    {name:'Resolved',color:'var(--status-resolved)',ids:['TKT-007']},
-    {name:'Closed',color:'var(--status-closed)',ids:[]}
+/* Interactive demo of the new Resolvo. Everything below runs in the browser with made-up data (a fictional store, "Brightkart"). */
+const ME = 'Rahul Mehta';
+const AGENT_NAMES = ['Rahul Mehta', 'Ananya Rao', 'Karan Malhotra', 'Priya Sharma', 'Sneha Iyer'];
+function mkTickets() {
+  const M = (t, who, body, h) => ({ t, who, body, h });
+  return [
+    { id: 'T1', n: 'Kavya Saxena', ch: 'email', c: 'kavya.saxena@mailbox.example', s: 'Coupon code not working', p: 'Medium', st: 'new', as: '', ago: 50, sla: -2, un: 1, vip: 0, msgs: [M('in', 'Kavya Saxena', 'Hi, I tried the code WELCOME10 at checkout and it says invalid. Is it expired? I have a full cart waiting.', 50)] },
+    { id: 'T2', n: 'Isha Reddy', ch: 'whatsapp', c: '+91 98765 43210', s: 'Refund for order #4901', p: 'High', st: 'new', as: '', ago: 2, sla: 3, un: 1, vip: 0, msgs: [M('in', 'Isha Reddy', 'I returned the item last week and the refund has not come yet. Please check.', 2)] },
+    { id: 'T3', n: 'Sanjay Kapoor', ch: 'instagram', c: '@sanjay.kapoor', s: 'Coupon code not working', p: 'Medium', st: 'new', as: '', ago: 3, sla: 20, un: 1, vip: 0, msgs: [M('in', 'Sanjay Kapoor', 'The WELCOME10 code is not applying on my order. Can you help?', 3)] },
+    { id: 'T4', n: 'Meera Kapoor', ch: 'email', c: 'meera.kapoor@mailbox.example', s: 'Order #4833 has not arrived', p: 'Critical', st: 'open', as: ME, ago: 5, sla: 1.5, un: 1, vip: 1, msgs: [M('in', 'Meera Kapoor', 'Hello, I ordered on 12 Oct and the tracking has not moved for 3 days. I need it for a function on Saturday. Can you tell me where it is?', 5)] },
+    { id: 'T5', n: 'Rohit Das', ch: 'whatsapp', c: '+91 99887 11223', s: 'Need a GST invoice for order #4893', p: 'Low', st: 'open', as: ME, ago: 7, sla: 40, un: 0, vip: 0, msgs: [M('in', 'Rohit Das', 'Could you please send a GST invoice for my last order? Our company name and number are in the order notes.', 7)] },
+    { id: 'T6', n: 'Divya Reddy', ch: 'email', c: 'divya.reddy@mailbox.example', s: 'Bulk order for corporate gifting', p: 'High', st: 'open', as: 'Karan Malhotra', ago: 4, sla: 6, un: 0, vip: 1, msgs: [M('in', 'Divya Reddy', 'We are planning Diwali gifts for 40 employees. Do you offer a discount, and can you print our logo?', 4)] },
+    { id: 'T7', n: 'Vikram Bhatt', ch: 'whatsapp', c: '+91 90909 80808', s: 'Refund for order #4896', p: 'Medium', st: 'pending', as: 'Priya Sharma', ago: 9, sla: 14, un: 0, vip: 0, msgs: [M('in', 'Vikram Bhatt', 'I returned the item last week and the refund has not come yet.', 9), M('out', 'Priya Sharma', 'Hi Vikram, your refund was approved and takes 3 to 5 working days to reach your account. Sorry for the wait.', 8)] },
+    { id: 'T8', n: 'Gaurav Gupta', ch: 'email', c: 'gaurav.gupta@mailbox.example', s: 'Cannot log in to my account', p: 'Medium', st: 'pending', as: 'Sneha Iyer', ago: 6, sla: 16, un: 0, vip: 0, msgs: [M('in', 'Gaurav Gupta', 'I forgot my password and the reset email is not arriving.', 6), M('out', 'Sneha Iyer', 'Hi Gaurav, I have reset it from our side. Please check your inbox for a new link.', 5)] },
+    { id: 'T9', n: 'Neha Verma', ch: 'widget', c: 'neha.verma@mailbox.example', s: 'Size exchange request', p: 'Medium', st: 'pending', as: 'Ananya Rao', ago: 12, sla: 10, un: 0, vip: 0, msgs: [M('in', 'Neha Verma', 'The kurta I received is a size M but it runs small. Can I exchange it for an L?', 12), M('out', 'Ananya Rao', 'Of course Neha! I have arranged a free pickup and the L will ship as soon as the first one reaches us.', 11)] },
+    { id: 'T10', n: 'Arjun Nair', ch: 'email', c: 'arjun.nair@mailbox.example', s: 'Damaged product on arrival', p: 'High', st: 'open', as: ME, ago: 8, sla: 4, un: 1, vip: 0, msgs: [M('in', 'Arjun Nair', 'The ceramic planter arrived with a crack. I have photos. What can we do?', 8)] },
+    { id: 'T11', n: 'Lakshmi Menon', ch: 'whatsapp', c: '+91 97766 55443', s: 'Payment failed but money deducted', p: 'High', st: 'open', as: '', ago: 3, sla: 5, un: 1, vip: 0, msgs: [M('in', 'Lakshmi Menon', 'My payment failed at checkout but the amount was deducted from my bank. Order not placed.', 3)] },
+    { id: 'T12', n: 'Harsh Joshi', ch: 'email', c: 'harsh.joshi@mailbox.example', s: 'Wrong item received', p: 'Medium', st: 'resolved', as: 'Priya Sharma', ago: 20, sla: 0, un: 0, vip: 0, msgs: [M('in', 'Harsh Joshi', 'I ordered the cotton bedsheet set but received cushion covers.', 20), M('out', 'Priya Sharma', 'So sorry Harsh. A replacement is on its way and the courier will collect the wrong item.', 19)], done: 1 }
   ];
+}
+function mkPromos() { return [['GrowthBox', 'news@mail.growthbox.example', 'Your weekly product update'], ['UptimeWatch', 'noreply@uptimewatch.example', 'Monitor is DOWN: brightkart.example'], ['Launch Daily', 'team@launchdaily.example', 'Ten tools founders loved this week'], ['CourierHub', 'hello@mail.courierhub.example', 'Rates are changing from 1 November'], ['Retail Today', 'digest@newsletter.retailtoday.example', 'The festive season playbook'], ['PayGate', 'noreply@paygate.example', 'Settlement report ready']].map((p, i) => ({ id: 'P' + i, n: p[0], c: p[1], s: p[2], ago: 2 + i * 7 })); }
+function mkCust() { return [['Meera Kapoor', 'meera.kapoor@mailbox.example', 4, 1, 'vip'], ['Meera Kapoor', '+91 98111 22233 (WhatsApp)', 1, 0, 'active'], ['Divya Reddy', 'divya.reddy@mailbox.example', 5, 1, 'vip'], ['Kavya Saxena', 'kavya.saxena@mailbox.example', 2, 1, 'risk'], ['Isha Reddy', '+91 98765 43210', 3, 1, 'active'], ['Rohit Das', '+91 99887 11223', 2, 1, 'active'], ['Arjun Nair', 'arjun.nair@mailbox.example', 1, 1, 'active'], ['Harsh Joshi', 'harsh.joshi@mailbox.example', 3, 0, 'happy'], ['Neha Verma', 'neha.verma@mailbox.example', 2, 0, 'happy'], ['Gaurav Gupta', 'gaurav.gupta@mailbox.example', 1, 0, 'quiet']].map((c, i) => ({ id: 'C' + i, n: c[0], c: c[1], t: c[2], o: c[3], h: c[4], last: [2, 5, 4, 50, 2, 7, 8, 20, 12, 6][i] })); }
+let D;
+function reset() { D = { tk: mkTickets(), pr: mkPromos(), cu: mkCust(), view: 'today', inbox: { f: 'all', sel: null, cust: false, tab: 'needs' }, focus: { tab: 'needs', open: null, cur: 0 }, ins: { tab: 'overview', days: 14, cmp: true, sort: ['open', -1] }, set: { cur: null, q: '' }, resolvedToday: 4, mode: 'reply' }; }
+reset();
+const lastIn = t => t.msgs[t.msgs.length - 1].t === 'in';
+const needs = t => !t.done && t.st !== 'resolved' && lastIn(t) && (!t.as || t.as === ME);
+const waiting = t => !t.done && t.st !== 'resolved' && !lastIn(t);
+const urg = (a, b) => ((a.sla < 0 ? 0 : a.sla < 4 ? 1 : 2) - (b.sla < 0 ? 0 : b.sla < 4 ? 1 : 2)) || ({ Critical: 0, High: 1, Medium: 2, Low: 3 }[a.p] - { Critical: 0, High: 1, Medium: 2, Low: 3 }[b.p]) || b.ago - a.ago;
+const openT = () => D.tk.filter(t => t.st !== 'resolved');
+const ago = h => h < 1 ? Math.round(h * 60) + 'm ago' : h < 24 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago';
+const CHN = { email: 'Email', whatsapp: 'WhatsApp', widget: 'Web widget', instagram: 'Instagram' };
+const slaB = t => t.st === 'resolved' ? '' : t.sla < 0 ? '<span class="badge sla-breach">SLA breached</span>' : t.sla < 4 ? `<span class="badge sla-risk">SLA ${t.sla}h left</span>` : '';
+const stBadge = s => `<span class="badge ${{ new: 'b-new', open: 'b-open', pending: 'b-pending', resolved: 'b-resolved' }[s]}"><i></i>${s[0].toUpperCase() + s.slice(1)}</span>`;
+const prB = p => `<span class="badge p-${p}"><i></i>${p}</span>`;
+function toast(m) { const t = document.createElement('div'); t.className = 'dtoast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
 
-  var board = '';
-  for (var c = 0; c < cols.length; c++) {
-    var col = cols[c];
-    var cards = '';
-    for (var d = 0; d < col.ids.length; d++) {
-      var t = null;
-      for (var e = 0; e < TICKETS.length; e++) { if (TICKETS[e].id === col.ids[d]) { t = TICKETS[e]; break; } }
-      if (!t) continue;
-      cards += '<div class="kb-card pri-' + t.priority + '" onclick="showView(\'ticket\',\'' + t.id + '\')">' +
-        '<div class="kb-id">' + t.id + '</div>' +
-        '<div class="kb-title">' + (t.subject.length > 58 ? t.subject.substring(0,58) + '…' : t.subject) + '</div>' +
-        '<div class="kb-foot">' +
-          '<span class="badge badge-' + t.priority.toLowerCase() + '">' + t.priority + '</span>' +
-          (t.breached ? '<span class="badge badge-breached">SLA!</span>' : '<span style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);">' + t.sla + '</span>') +
-          '<span style="margin-left:auto;font-size:9px;color:var(--text-muted);">' + t.from.split(' ')[0] + '</span>' +
-        '</div>' +
-      '</div>';
-    }
-    board += '<div class="kb-col">' +
-      '<div class="kb-col-head">' +
-        '<span class="kb-col-name" style="color:' + col.color + ';">' + col.name + '</span>' +
-        '<span class="kb-col-count">' + col.ids.length + '</span>' +
-      '</div>' +
-      '<div class="kb-cards-wrap">' + (cards || '<div class="kb-empty">No tickets</div>') + '</div>' +
-    '</div>';
+// ---------- shell ----------
+const NAV = [['today', 'Dashboard', '⌂'], ['inbox', 'Ticket inbox', '✉'], ['customers', 'Customers', '👥'], ['insights', 'Insights', '▥'], ['settings', 'Settings', '⚙']];
+const TIPS = {
+  today: 'click a ticket under "Needs you now", or press "Work through them".', inbox: 'open a ticket, press "AI suggestion", send a reply, or open the Promotions tab.',
+  focus: 'press J and K to move, Enter to open, then "Send & resolve, then next" or press E.', insights: 'switch to 30 days, open the Questions and Team tabs, click a column to sort.',
+  customers: 'the banner at the top finds the same person on email and WhatsApp. Click Review, then Merge.', settings: 'search "slack", or open SLA Configuration and change a value.'
+};
+function shell() {
+  const n = D.view === 'focus' ? 'inbox' : D.view;
+  $('#nav').innerHTML = NAV.map(x => `<button class="nv" data-go="${x[0]}" aria-current="${x[0] === n}"><span aria-hidden="true">${x[2]}</span><b>${x[1]}</b>${x[0] === 'inbox' ? `<em>${D.tk.filter(needs).length}</em>` : ''}</button>`).join('');
+  $('#tip').innerHTML = `<b>Try it</b> ${TIPS[D.view]} <button class="btn sm ghost" id="tipx" aria-label="Hide hint">✕</button>`;
+}
+function go(v, o) { D.view = v; if (o) Object.assign(D[v === 'focus' ? 'focus' : v], o); draw(); scrollTo(0, 0); }
+function draw() { shell(); const f = { today, inbox, focus, insights, customers, settings }[D.view]; $('#main').innerHTML = f(); after(); }
+
+// ---------- Today ----------
+function kpis() { const o = openT(); return [['Total tickets', D.tk.length + 94], ['Open tickets', o.length + 11], ['Resolved', 95 + (D.resolvedToday - 4)], ['Avg. first reply', '2.4 h'], ['Happy customers', '92%']].map(k => `<div class="card kpi2"><span class="l">${k[0]}</span><span class="n">${k[1]}</span></div>`).join(''); }
+function today() {
+  const list = D.tk.filter(needs).sort(urg), rows = list.slice(0, 5).map(t => `<button class="now" data-open="${t.id}">${av(t.n)}<span class="m"><b>${esc(t.n)}</b><span>${esc(t.s)}</span></span>${slaB(t) || stBadge(t.st)}<em>${ago(t.ago)}</em></button>`).join('');
+  const br = D.tk.filter(t => t.sla < 0 && t.st !== 'resolved').length, un = openT().filter(t => !t.as).length;
+  return `<div class="pagehead"><div><h1>Good afternoon, Rahul</h1><p>Here is what is happening with your support today.</p></div></div>
+  <section class="card" style="margin-top:16px"><div class="cardh"><h3>Needs you now (${list.length})</h3>${list.length ? '<button class="btn primary sm" data-go="focus">Work through them</button>' : ''}</div>${list.length ? `<div class="nowl">${rows}</div>` : '<div class="empty" style="padding:36px"><b style="color:var(--text)">You are all caught up</b>Nothing needs you right now.</div>'}</section>
+  <div class="attn2">${br ? `<b style="color:var(--danger)">${br}</b> breached SLA` : ''}${br && un ? ' · ' : ''}${un ? `<b>${un}</b> unassigned` : ''}${!br && !un ? 'Nothing is past its target.' : ''}</div>
+  <div class="kpis" style="margin-top:14px">${kpis()}</div>
+  <section class="card" style="margin-top:14px"><div class="cardh"><h3>Ticket volume</h3></div><div class="cardb">${lineChart([{ v: CREATED.slice(-14), c: 'var(--info)' }], LAB.slice(-14), { h: 170 })}</div></section>`;
+}
+
+// ---------- Inbox ----------
+function listFor() { const f = D.inbox.f; if (f === 'promo') return D.pr; let a = openT(); if (f === 'mine') a = a.filter(t => t.as === ME); else if (f === 'un') a = a.filter(t => !t.as); return a.sort((a, b) => a.ago - b.ago); }
+function inbox() {
+  const c = { all: openT().length, mine: openT().filter(t => t.as === ME).length, un: openT().filter(t => !t.as).length, promo: D.pr.length }, f = D.inbox.f, list = listFor(), selT = D.tk.find(t => t.id === D.inbox.sel);
+  const pills = [['mine', 'Mine'], ['un', 'Unassigned'], ['all', 'All'], ['promo', 'Promotions']].map(p => `<button class="tab" role="tab" data-f="${p[0]}" aria-selected="${f === p[0]}">${p[1]}<em>${c[p[0]]}</em></button>`).join('');
+  const rows = f === 'promo' ? list.map(p => `<div class="row-i"><span class="av sm">${esc(p.n[0])}</span><div style="min-width:0"><b class="clip">${esc(p.n)}</b><div class="clip" style="font-size:13px">${esc(p.s)}</div><div class="faint" style="font-size:12px">${esc(p.c)}</div></div><div style="text-align:right"><div class="faint" style="font-size:12px">${ago(p.ago)}</div><button class="btn sm" data-back="${p.id}">Move to inbox</button></div></div>`).join('') || '<div class="empty" style="padding:28px"><b style="color:var(--text)">Nothing here</b>Newsletters and alerts will collect here.</div>'
+    : list.map(t => `<button class="row-i${t.id === D.inbox.sel ? ' sel' : ''}${t.un ? ' un' : ''}" data-t="${t.id}">${av(t.n)}<div style="min-width:0"><div class="nm"><b class="clip">${esc(t.n)}</b><span class="chip2">${CHN[t.ch]}</span></div><div class="sj clip">${esc(t.s)}</div><div class="pv clip">${esc(t.msgs[t.msgs.length - 1].body)}</div><div class="tg">${slaB(t)}${t.p === 'Critical' || t.p === 'High' ? prB(t.p) : ''}${t.st === 'new' || t.st === 'pending' ? stBadge(t.st) : ''}${t.as ? `<span class="own">${av(t.as, 'sm')}${esc(t.as.split(' ')[0])}</span>` : '<span class="own none">Unassigned</span>'}</div></div><div class="faint" style="font-size:12px">${ago(t.ago)}</div></button>`).join('') || '<div class="empty" style="padding:28px"><b style="color:var(--text)">No tickets</b></div>';
+  const promoBar = f === 'promo' ? `<div class="promo"><b>Newsletters and automated alerts</b><span class="muted" style="font-size:13px">Kept out of your queue and your counts.</span>${D.pr.length ? `<div class="row"><button class="btn sm" data-closeall>Close all ${D.pr.length}</button><button class="btn sm" data-closeall="block">Close all and block senders</button></div>` : ''}</div>` : '';
+  return `<div class="inb ${D.inbox.cust ? 'cust' : ''} ${selT ? 'reading' : ''}"><section class="il"><div class="ilh"><b style="font-size:17px">Tickets</b><span class="faint" style="font-size:12px">${list.length} shown</span><span style="flex:1"></span><button class="btn sm" data-go="focus">Focus mode</button></div><div class="tabs pills" role="tablist">${pills}</div>${promoBar}<div class="irows">${rows}</div></section>
+  <section class="ic">${selT ? conv(selT) : '<div class="empty" style="flex:1"><div style="font-size:28px">✉</div><b style="color:var(--text);font-size:17px;margin-top:6px">Select a ticket</b>Pick a conversation to read it and reply.</div>'}</section>
+  ${selT && D.inbox.cust ? `<aside class="icu"><div class="label">Customer</div><div class="row" style="margin:10px 0">${av(selT.n, 'lg')}<div><b>${esc(selT.n)}</b>${selT.vip ? ' <span class="badge b-pending">VIP</span>' : ''}<div class="muted" style="font-size:12px">${esc(selT.c)}</div></div></div><div class="kpi"><div><b>${selT.vip ? 8 : 3}</b><span class="faint">Tickets</span></div><div><b>1</b><span class="faint">Open</span></div><div><b>${selT.vip ? 4.8 : 4.5}</b><span class="faint">CSAT</span></div></div><div class="label" style="margin:12px 0 6px">Earlier tickets</div><div class="card" style="padding:8px 10px;font-size:13px">Size exchange request <span class="faint">· 2w</span></div></aside>` : ''}</div>`;
+}
+function conv(t) {
+  const th = t.msgs.map(m => `<div class="msg ${m.t === 'out' ? 'out' : m.t === 'note' ? 'note' : ''}">${av(m.who, 'sm')}<div><div class="when" style="margin:0 0 3px">${esc(m.who)} · ${ago(m.h)}</div><div class="bubble">${esc(m.body)}</div></div></div>`).join('');
+  const wait = lastIn(t) && t.ago >= 4 && t.st !== 'resolved' ? `<div class="nudge">⏱ <b>${esc(t.n.split(' ')[0])} has been waiting ${Math.round(t.ago)} hours for a reply.</b>${t.sla < 0 ? ' The target time has passed.' : ''}</div>` : '';
+  return `<div class="ch-head"><button class="btn icon ghost back" data-back-list aria-label="Back">←</button>${av(t.n)}<div style="flex:1;min-width:0"><h2 class="clip">${esc(t.s)}</h2><div class="muted" style="font-size:12px"><b style="color:var(--text)">${esc(t.n)}</b> · ${CHN[t.ch]} · ${t.id}</div></div><button class="btn sm" data-cust>Customer</button></div>
+  <div class="cbar"><select data-st aria-label="Status">${['new', 'open', 'pending', 'resolved'].map(s => `<option ${t.st === s ? 'selected' : ''}>${s}</option>`).join('')}</select><select aria-label="Priority">${['Critical', 'High', 'Medium', 'Low'].map(s => `<option ${t.p === s ? 'selected' : ''}>${s}</option>`).join('')}</select><select data-as aria-label="Assignee"><option value="">Unassigned</option>${AGENT_NAMES.map(a => `<option ${t.as === a ? 'selected' : ''}>${a}</option>`).join('')}</select>${slaB(t)}<span style="flex:1"></span>${t.st !== 'resolved' ? '<button class="btn primary sm" data-resolve>✓ Resolve</button>' : ''}</div>${wait}
+  <div class="thread">${th}</div><div class="comp"><div class="tabs"><button class="tab" data-mode="reply" aria-selected="${D.mode === 'reply'}">Reply to customer</button><button class="tab" data-mode="note" aria-selected="${D.mode === 'note'}">Internal note</button></div><div id="slashbox"></div><textarea class="compose" id="rt" placeholder="${D.mode === 'note' ? 'Write a note for your team…' : 'Write a reply… (type / for saved replies)'}" aria-label="Reply"></textarea><div class="row"><button class="btn sm" data-ai>✦ AI suggestion</button><button class="btn sm" data-canned>Saved replies</button><span style="flex:1"></span><button class="btn primary" data-send>${D.mode === 'note' ? 'Add note' : 'Send reply'}</button></div></div>`;
+}
+const CANNED = [['Refund timeline', 'Refunds reach your account within 3 to 5 working days after approval.'], ['Where is my order', 'Thanks for waiting. I am checking with the courier and will update you shortly.'], ['Coupon help', 'That code works on orders above Rs 999. I have applied the discount for you.']];
+function aiText(t) { return `Hi ${t.n.split(' ')[0]}, I am sorry about this. I have looked into "${t.s.toLowerCase()}" and I am on it now. I will update you within 2 hours. Thank you for your patience.`; }
+
+// ---------- Focus ----------
+function fq() { const tab = D.focus.tab, all = openT(); const a = tab === 'waiting' ? all.filter(waiting) : tab === 'all' ? all.slice() : all.filter(needs); return a.sort(urg); }
+function focus() {
+  const q = fq(), F = D.focus, op = D.tk.find(t => t.id === F.open);
+  if (op) {
+    const i = q.findIndex(t => t.id === op.id), th = op.msgs.map(m => `<div class="msg ${m.t === 'out' ? 'out' : ''}">${av(m.who, 'sm')}<div><div class="when" style="margin:0 0 3px">${esc(m.who)} · ${ago(m.h)}</div><div class="bubble">${esc(m.body)}</div></div></div>`).join('');
+    return `<div class="fwrap"><div class="rhead"><button class="btn ghost" data-fback>← Queue</button><span class="muted">${i >= 0 ? (i + 1) + ' of ' + q.length : ''}</span><span style="flex:1"></span><button class="btn icon" data-fstep="-1" aria-label="Previous">↑</button><button class="btn icon" data-fstep="1" aria-label="Next">↓</button></div>
+    <article class="card" style="padding:0"><div class="row" style="align-items:flex-start;gap:12px;padding:18px">${av(op.n, 'lg')}<div style="flex:1;min-width:0"><h2 style="margin:0;font-size:20px">${esc(op.s)}</h2><div class="muted" style="font-size:13px"><b style="color:var(--text)">${esc(op.n)}</b> · ${CHN[op.ch]} · ${op.id}</div><div class="row" style="margin-top:8px;flex-wrap:wrap">${stBadge(op.st)}${prB(op.p)}${slaB(op)}</div></div></div><div class="stack" style="padding:0 18px 18px;gap:16px">${th}</div></article>
+    <div class="card" style="padding:12px;margin-top:12px"><textarea class="compose" id="rt" placeholder="Write a reply… (R)" aria-label="Reply"></textarea><div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-ai>✦ AI suggestion</button><span style="flex:1"></span><button class="btn" data-fsend="0">Send</button><button class="btn primary" data-fsend="1">Send &amp; resolve, then next</button></div><div class="faint" style="font-size:12px;text-align:right;margin-top:6px"><span class="kbd">R</span> reply · <span class="kbd">E</span> resolve · <span class="kbd">J</span> <span class="kbd">K</span> next / previous · <span class="kbd">Esc</span> queue</div></div></div>`;
   }
-
-  setContent(
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">' +
-      '<span style="font-size:12px;color:var(--text-muted);">Click any card to open the ticket detail.</span>' +
-      '<button onclick="showView(\'inbox\')" class="btn-ghost" style="margin-left:auto;">← Back to Inbox</button>' +
-    '</div>' +
-    '<div class="kanban-wrap">' + board + '</div>'
-  );
+  const nn = openT().filter(needs).length, wn = openT().filter(waiting).length;
+  const items = q.map((t, i) => `<button class="fitem${i === F.cur ? ' foc' : ''}" data-fopen="${t.id}">${av(t.n, 'lg')}<div style="min-width:0"><div class="nm"><b class="clip">${esc(t.n)}</b><span class="chip2">${CHN[t.ch]}</span>${t.un ? '<i class="dot-unread"></i>' : ''}</div><div class="clip" style="font-weight:600">${esc(t.s)}</div><div class="pv clip">${esc(t.msgs[t.msgs.length - 1].body)}</div></div><div class="rt">${slaB(t) || stBadge(t.st)}<span class="faint" style="font-size:12px">${ago(t.ago)}</span></div></button>`).join('') || '<div class="empty card" style="padding:40px"><b style="color:var(--text);font-size:17px">You are all caught up</b>Nothing needs you right now.</div>';
+  return `<div class="fwrap"><div class="pagehead"><div><h1>Good afternoon, Rahul</h1><p class="muted" style="font-size:13px">One queue, sorted by what needs you first.</p></div><button class="btn sm" data-go="inbox">Full inbox</button></div>
+  <div class="fstats"><button class="stat ${nn ? 'hot' : ''}" data-ftab="needs" aria-pressed="${F.tab === 'needs'}"><span class="muted">Needs you now</span><b>${nn}</b></button><button class="stat" data-ftab="waiting" aria-pressed="${F.tab === 'waiting'}"><span class="muted">Waiting on customer</span><b>${wn}</b></button><button class="stat" aria-pressed="false" style="cursor:default"><span class="muted">Resolved today</span><b>${D.resolvedToday}</b></button></div>
+  <div class="tabs" role="tablist">${[['needs', 'Needs you'], ['all', 'All open'], ['waiting', 'Waiting']].map(x => `<button class="tab" role="tab" data-ftab="${x[0]}" aria-selected="${F.tab === x[0]}">${x[1]}</button>`).join('')}</div><div class="fq">${items}</div></div>`;
+}
+function fsend(resolve) {
+  const t = D.tk.find(x => x.id === D.focus.open), ta = $('#rt'), txt = ta ? ta.value.trim() : '';
+  if (resolve === 1 && !txt) { toast('Write a reply first, or press E to resolve without one'); return; }
+  const q = fq(), i = q.findIndex(x => x.id === t.id);
+  if (txt) t.msgs.push({ t: 'out', who: ME, body: txt, h: 0 });
+  if (resolve === 'e') { if (txt) { toast('You have an unsent reply. Use "Send & resolve" to send it, or clear it first.'); t.msgs.pop(); return; } }
+  if (resolve) { t.st = 'resolved'; t.done = 1; D.resolvedToday++; toast(txt ? 'Reply sent and ticket resolved' : 'Ticket resolved'); const nq = fq(), next = nq[Math.min(i, nq.length - 1)]; D.focus.open = next ? next.id : null; if (!next) D.focus.cur = 0; } else { t.st = 'pending'; toast('Reply sent'); }
+  draw();
 }
 
-function fmtWrap(before, after) {
-  var ta = document.getElementById('reply-box');
-  if (!ta) return;
-  var s = ta.selectionStart, e = ta.selectionEnd;
-  var sel = ta.value.substring(s,e) || 'text';
-  ta.setRangeText(before + sel + after, s, e, 'select');
-  ta.focus();
-}
-
-function sendReply(id) {
-  var ta = document.getElementById('reply-box');
-  if (!ta || !ta.value.trim()) { demoToast('Type a reply first.'); return; }
-  var text = ta.value.trim();
-  var t = null;
-  for (var i = 0; i < TICKETS.length; i++) { if (TICKETS[i].id === id) { t = TICKETS[i]; break; } }
-  if (t) t.msgs.push({type:'agent',sender:'Priya M. (You)',ts:'Just now',body:text});
-  var th = document.getElementById('thread');
-  if (th) {
-    var div = document.createElement('div');
-    div.className = 'msg agent';
-    div.innerHTML = '<div class="msg-meta"><span class="msg-sender">Priya M. (You)</span><span>Just now</span></div><div class="msg-body">' + text.replace(/\n/g,'<br>') + '</div>';
-    th.appendChild(div);
-    th.scrollTop = th.scrollHeight;
+// ---------- Insights ----------
+const iv = () => { const n = D.ins.days, sl = a => a.slice(-n), pv = a => a.slice(-2 * n, -n); return { n, sl, pv, c: sum(sl(CREATED)), cp: sum(pv(CREATED)) || 1, r: sum(sl(RESOLVED)), rp: sum(pv(RESOLVED)) || 1 }; };
+function insights() {
+  const I = D.ins, v = iv(), seg = [7, 14, 30].map(n => `<button aria-pressed="${I.days === n}" data-days="${n}">${n} days</button>`).join('');
+  const tabs = ['overview', 'questions', 'team'].map(t => `<button class="tab" role="tab" data-itab="${t}" aria-selected="${I.tab === t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('');
+  let body = '';
+  if (I.tab === 'overview') {
+    const dl = (a, b, good) => { const [d, t] = pct(a, b); return `<span class="delta ${d === 'flat' ? 'flat' : (good ? d === 'up' : d === 'dn') ? 'up' : 'dn'}">${t}</span>`; };
+    const k = [['Tickets', v.c, dl(v.c, v.cp, 1), spark(v.sl(CREATED), 'var(--info)')], ['Resolved', v.r, dl(v.r, v.rp, 1), spark(v.sl(RESOLVED))], ['First reply', avg(v.sl(FRT)).toFixed(1) + ' h', dl(avg(v.sl(FRT)), avg(v.pv(FRT)) || 1, 0), ''], ['Resolved on time', Math.round(avg(v.sl(SLAP))) + '%', dl(avg(v.sl(SLAP)), avg(v.pv(SLAP)) || 1, 1), ''], ['Happy customers', '92%', dl(92, 88, 1), '']];
+    const ser = [{ v: v.sl(CREATED), c: 'var(--info)' }, { v: v.sl(RESOLVED), c: 'var(--accent)' }]; if (I.cmp) ser.push({ v: v.pv(CREATED).length === v.n ? v.pv(CREATED) : v.sl(CREATED), c: 'var(--faint)', dash: 1 });
+    body = `<div class="kpis">${k.map(x => `<div class="card kpi2"><span class="l">${x[0]}</span><span class="n">${x[1]}</span><div class="row" style="justify-content:space-between">${I.cmp ? x[2] : '<span></span>'}${x[3]}</div></div>`).join('')}</div>
+    <section class="card" style="margin-top:14px"><div class="cardh"><h3>Tickets created and resolved</h3><div class="legend"><span><i style="background:var(--info)"></i>Created</span><span><i style="background:var(--accent)"></i>Resolved</span>${I.cmp ? '<span><i style="background:var(--faint)"></i>Previous period</span>' : ''}</div></div><div class="cardb">${lineChart(ser, LAB.slice(-v.n), { label: 'Tickets' })}</div></section>
+    <div class="grid2" style="margin-top:14px"><section class="card"><div class="cardh"><h3>Where tickets come from</h3></div><div class="cardb">${hbars(CHANNELS.slice(0, 4).map(c => [c[0], Math.round(c[1] * v.n / 30), c[2]]))}</div></section><section class="card"><div class="cardh"><h3>What customers ask about</h3></div><div class="cardb">${hbars(REASONS.slice(0, 5).map(r => [r[0], Math.round(r[1] * v.n / 30)]))}</div></section></div>`;
+  } else if (I.tab === 'questions') {
+    const sla = Math.round(avg(v.sl(SLAP))), dow = [14, 12, 11, 10, 9, 4, 3];
+    const Q = [['Are we answering fast enough?', `${sla >= 90 ? 'Yes. ' : 'Mostly. '}<em>${sla}%</em> of resolved tickets were done within target. First replies take ${avg(v.sl(FRT)).toFixed(1)} hours.`, lineChart([{ v: v.sl(RESOLVED), c: 'var(--accent)' }], LAB.slice(-v.n), { h: 120 })], ['Are we getting busier?', `Volume is <em>${pct(v.c, v.cp)[1]}</em> against the period before: ${v.c} tickets. Mondays are the busiest day.`, lineChart([{ v: v.sl(CREATED), c: 'var(--info)' }], LAB.slice(-v.n), { h: 120 })], ['Where do tickets come from?', '<em>Email</em> brings 45% of tickets, then WhatsApp with 29%. WhatsApp grew fastest.', hbars(CHANNELS.slice(0, 4).map(c => [c[0], c[1], c[2]]))], ['What do customers ask about?', 'Delivery and refunds make up <em>36%</em> of tickets. A help article on them could answer many before they reach you.', hbars(REASONS.slice(0, 4))], ['Who needs help?', '<em class="bad">Karan</em> has the slowest first replies (3.4 hours) and 2 tickets past target. Rahul has the most open (14).', ''], ['Are customers happy?', '<em>92%</em> of 43 survey replies were positive, up 6 points. Low scores cluster on late deliveries.', '']];
+    body = `<div class="qs">${Q.map(q => `<article class="card q"><span class="label">${q[0]}</span><p class="a">${q[1]}</p><div>${q[2]}</div></article>`).join('')}</div>`;
+  } else {
+    const [k, d] = I.sort, ag = AGENTS.slice().sort((a, b) => (a[k] > b[k] ? 1 : -1) * d), mx = Math.max(...AGENTS.map(a => a.open)), cols = [['n', 'Agent'], ['open', 'Open'], ['res', 'Resolved'], ['frt', 'First reply (h)'], ['sla', 'On time'], ['csat', 'CSAT']];
+    body = `<div class="alerts"><div class="al d"><span>⏱</span><div><b>Karan: 2 tickets past target</b><span>First replies average 3.4 hours, against a 2 hour goal.</span></div></div><div class="al w"><span>⚖️</span><div><b>Rahul has 14 open</b><span>Twice the team average. Consider reassigning 4 tickets.</span></div></div><div class="al g"><span>🌟</span><div><b>Ananya: 96% on time</b><span>Best on the team this period.</span></div></div></div>
+    <section class="card" style="margin-top:14px"><div class="tw"><table class="t" id="tt"><thead><tr>${cols.map(c => `<th class="s" data-k="${c[0]}" ${c[0] === k ? `aria-sort="${d > 0 ? 'ascending' : 'descending'}"` : ''}>${c[1]}</th>`).join('')}</tr></thead><tbody>${ag.map(a => `<tr><td><span class="row">${av(a.n, a.c)}<b>${esc(a.n)}</b></span></td><td><div class="load"><b style="width:22px">${a.open}</b><div class="bar2"><i style="width:${a.open / mx * 100}%;background:${a.open > 12 ? 'var(--danger)' : a.open > 9 ? 'var(--warning)' : 'var(--accent)'}"></i></div></div></td><td>${a.res}</td><td><span class="badge ${a.frt > 3 ? 'p-High' : 'b-resolved'}">${a.frt}</span></td><td>${a.sla}%</td><td>${a.csat}</td></tr>`).join('')}</tbody></table></div></section>
+    <section class="card" style="margin-top:14px"><div class="cardh"><h3>When tickets arrive</h3><span class="faint" style="font-size:12px">Darker means busier</span></div><div class="cardb"><div class="hm"><span></span>${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(x => `<span style="text-align:center">${x}</span>`).join('')}${['9-11', '11-13', '13-15', '15-17', '17-19', '19-21'].map((s, r) => `<span>${s}</span>${[0, 1, 2, 3, 4, 5, 6].map(c => `<i style="opacity:${Math.max(.08, (c > 4 ? .22 : .75) * (1 - Math.abs(r - 1.5) / 4) + ((r * 7 + c * 3) % 5) / 25).toFixed(2)}"></i>`).join('')}`).join('')}</div></div></section>`;
   }
-  ta.value = '';
-  demoToast('Reply sent to ' + (t ? t.from : 'customer') + '.');
+  return `<div class="pagehead"><div><h1>Insights</h1><p>Promotions and automated alerts left out · sample data</p></div><div class="row" style="flex-wrap:wrap"><div class="seg" id="rng">${seg}</div>${I.tab === 'overview' ? `<label class="chipb" style="cursor:pointer"><input type="checkbox" id="cmpx" ${I.cmp ? 'checked' : ''} style="accent-color:var(--accent)"> Compare to previous</label>` : ''}</div></div><div class="tabs pills" style="margin:14px 0" role="tablist">${tabs}</div>${body}`;
 }
 
-function aiDraft(id) {
-  var typing = document.getElementById('ai-typing');
-  var ta = document.getElementById('reply-box');
-  if (!typing || !ta) return;
-  typing.classList.add('show');
-  ta.value = '';
-  setTimeout(function() {
-    typing.classList.remove('show');
-    var draft = AI_DRAFTS[id] || 'Hi,\n\nThank you for reaching out. I have reviewed your case and will resolve this as quickly as possible. I will update you within 2 hours.\n\nBest regards,\nSupport Team';
-    var i = 0;
-    (function type() {
-      if (i <= draft.length) { ta.value = draft.substring(0, i++); ta.scrollTop = ta.scrollHeight; setTimeout(type, 16); }
-      else { demoToast('AI draft ready — review and send!'); }
-    })();
-  }, 1300);
+// ---------- Customers ----------
+const HB = { vip: 'VIP', risk: 'At risk', happy: 'Happy', active: 'Active', quiet: '' };
+function customers() {
+  const dup = D.cu.filter(c => c.n === 'Meera Kapoor').length > 1;
+  return `<div class="pagehead"><div><h1>Customers</h1><p>Everyone who has contacted you, with their tickets in one place.</p></div></div>
+  ${dup ? '<div class="banner" style="margin-top:14px"><span><b>1 possible duplicate.</b> The same person may appear more than once.</span><button class="btn sm" data-dupes>Review</button></div>' : ''}
+  <section class="card" style="margin-top:14px"><div class="tw"><table class="t"><thead><tr><th>Customer</th><th>Tickets</th><th>Open</th><th>Last contact</th></tr></thead><tbody>${D.cu.map(c => `<tr><td><span class="row">${av(c.n)}<span><b>${esc(c.n)}</b>${HB[c.h] ? ` <span class="hb hb-${c.h}">${HB[c.h]}</span>` : ''}<div class="muted" style="font-size:12px">${esc(c.c)}</div></span></span></td><td>${c.t}</td><td>${c.o || '<span class="faint">0</span>'}</td><td class="muted">${ago(c.last)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
-var toastTimer;
-function demoToast(msg) {
-  var el = document.getElementById('toast');
-  var msgEl = document.getElementById('toast-msg');
-  if (!el || !msgEl) return;
-  msgEl.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function() { el.classList.remove('show'); }, 4500);
+// ---------- Settings ----------
+function settings() {
+  const S = D.set, q = S.q.toLowerCase();
+  if (S.cur) { const it = ALL.find(i => i.id === S.cur); return `<div class="crumb"><a data-sback>← Settings</a> › ${esc(it.g)} › <b style="color:var(--text)">${esc(it.l)}</b></div><div class="pagehead" style="margin:6px 0 14px"><div><h1>${esc(it.l)}</h1><p>${esc(it.d)}</p></div>${stB(it.st)}</div><div class="card" id="sform" style="max-width:820px">${formFor(it)}</div>${SAVEBAR}`; }
+  const att = ALL.filter(i => i.st === 'attn');
+  const groups = SET.map(g => { const its = g.items.filter(i => !q || (i.l + ' ' + i.d).toLowerCase().includes(q)); return its.length ? `<section class="card gcard"><h3>${g.ico} ${esc(g.name)}</h3><p class="muted" style="margin:0 0 8px;font-size:13px">${esc(g.blurb)}</p>${its.map(i => `<button class="glink" data-set="${i.id}"><span>${esc(i.l)}</span><small>${i.st === 'attn' ? stB('attn') : esc(i.v)}</small></button>`).join('')}</section>` : ''; }).join('') || '<p class="muted">Nothing matches. Try another word.</p>';
+  return `<div class="pagehead"><div><h1>Settings</h1><p>Everything about how your workspace runs, grouped by what you are trying to do.</p></div><label class="search" style="max-width:320px"><span>⌕</span><input id="sq" placeholder="Search all settings" value="${esc(S.q)}" aria-label="Search settings"></label></div>
+  ${!q && att.length ? `<div class="label" style="margin-top:16px">Needs your attention</div><div class="attn">${att.map(a => `<button class="acard" data-set="${a.id}"><span>⚠️</span><div><b>${esc(a.l)}</b><span>${esc(a.v)}. ${esc(a.d)}.</span></div></button>`).join('')}</div>` : ''}<div class="hub">${groups}</div>`;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  renderDashboard();
-  setTimeout(function() {
-    demoToast('Click any ticket in the Inbox or Dashboard to open it, then try AI Draft Reply!');
-  }, 1600);
+// ---------- events ----------
+function after() {
+  const sv = $('#savebar'), f = $('#sform'); if (sv && f) wireSave(f, sv);
+  const sq = $('#sq'); if (sq) sq.oninput = e => { D.set.q = e.target.value; const pos = e.target.selectionStart; draw(); const n = $('#sq'); n.focus(); n.setSelectionRange(pos, pos); };
+  const cx = $('#cmpx'); if (cx) cx.onchange = () => { D.ins.cmp = cx.checked; draw(); };
+  const rt = $('#rt'); if (rt) rt.oninput = slash;
+  const th = $('.thread'); if (th) th.scrollTop = th.scrollHeight;
+}
+function slash() { const ta = $('#rt'), m = /(^|\s)\/([\w-]*)$/.exec(ta.value.slice(0, ta.selectionStart)), box = $('#slashbox'); if (!box) return; if (!m) { box.innerHTML = ''; return; } const q = m[2].toLowerCase(), it = CANNED.filter(c => !q || c[0].toLowerCase().includes(q)); box.innerHTML = it.length ? `<div class="slash">${it.map((c, i) => `<button type="button" data-slash="${CANNED.indexOf(c)}"><b>${esc(c[0])}</b><span>${esc(c[1].slice(0, 70))}</span></button>`).join('')}</div>` : ''; }
+document.addEventListener('click', e => {
+  const T = s => e.target.closest(s), g = T('[data-go]'), ti = T('[data-t]'), op = T('[data-open]');
+  if (T('#tipx')) { $('#tip').style.display = 'none'; return; }
+  if (T('#reset')) { reset(); draw(); toast('Demo reset'); return; }
+  if (g) { go(g.dataset.go); return; }
+  if (op) { D.view = 'inbox'; D.inbox.sel = op.dataset.open; D.inbox.f = 'all'; draw(); return; }
+  if (T('[data-f]')) { D.inbox.f = T('[data-f]').dataset.f; D.inbox.sel = null; draw(); return; }
+  if (ti) { D.inbox.sel = ti.dataset.t; D.tk.find(t => t.id === ti.dataset.t).un = 0; draw(); return; }
+  if (T('[data-back-list]')) { D.inbox.sel = null; draw(); return; }
+  if (T('[data-cust]')) { D.inbox.cust = !D.inbox.cust; draw(); return; }
+  if (T('[data-back]')) { const id = T('[data-back]').dataset.back, p = D.pr.find(x => x.id === id); D.pr = D.pr.filter(x => x.id !== id); D.tk.push({ id: 'M' + id, n: p.n, ch: 'email', c: p.c, s: p.s, p: 'Medium', st: 'new', as: '', ago: p.ago, sla: 10, un: 1, vip: 0, msgs: [{ t: 'in', who: p.n, body: 'Moved back to the inbox: this one is a real customer.', h: p.ago }] }); toast('Moved back to your inbox'); draw(); return; }
+  if (T('[data-closeall]')) { const b = T('[data-closeall]').dataset.closeall; const n = D.pr.length; D.pr = []; toast(`Closed ${n} promotions${b ? ' and blocked their senders' : ''}. Nobody was emailed.`); draw(); return; }
+  if (T('[data-mode]')) { D.mode = T('[data-mode]').dataset.mode; draw(); return; }
+  if (T('[data-ai]')) { const t = D.tk.find(x => x.id === (D.view === 'focus' ? D.focus.open : D.inbox.sel)); $('#rt').value = aiText(t); toast('AI draft added. Edit it, then send.'); return; }
+  if (T('[data-canned]')) { $('#rt').value = ($('#rt').value + ' ' + CANNED[0][1]).trim(); return; }
+  if (T('[data-slash]')) { const c = CANNED[+T('[data-slash]').dataset.slash], ta = $('#rt'); ta.value = ta.value.replace(/(^|\s)\/[\w-]*$/, (m, a) => a + c[1]); $('#slashbox').innerHTML = ''; ta.focus(); return; }
+  if (T('[data-send]')) { const t = D.tk.find(x => x.id === D.inbox.sel), ta = $('#rt'), v = ta.value.trim(); if (!v) { toast('Write something first'); return; } t.msgs.push({ t: D.mode === 'note' ? 'note' : 'out', who: ME, body: v, h: 0 }); if (D.mode === 'reply') { t.st = 'pending'; t.un = 0; } toast(D.mode === 'note' ? 'Note added' : 'Reply sent'); draw(); return; }
+  if (T('[data-resolve]')) { const t = D.tk.find(x => x.id === D.inbox.sel); t.st = 'resolved'; t.done = 1; D.resolvedToday++; D.inbox.sel = null; toast('Ticket resolved'); draw(); return; }
+  if (T('[data-ftab]')) { D.focus.tab = T('[data-ftab]').dataset.ftab; D.focus.cur = 0; draw(); return; }
+  if (T('[data-fopen]')) { D.focus.open = T('[data-fopen]').dataset.fopen; draw(); return; }
+  if (T('[data-fback]')) { D.focus.open = null; draw(); return; }
+  if (T('[data-fstep]')) { fstep(+T('[data-fstep]').dataset.fstep); return; }
+  if (T('[data-fsend]')) { fsend(+T('[data-fsend]').dataset.fsend); return; }
+  if (T('[data-itab]')) { D.ins.tab = T('[data-itab]').dataset.itab; draw(); return; }
+  if (T('#rng button')) { D.ins.days = +T('#rng button').dataset.days; draw(); return; }
+  if (T('#tt th.s')) { const k = T('#tt th.s').dataset.k, s = D.ins.sort; D.ins.sort = [k, s[0] === k ? -s[1] : (k === 'n' || k === 'frt' ? 1 : -1)]; draw(); return; }
+  if (T('[data-dupes]')) { const m = $('#modal'); m.innerHTML = `<div class="mcard"><h3 style="margin:0 0 6px">Possible duplicates</h3><p class="muted" style="margin:0 0 12px;font-size:13px">Merging joins their email addresses, phone numbers, tickets and deals under one customer. Nothing is deleted from your tickets.</p><div class="card" style="padding:12px"><div class="muted" style="font-size:12px;margin-bottom:6px">Same name</div><div><b>Meera Kapoor</b> <span class="muted" style="font-size:12px">meera.kapoor@mailbox.example · 4 tickets</span> <span class="faint">keep this one</span></div><div><b>Meera Kapoor</b> <span class="muted" style="font-size:12px">+91 98111 22233 · 1 ticket</span></div></div><div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-mclose>Cancel</button><button class="btn primary" data-merge>Merge into Meera Kapoor</button></div></div>`; m.classList.add('on'); return; }
+  if (T('[data-mclose]')) { $('#modal').classList.remove('on'); return; }
+  if (T('[data-merge]')) { const a = D.cu.find(c => c.n === 'Meera Kapoor'); a.t += 1; a.c += ' + WhatsApp'; D.cu = D.cu.filter((c, i) => !(c.n === 'Meera Kapoor' && c !== a)); $('#modal').classList.remove('on'); toast('Merged into Meera Kapoor'); draw(); return; }
+  if (T('[data-set]')) { D.set.cur = T('[data-set]').dataset.set; draw(); return; }
+  if (T('[data-sback]')) { D.set.cur = null; draw(); return; }
 });
+document.addEventListener('change', e => { const t = D.tk.find(x => x.id === D.inbox.sel); if (!t) return; if (e.target.matches('[data-st]')) { t.st = e.target.value; if (t.st === 'resolved') { t.done = 1; D.resolvedToday++; } toast('Status set to ' + t.st); draw(); } else if (e.target.matches('[data-as]')) { t.as = e.target.value; toast('Assignee updated'); draw(); } });
+function fstep(d) { const q = fq(), i = q.findIndex(t => t.id === D.focus.open), j = i + d; if (i < 0 || j < 0 || j >= q.length) return; D.focus.open = q[j].id; draw(); }
+document.addEventListener('keydown', e => {
+  if (D.view !== 'focus' || e.ctrlKey || e.metaKey || e.altKey || $('#modal.on')) return;
+  const tag = document.activeElement && document.activeElement.tagName, typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag); if (typing) { if (e.key === 'Escape') document.activeElement.blur(); return; }
+  const k = e.key, F = D.focus, q = fq();
+  if (k === 'j' || (k === 'ArrowDown' && !F.open)) { e.preventDefault(); F.open ? fstep(1) : (F.cur = Math.min(q.length - 1, F.cur + 1), draw()); }
+  else if (k === 'k' || (k === 'ArrowUp' && !F.open)) { e.preventDefault(); F.open ? fstep(-1) : (F.cur = Math.max(0, F.cur - 1), draw()); }
+  else if (k === 'Enter' && !F.open) { const t = q[F.cur]; if (t) { e.preventDefault(); F.open = t.id; draw(); } }
+  else if (k === 'Escape' && F.open) { e.preventDefault(); F.open = null; draw(); }
+  else if ((k === 'r' || k === 'R') && F.open) { e.preventDefault(); $('#rt').focus(); }
+  else if ((k === 'e' || k === 'E') && F.open) { e.preventDefault(); fsend('e'); }
+});
+$('#theme').onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? '' : 'dark'; };
+draw();
+
 </script>
-</body>
-</html>
+</body></html>

@@ -22,7 +22,7 @@
     var max = o.max || Math.max(step, Math.ceil(Math.max.apply(null, all) * 1.1 / step) * step), tk = o.ticks || 4;
     var x = function (i) { return L + i * (W - L - R) / Math.max(1, labels.length - 1); }, y = function (v) { return T + (H - T - B) * (1 - v / max); };
     var grid = '', k; for (k = 0; k <= tk; k++) { var v = Math.round(max * k / tk * 10) / 10, yy = y(v); grid += '<line class="rvn-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/><text x="' + (L - 6) + '" y="' + (yy + 3) + '" text-anchor="end">' + v + '</text>'; }
-    var tick = Math.max(1, Math.ceil(labels.length / 7)), xt = labels.map(function (l, i) { return (i % tick === 0 || i === labels.length - 1) ? '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="' + (i === labels.length - 1 ? 'end' : 'middle') + '">' + esc(l) + '</text>' : ''; }).join('');
+    var tick = Math.max(1, Math.ceil(labels.length / 7)), last = labels.length - 1, xt = labels.map(function (l, i) { return ((i % tick === 0 && last - i >= Math.ceil(tick / 2)) || i === last) ? '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="' + (i === labels.length - 1 ? 'end' : 'middle') + '">' + esc(l) + '</text>' : ''; }).join('');
     var paths = series.map(function (s, n) {
       var d = s.v.map(function (a, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(a).toFixed(1); }).join('');
       return (n === 0 ? '<path d="' + d + 'L' + x(labels.length - 1) + ',' + y(0) + 'L' + x(0) + ',' + y(0) + 'Z" fill="' + s.c + '" opacity=".10"/>' : '') + '<path d="' + d + '" fill="none" stroke="' + s.c + '" stroke-width="2.2" stroke-linejoin="round"' + (s.dash ? ' stroke-dasharray="5 4"' : '') + '/>';

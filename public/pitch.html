@@ -576,6 +576,25 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
   .final-cta{padding:80px 0;}
   .testi-grid{grid-template-columns:1fr;}
 }
+
+/* ── WHAT'S NEW ── */
+.wn-stack{display:flex;flex-direction:column;gap:72px;margin-top:56px;}
+.wn-row{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:center;}
+.wn-row.flip{grid-template-columns:1fr 1.1fr;}.wn-row.flip .wn-img{order:2;}
+.wn-img{border:1px solid var(--border-l);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(15,23,42,.14),0 2px 8px rgba(15,23,42,.06);background:#F4F6FA;}
+.wn-img img{display:block;width:100%;height:auto;}
+.wn-phones{display:flex;gap:18px;justify-content:center;align-items:flex-start;background:linear-gradient(135deg,#ECFDF5,#EEF2FF);padding:28px;}
+.wn-phones img{width:44%;max-width:230px;border-radius:22px;border:1px solid var(--border-l);box-shadow:0 18px 40px rgba(15,23,42,.18);}
+.wn-body h3{font-size:clamp(22px,2.6vw,30px);font-weight:800;letter-spacing:-.03em;line-height:1.2;color:var(--ink);margin:0 0 12px;}
+.wn-body p{font-size:16px;line-height:1.75;color:var(--ink3);margin:0 0 14px;}
+.wn-body ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px;}
+.wn-body li{position:relative;padding-left:26px;font-size:15px;line-height:1.55;color:var(--ink2);}
+.wn-body li::before{content:"\2713";position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:var(--g-dim);color:var(--g2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:3px;}
+.wn-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:64px;}
+.wn-mini div{border:1px solid var(--border-l);border-radius:14px;padding:22px;background:#fff;}
+.wn-mini b{display:block;font-size:16px;color:var(--ink);margin-bottom:6px;}
+.wn-mini span{font-size:14px;line-height:1.65;color:var(--ink3);}
+@media(max-width:860px){.wn-row,.wn-row.flip{grid-template-columns:1fr;gap:24px;}.wn-row.flip .wn-img{order:0;}.wn-stack{gap:52px;}.wn-mini{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -790,6 +809,8 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
   </div>
 </div>
 
+<section class="s-light" id="new"><div class="w"><div class="section-head reveal"><div class="section-chip">New this month</div><h2 class="section-h">A calmer way to run support.</h2><p class="section-sub" style="max-width:680px">The same shared inbox, rebuilt so a small team can see what matters, answer faster and stop wading through noise. Screens below are from a sample workspace.</p></div><div class="wn-stack"><div class="wn-row reveal"><div class="wn-img"><img src="/img/app-today.jpg" alt="The Resolvo dashboard opening with a short list of tickets that need you now, sorted by what is about to breach its target" width="1440" height="900" loading="lazy"></div><div class="wn-body"><h3>Start the day with what needs you.</h3><p>Your dashboard opens with a short list: the tickets waiting on you, with the ones close to their target first. One click opens a ticket. One more starts Focus mode.</p><ul><li>Numbers match the inbox exactly, with newsletters and alerts left out</li><li>Agents see their own work first, not admin cards</li><li>A calm &ldquo;you are all caught up&rdquo; when there is nothing left</li></ul></div></div><div class="wn-row flip reveal"><div class="wn-img"><img src="/img/app-focus-reading.jpg" alt="Focus mode showing one customer conversation at full width with a Send and resolve, then next button" width="1440" height="900" loading="lazy"></div><div class="wn-body"><h3>One ticket at a time. Send, resolve, next.</h3><p>Focus mode is the inbox for a founder or a team of two or three at 8 pm. One calm queue, one conversation at full width, and a single button that sends your reply, resolves the ticket and opens the next one.</p><ul><li>Keys for speed: J and K move, R replies, E resolves, Esc goes back</li><li>Only moves on after the reply was really sent. If it fails, your text stays</li><li>Starts in Focus mode on phones</li></ul></div></div><div class="wn-row reveal"><div class="wn-img"><img src="/img/app-promotions.jpg" alt="The Promotions and alerts view listing newsletters and automated alerts with a Close all button" width="1440" height="900" loading="lazy"></div><div class="wn-body"><h3>Newsletters and alerts stay out of your queue.</h3><p>Marketing emails and system alerts do not belong in a support queue. Resolvo spots them, keeps them out of your counts and your Focus queue, and gives you one place to clear them.</p><ul><li>Close them all in one click, or close and block the senders</li><li>A real customer caught by mistake moves back to the inbox for good</li><li>Nothing is deleted and nobody is emailed</li></ul></div></div><div class="wn-row flip reveal"><div class="wn-img"><img src="/img/app-insights-questions.jpg" alt="The Insights Questions tab answering are we answering fast enough, are we getting busier and who needs help in plain sentences" width="1440" height="900" loading="lazy"></div><div class="wn-body"><h3>Answers, not just charts.</h3><p>Insights opens with the numbers you check every week, then answers the questions owners actually ask, in plain sentences: are we answering fast enough, where do tickets come from, who needs help.</p><ul><li>Overview with compare-to-previous, a Questions tab, and a Team scorecard</li><li>Team alerts: who has tickets past target, who is overloaded, when tickets arrive</li><li>Reports and customer health sit under the same tab bar</li></ul></div></div><div class="wn-row reveal"><div class="wn-img"><img src="/img/app-customers.jpg" alt="The Customers list with VIP, at risk and happy badges and a banner offering to merge possible duplicates" width="1440" height="900" loading="lazy"></div><div class="wn-body"><h3>Know every customer, on every channel.</h3><p>The same person writes by email on Monday and on WhatsApp on Thursday. Resolvo shows when it might be one customer, and joins them with a click, keeping every ticket and deal.</p><ul><li>Health at a glance: VIP, at risk, happy, active</li><li>Last contact, open tickets and deals in one row</li><li>One card with the whole history, whichever channel they used</li></ul></div></div><div class="wn-row flip reveal"><div class="wn-img"><img src="/img/app-settings.jpg" alt="The Settings page showing what is on, what is off and a Needs your attention strip" width="1440" height="900" loading="lazy"></div><div class="wn-body"><h3>Settings that tell you what is not set up.</h3><p>Thirty-odd settings, grouped by what you are trying to do. Each shows whether it is on, and the ones that need you, like an unconnected email or Slack alerts, are listed at the top.</p><ul><li>Search every setting by what it does</li><li>A side list and breadcrumb inside every section so you never get lost</li><li>Your existing forms and data, unchanged</li></ul></div></div><div class="wn-row reveal"><div class="wn-img wn-phones"><img src="/img/app-phone-queue.jpg" alt="Resolvo on a phone showing the queue of tickets that need you" width="780" height="1688" loading="lazy"><img src="/img/app-phone-reading.jpg" alt="A customer conversation on a phone with a Send and resolve button" width="780" height="1688" loading="lazy"></div><div class="wn-body"><h3>Runs in your pocket.</h3><p>Install Resolvo on your phone from the browser. No app store. Open it from your home screen and work the queue with one thumb.</p><ul><li>Alerts when a ticket is assigned to you, or is close to or past its target time</li><li>Swipe right to take a ticket, swipe left to snooze it until tomorrow</li><li>Tap an alert and land on that exact ticket</li></ul></div></div></div><div class="wn-mini reveal"><div><b>Ctrl+K finds anything</b><span>Search tickets and customers by name, or jump to any page or setting, without leaving the keyboard.</span></div><div><b>Type / for saved replies</b><span>Pull up a saved reply as you type. Old tickets show how long the customer has been waiting.</span></div><div><b>Tickets and issues, linked</b><span>Raise a ticket to your tech team and each side links to the other, so support always knows where a fix stands.</span></div></div></div></section>
+
 <!-- FEATURE DEEP DIVES (tabs) -->
 <div class="feat-tabs-wrap" id="features">
   <div class="w">
@@ -806,7 +827,7 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
       <button class="feat-tab" data-tab="whatsapp">WhatsApp</button>
       <button class="feat-tab" data-tab="automation">Automation</button>
       <button class="feat-tab" data-tab="integrations">Integrations</button>
-      <button class="feat-tab" data-tab="analytics">Analytics</button>
+      <button class="feat-tab" data-tab="analytics">Insights</button>
       <button class="feat-tab" data-tab="booking">Booking</button>
       <button class="feat-tab" data-tab="csat">CSAT</button>
     </div>
@@ -823,6 +844,8 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
           <li>Internal notes visible only to agents — no accidental customer sends</li>
           <li>Collision detection — see who else is viewing a ticket</li>
           <li>Bulk actions — assign, tag, or close 50 tickets in one click</li>
+          <li>Newsletters and automated alerts kept out of your queue, so real customers stand out</li>
+          <li>Type / to insert a saved reply; Focus mode to work one ticket at a time</li>
         </ul>
       </div>
       <div class="feat-ui reveal d1">
@@ -1084,6 +1107,8 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
           <li>SLA compliance rate with breach analysis</li>
           <li>Channel breakdown — email vs WhatsApp vs widget</li>
           <li>Daily digest email — team summary delivered every morning</li>
+          <li>Plain-language answers: &ldquo;Are we answering fast enough?&rdquo; with the number behind it</li>
+          <li>Team scorecard: who is overloaded, who has tickets past target, when tickets arrive</li>
         </ul>
       </div>
       <div class="feat-ui reveal d1">
@@ -1209,7 +1234,7 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
   <div class="w">
     <div class="section-head reveal">
       <div class="section-chip">Everything included</div>
-      <h2 class="section-h">14 powerful features. One flat price.</h2>
+      <h2 class="section-h">16 powerful features. One flat price.</h2>
       <p class="section-sub">No add-ons. No per-seat pricing surprises. No feature gating. Everything your support team needs is in every plan.</p>
     </div>
     <div class="features-grid">
@@ -1236,9 +1261,21 @@ footer{background:#06090F;border-top:1px solid rgba(255,255,255,.06);padding:40p
         <div class="feat-card-tag">NEW</div>
       </div>
       <div class="feat-card reveal">
+        <div class="feat-card-icon" style="background:#ECFDF5;">🎯</div>
+        <div class="feat-card-title">Focus Mode &amp; Today</div>
+        <div class="feat-card-desc">A dashboard that starts with what needs you, and a one-ticket-at-a-time queue with Send &amp; resolve, then next. Newsletters and alerts kept out of the way.</div>
+        <div class="feat-card-tag">NEW</div>
+      </div>
+      <div class="feat-card reveal d1">
+        <div class="feat-card-icon" style="background:#EEF2FF;">📱</div>
+        <div class="feat-card-title">Phone App &amp; Alerts</div>
+        <div class="feat-card-desc">Install it from your browser. Alerts when a ticket is assigned to you or close to its target. Swipe to take or snooze.</div>
+        <div class="feat-card-tag">NEW</div>
+      </div>
+      <div class="feat-card reveal">
         <div class="feat-card-icon" style="background:#FAF5FF;">📊</div>
-        <div class="feat-card-title">Team Analytics</div>
-        <div class="feat-card-desc">Live dashboard: open tickets, SLA compliance, agent workload, CSAT scores, channel breakdown. Daily digest emailed every morning.</div>
+        <div class="feat-card-title">Insights &amp; Team Analytics</div>
+        <div class="feat-card-desc">Overview, plain-language answers and a team scorecard: SLA compliance, workload, CSAT, channels. Daily digest emailed every morning.</div>
       </div>
       <div class="feat-card reveal d1">
         <div class="feat-card-icon" style="background:#FFF1F2;">🏠</div>
