@@ -11,7 +11,10 @@ const IST = 5.5 * 3600000, iso = ms => new Date(ms + IST).toISOString().replace(
 // 1. start from the demo workspace's empty-ish structure
 fs.mkdirSync(dir, { recursive: true });
 for (const f of ['db.sqlite', 'db.sqlite-wal', 'db.sqlite-shm']) { try { fs.rmSync(path.join(dir, f)); } catch (e) {} }
-fs.copyFileSync(path.join(ROOT, 'data', 'brands', 'demo', 'db.sqlite'), path.join(dir, 'db.sqlite'));
+// copy through SQLite's own backup so the demo workspace's write-ahead log is included (a plain file copy can be malformed)
+const src = new Database(path.join(ROOT, 'data', 'brands', 'demo', 'db.sqlite'), { readonly: true });
+src.backup(path.join(dir, 'db.sqlite')).then(() => { src.close(); main(); }).catch(e => { console.error('backup failed', e.message); process.exit(1); });
+function main() {
 const db = new Database(path.join(dir, 'db.sqlite'));
 ['tickets', 'issues', 'comments', 'crm_contacts', 'crm_companies', 'crm_deals', 'crm_activities', 'crm_outreach', 'ticket_assets', 'activity_log', 'processed_email_ids'].forEach(t => { try { db.prepare('DELETE FROM ' + t).run(); } catch (e) {} });
 db.prepare("DELETE FROM kv WHERE key IN ('pushSubs','aiAgents','aiApprovals','aiAuditLog','aiCostLog','aiDecisions','aiMessages','aiOrg','aiTasks','customerProfiles','npsSurveys','socialEvents','rootCauseReports','auditTrail')").run();
@@ -49,7 +52,7 @@ let n = 4800, id = 0;
 for (let d = 29; d >= 0; d--) {
   const wd = new Date(now - d * 864e5).getDay(), per = wd === 0 || wd === 6 ? 1 + Math.floor(rnd() * 2) : 3 + Math.floor(rnd() * 3);
   for (let k = 0; k < per; k++) {
-    const ci = Math.floor(rnd() * CUST.length), c = CUST[ci], tp = pick(TOPICS), ch = pick(CH);
+    const ci = Math.floor(rnd() * CUST.length), c = CUST[ci], tp = pick(TOPICS), ch = (ci < 3 && rnd() < .5) ? pick(CH) : CH[ci % CH.length];   // a customer keeps one channel, except three who use two
     const createdMs = now - d * 864e5 - Math.floor(rnd() * 9 * 3600000) - (d === 0 ? 3600000 : 0);
     if (createdMs > now - 1800000) continue;
     const from = ch === 'whatsapp' ? 'whatsapp:' + c.phone : ch === 'instagram' ? 'instagram:' + c.name.toLowerCase().replace(/\W/g, '_') : c.email;
@@ -95,3 +98,4 @@ owner.brands = (owner.brands || []).filter(b => b.slug !== SLUG);
 owner.brands.push({ id: 'BRD-SHOWCASE', slug: SLUG, name: 'Brightkart Support', logoUrl: '', accentColor: '#10B981', theme: 'resolvo', status: 'active', tier: 'Enterprise', majorAdminEmail: 'admin@showcase.local', createdDate: iso(now - 200 * 864e5), lastActive: iso(now), limits: { maxUsers: 20 }, featureOverrides: { EMAIL_TICKETING_ENABLED: true, QUEUE_ENABLED: true, KANBAN_ENABLED: true }, billing: { status: 'paid' } });
 fs.writeFileSync(op, JSON.stringify(owner, null, 2));
 console.log('showcase workspace ready:', tickets.length, 'tickets. Login admin@showcase.local / demo1234');
+}
