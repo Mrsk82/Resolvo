@@ -30,7 +30,9 @@
     alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
     more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
     sparkle: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/>',
-    lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+    lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    chat: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>'
   };
   RV.icon = function (name, size) {
     var s = size || 16;
@@ -156,10 +158,17 @@
     if (!d) { d = document.createElement('aside'); d.id = id; d.className = 'rv rv-drawer'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'false'); document.body.appendChild(d); }
     d.innerHTML = html; requestAnimationFrame(function () { d.classList.add('is-open'); }); return d;
   };
-  RV.toast = function (msg, kind) {
+  // action (optional): { label, fn } adds a button to the toast, e.g. Undo
+  RV.toast = function (msg, kind, action) {
     var box = document.querySelector('.rv-toasts'); if (!box) { box = document.createElement('div'); box.className = 'rv rv-toasts'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
-    var t = document.createElement('div'); t.className = 'rv-toast' + (kind ? ' rv-toast--' + kind : ''); t.setAttribute('role', kind === 'error' ? 'alert' : 'status'); t.textContent = msg; box.appendChild(t);
-    setTimeout(function () { t.remove(); }, kind === 'error' ? 7000 : 4000);
+    var t = document.createElement('div'); t.className = 'rv-toast' + (kind ? ' rv-toast--' + kind : ''); t.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    if (action && action.fn) {
+      var m = document.createElement('span'); m.textContent = msg; t.appendChild(m);
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'rv-toast__action'; b.textContent = action.label || 'Undo';
+      b.addEventListener('click', function () { t.remove(); action.fn(); }); t.appendChild(b);
+    } else t.textContent = msg;
+    box.appendChild(t);
+    setTimeout(function () { t.remove(); }, kind === 'error' ? 7000 : (action ? 6500 : 4000));
   };
 
   global.RV = RV;

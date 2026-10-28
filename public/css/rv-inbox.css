@@ -240,3 +240,7 @@
 .rvi-row.is-swipe-r::after, .rvf-item.is-swipe-r::after { content: 'Assign to me'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%) translateX(-120%); font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); color: var(--rv-accent-strong); white-space: nowrap; }
 .rvi-row.is-swipe-l::after, .rvf-item.is-swipe-l::after { content: 'Snooze until tomorrow'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%) translateX(120%); font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); color: var(--rv-warning); white-space: nowrap; }
 .rvf-item { position: relative; }
+/* full swipe right = resolve */
+.rvi-row.is-swipe-r2, .rvf-item.is-swipe-r2 { background: var(--rv-success-soft, #e6f6ee); }
+.rvi-row.is-swipe-r2::after, .rvf-item.is-swipe-r2::after { content: 'Resolve'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%) translateX(-120%); font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); color: var(--rv-success, #0f9f6e); white-space: nowrap; }
+.rvi-row { position: relative; }

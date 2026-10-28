@@ -7875,17 +7875,18 @@ tbody tr.row-selected {
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
-  <link rel="stylesheet" href="/css/rv-mobile.css?v=2">
+  <link rel="stylesheet" href="/css/rv-mobile.css?v=3">
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
-  <script src="/js/rv-ui.js?v=1"></script>
+  <script src="/js/rv-ui.js?v=2"></script>
   <link rel="stylesheet" href="/css/rv-inbox.css?v=13">
-  <script src="/js/rv-inbox.js?v=15"></script>
+  <script src="/js/rv-inbox.js?v=18"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-insights.css?v=1">
   <script src="/js/rv-insights.js?v=3"></script>
   <script src="/js/rv-device.js?v=2"></script>
+  <script src="/js/rv-phone.js?v=3"></script>
   <link rel="apple-touch-icon" href="/icons/apple-touch-180.png">
 </head>
 <body>
@@ -16880,7 +16881,8 @@ const App = {
           chip('Deals', s.openDeals || 0) +
           (s.avgCsat != null ? chip('CSAT', s.avgCsat) : '') +
         '</div>' +
-        (s.openDealValue ? '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Open deal value: <strong style="color:var(--text-primary);">' + self._custRupees(s.openDealValue) + '</strong></div>' : '') +
+        (window.RVP ? RVP.contact({ phone: c.contact.phone, email: c.contact.email }) : '') +
+        (s.openDealValue ? '<div style="font-size:11px;color:var(--text-muted);margin:8px 0;">Open deal value: <strong style="color:var(--text-primary);">' + self._custRupees(s.openDealValue) + '</strong></div>' : '') +
         (others.length ? '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:4px 0 4px;">Earlier tickets</div>' +
           others.map(function(t) {
             return '<div onclick="App._custOpenTicket(\'' + t.id + '\')" style="display:flex;gap:6px;align-items:center;padding:4px 0;cursor:pointer;font-size:11px;color:var(--text-secondary);">' +
@@ -17111,6 +17113,7 @@ const App = {
             '<button class="btn-secondary btn-sm" onclick="App._custNewDeal(\'' + ct.id + '\')">+ Deal</button>' +
             '<button class="btn-secondary btn-sm" onclick="App._custEdit(\'' + ct.id + '\')">Edit</button>' +
           '</div>' +
+          (window.RVP ? '<div style="flex-basis:100%;">' + RVP.contact({ phone: ct.phone, email: ct.email }) + '</div>' : '') +
         '</div>' +
         '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' +
           stat('Tickets', s.totalTickets, s.openTickets + ' open · ' + s.resolvedTickets + ' resolved') +

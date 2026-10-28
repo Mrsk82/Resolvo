@@ -254,6 +254,7 @@ async def main():
         await pg3.screenshot(path=os.path.join(OUT, "ab_B_focus_reading_390.png"))
         th, cm = await pg3.locator("#rviThread").bounding_box(), await pg3.locator(".rvf-composer").bounding_box()
         check("phone: composer follows the thread and does not cover it", cm["y"] >= th["y"] + th["height"] - 1, (th, cm))
+        if await pg3.locator(".rvp-bar__input").is_visible(): await pg3.locator(".rvp-bar__input").tap(); await pg3.wait_for_timeout(500)   # the reply starts as a one-line bar on phones
         await pg3.locator("#replyText").scroll_into_view_if_needed(); await pg3.wait_for_timeout(300)
         cm = await pg3.locator(".rvf-composer").bounding_box()
         check("phone: composer reachable by scrolling, above the bottom bar", cm["y"] + cm["height"] <= 800 - 40, cm)

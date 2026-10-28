@@ -78,3 +78,62 @@
   /* touch targets */
   .rv-btn, .rv-tab, .rv-menu__item { min-height: 40px; }
 }
+
+/* ================= phone features: reply bar, chips, contact buttons, pull to refresh ================= */
+.rvp-bar, .rvp-chips { display: none; }
+.rvp-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rvp-act { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.rvp-act--wa { background: #e7f8ee; color: #0b7a47; border-color: #bfe9d2; }
+.rvp-act--call { background: #eaf2ff; color: #1d4ed8; border-color: #c9dcff; }
+.rv-toast__action { margin-left: auto; border: 0; background: none; font-weight: 700; color: var(--rv-accent-strong, #0b7a47); padding: 0 0 0 12px; cursor: pointer; min-height: 24px; }
+.rv-toast { align-items: center; }
+
+@media (max-width: 768px) {
+  /* stop the browser's own pull-to-refresh from reloading the whole app */
+  html, body, #contentArea { overscroll-behavior-y: contain; }
+
+  .rvp-acts { margin-top: 12px; }
+  .rvp-act { flex: 1 1 0; justify-content: center; min-height: 44px; font-size: 14px; }
+
+  /* the reply box starts as one line pinned to the bottom of the conversation */
+  .rvf-composer, .rvi-composer { position: sticky; bottom: 0; z-index: 6; }
+  .rvf-composer.is-collapsed, .rvi-composer.is-collapsed {
+    margin: 12px -14px 0; padding: 10px 14px; border-radius: 0; border-width: 1px 0 0; gap: 0;
+    background: var(--rv-surface, #fff); box-shadow: 0 -8px 20px rgba(15, 23, 42, .08);
+  }
+  .is-collapsed > :not(.rvp-bar) { display: none !important; }
+  .is-collapsed > .rvp-bar { display: flex; }
+  .rvp-bar { gap: 8px; align-items: center; }
+  .rvp-bar__input {
+    flex: 1 1 auto; min-width: 0; min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 0 16px;
+    border: 1px solid var(--rv-border, #e5e7eb); border-radius: 23px; background: var(--rv-surface-2, #f4f6fa);
+    color: var(--rv-text-muted, #6b7280); font: inherit; font-size: 15px; text-align: left; cursor: text;
+  }
+  .rvp-bar__ok {
+    flex: none; min-height: 46px; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; border: 0; border-radius: 23px;
+    background: var(--accent, #0F9F6E); color: #fff; font: inherit; font-size: 14px; font-weight: 700;
+  }
+
+  /* saved replies as chips above the box */
+  .rvp-chips:not([hidden]) { display: flex; gap: 8px; overflow-x: auto; margin: 2px -2px 4px; padding: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .rvp-chips::-webkit-scrollbar { display: none; }
+  .rvp-chip {
+    flex: none; max-width: 70vw; min-height: 36px; padding: 0 14px; border: 1px solid var(--rv-border, #e5e7eb); border-radius: 18px;
+    background: var(--rv-surface, #fff); color: var(--rv-text, #0f172a); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rvp-chip:active { background: var(--rv-accent-soft, #e6f6ee); }
+  .rvp-chip--more { color: var(--rv-text-muted, #6b7280); }
+}
+
+/* pull to refresh indicator */
+.rvp-ptr {
+  position: fixed; left: 50%; top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 900; display: none; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 20px; background: var(--rv-surface, #fff); border: 1px solid var(--rv-border, #e5e7eb);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .12); font-size: 13px; font-weight: 600; color: var(--rv-text, #0f172a); pointer-events: none;
+  transform: translate(-50%, -64px);
+}
+.rvp-ptr.is-on { display: flex; }
+.rvp-ptr__spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent, #0F9F6E); border-right-color: transparent; }
+.rvp-ptr.is-spin .rvp-ptr__spin { animation: rvpSpin .7s linear infinite; }
+@keyframes rvpSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rvp-ptr.is-spin .rvp-ptr__spin { animation: none; } }

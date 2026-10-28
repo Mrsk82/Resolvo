@@ -325,6 +325,35 @@
         (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + '</div></div>';
     }).join('') || '<div class="rv-hint" style="text-align:center">No messages yet.</div>';
   }
+  // ---------- phone: compact reply bar, saved-reply chips, contact buttons ----------
+  function isPhone() { return !!(w.matchMedia && w.matchMedia('(max-width: 768px)').matches); }
+  // On a phone the composer starts as one line ("Write a reply...") so the conversation keeps the screen; tapping it opens the full composer.
+  function composerCollapsed(draft, isNote) { return isPhone() && !draft && !isNote && !S.cOpen; }
+  function composerBar(done) {
+    return '<div class="rvp-bar"><button type="button" class="rvp-bar__input" data-act="compose-open" aria-label="Write a reply">' + w.RV.icon('mail', 16) + '<span>Write a reply&hellip;</span></button>' +
+      (done ? '' : '<button type="button" class="rvp-bar__ok" data-act="' + (S.focus ? 'resolve-quick' : 'resolve') + '" aria-label="Resolve this ticket">' + w.RV.icon('check', 18) + '<span>Resolve</span></button>') + '</div>';
+  }
+  async function fillChips() {
+    var box = document.getElementById('rvpChips'); if (!box) return;
+    if (!S.canned) { var cr = await A().callAsync('getCannedResponses'); S.canned = (cr && cr.responses) || []; }
+    box = document.getElementById('rvpChips'); if (!box) return;
+    var list = S.canned.slice(0, 8); if (!list.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = list.map(function (c, i) { return '<button type="button" class="rvp-chip" data-act="qreply" data-i="' + i + '">' + esc(c.title || c.shortcut || 'Reply') + '</button>'; }).join('') + '<button type="button" class="rvp-chip rvp-chip--more" data-act="canned">All&hellip;</button>';
+  }
+  function insertReply(i) {
+    var c = (S.canned || [])[i], ta = document.getElementById('replyText'); if (!c || !ta) return;
+    var body = String(c.body || c.text || c.content || '');
+    ta.value = (ta.value ? ta.value + '\n' : '') + body; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length;
+  }
+  // Call / WhatsApp / Email for the person who wrote in (the ticket carries a phone number for WhatsApp and SMS, an address for email)
+  function contactBar(t) {
+    if (!w.RVP) return ''; var from = String(t.from || ''), isMail = /@/.test(from);
+    return w.RVP.contact({ phone: t.whatsappFrom || (isMail ? '' : from), email: isMail ? from : '', hideLoneEmail: true });
+  }
+  RVI.canPull = function () { return S.focus ? !S.fOpen : !S.sel; };
+  RVI.pullRefresh = function () { return S.focus ? focusRefresh() : RVI.refresh(); };
+
   function drawConv(keepScroll) {
     var a = A(), t = S.ticket, conv = document.getElementById('rviConv'); if (!t || !conv) return;
     var users = (S.users && S.users.users) || [];
@@ -335,6 +364,8 @@
     var draft = S.drafts[t.id + ':' + S.mode] || '';
     var isNote = S.mode === 'note';
     var who0 = t.fromName || t.from || 'Customer';
+    if (!keepScroll) S.cOpen = false;
+    var collapsed = composerCollapsed(draft, isNote);
     conv.innerHTML =
       '<header class="rvi-conv__head"><button type="button" class="rv-iconbtn rvi-back" data-act="back" aria-label="Back to the ticket list">&larr;</button>' + w.RV.avatar(who0, null) +
         '<div class="rvi-conv__title"><h2 title="' + esc(t.subject) + '">' + esc(t.subject || '(No subject)') + '</h2><div class="rv-hint"><b class="rvi-conv__who">' + esc(who0) + '</b>' + (t.from && t.from !== who0 ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div></div>' +
@@ -345,15 +376,16 @@
         '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select>' + slaChip(t) + issueLink(t) +
         '<span style="flex:1"></span>' + (['resolved', 'closed'].indexOf(t.status) < 0 ? w.RV.btn({ label: 'Resolve', kind: 'primary', size: 'sm', icon: 'check', attrs: { 'data-act': 'resolve' } }) : '') + '</div>' +
       waitingNudge(t) + '<div class="rvi-thread" id="rviThread">' + thread + '</div>' +
-      '<div class="rvi-composer' + (isNote ? ' rvi-composer--note' : '') + '">' +
+      '<div class="rvi-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(['resolved', 'closed'].indexOf(t.status) >= 0) +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply to customer</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
-        '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' +
+        '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' + (isNote ? '' : '<div class="rvp-chips" id="rvpChips" role="group" aria-label="Saved replies" hidden></div>') +
         '<textarea class="rv-textarea" id="replyText" aria-label="' + (isNote ? 'Internal note' : 'Reply') + '" placeholder="' + (isNote ? 'Write a note for your team...' : 'Write a reply... (type / for saved replies)') + '">' + esc(draft) + '</textarea>' +
         '<div class="rv-cluster">' + (isNote ? '' : w.RV.btn({ label: 'AI suggestion', icon: 'sparkle', size: 'sm', attrs: { 'data-act': 'ai', id: 'aiSuggestTrigger_' + t.id } })) +
           w.RV.btn({ label: 'Saved replies', size: 'sm', attrs: { 'data-act': 'canned' } }) + '<span style="flex:1"></span><span class="rvi-kbdhint"><kbd class="rvi-kbd">Ctrl</kbd> <kbd class="rvi-kbd">Enter</kbd></span>' +
           w.RV.btn({ label: isNote ? 'Add note' : 'Send reply', kind: 'primary', attrs: { 'data-act': 'send', id: 'rviSend' } }) + '</div></div>';
     if (!keepScroll) { var th = document.getElementById('rviThread'); if (th) th.scrollTop = th.scrollHeight; }
+    if (isPhone() && !collapsed && !isNote) fillChips();
     var cb = document.getElementById('rviCustBody');
     if (cb) { cb.innerHTML = '<div id="crmPanel_' + esc(t.id) + '"></div>' + ((t.tags && t.tags.length) ? '<h3 style="margin-top:14px">Tags</h3><div class="rv-cluster">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + (t.disposition || t.type ? '<h3 style="margin-top:14px">Classification</h3><div class="rv-hint">' + esc([t.type, t.disposition].filter(Boolean).join(' / ')) + '</div>' : ''); if (a._loadCrmPanel) a._loadCrmPanel(t.id, t.from, t.fromName); }
   }
@@ -547,6 +579,8 @@
     var a = A(), t = S.ticket, read = document.getElementById('rvfRead'); if (!t || !read) return;
     var ids = S.fIds || [], idx = ids.indexOf(t.id), n = ids.length, users = (S.users && S.users.users) || [];
     var who = t.fromName || t.from || 'Customer', isNote = S.mode === 'note', draft = S.drafts[t.id + ':' + S.mode] || '', done = isDone(t.status);
+    if (!keep) S.cOpen = false;
+    var collapsed = composerCollapsed(draft, isNote);
     var asgName = '', u = users.filter(function (x) { return lc(x.email) === lc(t.assignedTo); })[0]; if (t.assignedTo) asgName = u ? (u.name || u.email) : t.assignedTo;
     var stOpts = (S.statuses || []).map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === t.status ? ' selected' : '') + '>' + esc(s.label || s.id) + '</option>'; }).join('');
     var asgOpts = '<option value="">Unassigned</option>' + users.map(function (x) { return '<option value="' + esc(x.email) + '"' + (lc(x.email) === lc(t.assignedTo) ? ' selected' : '') + '>' + esc(x.name || x.email) + '</option>'; }).join('');
@@ -558,17 +592,17 @@
         w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + safeId + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + safeId + "')" }].concat(snoozeItems(t), ['-', { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + safeId + "')" }]) }) + '</div>' +
       '<article class="rvf-card"><header class="rvf-card__head">' + w.RV.avatar(who, 'lg') + '<div style="flex:1;min-width:0"><h2>' + esc(t.subject || '(No subject)') + '</h2>' +
         '<div class="rv-hint"><b class="rvi-conv__who">' + esc(who) + '</b>' + (t.from && t.from !== who ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div>' +
-        '<div class="rv-cluster" style="margin-top:8px">' + statusBadge(t.status) + w.RV.priority(t.priority) + slaChip(t) + (asgName ? w.RV.badge(asgName, '') : w.RV.badge('Unassigned', 'danger')) + issueLink(t) + '</div></div></header>' +
+        '<div class="rv-cluster" style="margin-top:8px">' + statusBadge(t.status) + w.RV.priority(t.priority) + slaChip(t) + (asgName ? w.RV.badge(asgName, '') : w.RV.badge('Unassigned', 'danger')) + issueLink(t) + '</div>' + contactBar(t) + '</div></header>' +
         '<div class="rvf-folds"><details class="rvf-fold"><summary>Status, priority and owner</summary><div class="rvf-fold__body">' +
           '<select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
           '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + ['Critical', 'High', 'Medium', 'Low'].map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
           '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select></div></details>' +
         '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details></div>' +
         '<div class="rvi-thread rvf-thread" id="rviThread">' + threadHtml(t) + '</div></article>' + waitingNudge(t) +
-      '<div class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + '">' +
+      '<div class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(done) +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
-        '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' +
+        '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' + (isNote ? '' : '<div class="rvp-chips" id="rvpChips" role="group" aria-label="Saved replies" hidden></div>') +
         '<textarea class="rv-textarea" id="replyText" aria-label="' + (isNote ? 'Internal note' : 'Reply') + '" placeholder="' + (isNote ? 'Write a note for your team... (R)' : 'Write a reply... (R)') + '">' + esc(draft) + '</textarea>' +
         '<div class="rv-cluster">' + (isNote ? '' : w.RV.btn({ label: 'AI suggestion', icon: 'sparkle', size: 'sm', attrs: { 'data-act': 'ai', id: 'aiSuggestTrigger_' + t.id } })) + w.RV.btn({ label: 'Saved replies', size: 'sm', attrs: { 'data-act': 'canned' } }) +
           '<span style="flex:1"></span>' + w.RV.btn({ label: isNote ? 'Add note' : 'Send', attrs: { 'data-act': 'send', id: 'rviSend' } }) +
@@ -576,6 +610,7 @@
         '<div class="rvi-kbdhint rvf-hintline" aria-hidden="true"><kbd class="rvi-kbd">R</kbd> reply &middot; <kbd class="rvi-kbd">E</kbd> resolve &middot; <kbd class="rvi-kbd">J</kbd> <kbd class="rvi-kbd">K</kbd> next / previous &middot; <kbd class="rvi-kbd">Esc</kbd> queue</div></div>';
     // open at the latest message (the thread scrolls inside the card; on a phone the page scrolls instead)
     if (!keep) { var sc = document.getElementById('contentArea'); if (sc) sc.scrollTop = 0; var th = document.getElementById('rviThread'); if (th) th.scrollTop = th.scrollHeight; }
+    if (isPhone() && !collapsed && !isNote) fillChips();
   }
   // Move to the next ticket in the queue the user was working through. The finished ticket is dropped from it.
   function advance(doneId) {
@@ -646,33 +681,56 @@
 
   RVI.useClassic = function (on) { try { localStorage.setItem('tt_inbox_classic', on ? '1' : '0'); } catch (e) {} A().renderTicketInbox(); };
 
-  // ---------- phone gestures: swipe right to take a ticket, swipe left to snooze it until tomorrow ----------
+  // ---------- phone gestures ----------
+  // Swipe right: assign to me. Swipe right all the way: resolve. Swipe left: snooze until tomorrow 9am.
+  function findT(id) { return (S.fAll || []).concat(S.tickets || []).filter(function (x) { return x.id === id; })[0]; }
+  async function resolveFromList(id) {
+    var a = A(), t = findT(id) || { id: id }, prev = t.status || 'open';
+    if (isDone(prev)) { w.RV.toast('Already resolved', 'info'); return; }
+    var run = async function () {
+      var r = await a.callAsync('updateTicketStatus', id, 'resolved');
+      if (!r || r.success === false) { fail((r && r.error) || 'Not resolved. Nothing was changed.'); return; }
+      w.RV.toast('Ticket resolved', 'success', { label: 'Undo', fn: async function () {
+        var u = await a.callAsync('updateTicketStatus', id, prev);
+        if (!u || u.success === false) { fail('Could not undo. Open the ticket to reopen it.'); return; }
+        w.RV.toast('Ticket reopened', 'success'); relist();
+      } });
+      if (S.focus) { S.fAll = (S.fAll || []).filter(function (x) { return x.id !== id; }); S.fResolved = null; paintQueue(); focusRefresh(); } else RVI.refresh();
+    };
+    if (needsDisposition(t, 'resolved')) askDisposition(t, 'resolved', run); else run();
+  }
   async function swipeAct(id, kind) {
     var a = A(), r;
+    if (kind === 'resolve') { resolveFromList(id); return; }
     if (kind === 'assign') r = await a.callAsync('assignTicket', id, (a.currentUser || {}).email);
     else { var d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); r = await a.callAsync('snoozeTicket', id, d.toISOString()); }
     if (!r || !r.success) { fail((r && r.error) || 'That did not work'); return; }
     w.RV.toast(kind === 'assign' ? 'Assigned to you' : 'Snoozed until tomorrow 9am', 'success');
     if (S.focus) { if (kind !== 'assign') { S.fAll = (S.fAll || []).filter(function (x) { return x.id !== id; }); paintQueue(); } focusRefresh(); } else RVI.refresh();
   }
+  var SWIPE_CLASSES = ['is-swipe-r', 'is-swipe-r2', 'is-swipe-l'];
   function swipes(root) {
     var sw = null;
+    var clear = function (row) { row.style.transform = ''; SWIPE_CLASSES.forEach(function (c) { row.classList.remove(c); }); };
+    var zoneOf = function (dx) { return dx > 250 ? 'r2' : dx > 80 ? 'r1' : dx < -80 ? 'l' : ''; };
     root.addEventListener('touchstart', function (e) {
       var row = e.target.closest('.rvi-row, .rvf-item'); if (!row || e.target.closest('input,button:not(.rvf-item),select,a') || e.touches.length !== 1) return;
-      sw = { row: row, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null };
+      sw = { row: row, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, lock: null, zone: '' };
     }, { passive: true });
     root.addEventListener('touchmove', function (e) {
       if (!sw) return; var t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
       if (sw.lock === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) sw.lock = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
       if (sw.lock !== 'x') return;
-      sw.dx = dx; sw.row.style.transform = 'translateX(' + Math.max(-140, Math.min(140, dx)) + 'px)'; sw.row.classList.toggle('is-swipe-r', dx > 70); sw.row.classList.toggle('is-swipe-l', dx < -70);
+      sw.dx = dx; sw.row.style.transform = 'translateX(' + Math.max(-140, Math.min(300, dx)) + 'px)';
+      var z = zoneOf(dx); if (z !== sw.zone) { sw.zone = z; if (z) { try { navigator.vibrate && navigator.vibrate(12); } catch (er) {} } }
+      sw.row.classList.toggle('is-swipe-r', z === 'r1'); sw.row.classList.toggle('is-swipe-r2', z === 'r2'); sw.row.classList.toggle('is-swipe-l', z === 'l');
     }, { passive: true });
     root.addEventListener('touchend', function () {
-      if (!sw) return; var x = sw; sw = null; x.row.style.transform = ''; x.row.classList.remove('is-swipe-r', 'is-swipe-l');
+      if (!sw) return; var x = sw; sw = null; clear(x.row);
       if (x.lock !== 'x') return; var id = x.row.getAttribute('data-ticket-id');
-      if (x.dx > 90) swipeAct(id, 'assign'); else if (x.dx < -90) swipeAct(id, 'snooze');
+      if (x.zone === 'r2') swipeAct(id, 'resolve'); else if (x.zone === 'r1') swipeAct(id, 'assign'); else if (x.zone === 'l') swipeAct(id, 'snooze');
     });
-    root.addEventListener('touchcancel', function () { if (sw) { sw.row.style.transform = ''; sw.row.classList.remove('is-swipe-r', 'is-swipe-l'); sw = null; } });
+    root.addEventListener('touchcancel', function () { if (sw) { clear(sw.row); sw = null; } });
   }
 
   // ---------- events (one delegated set; no handler strings built from data) ----------
@@ -735,6 +793,9 @@
       if (act === 'fnext') { focusStep(1); return; }
       if (act === 'fcust') { if (S.ticket && !el.closest('details').open && a._loadCrmPanel) a._loadCrmPanel(S.ticket.id, S.ticket.from, S.ticket.fromName); return; }
       if (act === 'send-resolve') { focusResolve(true); return; }
+      if (act === 'compose-open') { var cm = el.closest('.rvf-composer, .rvi-composer'); if (cm) cm.classList.remove('is-collapsed'); S.cOpen = true; var ta0 = document.getElementById('replyText'); if (ta0) ta0.focus(); fillChips(); if (cm) setTimeout(function () { try { cm.scrollIntoView({ block: 'end', behavior: 'smooth' }); } catch (e) {} }, 80); return; }
+      if (act === 'resolve-quick') { focusResolve(false); return; }
+      if (act === 'qreply') { insertReply(+el.getAttribute('data-i')); return; }
       if (act === 'ai' && S.ticket) { a._suggestAIReply(S.ticket.id); return; }
       if (act === 'canned') {
         if (!S.canned) { var cr = await a.callAsync('getCannedResponses'); S.canned = (cr && cr.responses) || []; }
@@ -744,6 +805,11 @@
         return;
       }
       if (act === 'send') { send(); return; }
+    });
+    // an empty reply box folds back into the one-line bar when the person leaves it (phones only)
+    root.addEventListener('focusout', function (e) {
+      if (e.target.id !== 'replyText' || !isPhone()) return; var cm = e.target.closest('.rvf-composer, .rvi-composer');
+      setTimeout(function () { var ta = document.getElementById('replyText'); if (cm && document.contains(cm) && ta && !ta.value.trim() && S.mode !== 'note' && !cm.contains(document.activeElement)) { cm.classList.add('is-collapsed'); S.cOpen = false; } }, 180);
     });
     root.addEventListener('keydown', function (e) {
       if (e.target.id === 'replyText' && slashKey(e)) return;
