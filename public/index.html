@@ -9690,7 +9690,19 @@ const App = {
         .login-feature{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
         .login-feature:last-child{border-bottom:none;}
         .login-feature-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;}
-        @media(max-width:768px){#login-left{display:none!important;}#login-right{border-radius:0!important;}}
+        /* phones: the form fills the screen (it was a fixed 460px wide and ran off the right edge) */
+        @media(max-width:768px){
+          #login-left{display:none!important;}
+          #login-right{width:100%!important;box-sizing:border-box;border-radius:0!important;justify-content:flex-start!important;padding:max(28px,env(safe-area-inset-top)) 22px max(24px,env(safe-area-inset-bottom))!important;}
+          #login-mobile-logo{display:flex!important;flex-direction:column;align-items:center;gap:10px;margin:16px 0 28px!important;}
+          #login-right h2{font-size:26px!important;}
+          #login-right input[type=email],#login-right input[type=password],#login-right input[type=text]{min-height:52px;font-size:16px!important;padding:14px 16px!important;}
+          #loginBtn{min-height:54px;font-size:16px!important;}
+          #login-right label[for=rememberMe]{font-size:14px!important;}
+          #login-right button[onclick*="Forgot"]{padding:10px 0 10px 12px!important;font-size:13px!important;}
+          #loginShowPw{font-size:13px!important;padding:12px 14px!important;}
+        }
+        @media(max-width:360px){#login-right{padding-left:16px!important;padding-right:16px!important;}}
       </style>
       <!-- LEFT BRAND PANEL -->
       <div id="login-left" style="flex:1;background:linear-gradient(135deg,#0B0F19 0%,#0f1929 60%,#0a1a12 100%);display:flex;flex-direction:column;justify-content:center;padding:60px 56px;position:relative;overflow:hidden;min-width:0;">
@@ -9748,6 +9760,7 @@ const App = {
       <div id="login-right" style="width:460px;flex-shrink:0;background:#ffffff;display:flex;flex-direction:column;justify-content:center;padding:56px 48px;overflow-y:auto;">
         <!-- Mobile logo (hidden on desktop) -->
         <div style="display:none;text-align:center;margin-bottom:32px;" id="login-mobile-logo">
+          <img src="/icons/icon-192.png" alt="" width="64" height="64" style="width:64px;height:64px;border-radius:16px;display:block;">
           <div style="font-size:28px;font-weight:800;color:#0B0F19;letter-spacing:-0.5px;">resolv<span style="color:#10B981;">o</span></div>
         </div>
         <div style="margin-bottom:36px;">
@@ -9758,7 +9771,7 @@ const App = {
         <div style="display:flex;flex-direction:column;gap:18px;">
           <div>
             <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:7px;letter-spacing:0.3px;text-transform:uppercase;">Email Address</label>
-            <input id="loginEmail" type="email" autocomplete="email" placeholder="you@company.com"
+            <input id="loginEmail" type="email" inputmode="email" autocomplete="username email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="you@company.com"
               style="width:100%;box-sizing:border-box;padding:12px 16px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:14px;color:#111827;background:#F9FAFB;transition:all 0.2s;">
           </div>
           <div>
@@ -9766,8 +9779,12 @@ const App = {
               <label style="font-size:12px;font-weight:700;color:#374151;letter-spacing:0.3px;text-transform:uppercase;">Password</label>
               <button onclick="App._showForgotPassword()" style="background:none;border:none;font-size:12px;color:#10B981;cursor:pointer;font-weight:600;padding:0;">Forgot password?</button>
             </div>
-            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••"
-              style="width:100%;box-sizing:border-box;padding:12px 16px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:14px;color:#111827;background:#F9FAFB;transition:all 0.2s;">
+            <div style="position:relative;">
+              <input id="loginPassword" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="••••••••"
+                style="width:100%;box-sizing:border-box;padding:12px 70px 12px 16px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:14px;color:#111827;background:#F9FAFB;transition:all 0.2s;">
+              <button type="button" id="loginShowPw" aria-label="Show password" aria-pressed="false" onclick="var i=document.getElementById('loginPassword'),h=i.type==='password';i.type=h?'text':'password';this.textContent=h?'Hide':'Show';this.setAttribute('aria-pressed',h);this.setAttribute('aria-label',h?'Hide password':'Show password');"
+                style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:#059669;font-size:12px;font-weight:700;cursor:pointer;padding:8px 12px;">Show</button>
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;accent-color:#10B981;">
@@ -9781,6 +9798,7 @@ const App = {
         </div>
         <div style="margin-top:28px;padding-top:24px;border-top:1px solid #F3F4F6;text-align:center;">
           <p style="margin:0 0 12px;font-size:12px;color:#9CA3AF;">Need access? Contact your administrator</p>
+          <p style="margin:0 0 14px;font-size:13px;color:#6B7280;">New to Resolvo? <a href="/signup" style="color:#059669;font-weight:700;text-decoration:none;">Start a free 14-day trial</a></p>
           <div style="font-size:11px;color:#D1D5DB;">
             <a href="/privacy" target="_blank" style="color:#9CA3AF;text-decoration:none;">Privacy Policy</a>
             <span style="color:#E5E7EB;margin:0 8px;">·</span>
