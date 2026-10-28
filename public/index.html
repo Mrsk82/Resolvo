@@ -7875,7 +7875,7 @@ tbody tr.row-selected {
 </script>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
-  <link rel="stylesheet" href="/css/rv-mobile.css?v=3">
+  <link rel="stylesheet" href="/css/rv-mobile.css?v=7">
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=2"></script>
@@ -13732,7 +13732,7 @@ const App = {
           </div>`).join('')}
       </div>
       <div class="table-wrap">
-        <table>
+        <table class="um-table">
           <thead><tr>
             <th>User</th><th>Role</th><th>Team</th><th>Skills</th>
             <th style="text-align:center">Max Tickets</th><th>Status</th><th>Actions</th>
@@ -14683,11 +14683,14 @@ const App = {
       html += '<p style="font-size:12px;color:var(--text-dim);">No rules yet.</p>';
     } else {
       rules.forEach(function(r) {
+        var on = r.active !== undefined ? r.active : r.enabled !== false;
         html += '<div class="rule-row">';
-        html += '<span class="badge priority-'+r.priority.toLowerCase()+'" style="flex-shrink:0;">'+r.priority+'</span>';
-        html += '<span style="flex:1;font-size:12px;color:var(--text-secondary);">After <strong style="color:var(--text-primary);">'+r.hoursToEscalate+'h</strong> → notify <strong style="color:var(--text-primary);">'+(r.escalateTo||'Slack only')+'</strong></span>';
-        html += '<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dim);">'+r.action+'</span>';
-        html += '<span style="width:8px;height:8px;border-radius:50%;background:'+(r.active?'var(--low)':'var(--border)')+';" title="'+(r.active?'Active':'Inactive')+'"></span>';
+        if (r.priority) html += '<span class="badge priority-'+String(r.priority).toLowerCase()+'" style="flex-shrink:0;">'+self._esc(r.priority)+'</span>';
+        html += r.hoursToEscalate != null
+          ? '<span style="flex:1;font-size:12px;color:var(--text-secondary);">After <strong style="color:var(--text-primary);">'+r.hoursToEscalate+'h</strong> → notify <strong style="color:var(--text-primary);">'+self._esc(r.escalateTo||'Slack only')+'</strong></span>'
+          : '<span style="flex:1;font-size:12px;color:var(--text-primary);font-weight:600;">'+self._esc(r.name||'Escalation rule')+'</span>';
+        if (r.action) html += '<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dim);">'+self._esc(r.action)+'</span>';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:'+(on?'var(--low)':'var(--border)')+';" title="'+(on?'Active':'Inactive')+'"></span>';
         html += '<button class="btn-danger btn-sm" onclick="App.deleteEscRule(\''+r.id+'\')">&#x2715;</button>';
         html += '</div>';
       });
@@ -15691,7 +15694,7 @@ const App = {
     }).join('') : '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px;">No downloads yet — configure and run your first export →</td></tr>';
 
     area.innerHTML =
-      '<div style="display:flex;gap:0;min-height:calc(100vh - 120px);">'+
+      '<div class="exp-wrap" style="display:flex;gap:0;min-height:calc(100vh - 120px);">'+
 
         // ── LEFT: history table ──
         '<div style="flex:1;min-width:0;padding-right:0;">'+
@@ -15699,7 +15702,7 @@ const App = {
             '<h2 style="margin:0;font-size:20px;font-weight:800;">📥 Download Data</h2>'+
             '<button onclick="App.renderExport()" style="padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.05em;">↻ REFRESH</button>'+
           '</div>'+
-          '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">'+
+          '<div class="exp-hist" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">'+
             '<table style="width:100%;border-collapse:collapse;">'+
               '<thead><tr style="border-bottom:2px solid var(--border);background:var(--bg-elevated);">'+
                 '<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);">PAGE</th>'+
@@ -15715,7 +15718,7 @@ const App = {
         '</div>'+
 
         // ── RIGHT: new download panel ──
-        '<div style="width:300px;flex-shrink:0;border-left:1px solid var(--border);padding:24px 20px;background:var(--bg-card);">'+
+        '<div class="exp-panel" style="width:300px;flex-shrink:0;border-left:1px solid var(--border);padding:24px 20px;background:var(--bg-card);">'+
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">'+
             '<div style="font-size:15px;font-weight:800;color:var(--text-primary);">New Download</div>'+
           '</div>'+
@@ -23594,17 +23597,19 @@ const App = {
     }).join('');
 
     area.innerHTML =
-      '<div class="reports-tabs-container" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap;">'+
-        '<span style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📊 Report:</span>'+
-        '<select class="filter-select" style="font-size:13px;min-width:200px;font-weight:600;" onchange="App._reportTab=this.value;App.renderReports(this.value)">'+tabsHtml+'</select>'+
-        '<div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>'+
-        '<span style="font-size:11px;color:var(--text-dim);">📅</span>'+
-        '<input type="date" id="rpt_from" class="filter-select" style="font-size:12px;padding:5px 8px;" value="'+(self._rptFrom||'')+'" onchange="App._rptFrom=this.value">'+
-        '<span style="font-size:11px;color:var(--text-dim);">→</span>'+
-        '<input type="date" id="rpt_to" class="filter-select" style="font-size:12px;padding:5px 8px;" value="'+(self._rptTo||'')+'" onchange="App._rptTo=this.value">'+
+      '<div class="reports-tabs-container rpt-bar" style="position:sticky;top:0;z-index:20;background:var(--bg-surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap;">'+
+        '<span class="rpt-lab" style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">📊 Report:</span>'+
+        '<select class="filter-select rpt-sel" aria-label="Report" style="font-size:13px;min-width:200px;font-weight:600;" onchange="App._reportTab=this.value;App.renderReports(this.value)">'+tabsHtml+'</select>'+
+        '<div class="rpt-ico" style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>'+
+        '<span class="rpt-ico" style="font-size:11px;color:var(--text-dim);">📅</span>'+
+        '<input type="date" id="rpt_from" aria-label="From date" class="filter-select rpt-date" style="font-size:12px;padding:5px 8px;" value="'+(self._rptFrom||'')+'" onchange="App._rptFrom=this.value">'+
+        '<span class="rpt-ico" style="font-size:11px;color:var(--text-dim);">→</span>'+
+        '<input type="date" id="rpt_to" aria-label="To date" class="filter-select rpt-date" style="font-size:12px;padding:5px 8px;" value="'+(self._rptTo||'')+'" onchange="App._rptTo=this.value">'+
+        '<span class="rpt-act" style="display:contents;">'+
         '<button onclick="App.renderReports(App._reportTab)" class="btn-primary btn-sm" style="padding:5px 12px;">Apply</button>'+
-        '<button onclick="App._rptFrom=\'\';App._rptTo=\'\';document.getElementById(\'rpt_from\').value=\'\';document.getElementById(\'rpt_to\').value=\'\';App.renderReports(App._reportTab)" class="btn-secondary btn-sm" style="padding:5px 10px;">✕</button>'+
+        '<button onclick="App._rptFrom=\'\';App._rptTo=\'\';document.getElementById(\'rpt_from\').value=\'\';document.getElementById(\'rpt_to\').value=\'\';App.renderReports(App._reportTab)" class="btn-secondary btn-sm" aria-label="Clear dates" style="padding:5px 10px;">✕</button>'+
         (self._rptFrom&&self._rptTo?'<span style="font-size:11px;color:var(--accent);font-weight:600;">'+self._rptFrom+' → '+self._rptTo+'</span>':'<span style="font-size:11px;color:var(--text-dim);">All time</span>')+
+        '</span>'+
       '</div>'+
       '<div id="reportContent" style="padding-top:18px;">'+App._skeleton(4,'table')+'</div>';
 
@@ -24767,7 +24772,7 @@ const App = {
     }
 
     area.innerHTML =
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">'+
+      '<div class="rvm-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">'+
 
         // Root Cause Clusters
         '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:22px;grid-column:1/-1;">'+
@@ -26406,16 +26411,17 @@ const App = {
     var r = await self.callAsync('getDevLeaderboard');
     if (!r || !r.success) { self.showPageError(area, r && r.error ? r.error : 'Failed'); return; }
     var medals = ['&#x1F947;','&#x1F948;','&#x1F949;'];
-    var html = '<div style="max-width:600px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><span class="card-title">This Month\'s Leaderboard</span><span style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)">Since ' + r.period + '</span></div>';
-    r.board.forEach(function(dev, idx) {
+    var board = r.board || r.leaderboard || [];   // the server sends `leaderboard`; older callers used `board`
+    var html = '<div style="max-width:600px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><span class="card-title">This Month\'s Leaderboard</span>' + (r.period ? '<span style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)">Since ' + self._esc(r.period) + '</span>' : '') + '</div>';
+    board.forEach(function(dev, idx) {
       html += '<div class="leaderboard-row">'
         + '<div class="leaderboard-rank">' + (medals[idx] || (idx+1)) + '</div>'
-        + '<div class="leaderboard-name">' + self._esc(dev.name) + '</div>'
-        + '<div class="leaderboard-stat" title="Issues resolved">' + dev.resolved + ' resolved</div>'
-        + '<div class="leaderboard-stat" style="min-width:80px" title="Avg hours to resolve">' + dev.avgHours + 'h avg</div>'
+        + '<div class="leaderboard-name">' + self._esc(dev.name || dev.email || 'Unknown') + '</div>'
+        + '<div class="leaderboard-stat" title="Issues resolved">' + (dev.resolved || 0) + ' resolved</div>'
+        + '<div class="leaderboard-stat" style="min-width:80px" title="Avg hours to resolve">' + (dev.avgHours || 0) + 'h avg</div>'
         + '</div>';
     });
-    if (!r.board.length) html += '<p style="font-size:12px;color:var(--text-dim)">No resolved issues this month yet.</p>';
+    if (!board.length) html += '<p style="font-size:12px;color:var(--text-dim)">No resolved issues this month yet.</p>';
     html += '</div></div>';
     area.innerHTML = html;
   },
@@ -26430,15 +26436,17 @@ const App = {
     area.innerHTML = '<div class="empty-state"><p>Loading CFD data...</p></div>';
     var r = await self.callAsync('getCFDData');
     if (!r || !r.success) { self.showPageError(area, r && r.error ? r.error : 'Failed'); return; }
-    var days = r.daily; var statuses = r.statuses;
-    var colors = { 'Open':'var(--critical)','In Progress':'var(--high)','Testing':'var(--accent)','Resolved':'var(--low)','Closed':'var(--text-dim)' };
-    area.innerHTML = '<div style="max-width:900px"><div class="card"><div class="card-title mb-16">Cumulative Flow Diagram   last 30 days</div>'
-      + '<div id="cfdCanvas" style="height:220px;position:relative;overflow:hidden;background:var(--bg-elevated);border-radius:8px;padding:10px">'
-      + '<div style="font-size:11px;color:var(--text-dim);text-align:center;margin-top:80px">CFD chart renders here   connect Chart.js for full visualisation</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px">'
-      + statuses.map(function(s){ var c=colors[s]||'var(--text-dim)'; return '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary)"><div style="width:10px;height:10px;border-radius:2px;background:'+c+';flex-shrink:0"></div>' + s + '</div>'; }).join('')
-      + '</div></div></div>';
+    var rows = r.data || (r.statuses || []).map(function(st) { return { status: st, count: 0 }; });   // the server sends [{status, count}]
+    var colors = { 'Open':'var(--critical)','Acknowledged':'var(--medium,#F59E0B)','WIP':'var(--high)','In Progress':'var(--high)','Testing':'var(--accent)','Resolved':'var(--low)','Closed':'var(--text-dim)' };
+    var max = Math.max.apply(null, rows.map(function(x) { return x.count || 0; }).concat([1]));
+    area.innerHTML = '<div style="max-width:900px"><div class="card"><div class="card-title mb-16">Issues by status' + (r.date ? ' <span style="font-size:11px;color:var(--text-dim);font-weight:400">as of ' + self._esc(r.date) + '</span>' : '') + '</div>'
+      + rows.map(function(x) {
+          var c = colors[x.status] || 'var(--text-dim)', pct = Math.round((x.count || 0) / max * 100);
+          return '<div style="display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12px;color:var(--text-secondary)"><div style="width:96px;flex:none">' + self._esc(x.status) + '</div>'
+            + '<div style="flex:1;height:14px;background:var(--bg-elevated);border-radius:7px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + c + '"></div></div>'
+            + '<div style="width:34px;text-align:right;font-family:var(--font-mono);color:var(--text-primary)">' + (x.count || 0) + '</div></div>';
+        }).join('')
+      + '</div></div>';
   },
 
   // ============================================================

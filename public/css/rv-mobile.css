@@ -137,3 +137,86 @@
 .rvp-ptr.is-spin .rvp-ptr__spin { animation: rvpSpin .7s linear infinite; }
 @keyframes rvpSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .rvp-ptr.is-spin .rvp-ptr__spin { animation: none; } }
+
+/* ================= phone: admin and settings screens ================= */
+@media (max-width: 768px) {
+  /* page headers: title on top, buttons wrap underneath */
+  .page-header { flex-wrap: wrap; gap: 10px 12px; }
+  .page-header > div:last-child[style*="display:flex"] { flex-wrap: wrap; width: 100%; }
+  .page-header > div:last-child[style*="display:flex"] > button { flex: 1 1 auto; }
+  .page-header-title { overflow-wrap: anywhere; }
+
+  /* rows that put a label on the left and buttons on the right wrap instead of running off the screen */
+  #contentArea div[style*="display:flex"][style*="justify-content:space-between"] { flex-wrap: wrap; gap: 8px 12px; }
+
+  /* fixed side-by-side columns: stop them forcing the page wider than the screen */
+  #contentArea [style*="grid-template-columns:1fr 1fr"], #contentArea [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  #contentArea [style*="grid-template-columns:1fr 1fr 1fr"], #contentArea [style*="grid-template-columns: 1fr 1fr 1fr"],
+  #contentArea [style*="grid-template-columns:repeat(3,1fr)"], #contentArea [style*="grid-template-columns:repeat(4,1fr)"], #contentArea [style*="grid-template-columns: repeat(4, 1fr)"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  #contentArea [style*="grid-template-columns: 1fr 320px"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .rvm-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .rvm-stack > * { min-width: 0; grid-column: auto !important; }
+
+  /* wide tables scroll sideways inside their own box instead of widening the page */
+  .table-wrap, .exp-hist { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .table-wrap table:not(.um-table), .exp-hist table { min-width: 540px; }
+
+  /* the team list as cards */
+  .um-table, .um-table tbody { display: block; width: 100%; }
+  .um-table thead { display: none; }
+  .um-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 14px; border-bottom: 1px solid var(--border); align-items: center; }
+  .um-table td { display: block; padding: 0 !important; border: 0 !important; min-width: 0; }
+  .um-table td:nth-child(1) { grid-column: 1 / -1; }
+  .um-table td:nth-child(2) { grid-column: 1; }
+  .um-table td:nth-child(3) { grid-column: 1 / -1; order: 5; }
+  .um-table td:nth-child(4), .um-table td:nth-child(5) { display: none; }
+  .um-table td:nth-child(6) { grid-column: 2; grid-row: 2; justify-self: end; }
+  .um-table td:nth-child(7) { grid-column: 1 / -1; order: 6; }
+  .um-table td:nth-child(7) > div { gap: 6px !important; }
+  .um-table td:nth-child(7) .btn-sm { flex: 1 1 auto; min-width: 44px; }
+
+  /* Download Data: history above, the new-download form below */
+  .exp-wrap { flex-direction: column !important; min-height: 0 !important; gap: 16px; }
+  .exp-panel { width: auto !important; border-left: 0 !important; border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px !important; }
+
+  /* Reports: report picker and dates stacked, one Apply row */
+  .rpt-bar { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px !important; padding: 10px 0 !important; }
+  .rpt-lab, .rpt-ico { display: none !important; }
+  .rpt-sel { grid-column: 1 / -1; width: 100%; min-width: 0 !important; }
+  .rpt-date { width: 100%; min-width: 0; }
+  .rpt-act { display: flex !important; grid-column: 1 / -1; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rpt-act .btn-primary { flex: 1 1 120px; }
+
+  /* Kanban: one column fills the screen and snaps, instead of half-hidden columns */
+  .kanban-board { scroll-snap-type: x mandatory; }
+  .kanban-col { width: 82vw; max-width: 340px; scroll-snap-align: start; }
+
+  /* thumb-sized buttons and fields (16px text so the phone does not zoom in) */
+  #contentArea .btn-primary, #contentArea .btn-secondary, #contentArea .btn-danger, #contentArea .btn-sm { min-height: 40px; }
+  #contentArea select.form-select, #contentArea select.filter-select, #contentArea input.form-input, #contentArea input.filter-select, #contentArea input[type="date"], #contentArea textarea.form-textarea { min-height: 44px; font-size: 16px; }
+  #contentArea input[type="checkbox"], #contentArea input[type="radio"] { min-width: 20px; min-height: 20px; }
+}
+
+@media (max-width: 768px) {
+  #contentArea .rvm-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .exp-panel input, .exp-panel select { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  .exp-panel div[style*="display:flex"] { flex-wrap: wrap; }
+  .exp-panel input[type="date"] { flex: 1 1 140px !important; }
+}
+
+@media (max-width: 768px) {
+  #contentArea button { min-height: 36px; }
+  #contentArea .rv-btn, #contentArea .rv-tab, #contentArea .rv-range button, #contentArea .rvn-seg button { min-height: 40px; }
+  #custChips button { min-height: 36px; }
+}
+
+@media (max-width: 768px) {
+  /* charts drawn at a fixed pixel width shrink to fit their card */
+  #contentArea svg[width][viewBox] { max-width: 100%; height: auto; }
+}
+
+@media (max-width: 768px) {
+  /* the smallest labels are hard to read on a phone */
+  #contentArea [style*="font-size:10px"], #contentArea [style*="font-size: 10px"] { font-size: 11px !important; }
+  #contentArea [style*="font-size:9px"] { font-size: 10px !important; }
+}
