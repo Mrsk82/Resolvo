@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resolvo for Android: a customer support app for small teams</title>
+<meta name="description" content="Answer customers, resolve tickets and see their Shopify orders from your phone. Download the Resolvo Android app (beta), or add Resolvo to your iPhone home screen.">
+<link rel="canonical" href="https://app.resolvogroup.com/app">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta property="og:title" content="Resolvo for Android"><meta property="og:description" content="Swipe to resolve, reply in one tap, and see the customer's order next to the ticket. Download the Android app (beta).">
+<meta property="og:type" content="website"><meta property="og:url" content="https://app.resolvogroup.com/app">
+<meta property="og:image" content="https://app.resolvogroup.com/img/app-ticket-order.jpg"><meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Resolvo for Android","applicationCategory":"BusinessApplication","operatingSystem":"Android 7.0 or later","description":"Customer support inbox for small teams: email and WhatsApp tickets, swipe actions, saved replies and Shopify order lookup.","softwareVersion":"1.1.0","downloadUrl":"https://app.resolvogroup.com/download/android","publisher":{"@type":"Organization","name":"Resolvo Group"}}</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-27BVPWPG8N"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-27BVPWPG8N");</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--g:#10B981;--g2:#059669;--ink:#0F172A;--mut:#475569;--line:#E5E7EB;--soft:#F8FAFC;}
+html{scroll-behavior:smooth;}
+body{background:#fff;color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;}
+a{color:inherit;}
+nav{background:#fff;border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-size:16px;font-weight:700;}
+.logo img{width:28px;height:28px;border-radius:7px;}
+.nav-links{display:flex;align-items:center;gap:18px;font-size:13px;}
+.nav-links a{color:#6B7280;text-decoration:none;}
+.nav-cta{background:var(--g);color:#fff!important;padding:8px 18px;border-radius:7px;font-weight:600;white-space:nowrap;}
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px;}
+.hero{background:linear-gradient(180deg,#F0FDF9 0%,#fff 100%);padding:56px 0 24px;overflow:hidden;}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:36px;align-items:center;}
+.tag{display:inline-block;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:#065F46;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;}
+h1{font-size:clamp(32px,5vw,50px);font-weight:800;letter-spacing:-1.4px;line-height:1.08;text-wrap:balance;margin-bottom:16px;}
+.lead{font-size:18px;color:var(--mut);max-width:520px;margin-bottom:26px;}
+.cta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.btn{display:inline-flex;align-items:center;gap:10px;background:var(--g);color:#fff;padding:14px 26px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;border:0;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(16,185,129,.28);}
+.btn:hover{background:var(--g2);}
+.btn svg{width:20px;height:20px;}
+.btn-2{display:inline-flex;align-items:center;background:#fff;color:#334155;padding:14px 22px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;border:1px solid #CBD5E1;}
+.meta{font-size:12.5px;color:#64748B;margin-top:12px;}
+.ios{font-size:13px;color:var(--mut);margin-top:14px;max-width:520px;}
+/* phone frames */
+.phones{display:flex;justify-content:center;align-items:flex-end;gap:0;position:relative;min-height:440px;}
+.ph{width:224px;border-radius:30px;background:#0B1220;padding:7px;box-shadow:0 30px 60px -20px rgba(15,23,42,.45),0 0 0 1px rgba(15,23,42,.06);flex:none;}
+.ph img{display:block;width:100%;height:auto;border-radius:24px;aspect-ratio:560/1212;object-fit:cover;object-position:top;}
+.ph.a{transform:rotate(-4deg) translateX(18px);position:relative;z-index:1;}
+.ph.b{transform:translateY(-24px) rotate(3deg) translateX(-18px);position:relative;z-index:2;}
+section{padding:64px 0;}
+.soft{background:var(--soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+h2{font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.8px;line-height:1.15;text-wrap:balance;margin-bottom:10px;}
+.sec-sub{font-size:16px;color:var(--mut);max-width:640px;margin-bottom:34px;}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;}
+.card .ic{width:38px;height:38px;border-radius:10px;background:#ECFDF5;color:var(--g2);display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
+.card .ic svg{width:20px;height:20px;}
+.card h3{font-size:16px;font-weight:700;margin-bottom:6px;letter-spacing:-.2px;}
+.card p{font-size:14px;color:var(--mut);}
+.shots{display:flex;gap:22px;overflow-x:auto;padding:8px 4px 24px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
+.shot{flex:none;width:230px;scroll-snap-align:center;text-align:center;}
+.shot .ph{width:230px;transform:none;}
+.shot p{font-size:13px;color:var(--mut);margin-top:12px;font-weight:500;}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s;}
+.step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 22px 22px 22px;position:relative;}
+.step:before{counter-increment:s;content:counter(s);display:flex;width:30px;height:30px;border-radius:50%;background:var(--g);color:#fff;font-weight:800;font-size:14px;align-items:center;justify-content:center;margin-bottom:12px;}
+.step h3{font-size:16px;font-weight:700;margin-bottom:4px;}
+.step p{font-size:14px;color:var(--mut);}
+.note{background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:16px 18px;font-size:14px;color:#78350F;margin-top:20px;max-width:760px;}
+.next{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 28px;max-width:760px;font-size:15px;color:#334155;}
+.next li{list-style:none;padding-left:26px;position:relative;}
+.next li:before{content:"";position:absolute;left:2px;top:9px;width:14px;height:2px;background:var(--g);border-radius:2px;}
+details{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:10px;max-width:780px;}
+summary{cursor:pointer;font-weight:700;font-size:15px;}
+details p{font-size:14.5px;color:var(--mut);margin-top:8px;}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:#F1F5F9;border-radius:6px;padding:2px 6px;word-break:break-all;}
+.finalcta{background:#0B1220;color:#fff;text-align:center;padding:60px 0;}
+.finalcta h2{color:#fff;}.finalcta p{color:#CBD5E1;max-width:520px;margin:0 auto 22px;}
+footer{padding:26px 24px;text-align:center;font-size:13px;color:#64748B;border-top:1px solid var(--line);}
+footer a{color:#64748B;text-decoration:none;margin:0 8px;}
+@media(max-width:860px){
+  .hero-grid{grid-template-columns:1fr;}
+  .phones{min-height:0;margin-top:14px;padding-bottom:24px;}
+  .grid,.steps{grid-template-columns:1fr;}
+  .next{grid-template-columns:1fr;}
+  nav{padding:12px 16px;}.nav-links a:not(.nav-cta){display:none;}
+  .wrap{padding:0 16px;}
+  section{padding:46px 0;}
+  .ph{width:190px;}
+}
+@media(max-width:380px){.ph{width:164px;}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/pitch" class="logo"><img src="/icons/icon-192.png" alt="" width="28" height="28"> Resolvo</a>
+  <div class="nav-links"><a href="/pitch#features">Features</a><a href="/pitch#pricing">Pricing</a><a href="/">Sign in</a><a href="/signup" class="nav-cta">Start free trial</a></div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="tag">New · Android app (beta)</span>
+      <h1>Your support inbox, now in your pocket.</h1>
+      <p class="lead">Reply to customers, resolve tickets and see what they ordered, from your phone. Built for small teams who answer on the move.</p>
+      <div class="cta">
+        <a class="btn" id="dlMain" href="/download/android" download>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>
+          Download for Android
+        </a>
+        <a class="btn-2" href="/">Open in your browser</a>
+      </div>
+      <p class="meta">Version 1.1.0 · 3 MB · Android 7 or newer · Free with your Resolvo workspace</p>
+      <p class="ios"><b>On iPhone?</b> Open <b>app.resolvogroup.com</b> in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. You get the same screens as an app icon.</p>
+    </div>
+    <div class="phones" aria-hidden="true">
+      <div class="ph a"><img src="/img/app-reply-bar.jpg" alt="" width="560" height="1212"></div>
+      <div class="ph b"><img src="/img/app-ticket-order.jpg" alt="" width="560" height="1212"></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Everything you do all day, in a thumb's reach.</h2>
+    <p class="sec-sub">We built the phone app around the five things support people actually do: pick up, answer, check the order, call back, and close.</p>
+    <div class="grid">
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div><h3>Swipe to take, resolve or snooze</h3><p>Swipe a ticket right to take it. Swipe all the way to resolve it, with an Undo if your thumb slips. Swipe left to snooze it until tomorrow morning.</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4z"/></svg></div><h3>Reply from one slim bar</h3><p>The reply box stays out of the way until you need it, so you can read the whole conversation. Tap it to write, or tap Resolve right beside it.</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9"/></svg></div><h3>Saved replies above the keyboard</h3><p>Your best answers sit as chips. One tap puts "Your refund takes 3 to 5 working days" into the box. Edit it, send it.</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0"/></svg></div><h3>The customer's order, right there</h3><p>Connect your Shopify store and each ticket shows the order: what's in it, whether it shipped, and the tracking link. One tap adds it to your reply.</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.4 1.8.7 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg></div><h3>Call or WhatsApp in one tap</h3><p>When a message needs a voice, call the customer or open a WhatsApp chat with them straight from the ticket or their profile.</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h6"/></svg></div><h3>One queue, most urgent first</h3><p>Open the app and see only what needs you now, sorted by who has waited longest. Pull down to refresh. Newsletters and automated mail stay out of the way.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <h2>See it in action.</h2>
+    <p class="sec-sub">Screens from a sample workspace with made-up customers.</p>
+    <div class="shots">
+      <figure class="shot"><div class="ph"><img src="/img/app-queue-swipe.jpg" alt="The ticket list with a swipe in progress, showing the Resolve label" width="560" height="1212" loading="lazy"></div><p>Swipe all the way to resolve</p></figure>
+      <figure class="shot"><div class="ph"><img src="/img/app-reply-bar.jpg" alt="An open ticket with a slim reply bar and a Resolve button at the bottom" width="560" height="1212" loading="lazy"></div><p>A one-line reply bar</p></figure>
+      <figure class="shot"><div class="ph"><img src="/img/app-saved-replies.jpg" alt="The reply box open with saved replies shown as chips" width="560" height="1212" loading="lazy"></div><p>Saved replies as chips</p></figure>
+      <figure class="shot"><div class="ph"><img src="/img/app-ticket-order.jpg" alt="A ticket with the customer's Shopify order, status and tracking number" width="560" height="1212" loading="lazy"></div><p>Their order, next to the ticket</p></figure>
+      <figure class="shot"><div class="ph"><img src="/img/app-customer-call.jpg" alt="A customer profile with Call and WhatsApp buttons" width="560" height="1212" loading="lazy"></div><p>Call or WhatsApp in one tap</p></figure>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install it in a minute.</h2>
+    <p class="sec-sub">The app is in beta and isn't on Google Play yet, so you install it straight from this page.</p>
+    <div class="steps">
+      <div class="step"><h3>Download the file</h3><p>Tap <b>Download for Android</b> on your phone. It's a 3 MB file called <code>Resolvo-Android-1.1.0.apk</code>.</p></div>
+      <div class="step"><h3>Open it and allow the install</h3><p>Open the file when it finishes. If Android asks, allow installs from your browser or Files app just this once, then tap <b>Install</b>.</p></div>
+      <div class="step"><h3>Sign in as usual</h3><p>Open Resolvo and sign in with the email and password you already use. Your tickets are there.</p></div>
+    </div>
+    <div class="note"><b>Why does Android show a warning?</b> Android warns about any app that doesn't come from Google Play. This file is signed by Resolvo Group, it asks only for internet access, and nothing is installed beyond the app. The warning goes away once we're on Google Play.</div>
+    <p class="meta" style="margin-top:16px">To check your download, its SHA-256 fingerprint is <code>04f0d0ae795fb771988c70a523986538ade0a1303265cb36e231dd119f0138cf</code></p>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <h2>On our list for the next updates.</h2>
+    <p class="sec-sub">No dates promised. We build these in the order our first teams ask for them.</p>
+    <ul class="next">
+      <li>Notifications with Reply, Resolve and Assign buttons</li>
+      <li>Fingerprint or face lock</li>
+      <li>Offline drafts that send when you're back online</li>
+      <li>Share a screenshot or WhatsApp chat into a new ticket</li>
+      <li>Approve refunds from a notification</li>
+      <li>A Google Play listing</li>
+    </ul>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2>Questions people ask.</h2>
+    <details><summary>Does the app cost extra?</summary><p>No. It comes with your Resolvo workspace on every plan, including the free one.</p></details>
+    <details><summary>Is there an iPhone app?</summary><p>Not a download yet. On iPhone, open app.resolvogroup.com in Safari, tap Share, then Add to Home Screen. It opens full screen with its own icon.</p></details>
+    <details><summary>Does it work without internet?</summary><p>Not yet. The app needs a connection to load your tickets. Offline drafts are on our list.</p></details>
+    <details><summary>Is it safe to install from a website?</summary><p>The file is signed by Resolvo Group and asks only for internet access. You can compare its fingerprint with the one on this page. We'll also publish on Google Play so you can get it there.</p></details>
+    <details><summary>Will it update by itself?</summary><p>Yes for everything you see on screen. The app opens your live workspace, so new features appear as soon as we release them. Only deeper changes, like notifications, need you to install a new file.</p></details>
+    <details><summary>Something looks wrong. Who do I tell?</summary><p>Write to <a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a> with a screenshot. We read every message during the beta.</p></details>
+  </div>
+</section>
+
+<section class="finalcta">
+  <div class="wrap">
+    <h2>Answer faster, wherever you are.</h2>
+    <p>Free for 14 days on every plan. No card needed.</p>
+    <div class="cta" style="justify-content:center">
+      <a class="btn" id="dlBottom" href="/download/android" download>Download for Android</a>
+      <a class="btn-2" href="/signup" style="background:transparent;color:#fff;border-color:#475569">Start free trial</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="/pitch">Resolvo</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+  <div style="margin-top:8px">© 2026 Resolvo. Made with ♥ in India.</div>
+</footer>
+
+<script>
+['dlMain','dlBottom'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',function(){try{gtag('event','download_android_app',{event_category:'app',event_label:id});}catch(e){}});});
+</script>
+</body>
+</html>

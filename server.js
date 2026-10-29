@@ -6536,6 +6536,21 @@ app.get('/shared-inbox-for-small-teams',(req,res)=>res.sendFile(path.join(__dirn
 app.get('/whatsapp-helpdesk-india',(req,res)=>res.sendFile(path.join(__dirname,'public','seo-whatsapp-helpdesk.html')));
 app.get('/helpdesk-pricing-india',(req,res)=>res.sendFile(path.join(__dirname,'public','seo-helpdesk-pricing.html')));
 app.get('/tools/support-calculator',(req,res)=>res.sendFile(path.join(__dirname,'public','tool-support-calculator.html')));
+// ── Android app (beta): download page and the signed APK ─────────────────────
+// The file lives in /downloads (not in /public) so it is only served through this route, which also keeps a simple daily count.
+const APK_NAME='Resolvo-Android-1.1.0.apk',APK_FILE=path.join(__dirname,'downloads',APK_NAME);
+app.get('/app',(req,res)=>res.sendFile(path.join(__dirname,'public','app.html')));
+app.get('/download/android',(req,res)=>{
+  if(!fs.existsSync(APK_FILE))return res.status(404).type('text/plain').send('The Android app is not available right now. Please write to contact@resolvogroup.com and we will send it.');
+  try{
+    const f=path.join(__dirname,'data','app_downloads.json');let d={total:0,byDay:{}};
+    try{d=JSON.parse(fs.readFileSync(f,'utf8'));}catch(e){}
+    const day=new Date().toISOString().slice(0,10);d.total=(d.total||0)+1;d.byDay=d.byDay||{};d.byDay[day]=(d.byDay[day]||0)+1;
+    fs.writeFileSync(f,JSON.stringify(d));
+  }catch(e){}
+  res.set({'X-Content-Type-Options':'nosniff','Cache-Control':'no-cache'});
+  res.download(APK_FILE,APK_NAME);
+});
 app.get('/partners',(req,res)=>res.sendFile(path.join(__dirname,'public','partners.html')));
 app.get('/vs/linear',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-linear.html')));
 app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
