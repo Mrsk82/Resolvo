@@ -195,7 +195,9 @@
     area.innerHTML = '<div class="rv"><div class="rv-card">' + w.RV.skeleton(5) + '</div></div>';
     var admin = a.currentUser && a.currentUser.role === 'Admin', focus = focusOn();
     var res = await Promise.all([a.callAsync('getTickets', focus ? focusQuery() : query()), a.callAsync('getEmailTicketingConfig'), a.callAsync('getStatusConfig'),
-      admin ? fetch('/api/email-ticketing/status', { headers: { 'x-session-token': a.sessionToken } }).then(function (r) { return r.json(); }).catch(function () { return null; }) : Promise.resolve(null)]);
+      admin ? fetch('/api/email-ticketing/status', { headers: { 'x-session-token': a.sessionToken } }).then(function (r) { return r.json(); }).catch(function () { return null; }) : Promise.resolve(null),
+      a.callAsync('getShopifyStatus').catch(function () { return null; })]);
+    S.shopify = res[4] && res[4].success ? res[4] : null;
     var r = res[0];
     if (!r || !r.success) throw new Error((r && r.error) || 'tickets did not load');
     S.counts = normCounts(r.counts); S.facets = r.facets || { assignees: [], teams: [], tags: [] };
@@ -325,6 +327,24 @@
         (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + '</div></div>';
     }).join('') || '<div class="rv-hint" style="text-align:center">No messages yet.</div>';
   }
+  // ---------- Shopify orders ----------
+  // The "Orders" section is shown when the store is connected (agents) or, for admins, as a nudge to connect it.
+  function ordersFold(t) {
+    var sid = esc(String(t.id).replace(/[^A-Za-z0-9_-]/g, ''));
+    if (S.shopify && S.shopify.connected) return '<details class="rvf-fold" id="rvfOrders"><summary>Orders<span class="rvo-count" id="rvoCount" hidden></span></summary><div class="rvf-fold__body rvf-fold__body--block"><div id="rvoBox_' + sid + '"></div></div></details>';
+    if (S.shopify && S.shopify.isAdmin) return '<details class="rvf-fold"><summary>Orders</summary><div class="rvf-fold__body rvf-fold__body--block"><div class="rv-hint">Connect your Shopify store to see this customer\'s orders here, with tracking you can add to a reply. <a href="#" onclick="App.renderUnifiedSettings(\'integrations\');return false">Connect Shopify</a></div></div></details>';
+    return '';
+  }
+  function loadOrders(t, boxId, foldId) {
+    if (!(S.shopify && S.shopify.connected) || !w.RVO) return;
+    var box = document.getElementById(boxId); if (!box) return;
+    w.RVO.load(box, function (refresh) { return A().callAsync('lookupShopifyOrders', t.id, !!refresh); }, { canReply: true, onLoaded: function (res) {
+      var n = (res && res.orders || []).length, c = document.getElementById('rvoCount'); if (c) { c.hidden = !n; c.textContent = n; }
+      // the order the customer mentioned opens by itself, so the agent sees it without a tap
+      var f = document.getElementById(foldId || 'rvfOrders'); if (f && res && res.matchedBy && res.matchedBy.indexOf('order number') >= 0) f.open = true;
+    } });
+  }
+
   // ---------- phone: compact reply bar, saved-reply chips, contact buttons ----------
   function isPhone() { return !!(w.matchMedia && w.matchMedia('(max-width: 768px)').matches); }
   // On a phone the composer starts as one line ("Write a reply...") so the conversation keeps the screen; tapping it opens the full composer.
@@ -387,7 +407,7 @@
     if (!keepScroll) { var th = document.getElementById('rviThread'); if (th) th.scrollTop = th.scrollHeight; }
     if (isPhone() && !collapsed && !isNote) fillChips();
     var cb = document.getElementById('rviCustBody');
-    if (cb) { cb.innerHTML = '<div id="crmPanel_' + esc(t.id) + '"></div>' + ((t.tags && t.tags.length) ? '<h3 style="margin-top:14px">Tags</h3><div class="rv-cluster">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + (t.disposition || t.type ? '<h3 style="margin-top:14px">Classification</h3><div class="rv-hint">' + esc([t.type, t.disposition].filter(Boolean).join(' / ')) + '</div>' : ''); if (a._loadCrmPanel) a._loadCrmPanel(t.id, t.from, t.fromName); }
+    if (cb) { cb.innerHTML = '<div id="crmPanel_' + esc(t.id) + '"></div>' + (S.shopify && S.shopify.connected ? '<h3 style="margin-top:14px">Orders</h3><div id="rvoBoxC_' + esc(String(t.id).replace(/[^A-Za-z0-9_-]/g, '')) + '"></div>' : '') + ((t.tags && t.tags.length) ? '<h3 style="margin-top:14px">Tags</h3><div class="rv-cluster">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + (t.disposition || t.type ? '<h3 style="margin-top:14px">Classification</h3><div class="rv-hint">' + esc([t.type, t.disposition].filter(Boolean).join(' / ')) + '</div>' : ''); if (a._loadCrmPanel) a._loadCrmPanel(t.id, t.from, t.fromName); loadOrders(t, 'rvoBoxC_' + String(t.id).replace(/[^A-Za-z0-9_-]/g, ''), 'none'); }
   }
 
   // ---------- actions ----------
@@ -597,7 +617,7 @@
           '<select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
           '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + ['Critical', 'High', 'Medium', 'Low'].map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
           '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select></div></details>' +
-        '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details></div>' +
+        '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details>' + ordersFold(t) + '</div>' +
         '<div class="rvi-thread rvf-thread" id="rviThread">' + threadHtml(t) + '</div></article>' + waitingNudge(t) +
       '<div class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(done) +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
@@ -611,6 +631,7 @@
     // open at the latest message (the thread scrolls inside the card; on a phone the page scrolls instead)
     if (!keep) { var sc = document.getElementById('contentArea'); if (sc) sc.scrollTop = 0; var th = document.getElementById('rviThread'); if (th) th.scrollTop = th.scrollHeight; }
     if (isPhone() && !collapsed && !isNote) fillChips();
+    loadOrders(t, 'rvoBox_' + String(t.id).replace(/[^A-Za-z0-9_-]/g, ''), 'rvfOrders');
   }
   // Move to the next ticket in the queue the user was working through. The finished ticket is dropped from it.
   function advance(doneId) {

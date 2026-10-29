@@ -4,7 +4,7 @@ the simulated WhatsApp ticket is deleted. No email or WhatsApp message is ever s
 import asyncio, json, re, sys, urllib.parse, urllib.request
 from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"; PASS, FAIL = [], []
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001"); PASS, FAIL = [], []
 def check(n, ok, d=""):
     (PASS if ok else FAIL).append(n); print(("PASS  " if ok else "FAIL  ") + n + (("  -> " + str(d)[:300]) if d and not ok else ""))
 def http(path, tok=None, body=None, form=False):

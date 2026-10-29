@@ -3,7 +3,7 @@ Seeds two same-name contacts (an email one and a WhatsApp one) into the LOCAL de
 import asyncio, os, sqlite3, json, sys, uuid
 from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"; PASS, FAIL = [], []
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001"); PASS, FAIL = [], []
 DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data", "brands", "demo", "db.sqlite")
 def check(n, ok, d=""):
     (PASS if ok else FAIL).append(n); print(("PASS  " if ok else "FAIL  ") + n + (("  -> " + str(d)) if d and not ok else ""))

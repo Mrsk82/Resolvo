@@ -7879,14 +7879,15 @@ tbody tr.row-selected {
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=2"></script>
-  <link rel="stylesheet" href="/css/rv-inbox.css?v=13">
-  <script src="/js/rv-inbox.js?v=18"></script>
+  <link rel="stylesheet" href="/css/rv-inbox.css?v=14">
+  <script src="/js/rv-inbox.js?v=19"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-insights.css?v=1">
   <script src="/js/rv-insights.js?v=3"></script>
   <script src="/js/rv-device.js?v=2"></script>
   <script src="/js/rv-phone.js?v=3"></script>
+  <script src="/js/rv-orders.js?v=1"></script>
   <link rel="apple-touch-icon" href="/icons/apple-touch-180.png">
 </head>
 <body>
@@ -17149,6 +17150,7 @@ const App = {
               ['all:Timeline', 'ticket:Tickets', 'deal:Deals', 'note:Notes'].map(function(x, ix) { var p = x.split(':'); return '<button data-f="' + p[0] + '" style="font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid ' + (ix === 0 ? 'var(--accent)' : 'var(--border)') + ';background:' + (ix === 0 ? 'rgba(16,185,129,.12)' : 'none') + ';color:' + (ix === 0 ? 'var(--accent)' : 'var(--text-muted)') + ';cursor:pointer;">' + p[1] + '</button>'; }).join('') +
             '</div><div id="custTimeline">' + tl('all') + '</div></div>' +
           '<div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:14px;">' +
+            '<div id="c360Orders"></div>' +
             '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
               '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Details</div>' +
               row('Email', ct.email) + row('Phone', ct.phone) + row('Company', ct.company) + row('Role', ct.role) + row('Source', ct.source) + row('First contact', s.firstContact ? new Date(s.firstContact).toLocaleDateString() : '') + row('Customer since', ct.createdDate ? new Date(ct.createdDate).toLocaleDateString() : '') +
@@ -17162,6 +17164,12 @@ const App = {
           '</div>' +
         '</div>' +
       '</div>';
+    // Shopify orders for this customer (only when a store is connected)
+    self.callAsync('getShopifyStatus').then(function(st) {
+      var host = document.getElementById('c360Orders'); if (!(st && st.success && st.connected) || !host || !window.RVO) return;
+      host.innerHTML = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:8px;">Shopify orders</div><div id="c360OrdersBox"></div></div>';
+      RVO.load(document.getElementById('c360OrdersBox'), function() { return self.callAsync('lookupShopifyContact', ct.email || '', ct.phone || ''); }, { canReply: false });
+    });
     var tabs = document.getElementById('custTabs');
     if (tabs) tabs.addEventListener('click', function(e) {
       var b = e.target.closest('button[data-f]'); if (!b) return;
@@ -18596,7 +18604,7 @@ const App = {
       else if (tid === 'integrations') {
         var sr2 = await self.callAsync('getSettings');
         var st = (sr2&&sr2.success)?sr2.settings:{};
-        content =
+        content = (await self._shopifySection()) +
           App._sSection('External API Integration',[
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+
               '<div class="form-group"><label class="form-label">Platform</label><select id="apiType" class="form-select" onchange="App._apiTypeChange()">'+
@@ -22026,6 +22034,55 @@ const App = {
         knob.style.transform = this.checked ? 'translateX(20px)' : 'translateX(0)';
         if (track) track.style.background = this.checked ? '#25D366' : '#374151';
       });
+    },
+
+    // ── Shopify orders (Settings > Integrations) ────────────────────────────
+    _shopifySection: async function() {
+      var self = this, r = await self.callAsync('getShopifyStatus'), on = !!(r && r.success && r.connected);
+      var how = '<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--accent);">How do I get these?</summary><div style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin-top:8px;">' +
+        '<b>New Shopify apps (Client ID and secret)</b><ol style="margin:4px 0 10px 18px;padding:0;"><li>Open the Shopify Dev Dashboard (dev.shopify.com) and create an app.</li><li>Give it the scopes <code>read_orders</code> and <code>read_customers</code>. Add <code>read_all_orders</code> to see orders older than 60 days.</li><li>Release a version and install the app on your store.</li><li>Open the app\'s Settings and copy the Client ID and the Client secret.</li></ol>' +
+        '<b>Older custom apps (access token)</b><ol style="margin:4px 0 8px 18px;padding:0;"><li>In Shopify admin open Settings, then Apps and sales channels, then Develop apps, and create an app.</li><li>Under Admin API scopes tick <code>read_orders</code> and <code>read_customers</code>, then install it.</li><li>Reveal the Admin API access token (it starts with <code>shpat_</code> and is shown only once) and paste it here.</li></ol>' +
+        '<span style="color:var(--text-dim);">Shopify moves these screens around now and then. If you cannot find one, search Shopify admin for "Develop apps" or "Dev Dashboard".</span></div></details>';
+      if (on) return App._sSection('Shopify orders', [
+        '<div style="background:var(--low-dim);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div style="font-size:13px;font-weight:700;color:var(--low);">● Connected to ' + self._esc(r.shopName || r.shop) + ' <span style="font-weight:400;color:var(--text-dim);">(' + self._esc(r.shop) + ')</span></div>' +
+          '<div style="display:flex;gap:6px;"><button class="btn-secondary btn-sm" onclick="App._shopifyTest(this)">Test connection</button><button class="btn-secondary btn-sm" onclick="App._shopifyDisconnect()">Disconnect</button></div></div>',
+        '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-top:10px;">Agents now see each customer\'s Shopify orders next to their ticket, found by the order number in the message, then by email, then by phone. Tracking details can be added to a reply in one tap. Resolvo only reads orders and never changes anything in your store.</div>',
+        '<div id="shp_result" style="margin-top:8px;"></div>']);
+      var inp = 'class="form-input" style="width:100%;box-sizing:border-box;" autocomplete="off" autocapitalize="none" spellcheck="false"';
+      return App._sSection('Shopify orders', [
+        '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px;">Connect your store so your team sees each customer\'s orders, status and tracking right next to their ticket. Read-only.</div>',
+        '<div style="display:flex;flex-direction:column;gap:12px;">' +
+          '<div><label class="form-label" for="shp_shop">Store address</label><input id="shp_shop" ' + inp + ' placeholder="my-store.myshopify.com"></div>' +
+          '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;"><label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="radio" name="shp_mode" value="client" checked onchange="App._shopifyMode(\'client\')"> Client ID and secret <span style="color:var(--text-dim);">(new apps)</span></label><label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="radio" name="shp_mode" value="token" onchange="App._shopifyMode(\'token\')"> Access token <span style="color:var(--text-dim);">(older apps)</span></label></div>' +
+          '<div id="shp_client" style="display:flex;flex-direction:column;gap:12px;"><div><label class="form-label" for="shp_cid">Client ID</label><input id="shp_cid" ' + inp + ' placeholder="Client ID"></div><div><label class="form-label" for="shp_csec">Client secret</label><input id="shp_csec" type="password" ' + inp + ' placeholder="Client secret"></div></div>' +
+          '<div id="shp_token" style="display:none;"><label class="form-label" for="shp_tok">Admin API access token</label><input id="shp_tok" type="password" ' + inp + ' placeholder="shpat_..."></div>' +
+          '<div><button class="btn-primary" onclick="App._shopifySave(this)">Connect Shopify</button></div></div>',
+        '<div id="shp_result" style="margin-top:8px;"></div>', how]);
+    },
+    _shopifyMode: function(m) { var a = document.getElementById('shp_client'), b = document.getElementById('shp_token'); if (a) a.style.display = m === 'client' ? 'flex' : 'none'; if (b) b.style.display = m === 'token' ? 'block' : 'none'; },
+    _shopifyShow: function(ok, msg) {
+      var el = document.getElementById('shp_result'); if (!el) return;
+      el.innerHTML = '<div style="padding:10px 14px;border-radius:8px;font-size:13px;' + (ok ? 'background:var(--low-dim);border:1px solid var(--low);color:var(--low);' : 'background:var(--critical-dim);border:1px solid var(--critical);color:var(--text-primary);') + '">' + (ok ? '✓ ' : '<b style="color:var(--critical)">✗</b> ') + App._esc(msg) + '</div>';
+    },
+    _shopifySave: async function(btn) {
+      var v = function(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+      var m = (document.querySelector('input[name="shp_mode"]:checked') || {}).value || 'client';
+      if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+      var r = await App.callAsync('saveShopifyConfig', v('shp_shop'), m === 'token' ? v('shp_tok') : '', m === 'client' ? v('shp_cid') : '', m === 'client' ? v('shp_csec') : '');
+      if (r && r.success) { App.showToast('Connected to ' + (r.shopName || r.shop), 'success'); App.renderUnifiedSettings('integrations'); return; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Connect Shopify'; }
+      App._shopifyShow(false, (r && r.error) || 'Could not connect.');
+    },
+    _shopifyTest: async function(btn) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
+      var r = await App.callAsync('testShopify');
+      if (btn) { btn.disabled = false; btn.textContent = 'Test connection'; }
+      App._shopifyShow(!!(r && r.success), r && r.success ? 'Shopify is answering. Connected to ' + (r.shopName || 'your store') + '.' : ((r && r.error) || 'Could not reach Shopify.'));
+    },
+    _shopifyDisconnect: async function() {
+      if (!confirm('Disconnect Shopify? Agents will stop seeing orders next to tickets. Nothing changes in your store.')) return;
+      var r = await App.callAsync('disconnectShopify');
+      if (r && r.success) { App.showToast('Shopify disconnected', 'success'); App.renderUnifiedSettings('integrations'); } else App.showToast((r && r.error) || 'Could not disconnect', 'error');
     },
 
     // Checklist for connecting WhatsApp through Twilio: what is done, what is next, and what to expect while waiting.

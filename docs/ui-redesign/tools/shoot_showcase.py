@@ -3,7 +3,7 @@ Output: public/img/app-*.jpg. Usage: python shoot_showcase.py"""
 import asyncio, os, sys
 from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "public", "img")
 LOGIN = """async()=>{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'admin@showcase.local',password:'demo1234'})}).then(x=>x.json());if(!r.token)throw new Error('login failed '+JSON.stringify(r));localStorage.clear();localStorage.setItem('tt_session_token',r.token);localStorage.setItem('tt_theme','resolvo');localStorage.setItem('tt_v3b','1');localStorage.setItem('tt_inbox_focus','0');localStorage.setItem('onb_hidden_showcase','1')}"""
 async def shot(pg, name, **kw):

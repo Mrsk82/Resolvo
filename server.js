@@ -9,6 +9,7 @@ require('dotenv').config();
 // any code runs and the gateway isn't actually invoked until a real request
 // arrives, long after the module finishes loading.
 const Social=require('./integrations/social');
+const Shopify=require('./integrations/shopify');
 const SOCIAL_CHANNELS=['instagram','facebook','telegram','youtube','linkedin','x'];
 // Unified lexicon-based sentiment analyzer (no AI/LLM call) — replaces three
 // previously-separate, inconsistent keyword scorers that used to exist here.
@@ -3668,6 +3669,62 @@ app.post('/api/call',async(req,res)=>{
       }
       const db2=rDB();db2.whatsappStatus={...(db2.whatsappStatus||{}),verified:out};wDB(db2);
       return{success:true,verified:out};
+    },
+    // ── Shopify order lookup ────────────────────────────────────────────────
+    // Read-only. The token is stored encrypted; agents can look orders up, only admins can connect or disconnect.
+    getShopifyStatus:()=>{const c=rDB().shopifyConfig||{};return{success:true,connected:!!(c.shop&&(c.tokenRef||c.clientSecretRef)),shop:c.shop||'',shopName:c.shopName||'',mode:c.tokenRef?'token':(c.clientSecretRef?'client':''),connectedAt:c.connectedAt||null,isAdmin:su.role==='Admin'};},
+    // Connect with either a permanent Admin API access token (older custom apps) or a Client ID + secret (Shopify Dev Dashboard apps).
+    // Whatever is entered is tested against the store first and saved encrypted only if it works.
+    saveShopifyConfig:async(shopIn,tokenIn,clientIdIn,clientSecretIn)=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const shop=Shopify.normalizeShop(shopIn);
+      if(!shop)return{success:false,error:'Enter your store address, for example my-store.myshopify.com.'};
+      const db=rDB(),ex=db.shopifyConfig||{},same=ex.shop===shop;
+      const clean=v=>{v=String(v||'').trim();return v&&!v.startsWith('•')?v:'';};
+      let token=clean(tokenIn),clientId=clean(clientIdIn),clientSecret=clean(clientSecretIn);
+      try{
+        if(!token&&!clientId&&!clientSecret&&same){   // nothing new typed: re-test and keep what is saved
+          const old=_shopifyCfg(db);if(!old)return{success:false,error:'The saved credentials could not be read. Enter them again.'};
+          token=old.token||'';clientId=old.clientId||'';clientSecret=old.clientSecret||'';
+        }
+      }catch(e){return{success:false,error:'The saved credentials could not be read. Enter them again.'};}
+      if(token&&(clientId||clientSecret))return{success:false,error:'Use either the access token or the Client ID and secret, not both.'};
+      if(!token&&!(clientId&&clientSecret))return{success:false,error:'Enter the Admin API access token, or the Client ID and Client secret, from your Shopify app.'};
+      if(token&&!/^[A-Za-z0-9_]{16,200}$/.test(token))return{success:false,error:'That does not look like an access token. It starts with shpat_ and has no spaces.'};
+      if(!token&&(!/^[A-Za-z0-9_-]{8,120}$/.test(clientId)||!/^[A-Za-z0-9_-]{8,200}$/.test(clientSecret)))return{success:false,error:'The Client ID or Client secret looks wrong. Copy them again from your Shopify app, without spaces.'};
+      const cfg=token?{shop,token}:{shop,clientId,clientSecret};
+      let info;try{info=await Shopify.testConnection(cfg,_shopifyOpts());}catch(e){return{success:false,kind:e.kind||'other',error:e.message||'Could not connect to Shopify.'};}
+      const d2=rDB();
+      d2.shopifyConfig={shop,shopName:info.name,currency:info.currency,connectedAt:nowIST(),connectedBy:su.email,
+        ...(token?{tokenRef:Social.encryptSecret(token)}:{clientIdRef:Social.encryptSecret(clientId),clientSecretRef:Social.encryptSecret(clientSecret)})};
+      wDB(d2);_shopifyCache.clear();
+      return{success:true,shop,shopName:info.name,mode:token?'token':'client'};
+    },
+    testShopify:async()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const cfg=_shopifyCfg(rDB());if(!cfg)return{success:false,error:'Shopify is not connected yet.'};
+      try{const i=await Shopify.testConnection(cfg,_shopifyOpts());return{success:true,shopName:i.name};}catch(e){return{success:false,kind:e.kind||'other',error:e.message};}
+    },
+    disconnectShopify:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();db.shopifyConfig=null;wDB(db);_shopifyCache.clear();return{success:true};   // null, not delete: the brand store only writes keys that are present
+    },
+    // Orders for the person behind a ticket: matches an order number written in the ticket, then their email, then their phone.
+    lookupShopifyOrders:async(ticketId,refresh)=>{
+      const db=rDB(),t=(db.tickets||[]).find(x=>x.id===ticketId);if(!t)return{success:false,error:'Ticket not found'};
+      if(!_shopifyCfg(db))return{success:true,connected:false};
+      const from=String(t.from||''),email=from.includes('@')?from.trim().toLowerCase():'',phone=_e164(t.whatsappFrom||(email?'':from))||'';
+      const text=[t.subject].concat((t.thread||[]).filter(m=>m.type==='incoming').slice(-3).map(m=>m.body)).join(' \n ');
+      const q={email,phone,orderNumber:Shopify.orderNumberFrom(text)};
+      if(!q.email&&!q.phone&&!q.orderNumber)return{success:true,connected:true,orders:[],matchedBy:[],query:q};
+      try{const r=await _shopifyLookup(slug,db,q,!!refresh);return{success:true,query:q,...r};}catch(e){return{success:false,kind:e.kind||'other',error:e.message||'Could not look up orders.'};}
+    },
+    // Same lookup for a customer profile
+    lookupShopifyContact:async(email,phone)=>{
+      const db=rDB();if(!_shopifyCfg(db))return{success:true,connected:false};
+      const q={email:String(email||'').includes('@')?String(email).trim().toLowerCase():'',phone:_e164(phone)||'',orderNumber:''};
+      if(!q.email&&!q.phone)return{success:true,connected:true,orders:[],matchedBy:[],query:q};
+      try{const r=await _shopifyLookup(slug,db,q,false);return{success:true,query:q,...r};}catch(e){return{success:false,kind:e.kind||'other',error:e.message||'Could not look up orders.'};}
     },
     // ── WhatsApp direct-Meta ("Tech Provider") integration ──────────────────
     // Alternative to the Twilio-based WhatsApp above — see
@@ -8462,7 +8519,7 @@ app.get('/api/calendar-oauth/callback',async(req,res)=>{
 app.post('/api/calendar-oauth/disconnect',(req,res)=>{
   const su=getSessionUser(req);if(!su||su.role!=='Admin')return res.json({success:false,error:'Admin only'});
   const db=readBrandDB(su.brandSlug);
-  delete db.calendarOAuth;
+  db.calendarOAuth=null;   // null, not delete: the brand store only writes keys that are present, so a deleted key would come back
   writeBrandDB(su.brandSlug,db);
   res.json({success:true});
 });
@@ -11475,6 +11532,30 @@ app.post('/api/owner/changelogs',ownerOnly,async(req,res)=>{
 // Strip "whatsapp:" prefix and non-digit/plus chars so numbers from Twilio
 // (e.g. "whatsapp:+14155238886") and from Settings (e.g. "+1 415 523 8886")
 // compare equal regardless of formatting.
+// ── Shopify order lookup (read-only) ─────────────────────────────────────
+const _shopifyCache=new Map(),_shopifyHits={};
+const _shopifyOpts=()=>process.env.SHOPIFY_TEST_BASE?{baseUrl:process.env.SHOPIFY_TEST_BASE}:{};
+function _shopifyCfg(db){
+  const c=db.shopifyConfig;if(!c||!c.shop)return null;
+  try{
+    if(c.tokenRef)return{shop:c.shop,token:Social.decryptSecret(c.tokenRef)};
+    if(c.clientIdRef&&c.clientSecretRef)return{shop:c.shop,clientId:Social.decryptSecret(c.clientIdRef),clientSecret:Social.decryptSecret(c.clientSecretRef)};
+  }catch(e){}
+  return null;
+}
+// +91 for ten-digit Indian numbers; null when it does not look like a phone number
+function _e164(raw){const s=String(raw||'').replace(/^[a-z]+:\s*/i,'').trim();if(!s||s.includes('@'))return null;const plus=s[0]==='+';let d=s.replace(/\D/g,'');if(d.length<8||d.length>15)return null;if(!plus){if(d.length===10)d='91'+d;else if(d.length===11&&d[0]==='0')d='91'+d.slice(1);}return'+'+d;}
+async function _shopifyLookup(slug,db,q,refresh){
+  const cfg=_shopifyCfg(db);if(!cfg)return{connected:false};
+  const key=[slug,q.email||'',q.phone||'',q.orderNumber||''].join('|'),hit=_shopifyCache.get(key);
+  if(!refresh&&hit&&Date.now()-hit.t<120000)return{connected:true,shop:cfg.shop,...hit.data,cached:true};
+  const now=Date.now(),h=(_shopifyHits[slug]=(_shopifyHits[slug]||[]).filter(t=>now-t<60000));
+  if(h.length>=40)throw new Shopify.ShopifyError('rate','Too many order lookups in the last minute. Wait a few seconds and try again.');
+  h.push(now);
+  const r=await Shopify.findOrders(cfg,q,_shopifyOpts());
+  _shopifyCache.set(key,{t:Date.now(),data:r});if(_shopifyCache.size>500)_shopifyCache.delete(_shopifyCache.keys().next().value);
+  return{connected:true,shop:cfg.shop,...r};
+}
 function _normalizeWaNumber(n){return String(n||'').replace(/^whatsapp:/i,'').replace(/[^\d+]/g,'');}
 
 // ── No-code FAQ auto-responder bot ────────────────────────────────────────

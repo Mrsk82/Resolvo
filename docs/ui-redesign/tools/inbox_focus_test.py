@@ -7,7 +7,7 @@ from datetime import datetime
 from playwright.async_api import async_playwright
 
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001")
 OUT = r"C:\Users\Asif\Desktop\New\Resolvo-UI-files\baseline"
 os.makedirs(OUT, exist_ok=True)
 PASS, FAIL = [], []

@@ -3,7 +3,7 @@ Runs against the local showcase workspace at 390x844. The resolve swipe is undon
 import asyncio, json, sys, urllib.request
 from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"; PASS, FAIL = [], []
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001"); PASS, FAIL = [], []
 SHOTS = "C:/Users/Asif/Desktop/New/Resolvo-UI-files/mobile-audit/feat_"
 def check(n, ok, d=""):
     (PASS if ok else FAIL).append(n); print(("PASS  " if ok else "FAIL  ") + n + (("  -> " + str(d)[:250]) if d and not ok else ""))

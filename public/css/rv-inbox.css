@@ -244,3 +244,16 @@
 .rvi-row.is-swipe-r2, .rvf-item.is-swipe-r2 { background: var(--rv-success-soft, #e6f6ee); }
 .rvi-row.is-swipe-r2::after, .rvf-item.is-swipe-r2::after { content: 'Resolve'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%) translateX(-120%); font-size: var(--rv-text-xs); font-weight: var(--rv-weight-bold); color: var(--rv-success, #0f9f6e); white-space: nowrap; }
 .rvi-row { position: relative; }
+
+/* ---- Shopify orders next to a ticket or customer ---- */
+.rvo-list { display: flex; flex-direction: column; gap: 10px; }
+.rvo-card { border: 1px solid var(--rv-border); border-radius: var(--rv-radius-md); padding: 12px 14px; background: var(--rv-surface); display: flex; flex-direction: column; gap: 6px; }
+.rvo-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.rvo-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.rvo-items { font-size: var(--rv-text-sm, 13px); color: var(--rv-text); line-height: 1.45; }
+.rvo-track { font-size: var(--rv-text-sm, 13px); } .rvo-track a { color: var(--rv-accent-strong); font-weight: 600; word-break: break-all; }
+.rvo-how { font-size: var(--rv-text-xs, 12px); color: var(--rv-text-muted); }
+.rvo-act { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; } .rvo-act a { text-decoration: none; }
+.rvo-msg { font-size: var(--rv-text-sm, 13px); color: var(--rv-text-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rvo-msg--err { color: var(--rv-danger); }
+.rvo-count { margin-left: 6px; font-size: 11px; font-weight: 700; background: var(--rv-accent-soft); color: var(--rv-accent-strong); border-radius: 10px; padding: 1px 7px; }

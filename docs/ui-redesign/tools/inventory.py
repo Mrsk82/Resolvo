@@ -2,7 +2,7 @@ import asyncio, json, sys, os
 from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(__file__))
 
-BASE = "http://localhost:3001"
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001")
 OUT = r"C:\Users\Asif\Desktop\New\Resolvo-UI-files\baseline"
 TAG = sys.argv[1] if len(sys.argv) > 1 else "before"
 THEME = sys.argv[2] if len(sys.argv) > 2 else "resolvo"

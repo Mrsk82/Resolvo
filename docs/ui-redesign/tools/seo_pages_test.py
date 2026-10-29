@@ -4,7 +4,7 @@ import math, sys
 from playwright.sync_api import sync_playwright
 
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001")
 PAGES = ["/shared-inbox-for-small-teams", "/whatsapp-helpdesk-india", "/helpdesk-pricing-india", "/tools/support-calculator"]
 ok = fail = 0
 

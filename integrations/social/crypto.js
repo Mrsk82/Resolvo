@@ -12,15 +12,17 @@ const crypto = require('crypto');
 
 const ALGO = 'aes-256-gcm';
 
+// SOCIAL_CREDENTIALS_KEY in .env is preferred. When it is missing, a random key is generated once and kept in
+// data/credentials.key (owner-only file) so connecting an integration still stores its token encrypted, not in plain text.
+function _fileKey() {
+  const fs = require('fs'), path = require('path'), file = path.join(__dirname, '..', '..', 'data', 'credentials.key');
+  try { const v = fs.readFileSync(file, 'utf8').trim(); if (Buffer.from(v, 'base64').length === 32) return v; } catch (e) {}
+  const v = crypto.randomBytes(32).toString('base64');
+  try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, v + '\n', { mode: 0o600 }); } catch (e) { throw new Error('Could not create the credentials key file: ' + e.message); }
+  return v;
+}
 function _getKey() {
-  const b64 = process.env.SOCIAL_CREDENTIALS_KEY;
-  if (!b64) {
-    throw new Error(
-      'SOCIAL_CREDENTIALS_KEY is not set. Generate one with: ' +
-      'node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))" ' +
-      'and add it to .env — required before any social account can be connected.'
-    );
-  }
+  const b64 = process.env.SOCIAL_CREDENTIALS_KEY || _fileKey();
   const key = Buffer.from(b64, 'base64');
   if (key.length !== 32) throw new Error('SOCIAL_CREDENTIALS_KEY must decode to exactly 32 bytes.');
   return key;

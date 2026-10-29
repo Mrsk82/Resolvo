@@ -3,7 +3,7 @@ Seeds newsletter-style tickets into the LOCAL demo brand (seed_promos.js) and re
 import asyncio, os, subprocess, sys
 from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8")
-BASE = "http://localhost:3001"; HERE = os.path.dirname(os.path.abspath(__file__))
+BASE = __import__("os").environ.get("RESOLVO_BASE", "http://localhost:3001"); HERE = os.path.dirname(os.path.abspath(__file__))
 PASS, FAIL = [], []
 def check(n, ok, d=""):
     (PASS if ok else FAIL).append(n); print(("PASS  " if ok else "FAIL  ") + n + (("  -> " + str(d)) if d and not ok else ""))
