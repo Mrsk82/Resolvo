@@ -9881,7 +9881,7 @@ const App = {
         <div style="padding:24px;">
           <div style="margin-bottom:14px;">
             <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Email Address</label>
-            <input id="forgotEmail" type="email" placeholder="your@email.com" style="width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#10B981'" onblur="this.style.borderColor='#e5e7eb'">
+            <input id="forgotEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="your@email.com" style="width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#10B981'" onblur="this.style.borderColor='#e5e7eb'">
           </div>
           <div id="forgotMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
           <button onclick="App._submitForgotPassword()" id="forgotBtn" style="width:100%;padding:12px;border-radius:10px;background:#10B981;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Send Reset Link →</button>
@@ -9917,8 +9917,8 @@ const App = {
         msgEl.style.display='block';
         if(r.success){
           msgEl.style.background='#d1fae5';msgEl.style.border='1px solid #6ee7b7';msgEl.style.color='#065f46';
-          msgEl.textContent='✅ Reset link sent! Check your email inbox (and spam folder).';
-          if(btn){btn.textContent='Email Sent ✓';btn.style.background='#10B981';}
+          msgEl.textContent=(r.sent?'✅ ':'')+(r.message||'If that address is registered, a reset link has been sent. Check the spam folder too.');
+          if(btn){btn.textContent=r.sent?'Email Sent ✓':'Request received';btn.style.background='#10B981';}
         } else {
           msgEl.style.background='#fef2f2';msgEl.style.border='1px solid #fecaca';msgEl.style.color='#dc2626';
           msgEl.textContent=r.error||'Something went wrong. Try again.';
@@ -13776,7 +13776,8 @@ const App = {
         + '✅ Imported <strong>' + r.imported + '</strong>' + (r.emailsSent ? ' (' + r.emailsSent + ' welcome emails sent)' : '') + '<br>'
         + (r.skippedDuplicate ? '⏭ ' + r.skippedDuplicate + ' skipped (duplicate email)<br>' : '')
         + (r.skippedInvalid ? '⚠ ' + r.skippedInvalid + ' skipped (missing name/email)<br>' : '')
-        + (r.skippedLimit ? '🚫 ' + r.skippedLimit + ' skipped (plan user limit reached)' : '')
+        + (r.skippedLimit ? '🚫 ' + r.skippedLimit + ' skipped (plan user limit reached)<br>' : '')
+        + ((r.emailsFailed && r.emailsFailed.length) ? '<div style="margin-top:8px;color:var(--critical);"><strong>' + r.emailsFailed.length + ' welcome emails could not be sent.</strong> Give these people their temporary password yourself:<div style="font-family:var(--font-mono);font-size:11px;margin-top:4px;max-height:140px;overflow:auto;">' + r.emailsFailed.map((f) => this._esc(f.email) + ' &nbsp; ' + this._esc(f.tempPassword)).join('<br>') + '</div></div>' : '')
         + '</div>';
       if (r.imported > 0) this.renderUserManagement();
     });
@@ -13842,7 +13843,8 @@ const App = {
     const result = await this.callAsync('addUser', userData);
     if (result.success) {
       document.querySelector('.modal-overlay')?.remove();
-      this.showToast('User added! Welcome email sent.', 'success');
+      if (result.emailSent === false) { this.showToast('User added, but the welcome email could not be sent.', 'warning'); this._showTempPassword(userData.email, result.tempPassword); }
+      else this.showToast('User added! Welcome email sent.', 'success');
       this.renderUserManagement();
     } else {
       this.showToast('Failed: ' + result.error, 'error');
@@ -13949,8 +13951,14 @@ const App = {
 
   async resendWelcomeEmail(userId, email) {
     const r = await this.callAsync('resendWelcomeEmail', userId);
-    if (r && r.success) this.showToast('Welcome email sent to ' + email, 'success');
-    else this.showToast('Email failed: ' + (r && r.error || 'Check EMAIL_ENABLED in .env'), 'error');
+    if (r && r.success && r.emailSent === false) { this.showToast('The email could not be sent to ' + email, 'warning'); this._showTempPassword(email, r.tempPassword); }
+    else if (r && r.success) this.showToast('Welcome email sent to ' + email, 'success');
+    else this.showToast('Email failed: ' + (r && r.error || 'Try again, or contact support'), 'error');
+  },
+  // Shown when no email could be delivered: the admin passes the temporary password on in person.
+  _showTempPassword(email, pwd) {
+    if (!pwd) return;
+    document.body.insertAdjacentHTML('beforeend', '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:440px"><div class="modal-header"><span class="modal-title">Give this password to ' + this._esc(email) + '</span><button class="modal-close" onclick="this.closest(&quot;.modal-overlay&quot;).remove()">✕</button></div><div style="padding:16px 20px;"><p style="margin:0 0 10px;font-size:13px;color:var(--text-secondary);">We could not email this person. Send them the temporary password yourself. They will be asked to choose a new one at first sign-in. It is shown only now.</p><div style="font-family:var(--font-mono);font-size:16px;font-weight:700;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:12px;user-select:all;text-align:center;">' + this._esc(pwd) + '</div></div></div></div>');
   },
 
   async showUserActivity(userId, userName) {

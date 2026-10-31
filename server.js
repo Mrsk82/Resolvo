@@ -376,7 +376,19 @@ function requireFeature(flags,key){
 }
 function ownerAuditLog(owner,action,details,by){owner.auditLog=owner.auditLog||[];owner.auditLog.unshift({id:uuidv4().substring(0,8),action,details,by,timestamp:nowIST()});if(owner.auditLog.length>500)owner.auditLog=owner.auditLog.slice(0,500);}
 function readOwner(){return JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}
-function writeOwner(d){fs.writeFileSync(OWNER_PATH,JSON.stringify(d,null,2),'utf8');}
+const OwnerGuard=require('./lib/owner-guard');
+// Saved in one step (temp file, then rename) so a crash or a full disk never leaves a half-written owner file.
+// A save that lacks a workspace the file on disk already has is an old copy being written back: those workspaces are put back.
+function writeOwner(d){
+  let cur=null;try{cur=JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}catch(e){}
+  const g=OwnerGuard.protectBrands(cur,d);
+  if(g.restored.length){console.error('[Owner] a save was missing workspaces, put them back:',g.restored.join(', '));try{ownerAuditLog(g.data,'workspaces_restored',{slugs:g.restored},'system');}catch(e){}}
+  const tmp=OWNER_PATH+'.tmp';
+  fs.writeFileSync(tmp,JSON.stringify(g.data,null,2),'utf8');
+  fs.renameSync(tmp,OWNER_PATH);
+}
+// For slow jobs: save only the named fields onto a fresh copy, so signups made while the job was busy are not overwritten.
+function patchOwner(source,fields){const fresh=readOwner();OwnerGuard.patchFields(fresh,source,fields);writeOwner(fresh);}
 // A brand slug becomes a folder name: only letters, digits, '-' and '_' are allowed, so a request
 // can never point at '../..' or any path outside data/brands.
 function _assertSlug(slug){if(!/^[A-Za-z0-9_-]{1,64}$/.test(String(slug==null?'':slug)))throw new Error('Invalid brand slug');return slug;}
@@ -628,8 +640,14 @@ function getMailer(){
 const OWNER_FROM_EMAIL = process.env.OWNER_EMAIL || 'contact@resolvogroup.com';
 const OWNER_FROM = `"Resolvo" <${OWNER_FROM_EMAIL}>`;
 
-async function sendEmail(to,subject,html,text,fromOverride){
-  const t=getMailer();if(!t){console.log('[Email] SKIPPED:',to);return;}
+// MAIL_CAPTURE=<file> (tests only): write each email to that file as a JSON line instead of sending it.
+function _captureMail(m){try{fs.appendFileSync(process.env.MAIL_CAPTURE,JSON.stringify({at:nowIST(),...m})+'\n');return true;}catch(e){return false;}}
+// Headers that tell other mail systems this is an automatic message, so they do not answer it (stops reply loops between two helpdesks).
+const AUTO_REPLY_HEADERS={'Auto-Submitted':'auto-replied','X-Auto-Response-Suppress':'All','Precedence':'auto_reply'};
+// Returns true only when the mail server accepted the message.
+async function sendEmail(to,subject,html,text,fromOverride,headers){
+  if(process.env.MAIL_CAPTURE)return _captureMail({via:'platform',to,subject,text:text||subject,headers:headers||null});
+  const t=getMailer();if(!t){console.log('[Email] SKIPPED:',to);return false;}
   // Always show contact@resolvogroup.com as sender for owner emails
   const fromAddr=fromOverride||OWNER_FROM;
   try{
@@ -639,11 +657,13 @@ async function sendEmail(to,subject,html,text,fromOverride){
       subject,
       text:text||subject,
       html,
-      replyTo:OWNER_FROM_EMAIL // replies go to contact@resolvogroup.com
+      replyTo:OWNER_FROM_EMAIL, // replies go to contact@resolvogroup.com
+      ...(headers?{headers}:{})
     });
     console.log('[Email] ✓:',to);
+    return true;
   }
-  catch(e){console.error('[Email] ✗',e.message);_mailer=null;}
+  catch(e){console.error('[Email] ✗',e.message);_mailer=null;return false;}
 }
 // Feature A: Per-brand mailer — uses brand's own SMTP email if configured
 const _brandMailers={};
@@ -666,12 +686,23 @@ function getBrandMailer(slug){
     return{mailer:t,from:`"${displayName}" <${bEmail}>`};
   }catch(e){return null;}
 }
-async function sendBrandEmail(slug,to,subject,html,text){
+// opts.critical: the person must get this email (password reset, welcome with a login). If the workspace has no working email of its
+//   own, it is sent from Resolvo's own sender instead of being dropped. opts.auto: mark it as an automatic reply.
+// Returns true when a mail server accepted the message.
+async function sendBrandEmail(slug,to,subject,html,text,opts){
+  opts=opts||{};
+  const headers=opts.auto?AUTO_REPLY_HEADERS:undefined;
+  if(process.env.MAIL_CAPTURE){
+    const bm0=getBrandMailer(slug);
+    if(bm0||opts.critical)return _captureMail({via:bm0?'brand':'platform-fallback',slug,to,subject,text:text||subject,headers:headers||null});
+    return false;
+  }
   const bm=getBrandMailer(slug);
   if(bm){
-    try{await bm.mailer.sendMail({from:bm.from,to,subject,text:text||subject,html});console.log('[BrandEmail] ✓:',to);return;}
+    try{await bm.mailer.sendMail({from:bm.from,to,subject,text:text||subject,html,...(headers?{headers}:{})});console.log('[BrandEmail] ✓:',to);return true;}
     catch(e){
       console.error('[BrandEmail] ✗',e.message);
+      if(opts.critical){const ok=await sendEmail(to,subject,html,text,undefined,headers);if(ok)return true;}
       // SMTP configured but failed — alert brand admin
       try{
         const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
@@ -681,9 +712,11 @@ async function sendBrandEmail(slug,to,subject,html,text){
           await sendEmail(adminEmail,`⚠️ Email send failed for ${brand.name||slug}`,errHtml,`Email to ${to} failed: ${e.message}. Check your SMTP settings.`);
         }
       }catch(_){}
-      return;
+      return false;
     }
   } else {
+    // A critical email (password reset, login details) goes out from Resolvo's own sender when the workspace has no email of its own
+    if(opts.critical){const ok=await sendEmail(to,subject,html,text,undefined,headers);if(ok)return true;}
     // No brand SMTP configured — do NOT send to customer, notify brand admin instead
     try{
       const owner=readOwner();const brand=(owner.brands||[]).find(b=>b.slug===slug)||{};
@@ -694,6 +727,7 @@ async function sendBrandEmail(slug,to,subject,html,text){
         console.log(`[BrandEmail] No SMTP for ${slug} — notified admin ${adminEmail}`);
       }
     }catch(_){}
+    return false;
   }
 }
 function cr(label,val,vs){return`<tr><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;width:110px;font-size:11px;font-weight:700;text-transform:uppercase;color:#9ca3af;">${label}</td><td style="padding:12px 20px;border-bottom:1px solid #f3f4f6;font-size:14px;${vs||'color:#111827;'}">${val}</td></tr>`;}
@@ -774,7 +808,7 @@ app.post('/api/login',(req,res)=>{
     if(brand.status==='pending'&&String(brand.majorAdminEmail||'').toLowerCase()===String(email).toLowerCase())return res.json({success:false,error:'Please activate your account first: open the confirmation link we emailed you (check spam). Sign up again with the same email to get a new link.'});
     if(brand.status!=='active')continue;
     let db;try{db=readBrandDB(brand.slug);}catch(e){continue;}
-    const user=(db.users||[]).find(u=>u.email===email&&(u.active===true||u.active==='true'));
+    const user=(db.users||[]).find(u=>String(u.email||'').trim().toLowerCase()===String(email).trim().toLowerCase()&&(u.active===true||u.active==='true'));
     if(!user)continue;
     if(!checkPwd(password,user.passwordHash))return res.json({success:false,error:'Invalid password.'});
 
@@ -805,26 +839,38 @@ app.post('/api/login',(req,res)=>{
 app.post('/api/logout',(req,res)=>{const t=req.headers['x-session-token'];if(t)delete sessions[t];res.json({success:true});});
 
 // ── Forgot password ────────────────────────────────────────────────────────────
+const _forgotHits=new Map();
 app.post('/api/forgot-password',async(req,res)=>{
-  const{email}=req.body;
-  if(!email)return res.json({success:false,error:'Email required.'});
+  // Capital letters and stray spaces in the typed address must not matter (phones capitalise the first letter).
+  const email=String((req.body||{}).email||'').trim().toLowerCase();
+  if(!email||!email.includes('@'))return res.json({success:false,error:'Enter the email address you sign in with.'});
+  if(_rateLimited(_forgotHits,'ip:'+_clientIp(req),20,3600000)||_rateLimited(_forgotHits,'em:'+email,5,3600000))
+    return res.json({success:false,error:'Too many reset requests for this address. Please wait an hour, or write to contact@resolvogroup.com.'});
   const owner=readOwner();
   for(const brand of(owner.brands||[])){
     let db;try{db=readBrandDB(brand.slug);}catch(e){continue;}
-    const user=(db.users||[]).find(u=>u.email===email&&u.active);
+    const user=(db.users||[]).find(u=>String(u.email||'').trim().toLowerCase()===email&&(u.active===true||u.active==='true'));
     if(!user)continue;
+    if(brand.status==='pending')return res.json({success:false,error:'Your workspace is not activated yet. Open the activation email we sent when you signed up and click the link in it.'});
+    if(brand.status!=='active')continue;
     const resetToken=uuidv4();
     // Store in owner.json so token survives server restarts
-    savePwdResetToken(resetToken,{email,brandSlug:brand.slug,expiresAt:Date.now()+3600000});
+    savePwdResetToken(resetToken,{email:user.email,brandSlug:brand.slug,expiresAt:Date.now()+3600000});
     const resetUrl=`${BASE_URL}/reset-password?token=${resetToken}`;
-    await sendBrandEmail(brand.slug,email,'Reset Your Password — '+brand.name,
+    const sent=await sendBrandEmail(brand.slug,user.email,'Reset Your Password — '+brand.name,
       `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#f0f2f5;font-family:-apple-system,sans-serif;padding:40px 16px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><div style="background:linear-gradient(135deg,#f5a623,#ff6b35);padding:40px;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">🔑</div><h1 style="margin:0;font-size:24px;font-weight:800;color:#fff;">Password Reset</h1><p style="margin:10px 0 0;color:rgba(255,255,255,0.85);">Click below to set a new password. Link expires in 1 hour.</p></div><div style="padding:32px 40px;"><p style="color:#374151;">Hi <strong>${user.name||user.email}</strong>, we received a request to reset your password for <strong>${brand.name}</strong>.</p><div style="text-align:center;margin:24px 0;"><a href="${resetUrl}" style="display:inline-block;padding:14px 44px;border-radius:10px;background:#f5a623;color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Reset Password →</a></div><p style="font-size:12px;color:#9ca3af;">If you didn't request this, ignore this email. Your password won't change.</p><p style="font-size:11px;color:#d1d5db;word-break:break-all;">Link: ${resetUrl}</p></div></div></body></html>`,
-      `Reset your password: ${resetUrl}`
+      `Reset your password: ${resetUrl}`,
+      {critical:true}
     );
-    return res.json({success:true,message:'Password reset email sent.'});
+    if(!sent){
+      console.error(`[Reset] could not send the reset email to ${user.email} (${brand.slug})`);
+      try{const o=readOwner();ownerAuditLog(o,'reset_email_failed',{brandSlug:brand.slug,email:user.email},'system');writeOwner(o);}catch(e){}
+      return res.json({success:false,error:'We could not send the email just now. Ask your workspace admin to reset your password, or write to contact@resolvogroup.com and we will help.'});
+    }
+    return res.json({success:true,sent:true,message:`A reset link was sent to ${user.email}. It can take a few minutes; check the spam folder too. The link works for 1 hour.`});
   }
-  // Don't reveal if email exists for security
-  return res.json({success:true,message:'If that email exists, a reset link has been sent.'});
+  // The same answer whether or not the address exists, so this form cannot be used to find out who has an account.
+  return res.json({success:true,message:'If that address is registered, a reset link has been sent. Check the spam folder too. If nothing arrives in a few minutes, write to contact@resolvogroup.com.'});
 });
 
 // ── Reset password (from email link) ──────────────────────────────────────────
@@ -839,7 +885,7 @@ app.post('/api/reset-password',(req,res)=>{
     return res.json({success:false,error:'Reset link expired or invalid. Please request a new one.'});
   }
   const db=readBrandDB(entry.brandSlug);
-  const idx=(db.users||[]).findIndex(u=>u.email===entry.email);
+  const idx=(db.users||[]).findIndex(u=>String(u.email||'').trim().toLowerCase()===String(entry.email||'').trim().toLowerCase());
   if(idx<0)return res.json({success:false,error:'User not found.'});
   db.users[idx].passwordHash=hashPwd(newPassword);
   db.users[idx].mustChangePassword=false;
@@ -1865,12 +1911,16 @@ app.post('/api/call',async(req,res)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB(),owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{},lim=brand.limits||{maxUsers:20};
       if((db.users||[]).filter(u=>u.active).length>=(lim.maxUsers||20))return{success:false,error:`User limit reached (${lim.maxUsers}).`};
-      if((db.users||[]).find(u=>u.email===ud.email))return{success:false,error:'Email already registered.'};
+      ud.email=String(ud.email||'').trim().toLowerCase();
+      if(!ud.email||!ud.email.includes('@'))return{success:false,error:'Enter a valid email address.'};
+      if((db.users||[]).find(u=>String(u.email||'').trim().toLowerCase()===ud.email))return{success:false,error:'Email already registered.'};
       const uid=generateId('USR'),ip=ud.password||_genTempPassword();
       const nu={id:uid,email:ud.email,name:ud.name,team:ud.team,role:ud.role,skill:ud.skill||'',slackId:ud.slackId||'',maxTickets:ud.maxTickets||10,active:true,createdDate:nowIST(),passwordHash:hashPwd(ip),firstLogin:true,mustChangePassword:true};
       db.users=db.users||[];db.users.push(nu);wDB(db);
-      await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`);
-      return{success:true,userId:uid};
+      const emailSent=await sendBrandEmail(slug,ud.email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',ip,BASE_URL),`Login: ${BASE_URL} | Email: ${ud.email} | Pass: ${ip}`,{critical:true});
+      _socialAudit(slug,su.email,'user_added',{target:ud.email,targetId:uid,role:ud.role,detail:'Added '+ud.name+' ('+ud.email+') as '+ud.role+(emailSent?'; welcome email sent':'; welcome email NOT sent')});
+      // When no email could go out, the admin gets the temporary password on screen to pass on personally.
+      return{success:true,userId:uid,emailSent,...(emailSent?{}:{tempPassword:ip})};
     },
     // Bulk import from a parsed CSV — rows: [{name,email,team,role,skill}].
     // Same validation/limits as addUser (Admin only, plan's maxUsers cap,
@@ -1884,7 +1934,7 @@ app.post('/api/call',async(req,res)=>{
       const maxUsers=lim.maxUsers||20;
       db.users=db.users||[];
       const existingEmails=new Set(db.users.map(u=>u.email.toLowerCase()));
-      let imported=0,skippedInvalid=0,skippedDuplicate=0,skippedLimit=0,emailsSent=0;
+      let imported=0,skippedInvalid=0,skippedDuplicate=0,skippedLimit=0,emailsSent=0;const emailsFailed=[];
       const validRoles=new Set(['Admin','Manager','Agent','Dev','Developer']);
       for(const row of rows){
         const email=(row.email||'').trim().toLowerCase(),name=(row.name||'').trim();
@@ -1896,12 +1946,12 @@ app.post('/api/call',async(req,res)=>{
         const nu={id:generateId('USR'),email,name,team:(row.team||'').trim(),role,skill:(row.skill||'').trim(),slackId:'',maxTickets:10,active:true,createdDate:nowIST(),passwordHash:hashPwd(tempPass),firstLogin:true,mustChangePassword:true};
         db.users.push(nu);existingEmails.add(email);imported++;
         if(sendWelcomeEmails){
-          sendBrandEmail(slug,email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',tempPass,BASE_URL),`Login: ${BASE_URL} | Email: ${email} | Pass: ${tempPass}`).catch(()=>{});
-          emailsSent++;
+          const ok=await sendBrandEmail(slug,email,`Welcome to ${su.brandName}`,brandWelcomeHTML(nu,su.brandName,brand.accentColor||'#10B981',tempPass,BASE_URL),`Login: ${BASE_URL} | Email: ${email} | Pass: ${tempPass}`,{critical:true}).catch(()=>false);
+          if(ok)emailsSent++;else emailsFailed.push({email,tempPassword:tempPass});
         }
       }
-      if(imported>0)wDB(db);
-      return{success:true,imported,skippedInvalid,skippedDuplicate,skippedLimit,emailsSent};
+      if(imported>0){wDB(db);_socialAudit(slug,su.email,'users_imported',{detail:'Imported '+imported+' users from a file ('+emailsSent+' welcome emails sent'+(emailsFailed.length?', '+emailsFailed.length+' could not be sent':'')+')'});}
+      return{success:true,imported,skippedInvalid,skippedDuplicate,skippedLimit,emailsSent,emailsFailed};
     },
     createIssue:async id=>{
       const db=rDB();
@@ -1969,14 +2019,14 @@ app.post('/api/call',async(req,res)=>{
       // Update session
       const t=req.headers['x-session-token'];
       if(t&&sessions[t]){sessions[t].mustChangePassword=false;sessions[t].firstLogin=false;}
-      wDB(db);return{success:true};
+      wDB(db);_socialAudit(slug,su.email,'password_changed',{target:db.users[idx].email,targetId:uid,detail:su.id===uid?'Changed own password':'Admin set a new password for '+db.users[idx].email});return{success:true};
     },
     // Force password change for a user (admin sets flag)
     forcePasswordChange:async(uid)=>{
       if(su.role!=='Admin')return{success:false,error:'Admin only'};
       const db=rDB();const idx=(db.users||[]).findIndex(u=>u.id===uid);
       if(idx===-1)return{success:false,error:'Not found'};
-      db.users[idx].mustChangePassword=true;wDB(db);return{success:true};
+      db.users[idx].mustChangePassword=true;wDB(db);_socialAudit(slug,su.email,'password_change_forced',{target:db.users[idx].email,targetId:uid,detail:'Asked '+db.users[idx].email+' to change password at next login'});return{success:true};
     },
     // Duplicate/clone an issue
     duplicateIssue:async(issueId)=>{
@@ -2002,7 +2052,7 @@ app.post('/api/call',async(req,res)=>{
       const s=t?sessions[t]:null;
       return{success:true,expiresAt:s?s.expiresAt:null,expiresIn:s&&s.expiresAt?Math.max(0,Math.round((s.expiresAt-Date.now())/60000)):0};
     },
-    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};const tmp=_genTempPassword();user.passwordHash=hashPwd(tmp);user.mustChangePassword=true;user.firstLogin=true;wDB(db);await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#10B981',tmp,BASE_URL),`Login: ${BASE_URL} | Email: ${user.email} | Temporary password: ${tmp}`);return{success:true};},
+    resendWelcomeEmail:async uid=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const o=readOwner(),b=(o.brands||[]).find(b=>b.slug===slug)||{};const tmp=_genTempPassword();user.passwordHash=hashPwd(tmp);user.mustChangePassword=true;user.firstLogin=true;wDB(db);const emailSent=await sendBrandEmail(slug,user.email,`Your ${su.brandName} Account`,brandWelcomeHTML(user,su.brandName,b.accentColor||'#10B981',tmp,BASE_URL),`Login: ${BASE_URL} | Email: ${user.email} | Temporary password: ${tmp}`,{critical:true});_socialAudit(slug,su.email,'welcome_resent',{target:user.email,targetId:uid,detail:'New temporary password for '+user.email+(emailSent?' emailed':' could not be emailed')});return{success:true,emailSent,...(emailSent?{}:{tempPassword:tmp})};},
     sendTestEmail:async to=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};await sendBrandEmail(slug,to||su.email,`✅ TechTrack Email Test`,testEmailHTML(),'Email test OK');return{success:true};},
     completeBrandSetup:async sd=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const db=rDB();if(sd.appName){db.settings=db.settings||{};db.settings.APP_NAME=sd.appName;}const ui=(db.users||[]).findIndex(u=>u.email===su.email);if(ui>=0){db.users[ui].firstLogin=false;if(sd.adminName)db.users[ui].name=sd.adminName;}wDB(db);const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi>=0){if(sd.accentColor)o.brands[bi].accentColor=sd.accentColor;if(sd.theme)o.brands[bi].theme=sd.theme;if(sd.logoUrl!==undefined)o.brands[bi].logoUrl=sd.logoUrl;if(sd.appName)o.brands[bi].name=sd.appName;writeOwner(o);}const t=req.headers['x-session-token'];if(t&&sessions[t])Object.assign(sessions[t],{brandName:sd.appName||su.brandName,brandAccentColor:sd.accentColor||su.brandAccentColor,brandTheme:sd.theme||su.brandTheme,firstLogin:false});return{success:true};},
     updateBrandProfile:async updates=>{if(!su.isMajorAdmin)return{success:false,error:'Major Admin only'};const o=readOwner(),bi=(o.brands||[]).findIndex(b=>b.slug===slug);if(bi<0)return{success:false,error:'Not found'};['name','logoUrl','accentColor','theme'].forEach(k=>{if(updates[k]!==undefined)o.brands[bi][k]=updates[k];});writeOwner(o);return{success:true};},
@@ -2145,7 +2195,7 @@ app.post('/api/call',async(req,res)=>{
     getCurrentUser:()=>{const o=readOwner();const b=(o.brands||[]).find(b=>b.slug===slug);const freshName=b?b.name:su.brandName;if(su&&freshName!==su.brandName)su.brandName=freshName;return{success:true,user:{...su,brandName:freshName}};},
     getUsers:ao=>{const db=rDB();let u=db.users||[];if(ao)u=u.filter(u=>u.active);return{success:true,users:u.map(u=>({...u,passwordHash:undefined}))};},
     getDevelopers:()=>{const db=rDB();return{success:true,developers:(db.users||[]).filter(u=>u.role==='Developer'&&u.active).map(u=>({...u,passwordHash:undefined}))};},
-    updateUser:(uid,ud)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const idx=(db.users||[]).findIndex(u=>u.id===uid);if(idx===-1)return{success:false,error:'Not found'};['name','team','role','skill','slackId','maxTickets','active'].forEach(f=>{if(ud[f]!==undefined)db.users[idx][f]=ud[f];});wDB(db);return{success:true};},
+    updateUser:(uid,ud)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();const idx=(db.users||[]).findIndex(u=>u.id===uid);if(idx===-1)return{success:false,error:'Not found'};const before={role:db.users[idx].role,active:db.users[idx].active};['name','team','role','skill','slackId','maxTickets','active'].forEach(f=>{if(ud[f]!==undefined)db.users[idx][f]=ud[f];});wDB(db);const ch=[];if(ud.role!==undefined&&ud.role!==before.role)ch.push('role '+before.role+' -> '+ud.role);if(ud.active!==undefined&&String(ud.active)!==String(before.active))ch.push(String(ud.active)==='true'?'turned on':'turned off');if(ch.length)_socialAudit(slug,su.email,'user_updated',{target:db.users[idx].email,targetId:uid,detail:'Changed '+db.users[idx].email+': '+ch.join(', ')});return{success:true};},
     getUserActivity:uid=>{const db=rDB();const user=(db.users||[]).find(u=>u.id===uid);if(!user)return{success:false,error:'Not found'};const logs=(db.activityLog||[]).filter(l=>l.user===user.email);return{success:true,logs:logs.slice(-50).reverse(),totalActions:logs.length,issuesRaised:(db.issues||[]).filter(i=>i.raisedBy===user.email).length,issuesResolved:(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.assignedTo===user.email).length};},
     checkDuplicates:title=>{const db=rDB(),ws=(title||'').toLowerCase().split(' ').filter(w=>w.length>3);return{success:true,duplicates:(db.issues||[]).filter(issue=>{if(['Resolved','Release Required'].includes(issue.status))return false;const iw=issue.title.toLowerCase().split(' ').filter(w=>w.length>3);return ws.filter(w=>iw.includes(w)).length>=Math.min(3,ws.length*0.5);}).slice(0,5)};},
     addComment:(issueId,ct)=>{
@@ -2284,7 +2334,14 @@ app.post('/api/call',async(req,res)=>{
     generatePostMortem:ii=>{const db=rDB(),issue=(db.issues||[]).find(i=>i.id===ii);if(!issue)return{success:false,error:'Not found'};const pm={id:generateId('PM'),issueId:ii,title:issue.title,priority:issue.priority,module:issue.module,raisedBy:issue.raisedBy,assignedTo:issue.assignedTo,createdDate:issue.createdDate,resolvedDate:issue.resolvedDate,resolutionTime:issue.resolvedDate?Math.round((new Date(issue.resolvedDate)-new Date(issue.createdDate))/3600000)+'h':'Unresolved',timeline:(db.comments||[]).filter(c=>c.issueId===ii).map(c=>({time:c.timestamp,user:c.userEmail,note:c.comment})),generatedAt:nowIST()};db.postMortems=db.postMortems||[];db.postMortems.push(pm);wDB(db);return{success:true,postMortem:pm};},
     getPostMortem:ii=>{const db=rDB();return{success:true,postMortem:(db.postMortems||[]).find(p=>p.issueId===ii)||null};},
     generateReleaseNotes:(fd,td)=>{const db=rDB(),from=new Date(fd),to=new Date(td),r=(db.issues||[]).filter(i=>['Resolved','Release Required'].includes(i.status)&&i.resolvedDate&&new Date(i.resolvedDate)>=from&&new Date(i.resolvedDate)<=to);return{success:true,notes:r.map(i=>`- [${i.priority}] ${i.id}: ${i.title} (${i.module||'General'})`).join('\n'),count:r.length};},
-    getAuditTrail:f=>{const db=rDB();let l=db.activityLog||[];if(f&&f.issueId)l=l.filter(x=>x.issueId===f.issueId);return{success:true,trail:l.slice().reverse()};},
+    getAuditTrail:f=>{
+      if(su.role!=='Admin')return{success:false,error:'Admin only'};
+      const db=rDB();let l=db.activityLog||[];if(f&&f.issueId)l=l.filter(x=>x.issueId===f.issueId);
+      // The page lists ticket activity together with the change record (users added, roles and passwords changed, imports, social sends).
+      const rec=(f&&f.issueId)?[]:(db.auditTrail||[]).map(x=>({...x,action:String(x.action||'').replace(/_/g,' '),issueId:x.issueId||x.ticketId||'',detail:typeof x.detail==='string'?x.detail:(x.target||'')}));
+      const all=l.concat(rec).sort((a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||''))).slice(0,500);
+      return{success:true,logs:all,trail:all};
+    },
     processAIQuery:async(query,context)=>{
       const db=rDB();const apiKey=getBrandGeminiKey(db);
       if(!apiKey)return{success:false,error:'Add your Gemini API key in Settings → Integrations to enable AI.'};
@@ -4907,6 +4964,8 @@ app.post('/api/call',async(req,res)=>{
       const off2=users.filter(u=>!u.twoFAEnabled).length;set('two-fa',off2===0?'ok':'attn',off2===0?'On for everyone':('Off for '+off2+' '+(off2===1?'person':'people')));
       set('security','ok','');set('gdpr','off','');
       const attention=[];
+      const sendOk=!!((db.settings||{}).BRAND_NOTIFY_EMAIL&&(db.settings||{}).BRAND_NOTIFY_PASS);
+      if(!sendOk)attention.push({id:'email',title:'Set up the email your customers get mail from',text:'Until you do, automatic emails to your customers (ticket acknowledgements, replies) are not sent. Password-reset and welcome emails still go out from Resolvo.'});
       if(!emailOk)attention.push({id:'email',title:'Connect your email',text:'Customer emails cannot become tickets until Gmail or IMAP is connected.'});
       if(!slackOn)attention.push({id:'slack-alerts',title:'Slack alerts are not set up',text:'Get a message when a ticket is new or past its target.'});
       if(users.length>1&&off2>0)attention.push({id:'two-fa',title:'Two-factor sign-in is off for '+off2+' '+(off2===1?'person':'people'),text:'A second step keeps accounts safe if a password leaks.'});
@@ -8008,7 +8067,8 @@ async function createTicketFromEmail(slug, emailData) {
           <p style="margin:0;font-size:12px;color:#9ca3af;">Powered by Resolvo Support · ${brandName}</p>
         </div>
       </div></body></html>`,
-      `Ticket ${ticketId} created. We'll get back to you soon. Reply to this email to add more details.`
+      `Ticket ${ticketId} created. We'll get back to you soon. Reply to this email to add more details.`,
+      { auto: true }   // marked as an automatic reply so another helpdesk (or ours) does not answer it and start a loop
     );
   }
 
@@ -9372,7 +9432,8 @@ async function sendNurtureEmails(){
       }
     }catch(e){console.error('[Nurture] Error for',brand.slug,e.message);}
   }
-  writeOwner(owner);
+  // slow job: save only what it changed, onto a fresh copy of the owner file
+  patchOwner(owner,['nurtureSent']);
 }
 
 // ── PROSPECT LEAD DRIP ────────────────────────────────────────────────────
@@ -9411,7 +9472,8 @@ async function sendProspectDrip(){
       }
     }catch(e){console.error('[LeadDrip] Error for',p.email,e.message);}
   }
-  writeOwner(owner);
+  // slow job: save only what it changed, onto a fresh copy of the owner file
+  patchOwner(owner,['prospectDripSent']);
 }
 // Lead drip unsubscribe
 app.get('/api/lead/unsubscribe',(req,res)=>{
@@ -9435,6 +9497,49 @@ app.get('/api/nurture/unsubscribe',(req,res)=>{
   writeOwner(owner);
   console.log(`[Nurture] Unsubscribed ${email} (${slug})`);
   res.send(`<!DOCTYPE html><html><body style="font-family:Arial;text-align:center;padding:60px 20px;background:#f0f2f5;"><div style="max-width:400px;margin:0 auto;background:#fff;border-radius:14px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,.08);"><div style="font-size:40px;margin-bottom:16px;">✅</div><h2 style="color:#111827;margin:0 0 12px;">Unsubscribed</h2><p style="color:#6b7280;font-size:14px;">You've been removed from all onboarding emails for this workspace.</p><p style="color:#9ca3af;font-size:12px;margin-top:24px;">You will still receive transactional emails such as ticket replies and appointment confirmations.</p></div></body></html>`);
+});
+
+// ── DAILY BACKUPS ───────────────────────────────────────────────────────────
+// One file per day in data/backups (resolvo-YYYY-MM-DD_HHMM.tar.gz): the owner file, every workspace database and the keys.
+// Each copy is checked before it is kept. The newest 14 days are kept, then one per week for 8 weeks. A failure emails the owner.
+const Backup=require('./lib/backup');
+const BACKUP_DIR=process.env.BACKUP_DIR||path.join(__dirname,'data','backups');
+let _lastBackup=null,_backupRunning=false;
+function _readBackupStatus(){try{return JSON.parse(fs.readFileSync(path.join(BACKUP_DIR,'status.json'),'utf8'));}catch(e){return null;}}
+async function runBackup(reason){
+  if(_backupRunning)return{success:false,error:'A backup is already running.'};
+  _backupRunning=true;
+  try{
+    const r=await Backup.createBackup({dataDir:path.join(__dirname,'data'),backupDir:BACKUP_DIR,Database:_sqlite3});
+    const pr=Backup.pruneBackups({backupDir:BACKUP_DIR});
+    _lastBackup={ok:true,at:nowIST(),name:r.name,bytes:r.bytes||0,workspaces:r.workspaces,databases:r.databases,skipped:r.skipped||null,pruned:pr.removed.length,reason:reason||'scheduled'};
+    if(!r.skipped)console.log(`[Backup] ✓ ${r.name} — ${r.workspaces} workspaces, ${r.databases} databases, ${Math.round((r.bytes||0)/1024)} KB, ${r.ms} ms; removed ${pr.removed.length} old`);
+    try{fs.writeFileSync(path.join(BACKUP_DIR,'status.json'),JSON.stringify(_lastBackup));}catch(e){}
+    return{success:true,...r,pruned:pr.removed.length};
+  }catch(e){
+    console.error('[Backup] ✗',e.message);
+    _lastBackup={ok:false,at:nowIST(),error:e.message,reason:reason||'scheduled'};
+    try{fs.mkdirSync(BACKUP_DIR,{recursive:true});fs.writeFileSync(path.join(BACKUP_DIR,'status.json'),JSON.stringify(_lastBackup));}catch(_){}
+    try{sendAlert('BACKUP','Daily backup failed',`The daily backup did not complete, so no new backup was saved.\nReason: ${e.message}\nTime: ${nowIST()}`,{'Folder':BACKUP_DIR});}catch(_){}
+    return{success:false,error:e.message};
+  }finally{_backupRunning=false;}
+}
+const _backupName=n=>/^resolvo-\d{4}-\d{2}-\d{2}_\d{4}\.tar\.gz$/.test(String(n||''));
+app.get('/api/owner/backups',ownerOnly,(req,res)=>{
+  const list=Backup.listBackups(BACKUP_DIR).map(b=>({name:b.name,packed:b.packed,bytes:b.bytes,createdAt:b.createdAt}));
+  res.json({success:true,folder:BACKUP_DIR,running:_backupRunning,last:_lastBackup||_readBackupStatus(),backups:list});
+});
+app.post('/api/owner/backups/run',ownerOnly,async(req,res)=>{
+  const r=await runBackup('owner');
+  try{const o=readOwner();ownerAuditLog(o,'backup_run',{ok:!!r.success,name:r.name||null},req.owner.email);writeOwner(o);}catch(e){}
+  res.json(r);
+});
+app.get('/api/owner/backups/download/:name',ownerOnly,(req,res)=>{
+  const n=req.params.name;
+  if(!_backupName(n))return res.status(400).json({success:false,error:'Not a backup file name.'});
+  const f=path.join(BACKUP_DIR,n);
+  if(!fs.existsSync(f))return res.status(404).json({success:false,error:'Backup not found.'});
+  res.download(f,n);
 });
 
 function runBackgroundJobs(){
@@ -9691,6 +9796,9 @@ function runBackgroundJobs(){
       }catch(e){console.error('[24hReminder] Error:',brand.slug,e.message);}
     }
   });
+  // Daily backup at 03:30 (server time is IST). Also one shortly after a start if the newest backup is older than a day.
+  cron.schedule('30 3 * * *',()=>{runBackup('scheduled');});
+  setTimeout(()=>{const l=Backup.listBackups(BACKUP_DIR)[0];if(!l||Date.now()-l.createdAt.getTime()>26*3600000)runBackup('catch-up');},90000);
   console.log('[Jobs] Background jobs started (reminders, digest, follow-ups, 24h-apt-reminders)');
 }
 
