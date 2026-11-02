@@ -9362,7 +9362,9 @@ const TRIGGER_EMAILS={
 
 function nurtureUnsubUrl(slug,email){return`${BASE_URL}/api/nurture/unsubscribe?slug=${slug}&email=${encodeURIComponent(email)}`;}
 
-async function sendNurtureEmails(){
+// opts.dryRun: only work out who would get which email today; nothing is sent or marked as sent.
+async function sendNurtureEmails(opts){
+  const dry=!!(opts&&opts.dryRun),plan=[];
   const owner=readOwner();
   owner.nurtureSent=owner.nurtureSent||{};
   owner.nurtureUnsub=owner.nurtureUnsub||{};
@@ -9399,6 +9401,7 @@ async function sendNurtureEmails(){
         };
         const html=nurtureShell(n.body(adminName,BASE_URL,unsub,stats).replace(/^<!DOCTYPE.*?<\/div>\s*<\/body>\s*<\/html>$/s,''),unsub);
         const finalHtml=nurtureShell(n.body(adminName,BASE_URL,unsub,stats),unsub);
+        if(dry){plan.push({workspace:brand.name,to:email,subject:n.subject,kind:'Day '+n.day});continue;}
         await sendEmail(email,n.subject,finalHtml,n.subject).catch(()=>{});
         owner.nurtureSent[sentKey]=nowIST();
         console.log(`[Nurture] Day ${n.day} → ${email} (${brand.slug})`);
@@ -9425,6 +9428,7 @@ async function sendNurtureEmails(){
         const sentKey=`${t.key}_${brand.slug}`;
         if(owner.nurtureSent[sentKey])continue;
         const html=t.body(adminName,BASE_URL,nurtureUnsubUrl(brand.slug,email));
+        if(dry){plan.push({workspace:brand.name,to:email,subject:t.subject,kind:'Trigger: '+tc.id});continue;}
         await sendEmail(email,t.subject,html,t.subject).catch(()=>{});
         owner.nurtureSent[sentKey]=nowIST();
         console.log(`[Nurture] Trigger ${tc.id} → ${email} (${brand.slug})`);
@@ -9432,8 +9436,10 @@ async function sendNurtureEmails(){
       }
     }catch(e){console.error('[Nurture] Error for',brand.slug,e.message);}
   }
+  if(dry)return plan;
   // slow job: save only what it changed, onto a fresh copy of the owner file
   patchOwner(owner,['nurtureSent']);
+  return plan;
 }
 
 // ── PROSPECT LEAD DRIP ────────────────────────────────────────────────────
@@ -9506,6 +9512,9 @@ const Backup=require('./lib/backup');
 const BACKUP_DIR=process.env.BACKUP_DIR||path.join(__dirname,'data','backups');
 let _lastBackup=null,_backupRunning=false;
 function _readBackupStatus(){try{return JSON.parse(fs.readFileSync(path.join(BACKUP_DIR,'status.json'),'utf8'));}catch(e){return null;}}
+// One line per backup: how many workspaces, users and tickets there were. A drop in the workspace count is shown to the owner.
+function _readBackupHistory(){try{return JSON.parse(fs.readFileSync(path.join(BACKUP_DIR,'history.json'),'utf8'));}catch(e){return[];}}
+function _appendBackupHistory(row){try{const h=_readBackupHistory();h.push(row);fs.writeFileSync(path.join(BACKUP_DIR,'history.json'),JSON.stringify(h.slice(-400)));}catch(e){}}
 async function runBackup(reason){
   if(_backupRunning)return{success:false,error:'A backup is already running.'};
   _backupRunning=true;
@@ -9515,6 +9524,7 @@ async function runBackup(reason){
     _lastBackup={ok:true,at:nowIST(),name:r.name,bytes:r.bytes||0,workspaces:r.workspaces,databases:r.databases,skipped:r.skipped||null,pruned:pr.removed.length,reason:reason||'scheduled'};
     if(!r.skipped)console.log(`[Backup] ✓ ${r.name} — ${r.workspaces} workspaces, ${r.databases} databases, ${Math.round((r.bytes||0)/1024)} KB, ${r.ms} ms; removed ${pr.removed.length} old`);
     try{fs.writeFileSync(path.join(BACKUP_DIR,'status.json'),JSON.stringify(_lastBackup));}catch(e){}
+    if(!r.skipped)_appendBackupHistory({at:nowIST(),name:r.name,workspaces:r.workspaces,users:r.users,tickets:r.tickets,bytes:r.bytes||0});
     return{success:true,...r,pruned:pr.removed.length};
   }catch(e){
     console.error('[Backup] ✗',e.message);
@@ -9542,8 +9552,75 @@ app.get('/api/owner/backups/download/:name',ownerOnly,(req,res)=>{
   res.download(f,n);
 });
 
+// ── OWNER PORTAL: what needs attention, system status, resend activation ────
+function _ago(ms){const m=Math.round(ms/60000);if(m<2)return'just now';if(m<120)return m+' minutes ago';const h=Math.round(m/60);if(h<48)return h+' hours ago';return Math.round(h/24)+' days ago';}
+function _ownerAttention(){
+  const owner=readOwner(),items=[],now=Date.now(),DAY=86400000,brands=owner.brands||[];
+  const add=o=>items.push(o);
+  const when=s=>{const t=Date.parse(s||'');return isNaN(t)?null:t;};
+  // Resolvo's own sender: every reset, welcome and activation email depends on it
+  const mailOn=['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase())&&process.env.EMAIL_USER&&process.env.EMAIL_PASS;
+  if(!mailOn&&!process.env.MAIL_CAPTURE)add({id:'platform-mail',severity:'high',title:"Resolvo's own email sender is off",text:'Activation, password-reset and welcome emails cannot be sent. Set EMAIL_ENABLED, EMAIL_USER and EMAIL_PASS in the server .env and restart.',actions:[]});
+  // Backups
+  const last=_lastBackup||_readBackupStatus(),list=Backup.listBackups(BACKUP_DIR),hist=_readBackupHistory();
+  if(last&&last.ok===false)add({id:'backup-failed',severity:'high',title:'The last backup failed',text:String(last.error||'').slice(0,160)+' ('+(last.at||'')+')',actions:[{kind:'backup-now',label:'Back up now'}]});
+  else if(!list.length&&process.uptime()>300)add({id:'backup-none',severity:'high',title:'There is no backup yet',text:'The first one is made at 03:30, or press the button.',actions:[{kind:'backup-now',label:'Back up now'}]});
+  else if(list.length&&now-list[0].createdAt.getTime()>26*3600000)add({id:'backup-old',severity:'med',title:'The newest backup is '+_ago(now-list[0].createdAt.getTime()).replace(' ago','')+' old',text:'A backup should be made every night at 03:30.',actions:[{kind:'backup-now',label:'Back up now'}]});
+  if(hist.length>1){const peak=Math.max(...hist.slice(0,-1).map(h=>h.workspaces||0)),cur=hist[hist.length-1].workspaces||0;
+    if(cur<peak)add({id:'workspace-drop',severity:'high',title:'The number of workspaces went down: '+peak+' then, '+cur+' now',text:'Nothing in Resolvo deletes a workspace. Open the backups list and compare, before the old backups are pruned.',actions:[{kind:'show-backups',label:'Open backups'}]});}
+  // Sign-ups that never activated
+  for(const b of brands.filter(b=>b.status==='pending')){
+    const t=when(b.createdDate);if(t&&now-t<3600000)continue;
+    add({id:'pending-'+b.slug,severity:t&&now-t>DAY?'high':'med',title:(b.name||b.slug)+' signed up but has not activated',text:(b.majorAdminEmail||'')+' · signed up '+(t?_ago(now-t):'earlier')+(b.verifyExpires&&Date.now()>b.verifyExpires?' · the link has expired':''),actions:[{kind:'resend-activation',label:'Resend email',slug:b.slug},{kind:'copy-activation',label:'Copy link',slug:b.slug}]});
+  }
+  // Failed reset emails in the last 7 days
+  const failed=(owner.auditLog||[]).filter(a=>a.action==='reset_email_failed'&&(when(a.timestamp)||0)>now-7*DAY);
+  if(failed.length){const em=[...new Set(failed.map(a=>(a.details||{}).email).filter(Boolean))];
+    add({id:'reset-failed',severity:'med',title:em.length+' '+(em.length===1?'person':'people')+' could not get a password-reset email',text:em.slice(0,5).join(', ')+(em.length>5?' and more':'')+'. Reset the password for them from inside their workspace.',actions:[]});}
+  // Trials ending
+  const ending=brands.filter(b=>b.status==='active'&&b.tier==='Trial'&&b.trialEnds&&(when(b.trialEnds)||Infinity)<now+3*DAY);
+  if(ending.length)add({id:'trials',severity:'med',title:ending.length+(ending.length===1?' trial ends':' trials end')+' within 3 days',text:ending.slice(0,5).map(b=>b.name).join(', ')+(ending.length>5?' and more':''),actions:[{kind:'trials',label:'Open trials'}]});
+  // Plan requests waiting
+  const pr=(owner.planChangeRequests||[]).filter(r=>r.status==='pending');
+  if(pr.length)add({id:'plan-requests',severity:'med',title:pr.length+' plan upgrade '+(pr.length===1?'request is':'requests are')+' waiting',text:pr.slice(0,4).map(r=>r.brandName).join(', '),actions:[{kind:'scroll',label:'Review',target:'owner-plan-requests-section'}]});
+  // Quiet and not able to email customers
+  const quiet=[],noMail=[];
+  for(const b of brands.filter(b=>b.status==='active')){
+    const t=when(b.lastActive)||when(b.createdDate);if(t&&now-t>14*DAY)quiet.push(b);
+    try{const s=readBrandDB(b.slug).settings||{};if(!(s.BRAND_NOTIFY_EMAIL&&s.BRAND_NOTIFY_PASS))noMail.push(b);}catch(e){}
+  }
+  if(quiet.length)add({id:'quiet',severity:'low',title:quiet.length+(quiet.length===1?' workspace has':' workspaces have')+' not been used for 14 days',text:quiet.slice(0,5).map(b=>b.name).join(', ')+(quiet.length>5?' and more':''),actions:[]});
+  if(noMail.length)add({id:'no-sender',severity:'low',title:noMail.length+(noMail.length===1?' workspace cannot':' workspaces cannot')+' email its customers',text:'No sending email is set up, so ticket acknowledgements and replies are not sent: '+noMail.slice(0,5).map(b=>b.name).join(', ')+(noMail.length>5?' and more':''),actions:[]});
+  const rank={high:0,med:1,low:2};items.sort((a,b)=>rank[a.severity]-rank[b.severity]);
+  return items;
+}
+app.get('/api/owner/attention',ownerOnly,(req,res)=>{try{res.json({success:true,items:_ownerAttention()});}catch(e){res.json({success:false,error:e.message});}});
+app.get('/api/owner/system',ownerOnly,(req,res)=>{
+  const list=Backup.listBackups(BACKUP_DIR),hist=_readBackupHistory(),mem=process.memoryUsage();
+  let disk=null;try{const s=fs.statfsSync(path.join(__dirname,'data')),tot=s.blocks*s.bsize,free=s.bavail*s.bsize;disk={freeGB:+(free/1073741824).toFixed(1),totalGB:+(tot/1073741824).toFixed(1),usedPct:Math.round((1-free/tot)*100)};}catch(e){}
+  res.json({success:true,uptimeSec:Math.round(process.uptime()),memoryMB:Math.round(mem.rss/1048576),node:process.version,disk,
+    backup:{running:_backupRunning,last:_lastBackup||_readBackupStatus(),count:list.length,totalBytes:list.reduce((a,b)=>a+b.bytes,0),newest:list[0]?{name:list[0].name,createdAt:list[0].createdAt,bytes:list[0].bytes}:null,
+      list:list.slice(0,20).map(b=>({name:b.name,createdAt:b.createdAt,bytes:b.bytes,packed:b.packed})),history:hist.slice(-30)},
+    senderOn:!!(['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase())&&process.env.EMAIL_USER&&process.env.EMAIL_PASS)});
+});
+// Gives a workspace that never activated a fresh 48-hour link. send:false only returns the link, so the owner can pass it on personally.
+app.post('/api/owner/brands/:slug/resend-activation',ownerOnly,async(req,res)=>{
+  const owner=readOwner(),b=(owner.brands||[]).find(x=>x.slug===req.params.slug);
+  if(!b)return res.json({success:false,error:'Workspace not found.'});
+  if(b.status!=='pending')return res.json({success:false,error:'This workspace is already activated.'});
+  b.verifyToken=require('crypto').randomBytes(24).toString('hex');b.verifyExpires=Date.now()+48*3600*1000;
+  ownerAuditLog(owner,'activation_link_issued',{brandSlug:b.slug,emailed:req.body&&req.body.send===false?false:true},req.owner.email);
+  writeOwner(owner);
+  const link=`${BASE_URL}/verify-email?slug=${b.slug}&token=${b.verifyToken}`;
+  if(req.body&&req.body.send===false)return res.json({success:true,link,sent:false});
+  const name=String(b.majorAdminEmail||'').split('@')[0]||'there';
+  const sent=await sendEmail(b.majorAdminEmail,'Confirm your email — activate your Resolvo account',_activationEmailHtml(name,b.name,link,null,b.majorAdminEmail),`Activate your Resolvo account: ${link}`);
+  res.json({success:true,sent:!!sent,link:sent?undefined:link,message:sent?'Activation email sent to '+b.majorAdminEmail:'The email could not be sent. Copy the link and send it yourself.'});
+});
+
 function runBackgroundJobs(){
   const cron=require('node-cron');
+  try{_scrubOwnerLog();}catch(e){console.error('[Owner] log scrub failed:',e.message);}
   // Layer 4 — Memory spike monitor every 5 min
   cron.schedule('*/5 * * * *',checkMemory);
   // Layer 5 — Health check every 5 min: alert if server has been up <2min (recent restart)
@@ -9851,7 +9928,29 @@ async function sendBrandEmailMonitored(slug,...args){
   catch(e){monitorEvent('error','email',`Email FAILED for brand ${slug}`,{to:args[0],error:e.message});throw e;}
 }
 
-function getAllData(table){
+// Secrets are hidden from everything the owner console shows, searches, exports or logs: hashes, tokens, keys and app passwords.
+// Only text values are hidden, so counters such as token usage stay visible.
+const _SECRET_KEY_RE=/password|passwd|pwd|hash|token|secret|api[-_]?key|credential|totp|twofa(secret|code)|_pass$|pass$/i;
+const _HIDDEN='••• hidden';
+function _redact(v,depth){
+  depth=depth||0;
+  if(Array.isArray(v))return depth>6?v:v.map(x=>_redact(x,depth+1));
+  if(v&&typeof v==='object'){
+    if(depth>6)return v;
+    const o={};for(const k of Object.keys(v))o[k]=(_SECRET_KEY_RE.test(k)&&typeof v[k]==='string'&&v[k])?_HIDDEN:_redact(v[k],depth+1);
+    return o;
+  }
+  return v;
+}
+// Older owner-log entries (before/after copies of edited records) may still hold hashes: blank them once.
+function _scrubOwnerLog(){
+  const o=readOwner();let changed=false;
+  const walk=(x,d)=>{if(!x||typeof x!=='object'||d>7)return;for(const k of Object.keys(x)){if(_SECRET_KEY_RE.test(k)&&typeof x[k]==='string'&&x[k]&&x[k]!=='[removed]'){x[k]='[removed]';changed=true;}else walk(x[k],d+1);}};
+  for(const a of o.auditLog||[])walk(a.details,0);
+  if(changed){writeOwner(o);console.log('[Owner] removed old password hashes and tokens from the owner log');}
+}
+function getAllData(table){const r=_getAllDataRaw(table);return r?r.map(x=>_redact(x)):r;}
+function _getAllDataRaw(table){
   const owner=readOwner();
   if(table==='brands')return(owner.brands||[]).map(b=>({...b}));
   if(table==='support_tickets')return(owner.supportTickets||[]);
@@ -9978,7 +10077,8 @@ app.get('/api/owner/tables',ownerOnly,(req,res)=>{
 // after snapshot, same as every other owner-console mutation.
 // ══════════════════════════════════════════════════════════════════════════
 const EDITABLE_TABLES=new Set(['brands','users','tickets','issues','appointments','comments']);
-const RECORD_FIELD_BLOCKLIST=new Set(['passwordHash']); // never surfaced or writable through this editor
+const RECORD_FIELD_BLOCKLIST=new Set(['passwordHash']); // never surfaced or writable through this editor (every secret-looking field is also skipped, see _SECRET_KEY_RE)
+const _cleanRecord=r=>{const c={...r};for(const k of Object.keys(c))if(RECORD_FIELD_BLOCKLIST.has(k)||_SECRET_KEY_RE.test(k))delete c[k];return c;};
 
 app.get('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
   const table=req.params.table.toLowerCase();
@@ -9994,9 +10094,7 @@ app.get('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
       record=(db[table]||[]).find(r=>r.id===id);
     }
     if(!record)return res.json({success:false,error:'Record not found'});
-    const clean={...record};
-    for(const k of RECORD_FIELD_BLOCKLIST)delete clean[k];
-    res.json({success:true,record:clean});
+    res.json({success:true,record:_cleanRecord(record)});
   }catch(e){res.json({success:false,error:e.message});}
 });
 
@@ -10006,7 +10104,7 @@ app.post('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
   const updates=req.body.updates;
   if(!EDITABLE_TABLES.has(table))return res.json({success:false,error:'Table not editable: '+table});
   if(!updates||typeof updates!=='object'||Array.isArray(updates))return res.json({success:false,error:'No updates provided'});
-  for(const k of RECORD_FIELD_BLOCKLIST)delete updates[k];
+  for(const k of Object.keys(updates))if(RECORD_FIELD_BLOCKLIST.has(k)||_SECRET_KEY_RE.test(k)||updates[k]===_HIDDEN)delete updates[k];
   try{
     const owner=readOwner();
     if(table==='brands'){
@@ -10014,12 +10112,10 @@ app.post('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
       if(idx<0)return res.json({success:false,error:'Brand not found'});
       const before={...owner.brands[idx]};
       Object.assign(owner.brands[idx],updates);
-      ownerAuditLog(owner,'record_edit',{table:'brands',brand:id,id,fields:Object.keys(updates),before,after:{...owner.brands[idx]}},req.owner.email);
+      ownerAuditLog(owner,'record_edit',{table:'brands',brand:id,id,fields:Object.keys(updates),before:_redact(before),after:_redact({...owner.brands[idx]})},req.owner.email);
       writeOwner(owner);
       monitorEvent('info','record_edit',`Owner edited brand ${id}`,{fields:Object.keys(updates)});
-      const cleanBrand={...owner.brands[idx]};
-      for(const k of RECORD_FIELD_BLOCKLIST)delete cleanBrand[k];
-      return res.json({success:true,record:cleanBrand});
+      return res.json({success:true,record:_cleanRecord(owner.brands[idx])});
     }
     const db=readBrandDB(brand);
     const arr=db[table]||[];
@@ -10029,19 +10125,20 @@ app.post('/api/owner/record/:table/:brand/:id',ownerOnly,(req,res)=>{
     Object.assign(arr[idx],updates);
     db[table]=arr;
     writeBrandDB(brand,db);
-    ownerAuditLog(owner,'record_edit',{table,brand,id,fields:Object.keys(updates),before,after:{...arr[idx]}},req.owner.email);
+    ownerAuditLog(owner,'record_edit',{table,brand,id,fields:Object.keys(updates),before:_redact(before),after:_redact({...arr[idx]})},req.owner.email);
     writeOwner(owner);
     monitorEvent('info','record_edit',`Owner edited ${table} record ${id} in ${brand}`,{fields:Object.keys(updates)});
-    const cleanRec={...arr[idx]};
-    for(const k of RECORD_FIELD_BLOCKLIST)delete cleanRec[k];
-    res.json({success:true,record:cleanRec});
+    res.json({success:true,record:_cleanRecord(arr[idx])});
   }catch(e){res.json({success:false,error:e.message});}
 });
 
 // Send ALL nurture emails (time-based + trigger) as a test preview to owner email
 app.post('/api/owner/nurture/test-all',ownerOnly,async(req,res)=>{
-  const toEmail=req.body.to||OWNER_FROM_EMAIL;
+  const toEmail=String(req.body.to||OWNER_FROM_EMAIL).trim();
   const owner=readOwner();
+  // Test emails go only to you: the owner address or an address at the owner's own domain.
+  const okTo=[String(owner.email||'').toLowerCase(),OWNER_FROM_EMAIL.toLowerCase()];const ownDomain='@'+OWNER_FROM_EMAIL.split('@')[1].toLowerCase();
+  if(!okTo.includes(toEmail.toLowerCase())&&!toEmail.toLowerCase().endsWith(ownDomain))return res.json({success:false,error:'Test emails can only be sent to your own address ('+OWNER_FROM_EMAIL+' or another '+ownDomain+' address).'});
   const demoName='Demo';
   const demoUrl=BASE_URL;
   const demoUnsub='#';
@@ -10072,611 +10169,84 @@ app.post('/api/owner/nurture/test-all',ownerOnly,async(req,res)=>{
 });
 
 // Run nurture emails right now (same as daily cron, runs for all active brands)
+// Who would get an email if the daily job ran right now. Nothing is sent.
+app.get('/api/owner/nurture/preview',ownerOnly,async(req,res)=>{
+  try{res.json({success:true,plan:await sendNurtureEmails({dryRun:true})});}catch(e){res.json({success:false,error:e.message});}
+});
 app.post('/api/owner/nurture/run-now',ownerOnly,async(req,res)=>{
+  if(!req.body||req.body.confirm!=='SEND')return res.json({success:false,error:'Not sent: look at the list first, then confirm.'});
   try{
-    await sendNurtureEmails();
-    res.json({success:true,message:'Nurture run complete — check console log and Live Monitor for details.'});
+    const plan=await sendNurtureEmails();
+    const o=readOwner();ownerAuditLog(o,'nurture_run_now',{sent:plan.length},req.owner.email);writeOwner(o);
+    res.json({success:true,sent:plan.length,message:plan.length?plan.length+' emails sent.':'Nothing was due today, so no emails were sent.'});
   }catch(e){res.json({success:false,error:e.message});}
 });
 
-// Serve the owner console (search + SQL + monitor)
-app.get('/owner-console',(req,res)=>{
-  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner Console — Resolvo</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
-.topbar{background:#1a1d27;border-bottom:1px solid #2d3748;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.topbar h1{font-size:16px;font-weight:700;color:#f5a623}
-.badge{font-size:11px;background:#2d3748;color:#94a3b8;padding:4px 10px;border-radius:20px}
-.tabs{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid #2d3748;overflow-x:auto}
-.tab{padding:10px 20px;font-size:13px;font-weight:600;border-radius:8px 8px 0 0;cursor:pointer;border:none;background:transparent;color:#64748b;white-space:nowrap}
-.tab.active{background:#1e2330;color:#f5a623;border:1px solid #2d3748;border-bottom:1px solid #1e2330}
-.panel{display:none;padding:20px}.panel.active{display:block}
-.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:opacity .15s}
-.btn:hover{opacity:.85}
-.btn-primary{background:#f5a623;color:#000}
-.btn-ghost{background:#1e2330;color:#94a3b8;border:1px solid #2d3748}
-.card{background:#1a1d27;border:1px solid #2d3748;border-radius:12px;padding:20px;margin-bottom:16px}
-.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:14px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
-select,input[type=text]{background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;outline:none;min-width:140px}
-select:focus,input[type=text]:focus{border-color:#f5a623}
-label{font-size:12px;color:#64748b;display:block;margin-bottom:5px}
-.presets{display:flex;gap:8px;flex-wrap:wrap}
-.preset{padding:7px 14px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
-.preset:hover{background:#f5a623;color:#000;border-color:#f5a623}
-.meta{font-size:12px;color:#64748b;padding:8px 12px;background:#161920;border-radius:6px;margin-bottom:10px;display:flex;gap:16px}
-.meta b{color:#f5a623}
-.table-wrap{overflow:auto;border-radius:10px;border:1px solid #2d3748;max-height:58vh}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#1a1d27;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid #2d3748;cursor:pointer}
-th:hover{color:#f5a623}
-td{padding:9px 14px;border-bottom:1px solid #1e2330;color:#e2e8f0;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-tr:hover td{background:#1e2330}
-.nv{color:#4a5568;font-style:italic}
-.err{background:#2d1515;border:1px solid #dc2626;color:#fca5a5;padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
-.stat{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;padding:16px}
-.stat-l{font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px}
-.stat-v{font-size:26px;font-weight:800;color:#f5a623}
-.stat-v.red{color:#ef4444}.stat-v.green{color:#22c55e}
-.log-list{background:#1a1d27;border:1px solid #2d3748;border-radius:10px;max-height:60vh;overflow-y:auto}
-.log-entry{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid #161920;font-size:12px;align-items:flex-start}
-.lv{padding:2px 7px;border-radius:4px;font-weight:700;font-size:10px;text-transform:uppercase;flex-shrink:0}
-.lv-error{background:#2d1515;color:#ef4444}.lv-warn{background:#2d2010;color:#f59e0b}.lv-info{background:#0d2340;color:#3b82f6}
-.lc{color:#64748b;width:55px;flex-shrink:0}.lm{color:#e2e8f0;flex:1}.lt{color:#4a5568;flex-shrink:0;white-space:nowrap}
-.no-data{padding:40px;text-align:center;color:#4a5568;font-size:14px}
-.search{width:100%;background:#1a1d27;border:1px solid #2d3748;border-radius:8px;padding:9px 14px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:12px}
-.search:focus{border-color:#f5a623}
-.fbtns{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-.fb{padding:6px 14px;font-size:12px;border-radius:20px;border:1px solid #2d3748;background:transparent;color:#94a3b8;cursor:pointer}
-.fb.active{background:#f5a623;color:#000;border-color:#f5a623}
-</style></head><body>
-<div class="topbar">
-  <h1>⚡ Owner Console</h1>
-  <div style="display:flex;gap:10px;align-items:center">
-    <span class="badge" id="connStatus">Checking...</span>
-    <button class="btn btn-ghost" onclick="location.href='/'">← Back</button>
-  </div>
-</div>
-<div class="tabs">
-  <button class="tab active" onclick="switchTab('browse',this)">📋 Browse Data</button>
-  <button class="tab" onclick="switchTab('monitor',this)">📊 Live Monitor</button>
-  <button class="tab" onclick="switchTab('nurture',this)">📧 Nurture Emails</button>
-  <button class="tab" onclick="switchTab('health',this)">🩺 DB Health</button>
-</div>
-
-<!-- BROWSE PANEL -->
-<div id="panel-browse" class="panel active">
-  <div class="card">
-    <div class="card-title">Quick Reports — click any button to load instantly</div>
-    <div class="presets">
-      <button class="preset" onclick="runPreset('SELECT * FROM brands')">🏢 All Brands</button>
-      <button class="preset" onclick="runPreset(&quot;SELECT * FROM brands WHERE status = 'active'&quot;)">✅ Active Brands</button>
-      <button class="preset" onclick="runPreset(&quot;SELECT * FROM brands WHERE tier = 'Pro'&quot;)">⭐ Pro Brands</button>
-      <button class="preset" onclick="runPreset('SELECT * FROM users')">👥 All Users</button>
-      <button class="preset" onclick="runPreset(&quot;SELECT * FROM users WHERE role = 'Admin'&quot;)">🔑 All Admins</button>
-      <button class="preset" onclick="runPreset('SELECT * FROM tickets')">🎫 All Tickets</button>
-      <button class="preset" onclick="runPreset(&quot;SELECT * FROM tickets WHERE status = 'open'&quot;)">🔴 Open Tickets</button>
-      <button class="preset" onclick="runPreset(&quot;SELECT * FROM issues WHERE priority = 'Critical'&quot;)">🚨 Critical Issues</button>
-      <button class="preset" onclick="runPreset('SELECT * FROM appointments')">📅 Appointments</button>
-      <button class="preset" onclick="runPreset(&quot;SELECT * FROM appointments WHERE status = 'confirmed'&quot;)">✅ Confirmed Appts</button>
-      <button class="preset" onclick="runPreset('SELECT COUNT(*) FROM tickets')">📊 Count Tickets</button>
-      <button class="preset" onclick="runPreset('SELECT COUNT(*) FROM users')">📊 Count Users</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Custom Filter — choose what you want to see</div>
-    <div class="row">
-      <div>
-        <label>Show me</label>
-        <select id="selTable" onchange="updateFields()">
-          <option value="brands">🏢 Brands</option>
-          <option value="users">👥 Users</option>
-          <option value="tickets">🎫 Tickets</option>
-          <option value="issues">🐛 Issues</option>
-          <option value="appointments">📅 Appointments</option>
-          <option value="support_tickets">📩 Support Tickets</option>
-        </select>
-      </div>
-      <div>
-        <label>Where field</label>
-        <select id="selField"><option value="">— no filter —</option></select>
-      </div>
-      <div>
-        <label>Is / contains</label>
-        <select id="selOp">
-          <option value="=">equals</option>
-          <option value="LIKE">contains</option>
-          <option value="!=">not equal to</option>
-          <option value=">">greater than</option>
-          <option value="<">less than</option>
-        </select>
-      </div>
-      <div>
-        <label>Value</label>
-        <input type="text" id="filterVal" placeholder="e.g. active" style="width:160px">
-      </div>
-      <div>
-        <label>Sort by</label>
-        <select id="selSort"><option value="">— none —</option></select>
-      </div>
-      <div>
-        <label>Order</label>
-        <select id="selOrder"><option value="DESC">Newest first</option><option value="ASC">Oldest first</option></select>
-      </div>
-      <div>
-        <label>Max rows</label>
-        <select id="selLimit">
-          <option value="50">50</option>
-          <option value="100">100</option>
-          <option value="200">200</option>
-          <option value="500">500</option>
-          <option value="9999">All</option>
-        </select>
-      </div>
-      <div style="padding-bottom:1px">
-        <button class="btn btn-primary" onclick="runBuilder()">▶ Show Results</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="qErr" style="display:none" class="err"></div>
-  <div id="qMeta" style="display:none" class="meta"></div>
-  <div style="display:flex;gap:10px;margin-bottom:10px">
-    <button class="btn btn-ghost" id="exportBtn" style="display:none" onclick="exportCSV()">⬇ Export CSV</button>
-  </div>
-  <div id="tableWrap" class="table-wrap" style="display:none"></div>
-</div>
-
-<!-- MONITOR PANEL -->
-<div id="panel-monitor" class="panel">
-  <div class="stats-grid" id="monStats"></div>
-  <input class="search" id="logSearch" placeholder="Search events..." oninput="filterLogs()">
-  <div class="fbtns">
-    <button class="fb active" onclick="setFilter('',this)">All</button>
-    <button class="fb" onclick="setFilter('error',this)">🔴 Errors only</button>
-    <button class="fb" onclick="setFilter('warn',this)">🟡 Warnings</button>
-    <button class="fb" onclick="setFilter('info',this)">🔵 Info</button>
-    <button class="fb" style="margin-left:auto" onclick="loadMonitor()">🔄 Refresh</button>
-  </div>
-  <div class="log-list" id="logList"><div class="no-data">Loading...</div></div>
-</div>
-
-<!-- NURTURE PANEL -->
-<div id="panel-nurture" class="panel">
-  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px;">
-    <div style="flex:1;min-width:220px;">
-      <label style="font-size:12px;color:#6b7280;font-weight:700;display:block;margin-bottom:4px;">SEND TEST EMAILS TO</label>
-      <input id="nurtureTestTo" class="search" placeholder="contact@resolvogroup.com" style="margin:0;width:100%;box-sizing:border-box;">
-    </div>
-    <button onclick="sendNurtureTests()" style="padding:10px 22px;background:#10B981;color:#000;border:none;border-radius:8px;font-weight:700;cursor:pointer;height:40px;">📧 Send All 27 Test Emails</button>
-    <button onclick="runNurtureNow()" style="padding:10px 22px;background:#6366F1;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;height:40px;">▶ Run Today's Emails Now</button>
-  </div>
-  <div id="nurtureResult" style="margin-bottom:16px;"></div>
-  <div style="background:#f9fafb;border-radius:10px;padding:20px 24px;">
-    <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:14px;">📋 Full Email Schedule</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
-      ${[
-        ['Day 1','Quick tip: Create your first issue','Activation'],
-        ['Day 2','Your team is waiting — invite them now','Activation'],
-        ['Day 3','Did you know Resolvo has a full email helpdesk?','Activation'],
-        ['Day 4','Set up your brand in 5 minutes','Activation'],
-        ['Day 5','Your customers can now book appointments','Activation'],
-        ['Day 6','Setup checklist — how are you doing?','Activation'],
-        ['Day 7','Your first week with Resolvo','Check-in'],
-        ['Day 8','Never miss an SLA again','Habit'],
-        ['Day 10','3 things your team should set up','Habit'],
-        ['Day 12','How to reply to customers from Resolvo','Habit'],
-        ['Day 14','Upgrade to Pro? Here\'s what you unlock','Upsell'],
-        ['Day 16','Auto-assign tickets instantly','Power'],
-        ['Day 18','Your customers deserve a self-service portal','Power'],
-        ['Day 21','See how your team is really performing','Power'],
-        ['Day 25','Save hours every week with automations','Loyalty'],
-        ['Day 30','30 days with Resolvo — milestone stats','Loyalty'],
-        ['Day 35','Are your customers happy? CSAT','Loyalty'],
-        ['Day 40','Integrate with your existing tools','Loyalty'],
-        ['Day 45','Your team\'s busiest hours','Loyalty'],
-        ['Day 50','One thing top support teams do differently','Retention'],
-        ['Day 60','Still there? We\'d love your feedback','Re-engage'],
-        ['Day 75','75 days milestone summary','Retention'],
-        ['Day 90','What\'s new in Resolvo this month','Changelog'],
-        ['Trigger','No login in 7 days','Behaviour'],
-        ['Trigger','First ticket resolved','Behaviour'],
-        ['Trigger','10 tickets closed','Behaviour'],
-        ['Trigger','Email inbox not connected (day 5+)','Behaviour'],
-        ['Trigger','No team members (day 3+)','Behaviour'],
-        ['Trigger','Trial expiring in 3 days','Behaviour'],
-        ['Trigger','Trial expired','Behaviour'],
-      ].map(([day,subj,cat])=>{
-        const cc={'Activation':'#10B981','Check-in':'#6366F1','Habit':'#3b82f6','Upsell':'#f59e0b','Power':'#8b5cf6','Loyalty':'#0891b2','Re-engage':'#ef4444','Retention':'#10B981','Changelog':'#6b7280','Behaviour':'#f97316'}[cat]||'#6b7280';
-        return '<div style="background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #e5e7eb;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:700;color:#6b7280;">'+day+'</span><span style="font-size:10px;font-weight:700;color:'+cc+';background:'+cc+'18;padding:2px 8px;border-radius:10px;">'+cat+'</span></div><div style="font-size:13px;color:#374151;">'+subj+'</div></div>';
-      }).join('')}
-    </div>
-  </div>
-</div>
-
-<!-- DB HEALTH PANEL -->
-<div id="panel-health" class="panel">
-  <div class="card">
-    <div class="card-title">Per-brand database size — a brand over ~5MB is worth checking</div>
-    <button class="btn btn-ghost" onclick="loadHealth()" style="margin-bottom:12px;">🔄 Refresh</button>
-    <div id="healthTableWrap" class="table-wrap" style="max-height:50vh;"><div class="no-data">Click Refresh to load</div></div>
-  </div>
-  <div class="card">
-    <div class="card-title">Migrate inline email HTML → asset table</div>
-    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.6;">
-      Moves any <code>thread[].emailHtml</code> still stored inline in a brand's tickets (from before the asset-table architecture) out into a separate table, so the tickets table stays small regardless of email size. Safe to run more than once — already-migrated tickets are skipped. Always dry-run first to see what would change.
-    </div>
-    <div class="row">
-      <div>
-        <label>Brand</label>
-        <select id="healthMigrateBrand" style="min-width:200px;"><option value="">— all brands —</option></select>
-      </div>
-      <div style="padding-bottom:1px;">
-        <button class="btn btn-ghost" onclick="runMigration(true)">👁 Dry Run (preview only)</button>
-      </div>
-      <div style="padding-bottom:1px;">
-        <button class="btn btn-primary" onclick="runMigration(false)">▶ Run Migration</button>
-      </div>
-    </div>
-    <div id="migrateErr" style="display:none" class="err"></div>
-    <div id="migrateResult"></div>
-  </div>
-</div>
-
-<!-- EDIT RECORD OVERLAY -->
-<div id="editOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:998;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:28px;width:560px;max-width:100%;max-height:85vh;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-size:18px;font-weight:800;color:#f5a623">✏️ Edit Record</div>
-      <button onclick="closeEdit()" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1">×</button>
-    </div>
-    <div id="editMeta" style="font-size:12px;color:#64748b;margin-bottom:18px;font-family:monospace"></div>
-    <div id="editErr" style="display:none" class="err"></div>
-    <div id="editFields"></div>
-    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
-      <button class="btn btn-primary" id="editSaveBtn" onclick="saveEdit()">💾 Save Changes</button>
-    </div>
-  </div>
-</div>
-
-<!-- LOGIN OVERLAY -->
-<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;align-items:center;justify-content:center">
-  <div style="background:#1a1d27;border:1px solid #2d3748;border-radius:14px;padding:32px;width:340px">
-    <div style="font-size:20px;font-weight:800;color:#f5a623;margin-bottom:6px">⚡ Owner Login</div>
-    <div style="font-size:13px;color:#64748b;margin-bottom:20px">Sign in with your owner account to continue</div>
-    <label style="margin-bottom:5px">Email</label>
-    <input id="loginEmail" type="email" value="contact@resolvogroup.com" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:10px">
-    <label style="margin-bottom:5px">Password</label>
-    <input id="loginPass" type="password" placeholder="Password" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:8px" onkeydown="if(event.key==='Enter')doLogin()">
-    <div id="loginErr" style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:12px"></div>
-    <button onclick="doLogin()" style="width:100%;background:#f5a623;color:#000;border:none;border-radius:8px;padding:12px;font-size:15px;font-weight:700;cursor:pointer">Sign In →</button>
-  </div>
-</div>
-
-<script>
-const FIELDS={
-  brands:['name','slug','status','tier','majorAdminEmail','createdDate','lastActive'],
-  users:['name','email','role','active','_brand','createdDate'],
-  tickets:['id','subject','status','priority','from','_brand','createdDate','lastActivity'],
-  issues:['id','title','status','priority','assignedTo','_brand','createdDate'],
-  appointments:['id','customerName','customerEmail','date','time','status','topic','_brand'],
-  support_tickets:['id','subject','status','from','brandName','createdAt']
-};
-
-let lastResult=null,currentFilter='',allLogs=[],_token='',lastSql='',lastQueryTable='',editCtx=null;
-const EDITABLE_TABLES=new Set(['brands','users','tickets','issues','appointments','comments']);
-
-function getToken(){
-  if(_token)return _token;
-  for(const k of Object.keys(localStorage)){if(k.startsWith('portal_token_')){const v=localStorage.getItem(k);if(v){_token=v;return v;}}}
-  return localStorage.getItem('tt_token')||'';
-}
-function setToken(t){_token=t;localStorage.setItem('tt_token',t);}
-
-function switchTab(name,el){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('panel-'+name).classList.add('active');
-  if(name==='monitor')loadMonitor();
-  if(name==='health')loadHealth();
-}
-
-async function loadHealth(){
-  const wrap=document.getElementById('healthTableWrap');
-  wrap.innerHTML='<div class="no-data">Loading...</div>';
-  const r=await fetch('/api/owner/db-monitor',{headers:{'x-session-token':getToken()}}).then(x=>x.json()).catch(()=>null);
-  if(!r||!r.success){wrap.innerHTML='<div class="no-data">Failed to load</div>';return;}
-  const sel=document.getElementById('healthMigrateBrand');
-  sel.innerHTML='<option value="">— all brands —</option>'+r.stats.map(function(s){return '<option value="'+s.slug+'">'+s.slug+'</option>';}).join('');
-  let html='<table><thead><tr><th>Brand</th><th>Size (KB)</th><th>Tickets</th><th>Issues</th><th></th></tr></thead><tbody>';
-  r.stats.forEach(function(s){
-    const flag=s.critical?' 🔴':s.warning?' 🟡':'';
-    html+='<tr><td>'+s.slug+flag+'</td><td>'+s.sizeKB+'</td><td>'+(s.records.tickets||0)+'</td><td>'+(s.records.issues||0)+'</td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="document.getElementById(&quot;healthMigrateBrand&quot;).value=&quot;'+s.slug+'&quot;;runMigration(true)">Preview migrate</button></td></tr>';
-  });
-  html+='</tbody></table>';
-  wrap.innerHTML=html;
-}
-
-async function runMigration(dryRun){
-  const slug=document.getElementById('healthMigrateBrand').value;
-  const errEl=document.getElementById('migrateErr'),resEl=document.getElementById('migrateResult');
-  errEl.style.display='none';
-  resEl.innerHTML='<p style="color:#94a3b8;">'+(dryRun?'Checking...':'Migrating...')+'</p>';
-  try{
-    const r=await fetch('/api/owner/migrate-email-assets',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({slug:slug||undefined,dryRun:dryRun})}).then(function(x){return x.json();});
-    if(!r.success){errEl.textContent=r.error;errEl.style.display='block';resEl.innerHTML='';return;}
-    let rows='';
-    r.results.forEach(function(x){
-      if(x.error)rows+='<tr><td>'+x.slug+'</td><td colspan="4" style="color:#ef4444;">'+x.error+'</td></tr>';
-      else rows+='<tr><td>'+x.slug+'</td><td>'+x.ticketsTouched+'</td><td>'+x.messagesMoved+'</td><td>'+x.beforeKB+'</td><td>'+x.afterKB+'</td></tr>';
-    });
-    resEl.innerHTML='<div class="table-wrap"><table><thead><tr><th>Brand</th><th>Tickets touched</th><th>Messages moved</th><th>Before KB</th><th>After KB</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      (dryRun?'<p style="font-size:12px;color:#94a3b8;margin-top:8px;">Dry run only — nothing was changed. Click "Run Migration" to apply.</p>':'<p style="font-size:12px;color:#10B981;margin-top:8px;">✅ Done — refresh DB Health above to see updated sizes.</p>');
-  }catch(e){errEl.textContent=e.message;errEl.style.display='block';resEl.innerHTML='';}
-}
-
-async function sendNurtureTests(){
-  const to=document.getElementById('nurtureTestTo').value.trim()||'contact@resolvogroup.com';
-  const el=document.getElementById('nurtureResult');
-  el.innerHTML='<p style="color:#6366F1;font-weight:600;">Sending 27 emails... this takes about 30 seconds ⏳</p>';
-  try{
-    const r=await fetch('/api/owner/nurture/test-all',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({to})});
-    const d=await r.json();
-    if(d.success)el.innerHTML=\`<p style="color:#10B981;font-weight:700;">✅ \${d.sent} emails sent to \${d.to}\${d.failed?' ('+d.failed+' failed)':''}</p>\`;
-    else el.innerHTML=\`<p style="color:#ef4444;">❌ \${d.error||'Send failed'}</p>\`;
-  }catch(e){el.innerHTML=\`<p style="color:#ef4444;">❌ \${e.message}</p>\`;}
-}
-
-async function runNurtureNow(){
-  const el=document.getElementById('nurtureResult');
-  el.innerHTML='<p style="color:#6366F1;font-weight:600;">Running nurture jobs...</p>';
-  try{
-    const r=await fetch('/api/owner/nurture/run-now',{method:'POST',headers:{'x-session-token':getToken()}});
-    const d=await r.json();
-    if(d.success)el.innerHTML='<p style="color:#10B981;font-weight:700;">✅ '+d.message+'</p>';
-    else el.innerHTML='<p style="color:#ef4444;">❌ '+(d.error||'Failed')+'</p>';
-  }catch(e){el.innerHTML='<p style="color:#ef4444;">❌ '+e.message+'</p>';}
-}
-
-function updateFields(){
-  const t=document.getElementById('selTable').value;
-  const f=FIELDS[t]||[];
-  const fOpts='<option value="">— no filter —</option>'+f.map(x=>\`<option value="\${x}">\${x}</option>\`).join('');
-  document.getElementById('selField').innerHTML=fOpts;
-  document.getElementById('selSort').innerHTML='<option value="">— none —</option>'+f.map(x=>\`<option value="\${x}">\${x}</option>\`).join('');
-}
-
-function buildSQL(){
-  const table=document.getElementById('selTable').value;
-  const field=document.getElementById('selField').value;
-  const op=document.getElementById('selOp').value;
-  const val=document.getElementById('filterVal').value.trim();
-  const sort=document.getElementById('selSort').value;
-  const order=document.getElementById('selOrder').value;
-  const limit=document.getElementById('selLimit').value;
-  let sql='SELECT * FROM '+table;
-  if(field&&val){
-    const v=op==='LIKE'?'%'+val+'%':val;
-    sql+=" WHERE "+field+" "+op+" '"+v+"'";
-  }
-  if(sort)sql+=' ORDER BY '+sort+' '+order;
-  if(limit&&limit!=='9999')sql+=' LIMIT '+limit;
-  return sql;
-}
-
-async function runSQL(sql){
-  lastSql=sql;
-  const tblM=sql.match(/FROM\\s+(\\w+)/i);
-  lastQueryTable=tblM?tblM[1].toLowerCase():'';
-  document.getElementById('qErr').style.display='none';
-  document.getElementById('tableWrap').style.display='none';
-  document.getElementById('qMeta').style.display='none';
-  document.getElementById('exportBtn').style.display='none';
-  document.getElementById('qMeta').innerHTML='Loading...';
-  document.getElementById('qMeta').style.display='flex';
-  const res=await fetch('/api/owner/query',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({sql})});
-  const data=await res.json();
-  if(!data.success){
-    document.getElementById('qErr').textContent='Error: '+data.error;
-    document.getElementById('qErr').style.display='block';
-    document.getElementById('qMeta').style.display='none';
-    return;
-  }
-  lastResult=data;
-  document.getElementById('qMeta').innerHTML=\`<b>\${data.total}</b> rows found &nbsp;|&nbsp; <b>\${data.ms}ms</b>\${EDITABLE_TABLES.has(lastQueryTable)?' &nbsp;|&nbsp; <span style="color:#10B981">✏️ Editable — click Edit on a row</span>':''}\`;
-  renderTable(data);
-  document.getElementById('exportBtn').style.display='inline-flex';
-}
-
-function runBuilder(){runSQL(buildSQL());}
-function runPreset(sql){runSQL(sql);}
-
-function renderTable(data){
-  if(!data.columns||!data.rows.length){
-    document.getElementById('tableWrap').innerHTML='<div class="no-data">No results found</div>';
-    document.getElementById('tableWrap').style.display='block';return;
-  }
-  const editable=EDITABLE_TABLES.has(lastQueryTable);
-  const idCol=lastQueryTable==='brands'?'slug':'id';
-  const idIdx=data.columns.indexOf(idCol);
-  const brandIdx=data.columns.indexOf('_brand');
-  const canEditRows=editable&&idIdx>=0;
-  let html='<table><thead><tr>'+data.columns.map(c=>\`<th>\${c}</th>\`).join('')+(canEditRows?'<th>Actions</th>':'')+'</tr></thead><tbody>';
-  data.rows.forEach(row=>{
-    html+='<tr>'+row.map(v=>{
-      if(v===null||v===undefined)return '<td class="nv">—</td>';
-      const s=typeof v==='object'?JSON.stringify(v):String(v);
-      const display=s.length>100?s.substring(0,100)+'…':s;
-      return \`<td title="\${s.replace(/"/g,'&quot;')}">\${display}</td>\`;
-    }).join('');
-    if(canEditRows){
-      const rid=row[idIdx];
-      const brand=lastQueryTable==='brands'?rid:(brandIdx>=0?row[brandIdx]:'');
-      if(rid&&(lastQueryTable==='brands'||brand)){
-        const ridEsc=String(rid).replace(/'/g,"\\\\'");
-        const brandEsc=String(brand).replace(/'/g,"\\\\'");
-        html+=\`<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="openEdit('\${lastQueryTable}','\${brandEsc}','\${ridEsc}')">✏️ Edit</button></td>\`;
-      }else{
-        html+='<td class="nv">—</td>';
-      }
+// ── OWNER CONSOLE: find anyone, ready-made reports, the page itself ──────────
+// Find anyone: one box searches every workspace, every person, every ticket and the sign-up leads. When nothing matches, the answer says
+// how much was searched, so "he is not in the system" is a fact and not a guess.
+app.get('/api/owner/find',ownerOnly,(req,res)=>{
+  const raw=String(req.query.q||'').trim();
+  if(raw.length<2)return res.json({success:false,error:'Type at least 2 characters.'});
+  const q=raw.toLowerCase(),digits=raw.replace(/\D/g,''),useDigits=digits.length>=6;
+  const hit=(...vals)=>vals.some(v=>{const s=String(v==null?'':v).toLowerCase();return !!s&&(s.includes(q)||(useDigits&&s.replace(/\D/g,'').includes(digits)));});
+  const owner=readOwner(),out={workspaces:[],people:[],tickets:[],leads:[]},seen={workspaces:0,people:0,tickets:0,leads:0};
+  for(const b of owner.brands||[]){
+    seen.workspaces++;
+    if(hit(b.name,b.slug,b.majorAdminEmail,b.id)&&out.workspaces.length<25)out.workspaces.push({slug:b.slug,name:b.name,status:b.status,tier:b.tier,admin:b.majorAdminEmail,created:b.createdDate,lastActive:b.lastActive||null,trialEnds:b.trialEnds||null});
+    let db;try{db=readBrandDB(b.slug);}catch(e){continue;}
+    for(const u of db.users||[]){
+      seen.people++;
+      if(out.people.length<40&&hit(u.email,u.name,u.phone,u.id))out.people.push({id:u.id,name:u.name,email:u.email,role:u.role,team:u.team||'',active:u.active!==false&&u.active!=='false',neverSignedIn:!!u.firstLogin,brand:b.slug,brandName:b.name,brandStatus:b.status,tier:b.tier});
     }
-    html+='</tr>';
-  });
-  html+='</tbody></table>';
-  document.getElementById('tableWrap').innerHTML=html;
-  document.getElementById('tableWrap').style.display='block';
-}
-
-async function openEdit(table,brand,id){
-  editCtx={table,brand,id};
-  document.getElementById('editErr').style.display='none';
-  document.getElementById('editMeta').textContent=table+' · '+(brand||'—')+' · '+id;
-  document.getElementById('editFields').innerHTML='<div class="no-data">Loading...</div>';
-  document.getElementById('editOverlay').style.display='flex';
-  try{
-    const res=await fetch('/api/owner/record/'+encodeURIComponent(table)+'/'+encodeURIComponent(brand)+'/'+encodeURIComponent(id),{headers:{'x-session-token':getToken()}});
-    const d=await res.json();
-    if(!d.success){
-      document.getElementById('editFields').innerHTML='';
-      document.getElementById('editErr').textContent=d.error;
-      document.getElementById('editErr').style.display='block';
-      return;
-    }
-    renderEditForm(d.record);
-  }catch(e){
-    document.getElementById('editErr').textContent=e.message;
-    document.getElementById('editErr').style.display='block';
-  }
-}
-
-function renderEditForm(record){
-  const skip=new Set(['id','slug','_brand','_brandName']);
-  const keys=Object.keys(record).filter(k=>!skip.has(k));
-  if(!keys.length){document.getElementById('editFields').innerHTML='<div class="no-data">No editable fields</div>';return;}
-  const html=keys.map(k=>{
-    const v=record[k];
-    const fid='ef_'+k.replace(/[^\\w]/g,'_');
-    if(typeof v==='boolean'){
-      return \`<div style="margin-bottom:14px"><label>\${k}</label><select id="\${fid}" data-field="\${k}" data-type="bool" style="width:100%"><option value="true" \${v?'selected':''}>true</option><option value="false" \${!v?'selected':''}>false</option></select></div>\`;
-    }
-    if(v!==null&&typeof v==='object'){
-      const json=JSON.stringify(v,null,2).replace(/</g,'&lt;');
-      return \`<div style="margin-bottom:14px"><label>\${k} <span style="color:#4a5568">(JSON — array/object)</span></label><textarea id="\${fid}" data-field="\${k}" data-type="json" rows="6" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:10px;color:#e2e8f0;font-family:monospace;font-size:12px">\${json}</textarea></div>\`;
-    }
-    const val=(v===null||v===undefined)?'':String(v).replace(/"/g,'&quot;');
-    return \`<div style="margin-bottom:14px"><label>\${k}</label><input type="text" id="\${fid}" data-field="\${k}" data-type="str" value="\${val}" style="width:100%"></div>\`;
-  }).join('');
-  document.getElementById('editFields').innerHTML=html;
-}
-
-async function saveEdit(){
-  if(!editCtx)return;
-  const inputs=document.getElementById('editFields').querySelectorAll('[data-field]');
-  const updates={};
-  const errEl=document.getElementById('editErr');
-  errEl.style.display='none';
-  for(const el of inputs){
-    const field=el.dataset.field,type=el.dataset.type;
-    if(type==='json'){
-      const raw=el.value.trim();
-      if(raw===''){updates[field]=null;continue;}
-      try{updates[field]=JSON.parse(raw);}
-      catch(e){errEl.textContent='Invalid JSON in "'+field+'": '+e.message;errEl.style.display='block';return;}
-    }else if(type==='bool'){
-      updates[field]=el.value==='true';
-    }else{
-      updates[field]=el.value;
+    for(const t of db.tickets||[]){
+      seen.tickets++;
+      if(out.tickets.length<25&&hit(t.id,t.from,t.fromName,t.customerEmail,t.customerName,t.customerPhone,t.phone,t.subject))out.tickets.push({id:t.id,subject:t.subject||'',status:t.status,from:t.from||t.customerEmail||t.customerName||'',brand:b.slug,brandName:b.name,created:t.createdDate||t.createdAt||''});
     }
   }
-  const btn=document.getElementById('editSaveBtn');
-  btn.disabled=true;btn.textContent='Saving...';
-  try{
-    const{table,brand,id}=editCtx;
-    const res=await fetch('/api/owner/record/'+encodeURIComponent(table)+'/'+encodeURIComponent(brand)+'/'+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json','x-session-token':getToken()},body:JSON.stringify({updates})});
-    const d=await res.json();
-    if(!d.success){
-      errEl.textContent=d.error;errEl.style.display='block';
-      btn.disabled=false;btn.textContent='💾 Save Changes';
-      return;
-    }
-    closeEdit();
-    if(lastSql)runSQL(lastSql);
-  }catch(e){
-    errEl.textContent=e.message;errEl.style.display='block';
-    btn.disabled=false;btn.textContent='💾 Save Changes';
-  }finally{
-    btn.disabled=false;btn.textContent='💾 Save Changes';
+  for(const p of owner.prospects||[]){
+    seen.leads++;
+    if(out.leads.length<25&&hit(p.email,p.name,p.company,p.phone))out.leads.push({id:p.id,name:p.name||'',email:p.email||'',company:p.company||'',status:p.status||'',created:p.createdAt||''});
   }
-}
-
-function closeEdit(){document.getElementById('editOverlay').style.display='none';editCtx=null;}
-
-function exportCSV(){
-  if(!lastResult?.columns)return;
-  const csv=[lastResult.columns,...lastResult.rows].map(r=>r.map(v=>'"'+(v==null?'':String(v)).replace(/"/g,'""')+'"').join(',')).join('\\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='resolvo-'+(nowIST().substring(0,10))+'.csv';a.click();
-}
-
-async function loadMonitor(){
-  const res=await fetch('/api/owner/monitor?limit=500',{headers:{'x-session-token':getToken()}});
-  const data=await res.json();allLogs=data.logs||[];
-  const s=data.summary||{};
-  document.getElementById('monStats').innerHTML=\`
-    <div class="stat"><div class="stat-l">Total Events</div><div class="stat-v">\${s.total||0}</div></div>
-    <div class="stat"><div class="stat-l">Errors</div><div class="stat-v \${(s.errors||0)>0?'red':'green'}">\${s.errors||0}</div></div>
-    <div class="stat"><div class="stat-l">Email Failures</div><div class="stat-v \${(s.emailFails||0)>0?'red':'green'}">\${s.emailFails||0}</div></div>
-    <div class="stat"><div class="stat-l">Server</div><div class="stat-v green">Live ✓</div></div>
-  \`;filterLogs();
-}
-
-function setFilter(f,el){currentFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));el.classList.add('active');filterLogs();}
-function filterLogs(){
-  const q=document.getElementById('logSearch').value.toLowerCase();
-  let logs=allLogs;
-  if(currentFilter)logs=logs.filter(e=>e.level===currentFilter);
-  if(q)logs=logs.filter(e=>(e.message+e.category+(e.detail?JSON.stringify(e.detail):'')).toLowerCase().includes(q));
-  const el=document.getElementById('logList');
-  if(!logs.length){el.innerHTML='<div class="no-data">No events found</div>';return;}
-  el.innerHTML=logs.map(e=>\`<div class="log-entry">
-    <span class="lv lv-\${e.level}">\${e.level}</span>
-    <span class="lc">\${e.category}</span>
-    <span class="lm">\${e.message}\${e.detail?'<br><small style="color:#4a5568">'+JSON.stringify(e.detail).substring(0,180)+'</small>':''}</span>
-    <span class="lt">\${e.ts.replace('T',' ').substring(0,19)}</span>
-  </div>\`).join('');
-}
-
-async function doLogin(){
-  const email=document.getElementById('loginEmail').value;
-  const pass=document.getElementById('loginPass').value;
-  const err=document.getElementById('loginErr');
-  err.textContent='Signing in...';
-  const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
-  const d=await res.json();
-  if(!d.success){err.textContent=d.error||'Login failed';return;}
-  if(!d.isOwner){err.textContent='Owner account required';return;}
-  setToken(d.token);
-  document.getElementById('loginOverlay').style.display='none';
-  document.getElementById('connStatus').textContent='Connected ✓';
-  updateFields();
-}
-
-// Init
-updateFields();
-(async()=>{
-  const r=await fetch('/api/owner/stats',{headers:{'x-session-token':getToken()}}).catch(()=>null);
-  const d=r?await r.json():{success:false};
-  if(d.success){document.getElementById('connStatus').textContent='Connected ✓';}
-  else{document.getElementById('connStatus').textContent='Login required';document.getElementById('loginOverlay').style.display='flex';}
-})();
-setInterval(()=>{if(document.getElementById('panel-monitor').classList.contains('active'))loadMonitor();},30000);
-</script></body></html>`);
+  const total=out.workspaces.length+out.people.length+out.tickets.length+out.leads.length;
+  res.json({success:true,q:raw,total,seen,results:out});
 });
+
+// Ready-made reports for the questions that get asked: each returns plain columns and rows, never raw records.
+const _day=86400000,_d10=s=>String(s||'').slice(0,10),_t=s=>{const t=Date.parse(s||'');return isNaN(t)?null:t;};
+const OWNER_REPORTS=[
+  {id:'not-activated',title:'Signed up, never activated',desc:'Workspaces waiting for the first email link to be opened.',cols:['Workspace','Admin email','Signed up','Link','Slug'],
+    run:c=>c.brands.filter(b=>b.status==='pending').map(b=>[b.name,b.majorAdminEmail,_d10(b.createdDate),b.verifyExpires&&Date.now()>b.verifyExpires?'expired':'valid',b.slug])},
+  {id:'signups-week',title:'Sign-ups this week',desc:'Workspaces created in the last 7 days.',cols:['Workspace','Admin email','Plan','Status','Created','Slug'],
+    run:c=>c.brands.filter(b=>(_t(b.createdDate)||0)>Date.now()-7*_day).map(b=>[b.name,b.majorAdminEmail,b.tier,b.status,_d10(b.createdDate),b.slug])},
+  {id:'trials-ending',title:'Trials ending',desc:'Active trials that end within 7 days, or already have.',cols:['Workspace','Admin email','Trial ends','Days left','Slug'],
+    run:c=>c.brands.filter(b=>b.status==='active'&&b.tier==='Trial'&&b.trialEnds&&(_t(b.trialEnds)||Infinity)<Date.now()+7*_day).map(b=>[b.name,b.majorAdminEmail,_d10(b.trialEnds),Math.ceil(((_t(b.trialEnds)||0)-Date.now())/_day),b.slug])},
+  {id:'quiet',title:'Not used for 14 days',desc:'Active workspaces nobody has opened for two weeks.',cols:['Workspace','Admin email','Last active','Days quiet','Plan','Slug'],
+    run:c=>c.brands.filter(b=>b.status==='active').map(b=>[b,_t(b.lastActive)||_t(b.createdDate)]).filter(x=>x[1]&&Date.now()-x[1]>14*_day).map(([b,t])=>[b.name,b.majorAdminEmail,_d10(b.lastActive)||'never',Math.floor((Date.now()-t)/_day),b.tier,b.slug])},
+  {id:'no-sender',title:'Cannot email their customers',desc:'Active workspaces with no sending email set up, so acknowledgements and replies are not sent.',cols:['Workspace','Admin email','Plan','Slug'],
+    run:c=>c.brands.filter(b=>b.status==='active').filter(b=>{const s=(c.db(b.slug)||{}).settings||{};return !(s.BRAND_NOTIFY_EMAIL&&s.BRAND_NOTIFY_PASS);}).map(b=>[b.name,b.majorAdminEmail,b.tier,b.slug])},
+  {id:'not-signed-in',title:'People who have not signed in yet',desc:'Active users still on the temporary password they were given.',cols:['Name','Email','Role','Workspace','Slug'],
+    run:c=>{const r=[];for(const b of c.brands){for(const u of (c.db(b.slug)||{}).users||[])if(u.firstLogin&&u.active!==false&&u.active!=='false')r.push([u.name,u.email,u.role,b.name,b.slug]);}return r;}},
+  {id:'busiest',title:'Busiest workspaces',desc:'Most tickets and issues first.',cols:['Workspace','Plan','Users','Tickets','Open tickets','Issues','Slug'],
+    run:c=>c.brands.map(b=>{const d=c.db(b.slug)||{},tk=d.tickets||[];return[b.name,b.tier,(d.users||[]).filter(u=>u.active!==false).length,tk.length,tk.filter(t=>!['resolved','closed'].includes(String(t.status||'').toLowerCase())).length,(d.issues||[]).length,b.slug];}).sort((a,b)=>(b[3]+b[5])-(a[3]+a[5]))},
+  {id:'admins',title:'All workspace admins',desc:'Who to contact, with the workspace they run.',cols:['Name','Email','Workspace','Plan','Status','Slug'],
+    run:c=>{const r=[];for(const b of c.brands){for(const u of (c.db(b.slug)||{}).users||[])if(u.role==='Admin'&&u.active!==false&&u.active!=='false')r.push([u.name,u.email,b.name,b.tier,b.status,b.slug]);}return r;}},
+  {id:'failed-emails',title:'Password-reset emails that failed',desc:'Last 7 days. These people could not get their link.',cols:['When','Email','Workspace slug'],
+    run:c=>(c.owner.auditLog||[]).filter(a=>a.action==='reset_email_failed'&&(_t(a.timestamp)||0)>Date.now()-7*_day).map(a=>[String(a.timestamp||'').slice(0,16).replace('T',' '),(a.details||{}).email||'',(a.details||{}).brandSlug||''])},
+];
+function _reportCtx(){const owner=readOwner(),memo={};return{owner,brands:owner.brands||[],db:slug=>{if(!(slug in memo)){try{memo[slug]=readBrandDB(slug);}catch(e){memo[slug]=null;}}return memo[slug];}};}
+app.get('/api/owner/reports',ownerOnly,(req,res)=>{
+  const c=_reportCtx();
+  res.json({success:true,reports:OWNER_REPORTS.map(r=>{let n=null;try{n=r.run(c).length;}catch(e){}return{id:r.id,title:r.title,desc:r.desc,count:n};})});
+});
+app.get('/api/owner/reports/:id',ownerOnly,(req,res)=>{
+  const r=OWNER_REPORTS.find(x=>x.id===req.params.id);
+  if(!r)return res.json({success:false,error:'No such report.'});
+  try{res.json({success:true,id:r.id,title:r.title,desc:r.desc,columns:r.cols,rows:r.run(_reportCtx())});}catch(e){res.json({success:false,error:e.message});}
+});
+
+// The console page itself lives in public/owner-console.html (styles in css/rv-console.css, script in js/rv-console.js).
+app.get('/owner-console',(req,res)=>{res.set('Cache-Control','no-cache');res.sendFile(path.join(__dirname,'public','owner-console.html'));});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ADVANCED FEATURES — all optional, toggled per brand in Settings

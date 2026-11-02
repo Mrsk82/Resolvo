@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="resolvo">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Owner Console — Resolvo</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
+  <link rel="stylesheet" href="/css/rv-owner.css?v=3">
+  <link rel="stylesheet" href="/css/rv-console.css?v=2">
+  <script>
+    // same look as the app: Resolvo light, or Resolvo dark when the app is set to it
+    try { var th = localStorage.getItem('tt_theme'); if (th === 'resolvo-dark') document.documentElement.setAttribute('data-theme', 'resolvo-dark'); } catch (e) {}
+  </script>
+</head>
+<body class="rvc">
+  <header class="rvc-top">
+    <div class="rvc-brand"><span class="rvc-mark">⟳</span><span class="rvc-name">Resolvo</span><span class="rvc-tag">OWNER CONSOLE</span></div>
+    <div class="rvc-top-r">
+      <span class="rvc-conn" id="connStatus">Checking…</span>
+      <a class="rvc-btn" href="/">← Owner portal</a>
+    </div>
+  </header>
+
+  <nav class="rvc-tabs" role="tablist" aria-label="Owner Console sections">
+    <button class="rvc-tab active" role="tab" data-tab="find">🔎 Find &amp; Reports</button>
+    <button class="rvc-tab" role="tab" data-tab="browse">📋 Browse Data</button>
+    <button class="rvc-tab" role="tab" data-tab="monitor">📊 Live Monitor</button>
+    <button class="rvc-tab" role="tab" data-tab="nurture">📧 Nurture Emails</button>
+    <button class="rvc-tab" role="tab" data-tab="health">🩺 Health &amp; Backups <span class="rvc-tabbadge" id="healthBadge" hidden></span></button>
+  </nav>
+
+  <main class="rvc-main">
+    <!-- FIND & REPORTS -->
+    <section id="panel-find" class="rvc-panel active">
+      <form class="rvc-find" id="findForm" role="search" autocomplete="off">
+        <label for="findQ" class="rvc-sr">Find anyone</label>
+        <input id="findQ" type="search" inputmode="search" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Find anyone: an email, name, phone number, workspace or ticket number">
+        <button class="rvc-btn main" type="submit">Search</button>
+      </form>
+      <div id="findOut"></div>
+
+      <h2 class="rvc-h">Ready-made reports</h2>
+      <div class="rvc-tiles" id="reportTiles"><div class="rvc-muted">Loading…</div></div>
+      <div id="reportOut"></div>
+    </section>
+
+    <!-- BROWSE DATA -->
+    <section id="panel-browse" class="rvc-panel">
+      <div class="rvc-card">
+        <div class="rvc-card-t">Look at the raw records</div>
+        <div class="rvc-row">
+          <div><label for="selTable">Show me</label>
+            <select id="selTable">
+              <option value="brands">🏢 Workspaces</option><option value="users">👥 Users</option><option value="tickets">🎫 Tickets</option>
+              <option value="issues">🐛 Issues</option><option value="appointments">📅 Appointments</option><option value="support_tickets">📩 Support tickets sent to you</option>
+              <option value="audit_log">📜 Owner log</option>
+            </select></div>
+          <div><label for="selLimit">How many</label>
+            <select id="selLimit"><option value="100">100</option><option value="500" selected>500</option><option value="2000">2000</option><option value="9999">All</option></select></div>
+          <div class="rvc-grow"><label for="browseFilter">Filter what is shown</label>
+            <input id="browseFilter" type="search" placeholder="Type to filter every column…" autocapitalize="none" spellcheck="false"></div>
+          <div><button class="rvc-btn main" id="browseLoad">Show</button></div>
+        </div>
+        <div class="rvc-note">Passwords, tokens and keys are never shown, copied or exported.</div>
+      </div>
+      <div id="qErr" class="rvc-err" hidden></div>
+      <div id="qMeta" class="rvc-meta" hidden></div>
+      <div class="rvc-row-actions"><button class="rvc-btn" id="exportBtn" hidden>⬇ Export CSV</button></div>
+      <div id="tableWrap" class="rvc-tablewrap" hidden></div>
+    </section>
+
+    <!-- LIVE MONITOR -->
+    <section id="panel-monitor" class="rvc-panel">
+      <div class="rvc-stats" id="monStats"></div>
+      <input class="rvc-search" id="logSearch" type="search" placeholder="Search events…">
+      <div class="rvc-chips" id="logChips">
+        <button class="rvc-chip active" data-level="">All</button>
+        <button class="rvc-chip" data-level="error">🔴 Errors only</button>
+        <button class="rvc-chip" data-level="warn">🟡 Warnings</button>
+        <button class="rvc-chip" data-level="info">🔵 Info</button>
+        <button class="rvc-chip push" id="monRefresh">🔄 Refresh</button>
+      </div>
+      <div class="rvc-log" id="logList"><div class="rvc-empty">Loading…</div></div>
+    </section>
+
+    <!-- NURTURE EMAILS -->
+    <section id="panel-nurture" class="rvc-panel">
+      <div class="rvc-card">
+        <div class="rvc-card-t">Send yourself a test of every email</div>
+        <div class="rvc-row">
+          <div class="rvc-grow"><label for="nurtureTestTo">Send to (your own address only)</label>
+            <input id="nurtureTestTo" type="email" placeholder="contact@resolvogroup.com" autocapitalize="none"></div>
+          <div><button class="rvc-btn" id="nurtureTestBtn">📧 Send the 27 test emails</button></div>
+        </div>
+      </div>
+      <div class="rvc-card">
+        <div class="rvc-card-t">Today's real emails</div>
+        <p class="rvc-p">These go to real customers. You always see who would get what first, and you confirm before anything is sent.</p>
+        <div class="rvc-row-actions"><button class="rvc-btn main" id="nurtureRunBtn">👁 See who would get an email today</button></div>
+      </div>
+      <div id="nurtureResult"></div>
+      <div class="rvc-card">
+        <div class="rvc-card-t">Full email schedule</div>
+        <div class="rvc-sched" id="nurtureSchedule"></div>
+      </div>
+    </section>
+
+    <!-- HEALTH & BACKUPS -->
+    <section id="panel-health" class="rvc-panel">
+      <div id="rvOwnAttention"></div>
+      <div id="rvOwnSystem"></div>
+      <div class="rvc-card">
+        <div class="rvc-card-t">Database size per workspace <span class="rvc-muted">(over about 5 MB is worth a look)</span></div>
+        <div class="rvc-row-actions"><button class="rvc-btn" id="healthRefresh">🔄 Refresh</button></div>
+        <div id="healthTableWrap" class="rvc-tablewrap"><div class="rvc-empty">Loading…</div></div>
+      </div>
+      <details class="rvc-card rvc-details">
+        <summary>Maintenance: move old inline email HTML into the asset table</summary>
+        <p class="rvc-p">Moves any email body still stored inside a workspace's tickets into a separate table, so the tickets stay small. Safe to repeat. Do a dry run first.</p>
+        <div class="rvc-row">
+          <div><label for="healthMigrateBrand">Workspace</label><select id="healthMigrateBrand"><option value="">— all workspaces —</option></select></div>
+          <div><button class="rvc-btn" id="migDry">👁 Dry run (preview only)</button></div>
+          <div><button class="rvc-btn main" id="migRun">▶ Run migration</button></div>
+        </div>
+        <div id="migrateErr" class="rvc-err" hidden></div>
+        <div id="migrateResult"></div>
+      </details>
+    </section>
+  </main>
+
+  <!-- record editor -->
+  <div class="rvc-overlay" id="editOverlay" hidden>
+    <div class="rvc-dialog" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="rvc-dialog-h"><div id="editTitle" class="rvc-dialog-t">✏️ Edit record</div><button class="rvc-x" id="editClose" aria-label="Close">×</button></div>
+      <div id="editMeta" class="rvc-mono rvc-muted"></div>
+      <div id="editErr" class="rvc-err" hidden></div>
+      <div id="editFields"></div>
+      <div class="rvc-dialog-f"><button class="rvc-btn" id="editCancel">Cancel</button><button class="rvc-btn main" id="editSaveBtn">💾 Save changes</button></div>
+    </div>
+  </div>
+
+  <!-- confirm (mass emails) -->
+  <div class="rvc-overlay" id="confirmOverlay" hidden>
+    <div class="rvc-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="rvc-dialog-h"><div id="confirmTitle" class="rvc-dialog-t"></div><button class="rvc-x" id="confirmClose" aria-label="Close">×</button></div>
+      <div id="confirmBody"></div>
+      <div id="confirmTypeWrap" class="rvc-confirm-type" hidden>
+        <label for="confirmType">Type <b>SEND</b> to confirm</label>
+        <input id="confirmType" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </div>
+      <div class="rvc-dialog-f"><button class="rvc-btn" id="confirmCancel">Cancel</button><button class="rvc-btn main" id="confirmGo" disabled>Send</button></div>
+    </div>
+  </div>
+
+  <!-- sign in -->
+  <div class="rvc-overlay" id="loginOverlay" hidden>
+    <form class="rvc-dialog rvc-login" id="loginForm">
+      <div class="rvc-dialog-t">Owner sign-in</div>
+      <p class="rvc-p">Sign in with your owner account to continue.</p>
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" autocomplete="username" autocapitalize="none" value="contact@resolvogroup.com">
+      <label for="loginPass">Password</label>
+      <input id="loginPass" type="password" autocomplete="current-password">
+      <div id="loginErr" class="rvc-login-err" role="alert"></div>
+      <button class="rvc-btn main wide" type="submit">Sign in →</button>
+    </form>
+  </div>
+
+  <script src="/js/rv-owner.js?v=2"></script>
+  <script src="/js/rv-console.js?v=2"></script>
+</body>
+</html>
