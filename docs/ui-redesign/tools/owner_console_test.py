@@ -134,7 +134,7 @@ async def main():
         await pg0.context.close()
 
         pg, errs = await page(1440, 1000)
-        check("desktop: connected, with five tabs", "Connected" in await pg.inner_text("#connStatus") and await pg.locator(".rvc-tab").count() == 5)
+        check("desktop: connected, with six tabs", "Connected" in await pg.inner_text("#connStatus") and await pg.locator(".rvc-tab").count() == 6)
         check("desktop: the health tab shows a red count for what needs attention", await pg.locator("#healthBadge").is_visible())
         tiles = await pg.locator(".rvc-tile").count()
         check("desktop: nine report tiles are shown", tiles == 9, tiles)

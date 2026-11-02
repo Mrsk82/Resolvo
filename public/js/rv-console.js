@@ -43,6 +43,7 @@
     document.querySelectorAll('.rvc-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + name); });
     try { history.replaceState(null, '', '#' + name); } catch (e) {}
     if (name === 'monitor') loadMonitor();
+    if (name === 'trash') loadTrash();
     if (name === 'health') { if (!loaded.health) { loaded.health = 1; if (window.RVOwner) RVOwner.mount(document.body); } loadHealth(); }
   }
 
@@ -109,10 +110,11 @@
   function ask(o) {
     return new Promise(function (resolve) {
       $('confirmTitle').textContent = o.title; $('confirmBody').innerHTML = o.html || '';
-      var w = $('confirmTypeWrap'), inp = $('confirmType'), go = $('confirmGo');
-      go.textContent = o.go || 'Send'; w.hidden = !o.type; inp.value = ''; go.disabled = !!o.type;
+      var w = $('confirmTypeWrap'), inp = $('confirmType'), go = $('confirmGo'), word = o.typeWord || 'SEND';
+      go.textContent = o.go || 'Send'; go.className = 'rvc-btn ' + (o.danger ? 'danger' : 'main'); w.hidden = !o.type; inp.value = ''; go.disabled = !!o.type;
+      $('confirmTypeLabel').innerHTML = 'Type <b>' + esc(word) + '</b> to confirm';
       var done = function (v) { $('confirmOverlay').hidden = true; inp.oninput = null; go.onclick = null; $('confirmCancel').onclick = null; $('confirmClose').onclick = null; resolve(v); };
-      inp.oninput = function () { go.disabled = inp.value.trim().toUpperCase() !== 'SEND'; };
+      inp.oninput = function () { var v = inp.value.trim(); go.disabled = o.exact ? v !== word : v.toUpperCase() !== word.toUpperCase(); };
       go.onclick = function () { done(true); }; $('confirmCancel').onclick = function () { done(false); }; $('confirmClose').onclick = function () { done(false); };
       $('confirmOverlay').hidden = false; setTimeout(function () { (o.type ? inp : go).focus(); }, 50);
     });
@@ -171,17 +173,17 @@
         findGroup('Workspaces', r.workspaces, function (b) {
           return '<div class="rvc-result"><div class="b"><div class="t">' + esc(b.name) + ' <span class="rvc-muted rvc-mono">' + esc(b.slug) + '</span></div><div class="s">' + statusPill(b.status) + pill(b.tier || 'Free') + esc(b.admin || '') + ' · created ' + esc(day(b.created)) + (b.lastActive ? ' · last used ' + esc(when(b.lastActive)) : ' · never used') + (b.status === 'pending' ? ' · <b>not activated</b>' : '') + '</div></div>' +
             (b.status === 'pending' ? '<button class="rvc-btn sm main" data-act="resend" data-slug="' + esc(b.slug) + '">Resend activation</button><button class="rvc-btn sm" data-act="link" data-slug="' + esc(b.slug) + '">Copy link</button>' : '') +
-            '<button class="rvc-btn sm" data-act="edit-brand" data-slug="' + esc(b.slug) + '">Edit</button></div>';
+            '<button class="rvc-btn sm" data-act="edit-brand" data-slug="' + esc(b.slug) + '">Edit</button><button class="rvc-btn sm dline" data-act="del" data-type="workspace" data-slug="' + esc(b.slug) + '">🗑 Delete</button></div>';
         }) +
         findGroup('People', r.people, function (u) {
           return '<div class="rvc-result"><div class="b"><div class="t">' + esc(u.name || u.email) + '</div><div class="s">' + esc(u.email || '') + '<br>' + pill(u.role || 'User') + (u.active ? '' : pill('switched off', 'bad')) + (u.neverSignedIn ? pill('never signed in', 'warn') : '') + esc(u.brandName) + ' ' + statusPill(u.brandStatus) + pill(u.tier || 'Free') + '</div></div>' +
-            '<button class="rvc-btn sm" data-act="copy" data-v="' + esc(u.email || '') + '">Copy email</button><button class="rvc-btn sm" data-act="edit-user" data-slug="' + esc(u.brand) + '" data-id="' + esc(u.id) + '">Edit</button></div>';
+            '<button class="rvc-btn sm" data-act="copy" data-v="' + esc(u.email || '') + '">Copy email</button><button class="rvc-btn sm" data-act="edit-user" data-slug="' + esc(u.brand) + '" data-id="' + esc(u.id) + '">Edit</button><button class="rvc-btn sm dline" data-act="del" data-type="user" data-slug="' + esc(u.brand) + '" data-id="' + esc(u.id) + '">🗑 Delete</button></div>';
         }) +
         findGroup('Tickets', r.tickets, function (t) {
-          return '<div class="rvc-result"><div class="b"><div class="t">' + esc(t.id) + ' · ' + esc(t.subject || '(no subject)') + '</div><div class="s">' + pill(t.status || '') + esc(t.from || '') + ' · ' + esc(t.brandName) + ' · ' + esc(day(t.created)) + '</div></div></div>';
+          return '<div class="rvc-result"><div class="b"><div class="t">' + esc(t.id) + ' · ' + esc(t.subject || '(no subject)') + '</div><div class="s">' + pill(t.status || '') + esc(t.from || '') + ' · ' + esc(t.brandName) + ' · ' + esc(day(t.created)) + '</div></div><button class="rvc-btn sm dline" data-act="del" data-type="ticket" data-table="tickets" data-slug="' + esc(t.brand) + '" data-id="' + esc(t.id) + '">🗑 Delete</button></div>';
         }) +
         findGroup('Sign-up leads', r.leads, function (l) {
-          return '<div class="rvc-result"><div class="b"><div class="t">' + esc(l.name || l.email) + '</div><div class="s">' + esc(l.email) + (l.company ? ' · ' + esc(l.company) : '') + ' ' + pill(l.status || 'lead') + ' · ' + esc(day(l.created)) + '</div></div><button class="rvc-btn sm" data-act="copy" data-v="' + esc(l.email) + '">Copy email</button></div>';
+          return '<div class="rvc-result"><div class="b"><div class="t">' + esc(l.name || l.email) + '</div><div class="s">' + esc(l.email) + (l.company ? ' · ' + esc(l.company) : '') + ' ' + pill(l.status || 'lead') + ' · ' + esc(day(l.created)) + '</div></div><button class="rvc-btn sm" data-act="copy" data-v="' + esc(l.email) + '">Copy email</button><button class="rvc-btn sm dline" data-act="del" data-type="lead" data-id="' + esc(l.id) + '">🗑 Delete</button></div>';
         });
     }).catch(function () { out.innerHTML = '<div class="rvc-err">No answer from the server.</div>'; });
   }
@@ -190,6 +192,7 @@
     var b = e.target.closest('button[data-act]'); if (!b) return;
     var a = b.getAttribute('data-act'), slug = b.getAttribute('data-slug');
     if (a === 'copy') copy(b.getAttribute('data-v'));
+    else if (a === 'del') startDelete({ type: b.getAttribute('data-type'), slug: slug, id: b.getAttribute('data-id'), table: b.getAttribute('data-table') }, function () { runFind($('findQ').value); loadReports(); });
     else if (a === 'edit-brand') openEdit('brands', '', slug, function () { runFind($('findQ').value); });
     else if (a === 'edit-user') openEdit('users', slug, b.getAttribute('data-id'), function () { runFind($('findQ').value); });
     else if (a === 'resend' || a === 'link') {
@@ -251,7 +254,8 @@
       var cols = d.columns, idCol = browseTable === 'brands' ? 'slug' : 'id', idIdx = cols.indexOf(idCol), brIdx = cols.indexOf('_brand');
       browseGrid.opts.action = (EDITABLE[browseTable] && idIdx >= 0) ? function (row) {
         var id = row[idIdx], brand = browseTable === 'brands' ? '' : (brIdx >= 0 ? row[brIdx] : '');
-        return id && (browseTable === 'brands' || brand) ? '<button class="rvc-btn sm" data-edit="' + esc(id) + '" data-brand="' + esc(brand) + '">✏️ Edit</button>' : '';
+        var can = id && (browseTable === 'brands' || brand), kind = { brands: 'workspace', users: 'user', tickets: 'ticket', issues: 'ticket' }[browseTable];
+        return can ? '<button class="rvc-btn sm" data-edit="' + esc(id) + '" data-brand="' + esc(brand) + '">✏️ Edit</button>' + (kind ? ' <button class="rvc-btn sm dline" data-del="' + kind + '" data-slug="' + esc(browseTable === 'brands' ? id : brand) + '" data-id="' + esc(id) + '" data-table="' + browseTable + '">🗑 Delete</button>' : '') : '';
       } : null;
       browseGrid.q = $('browseFilter').value; browseGrid.set(cols, d.rows); $('exportBtn').hidden = false;
     }).catch(function () { btn.disabled = false; btn.textContent = 'Show'; $('qErr').textContent = 'No answer from the server.'; $('qErr').hidden = false; });
@@ -260,7 +264,10 @@
   $('selTable').onchange = loadBrowse;
   $('browseFilter').oninput = function () { browseGrid.q = this.value; if (browseGrid.cols.length) browseGrid.draw(); };
   $('exportBtn').onclick = function () { browseGrid.csv(browseTable); };
-  $('tableWrap').addEventListener('click', function (e) { var b = e.target.closest('button[data-edit]'); if (b) openEdit(browseTable, b.getAttribute('data-brand'), b.getAttribute('data-edit'), loadBrowse); });
+  $('tableWrap').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-edit]'); if (b) { openEdit(browseTable, b.getAttribute('data-brand'), b.getAttribute('data-edit'), loadBrowse); return; }
+    var d = e.target.closest('button[data-del]'); if (d) startDelete({ type: d.getAttribute('data-del'), slug: d.getAttribute('data-slug'), id: d.getAttribute('data-id'), table: d.getAttribute('data-table') }, loadBrowse);
+  });
 
   /* ---------- live monitor ---------- */
   var allLogs = [], logLevel = '';
@@ -342,6 +349,53 @@
   }
   $('migDry').onclick = function () { migrate(true); }; $('migRun').onclick = function () { migrate(false); };
 
+  /* ---------- delete (everything goes to the recycle bin first) ---------- */
+  function qs(o) { return Object.keys(o).filter(function (k) { return o[k]; }).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(o[k]); }).join('&'); }
+  function startDelete(t, after) {
+    api('/api/owner/delete-preview?' + qs(t)).then(function (d) {
+      if (!d.success) { toast(d.error || 'Cannot delete this', 'error'); return; }
+      var ws = d.type === 'workspace';
+      var html = '<p class="rvc-p"><b>' + esc(d.label) + '</b></p>' + d.lines.map(function (l) { return '<p class="rvc-p">' + esc(l) + '</p>'; }).join('')
+        + (ws ? '<div class="rvc-warn">This removes the whole workspace: its users can no longer sign in and its customers\' tickets disappear from the app. A safety backup is taken first.</div>' : '')
+        + '<p class="rvc-note">It goes to the Recycle bin for ' + d.keepDays + ' days. You can restore it from there.</p>';
+      ask({ title: ws ? 'Delete this workspace?' : 'Delete this?', html: html, type: ws, typeWord: d.confirmName, exact: true, danger: true, go: ws ? 'Delete workspace' : 'Delete' }).then(function (ok) {
+        if (!ok) return;
+        var typed = $('confirmType').value;
+        api('/api/owner/delete', Object.assign({}, t, { confirm: typed })).then(function (r) {
+          if (!r.success) { toast(r.error || 'Delete failed', 'error'); return; }
+          toast(r.message); refreshTrashBadge(); if (after) after();
+        }).catch(function () { toast('No answer from the server. Check the Recycle bin before trying again.', 'error'); });
+      });
+    }).catch(function () { toast('No answer from the server', 'error'); });
+  }
+  var TYPE_ICON = { workspace: '🏢', user: '👤', ticket: '🎫', lead: '📨' };
+  function refreshTrashBadge() { api('/api/owner/trash').then(function (d) { var n = d && d.success ? d.items.length : 0; $('trashBadge').textContent = n; $('trashBadge').hidden = !n; }).catch(function () {}); }
+  function loadTrash() {
+    var host = $('trashList'); host.innerHTML = '<div class="rvc-empty">Loading…</div>';
+    api('/api/owner/trash').then(function (d) {
+      if (!d.success) { host.innerHTML = '<div class="rvc-err">' + esc(d.error || 'Could not load') + '</div>'; return; }
+      $('trashBadge').textContent = d.items.length; $('trashBadge').hidden = !d.items.length;
+      if (!d.items.length) { host.innerHTML = '<div class="rvc-empty">The Recycle bin is empty.</div>'; return; }
+      host.innerHTML = d.items.map(function (e) {
+        return '<div class="rvc-result"><div class="b"><div class="t">' + (TYPE_ICON[e.type] || '') + ' ' + esc(e.label) + '</div><div class="s">' + pill(e.type === 'ticket' && e.table === 'issues' ? 'issue' : e.type) + esc(e.detail || '') + '<br>Deleted ' + esc(when(e.deletedAt)) + (e.by ? ' by ' + esc(e.by) : '') + ' · ' + (e.daysLeft <= 3 ? '<b style="color:#c0262b">' : '<b>') + e.daysLeft + (e.daysLeft === 1 ? ' day' : ' days') + ' left</b></div></div>' +
+          '<button class="rvc-btn sm main" data-trash="restore" data-id="' + esc(e.id) + '">Restore</button><button class="rvc-btn sm dline" data-trash="purge" data-id="' + esc(e.id) + '" data-label="' + esc(e.label) + '">Delete for good</button></div>';
+      }).join('');
+    }).catch(function () { host.innerHTML = '<div class="rvc-err">No answer from the server.</div>'; });
+  }
+  $('trashList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-trash]'); if (!b) return;
+    var id = b.getAttribute('data-id');
+    if (b.getAttribute('data-trash') === 'restore') {
+      b.disabled = true;
+      api('/api/owner/trash/' + encodeURIComponent(id) + '/restore', {}).then(function (r) { b.disabled = false; toast(r.success ? r.message : (r.error || 'Could not restore'), r.success ? 'success' : 'error'); loadTrash(); });
+    } else {
+      ask({ title: 'Delete for good?', html: '<p class="rvc-p"><b>' + esc(b.getAttribute('data-label')) + '</b></p><p class="rvc-p">This cannot be undone. The only way back is an old backup file.</p>', type: true, typeWord: 'DELETE', exact: true, danger: true, go: 'Delete for good' }).then(function (ok) {
+        if (!ok) return;
+        api('/api/owner/trash/' + encodeURIComponent(id) + '/purge', { confirm: 'DELETE' }).then(function (r) { toast(r.success ? r.message : (r.error || 'Failed'), r.success ? 'success' : 'error'); loadTrash(); });
+      });
+    }
+  });
+
   /* ---------- start ---------- */
   document.querySelector('.rvc-tabs').addEventListener('click', function (e) { var t = e.target.closest('.rvc-tab'); if (t) showTab(t.getAttribute('data-tab')); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (!$('editOverlay').hidden) closeEdit(); else if (!$('confirmOverlay').hidden) $('confirmCancel').click(); } });
@@ -349,13 +403,13 @@
     api('/api/owner/stats').then(function (d) {
       if (!d || !d.success) { showLogin(); return; }
       $('connStatus').textContent = 'Connected ✓'; $('connStatus').classList.add('ok');
-      loadReports();
+      loadReports(); refreshTrashBadge();
       api('/api/owner/attention').then(function (a) {
         var n = a && a.success ? a.items.filter(function (i) { return i.severity !== 'low'; }).length : 0;
         if (n) { $('healthBadge').textContent = n; $('healthBadge').hidden = false; }
       });
       var h = (location.hash || '').replace('#', ''), qs = new URLSearchParams(location.search).get('q');
-      if (['browse', 'monitor', 'nurture', 'health'].indexOf(h) >= 0) showTab(h);
+      if (['browse', 'monitor', 'nurture', 'health', 'trash'].indexOf(h) >= 0) showTab(h);
       if (qs) { $('findQ').value = qs; runFind(qs); }
     }).catch(function () { $('connStatus').textContent = 'No answer from the server'; });
   }

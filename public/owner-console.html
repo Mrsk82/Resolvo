@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
   <link rel="stylesheet" href="/css/rv-owner.css?v=3">
-  <link rel="stylesheet" href="/css/rv-console.css?v=2">
+  <link rel="stylesheet" href="/css/rv-console.css?v=4">
   <script>
     // same look as the app: Resolvo light, or Resolvo dark when the app is set to it
     try { var th = localStorage.getItem('tt_theme'); if (th === 'resolvo-dark') document.documentElement.setAttribute('data-theme', 'resolvo-dark'); } catch (e) {}
@@ -32,6 +32,7 @@
     <button class="rvc-tab" role="tab" data-tab="monitor">📊 Live Monitor</button>
     <button class="rvc-tab" role="tab" data-tab="nurture">📧 Nurture Emails</button>
     <button class="rvc-tab" role="tab" data-tab="health">🩺 Health &amp; Backups <span class="rvc-tabbadge" id="healthBadge" hidden></span></button>
+    <button class="rvc-tab" role="tab" data-tab="trash">🗑 Recycle bin <span class="rvc-tabbadge calm" id="trashBadge" hidden></span></button>
   </nav>
 
   <main class="rvc-main">
@@ -110,6 +111,15 @@
       </div>
     </section>
 
+    <!-- RECYCLE BIN -->
+    <section id="panel-trash" class="rvc-panel">
+      <div class="rvc-card">
+        <div class="rvc-card-t">Recycle bin</div>
+        <p class="rvc-p">Anything you delete stays here for 30 days. A deleted workspace keeps all its users and tickets and can be restored whole. After 30 days it is removed for good.</p>
+        <div id="trashList"><div class="rvc-empty">Loading…</div></div>
+      </div>
+    </section>
+
     <!-- HEALTH & BACKUPS -->
     <section id="panel-health" class="rvc-panel">
       <div id="rvOwnAttention"></div>
@@ -150,7 +160,7 @@
       <div class="rvc-dialog-h"><div id="confirmTitle" class="rvc-dialog-t"></div><button class="rvc-x" id="confirmClose" aria-label="Close">×</button></div>
       <div id="confirmBody"></div>
       <div id="confirmTypeWrap" class="rvc-confirm-type" hidden>
-        <label for="confirmType">Type <b>SEND</b> to confirm</label>
+        <label for="confirmType" id="confirmTypeLabel">Type <b>SEND</b> to confirm</label>
         <input id="confirmType" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
       </div>
       <div class="rvc-dialog-f"><button class="rvc-btn" id="confirmCancel">Cancel</button><button class="rvc-btn main" id="confirmGo" disabled>Send</button></div>
@@ -171,7 +181,7 @@
     </form>
   </div>
 
-  <script src="/js/rv-owner.js?v=2"></script>
-  <script src="/js/rv-console.js?v=2"></script>
+  <script src="/js/rv-owner.js?v=3"></script>
+  <script src="/js/rv-console.js?v=3"></script>
 </body>
 </html>

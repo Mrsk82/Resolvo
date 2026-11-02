@@ -379,9 +379,10 @@ function readOwner(){return JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}
 const OwnerGuard=require('./lib/owner-guard');
 // Saved in one step (temp file, then rename) so a crash or a full disk never leaves a half-written owner file.
 // A save that lacks a workspace the file on disk already has is an old copy being written back: those workspaces are put back.
-function writeOwner(d){
+// opts.removeSlugs: workspaces the owner is deleting on purpose in this save (they are not put back).
+function writeOwner(d,opts){
   let cur=null;try{cur=JSON.parse(fs.readFileSync(OWNER_PATH,'utf8'));}catch(e){}
-  const g=OwnerGuard.protectBrands(cur,d);
+  const g=OwnerGuard.protectBrands(cur,d,opts&&opts.removeSlugs);
   if(g.restored.length){console.error('[Owner] a save was missing workspaces, put them back:',g.restored.join(', '));try{ownerAuditLog(g.data,'workspaces_restored',{slugs:g.restored},'system');}catch(e){}}
   const tmp=OWNER_PATH+'.tmp';
   fs.writeFileSync(tmp,JSON.stringify(g.data,null,2),'utf8');
@@ -9515,6 +9516,11 @@ function _readBackupStatus(){try{return JSON.parse(fs.readFileSync(path.join(BAC
 // One line per backup: how many workspaces, users and tickets there were. A drop in the workspace count is shown to the owner.
 function _readBackupHistory(){try{return JSON.parse(fs.readFileSync(path.join(BACKUP_DIR,'history.json'),'utf8'));}catch(e){return[];}}
 function _appendBackupHistory(row){try{const h=_readBackupHistory();h.push(row);fs.writeFileSync(path.join(BACKUP_DIR,'history.json'),JSON.stringify(h.slice(-400)));}catch(e){}}
+// A deliberate delete or restore of a workspace changes the count on purpose: note it, so only unexplained drops are flagged.
+function _markIntentionalChange(label){
+  try{const h=_readBackupHistory(),prev=h[h.length-1]||{};fs.mkdirSync(BACKUP_DIR,{recursive:true});
+    _appendBackupHistory(Object.assign({},prev,{at:nowIST(),name:label,workspaces:(readOwner().brands||[]).length,intentional:true}));}catch(e){}
+}
 async function runBackup(reason){
   if(_backupRunning)return{success:false,error:'A backup is already running.'};
   _backupRunning=true;
@@ -9566,7 +9572,8 @@ function _ownerAttention(){
   if(last&&last.ok===false)add({id:'backup-failed',severity:'high',title:'The last backup failed',text:String(last.error||'').slice(0,160)+' ('+(last.at||'')+')',actions:[{kind:'backup-now',label:'Back up now'}]});
   else if(!list.length&&process.uptime()>300)add({id:'backup-none',severity:'high',title:'There is no backup yet',text:'The first one is made at 03:30, or press the button.',actions:[{kind:'backup-now',label:'Back up now'}]});
   else if(list.length&&now-list[0].createdAt.getTime()>26*3600000)add({id:'backup-old',severity:'med',title:'The newest backup is '+_ago(now-list[0].createdAt.getTime()).replace(' ago','')+' old',text:'A backup should be made every night at 03:30.',actions:[{kind:'backup-now',label:'Back up now'}]});
-  if(hist.length>1){const peak=Math.max(...hist.slice(0,-1).map(h=>h.workspaces||0)),cur=hist[hist.length-1].workspaces||0;
+  const since=hist.slice(Math.max(0,hist.map(h=>!!h.intentional).lastIndexOf(true)));   // counts since the owner last deleted or restored a workspace on purpose
+  if(since.length>1){const peak=Math.max(...since.slice(0,-1).map(h=>h.workspaces||0)),cur=since[since.length-1].workspaces||0;
     if(cur<peak)add({id:'workspace-drop',severity:'high',title:'The number of workspaces went down: '+peak+' then, '+cur+' now',text:'Nothing in Resolvo deletes a workspace. Open the backups list and compare, before the old backups are pruned.',actions:[{kind:'show-backups',label:'Open backups'}]});}
   // Sign-ups that never activated
   for(const b of brands.filter(b=>b.status==='pending')){
@@ -9875,6 +9882,8 @@ function runBackgroundJobs(){
   });
   // Daily backup at 03:30 (server time is IST). Also one shortly after a start if the newest backup is older than a day.
   cron.schedule('30 3 * * *',()=>{runBackup('scheduled');});
+  // Recycle bin: remove what has been in it for 30 days.
+  cron.schedule('15 4 * * *',()=>{try{const g=trash.purgeExpired();if(g.length)console.log('[Trash] removed '+g.length+' expired item(s) for good');}catch(e){console.error('[Trash] purge failed:',e.message);}});
   setTimeout(()=>{const l=Backup.listBackups(BACKUP_DIR)[0];if(!l||Date.now()-l.createdAt.getTime()>26*3600000)runBackup('catch-up');},90000);
   console.log('[Jobs] Background jobs started (reminders, digest, follow-ups, 24h-apt-reminders)');
 }
@@ -10243,6 +10252,136 @@ app.get('/api/owner/reports/:id',ownerOnly,(req,res)=>{
   const r=OWNER_REPORTS.find(x=>x.id===req.params.id);
   if(!r)return res.json({success:false,error:'No such report.'});
   try{res.json({success:true,id:r.id,title:r.title,desc:r.desc,columns:r.cols,rows:r.run(_reportCtx())});}catch(e){res.json({success:false,error:e.message});}
+});
+
+// ── OWNER CONSOLE: delete with a recycle bin ────────────────────────────────
+// A deleted workspace, user, ticket/issue or sign-up lead goes to data/trash for 30 days and can be restored. A workspace is backed up first;
+// if that backup cannot be made, nothing is deleted. Every delete and restore is written to the owner log (counts only, never secrets).
+const Trash=require('./lib/trash');
+const trash=Trash.create(path.join(__dirname,'data','trash'),{keepDays:30});
+const _lc=s=>String(s||'').trim().toLowerCase();
+function _delTarget(q){   // finds what is being deleted and describes it, or returns {error}
+  const type=String(q.type||''),slug=String(q.slug||''),id=String(q.id||''),table=q.table==='issues'?'issues':'tickets';
+  const owner=readOwner();
+  if(type==='lead'){
+    const p=(owner.prospects||[]).find(x=>String(x.id)===id);
+    return p?{type,label:(p.name||p.email||'lead')+(p.email&&p.name?' ('+p.email+')':''),lines:['A sign-up lead from the website list.'],item:p}:{error:'Lead not found.'};
+  }
+  const brand=(owner.brands||[]).find(b=>b.slug===slug);
+  if(!brand)return{error:'Workspace not found.'};
+  let db;try{db=readBrandDB(slug);}catch(e){return{error:'Workspace data could not be read: '+e.message};}
+  if(type==='workspace'){
+    const users=(db.users||[]).length,tk=(db.tickets||[]).length,is=(db.issues||[]).length,ap=(db.appointments||[]).length;
+    return{type,slug,brand,label:brand.name,confirmName:brand.name,lines:[users+' '+(users===1?'user':'users')+', '+tk+' '+(tk===1?'ticket':'tickets')+', '+is+' '+(is===1?'issue':'issues')+(ap?', '+ap+' appointments':'')+'.','Status '+(brand.status||'?')+', plan '+(brand.tier||'Free')+(brand.majorAdminEmail?', admin '+brand.majorAdminEmail:'')+'.'],counts:{users,tickets:tk,issues:is}};
+  }
+  if(type==='user'){
+    const u=(db.users||[]).find(x=>x.id===id);if(!u)return{error:'User not found.'};
+    if(_lc(u.email)===_lc(brand.majorAdminEmail))return{error:'This is the main admin of '+brand.name+'. To remove them, delete the whole workspace.'};
+    if((u.role==='Admin')&&(db.users||[]).filter(x=>x.role==='Admin'&&x.active!==false&&x.active!=='false'&&x.id!==id).length===0)return{error:'This is the only admin of '+brand.name+'. Make someone else an admin first, or delete the whole workspace.'};
+    return{type,slug,brand,label:(u.name||u.email)+' ('+u.email+')',lines:['Role '+(u.role||'?')+' in '+brand.name+'. They can no longer sign in.'],item:u};
+  }
+  if(type==='ticket'){
+    const t=(db[table]||[]).find(x=>x.id===id);if(!t)return{error:(table==='issues'?'Issue':'Ticket')+' not found.'};
+    return{type,table,slug,brand,label:t.id+' · '+(t.subject||t.title||'(no subject)'),lines:[(table==='issues'?'An issue':'A ticket')+' in '+brand.name+', status '+(t.status||'?')+'.'],item:t};
+  }
+  return{error:'Unknown kind of delete.'};
+}
+app.get('/api/owner/delete-preview',ownerOnly,(req,res)=>{
+  const t=_delTarget(req.query);
+  if(t.error)return res.json({success:false,error:t.error});
+  res.json({success:true,type:t.type,label:t.label,lines:t.lines,confirmName:t.confirmName||null,keepDays:trash.keepDays,backup:t.type==='workspace'});
+});
+function _forgetSessions(slug,email){
+  for(const [tok,s] of Object.entries(sessions)){if(s&&!s.isOwner&&s.brandSlug===slug&&(!email||_lc(s.email)===_lc(email)))delete sessions[tok];}
+}
+app.post('/api/owner/delete',ownerOnly,async(req,res)=>{
+  const b=req.body||{},t=_delTarget(b);
+  if(t.error)return res.json({success:false,error:t.error});
+  const by=req.owner.email;
+  try{
+    if(t.type==='workspace'){
+      if(String(b.confirm||'').trim()!==String(t.confirmName).trim())return res.json({success:false,error:'The name you typed does not match. Type the workspace name exactly.'});
+      const bk=await runBackup('before-delete');
+      if(!bk.success)return res.json({success:false,error:'Nothing was deleted: the safety backup could not be made ('+bk.error+').'});
+      const slug=t.slug,src=path.join(BRANDS_DIR,slug);
+      const e=trash.add({type:'workspace',slug,label:t.brand.name,detail:t.lines[0],by,counts:t.counts});
+      trash.saveJSON(e.id,'item.json',t.brand);
+      if(activePollers[slug]){try{activePollers[slug].stop();}catch(x){}delete activePollers[slug];}
+      if(_dbConns[slug]){try{_dbConns[slug].close();}catch(x){}delete _dbConns[slug];}
+      try{if(fs.existsSync(src))trash.moveDir(src,trash.brandDir(e.id));}
+      catch(x){trash.remove(e.id);return res.json({success:false,error:'The workspace folder could not be moved ('+x.message+'). Nothing was deleted.'});}
+      try{
+        const o=readOwner();o.brands=(o.brands||[]).filter(x=>x.slug!==slug);
+        for(const k of Object.keys(o.pwdResetTokens||{}))if(o.pwdResetTokens[k].brandSlug===slug)delete o.pwdResetTokens[k];
+        ownerAuditLog(o,'workspace_deleted',{brandSlug:slug,brandName:t.brand.name,counts:t.counts,recycleId:e.id,backup:bk.name||null},by);
+        writeOwner(o,{removeSlugs:[slug]});
+      }catch(x){   // put the folder back so the workspace is not left half-deleted
+        try{trash.moveDir(trash.brandDir(e.id),src);trash.remove(e.id);}catch(y){}
+        return res.json({success:false,error:'The owner file could not be saved ('+x.message+'). The workspace was put back.'});
+      }
+      _markIntentionalChange('deleted '+slug);
+      _forgetSessions(slug);for(const k of Object.keys(inviteTokens))if(inviteTokens[k].brandSlug===slug)delete inviteTokens[k];
+      return res.json({success:true,recycleId:e.id,message:t.brand.name+' was deleted. A backup was taken first, and you can restore it from the Recycle bin for '+trash.keepDays+' days.'});
+    }
+    if(t.type==='lead'){
+      const e=trash.add({type:'lead',label:t.label,detail:t.lines[0],by});trash.saveJSON(e.id,'item.json',t.item);
+      const o=readOwner();o.prospects=(o.prospects||[]).filter(x=>String(x.id)!==String(t.item.id));
+      ownerAuditLog(o,'lead_deleted',{label:t.label,recycleId:e.id},by);writeOwner(o);
+      return res.json({success:true,recycleId:e.id,message:'Lead deleted. It is in the Recycle bin for '+trash.keepDays+' days.'});
+    }
+    if(t.type==='user'){
+      const e=trash.add({type:'user',slug:t.slug,label:t.label,detail:t.lines[0],by});trash.saveJSON(e.id,'item.json',t.item);
+      const db=readBrandDB(t.slug);db.users=(db.users||[]).filter(x=>x.id!==t.item.id);writeBrandDB(t.slug,db);
+      _forgetSessions(t.slug,t.item.email);
+      const o=readOwner();ownerAuditLog(o,'user_deleted',{brandSlug:t.slug,email:t.item.email,role:t.item.role,recycleId:e.id},by);writeOwner(o);
+      _socialAudit(t.slug,by,'user_deleted',{target:t.item.email,detail:'Owner deleted '+t.item.email});
+      return res.json({success:true,recycleId:e.id,message:'User deleted. They are in the Recycle bin for '+trash.keepDays+' days.'});
+    }
+    if(t.type==='ticket'){
+      const e=trash.add({type:'ticket',table:t.table,slug:t.slug,label:t.label,detail:t.lines[0],by});trash.saveJSON(e.id,'item.json',t.item);
+      const db=readBrandDB(t.slug);db[t.table]=(db[t.table]||[]).filter(x=>x.id!==t.item.id);writeBrandDB(t.slug,db);
+      const o=readOwner();ownerAuditLog(o,'ticket_deleted',{brandSlug:t.slug,table:t.table,id:t.item.id,recycleId:e.id},by);writeOwner(o);
+      return res.json({success:true,recycleId:e.id,message:(t.table==='issues'?'Issue':'Ticket')+' deleted. It is in the Recycle bin for '+trash.keepDays+' days.'});
+    }
+    res.json({success:false,error:'Unknown kind of delete.'});
+  }catch(e){console.error('[Delete]',e.message);res.json({success:false,error:e.message});}
+});
+app.get('/api/owner/trash',ownerOnly,(req,res)=>{res.json({success:true,keepDays:trash.keepDays,items:trash.list()});});
+app.post('/api/owner/trash/:id/restore',ownerOnly,(req,res)=>{
+  const e=trash.get(req.params.id);if(!e)return res.json({success:false,error:'It is no longer in the Recycle bin.'});
+  const by=req.owner.email;
+  try{
+    const item=trash.readJSON(e.id,'item.json');
+    if(e.type==='workspace'){
+      const o=readOwner();
+      if((o.brands||[]).some(b=>b.slug===e.slug)||fs.existsSync(path.join(BRANDS_DIR,e.slug)))return res.json({success:false,error:'A workspace with the address "'+e.slug+'" exists now. Rename or delete that one first.'});
+      const bd=trash.brandDir(e.id);
+      if(fs.existsSync(bd))trash.moveDir(bd,path.join(BRANDS_DIR,e.slug));
+      o.brands=o.brands||[];o.brands.push(item);ownerAuditLog(o,'workspace_restored',{brandSlug:e.slug,brandName:item.name,recycleId:e.id},by);writeOwner(o);
+      try{if(readBrandDB(e.slug).emailTicketing?.enabled)startEmailPoller(e.slug);}catch(x){}
+      _markIntentionalChange('restored '+e.slug);
+    }else if(e.type==='lead'){
+      const o=readOwner();o.prospects=o.prospects||[];
+      if(o.prospects.some(x=>String(x.id)===String(item.id)))return res.json({success:false,error:'This lead is already in the list.'});
+      o.prospects.push(item);ownerAuditLog(o,'lead_restored',{label:e.label},by);writeOwner(o);
+    }else{
+      const o=readOwner();if(!(o.brands||[]).some(b=>b.slug===e.slug))return res.json({success:false,error:'Its workspace no longer exists, so this cannot be put back.'});
+      const db=readBrandDB(e.slug),key=e.type==='user'?'users':(e.table==='issues'?'issues':'tickets');
+      db[key]=db[key]||[];
+      if(db[key].some(x=>x.id===item.id))return res.json({success:false,error:'Something with this ID already exists in the workspace.'});
+      if(e.type==='user'&&db.users.some(x=>_lc(x.email)===_lc(item.email)))return res.json({success:false,error:'Someone with this email address already exists in the workspace.'});
+      db[key].push(item);writeBrandDB(e.slug,db);
+      ownerAuditLog(o,e.type+'_restored',{brandSlug:e.slug,label:e.label},by);writeOwner(o);
+    }
+    trash.remove(e.id);
+    res.json({success:true,message:'Restored: '+e.label});
+  }catch(x){console.error('[Restore]',x.message);res.json({success:false,error:x.message});}
+});
+app.post('/api/owner/trash/:id/purge',ownerOnly,(req,res)=>{
+  if(!req.body||req.body.confirm!=='DELETE')return res.json({success:false,error:'Type DELETE to confirm.'});
+  const e=trash.get(req.params.id);if(!e)return res.json({success:false,error:'It is no longer in the Recycle bin.'});
+  try{trash.remove(e.id);const o=readOwner();ownerAuditLog(o,'recycle_purged',{type:e.type,label:e.label},req.owner.email);writeOwner(o);res.json({success:true,message:'Deleted for good: '+e.label});}
+  catch(x){res.json({success:false,error:x.message});}
 });
 
 // The console page itself lives in public/owner-console.html (styles in css/rv-console.css, script in js/rv-console.js).

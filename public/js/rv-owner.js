@@ -65,7 +65,8 @@
     var stale = b.newest && (Date.now() - Date.parse(b.newest.createdAt)) > 26 * 3600000;
     var tile1 = !b.newest ? '<div class="rv-os-v bad">None yet</div><div class="rv-os-s">The first one is made at 03:30.</div>'
       : '<div class="rv-os-v ' + (last && last.ok === false ? 'bad' : stale ? 'bad' : 'good') + '">' + esc(ago(b.newest.createdAt)) + '</div><div class="rv-os-s">' + (last && last.ok === false ? 'The last attempt failed: ' + esc(String(last.error || '').slice(0, 90)) : esc(size(b.newest.bytes)) + ' · every night at 03:30') + '</div>';
-    var peak = Math.max.apply(null, hist.slice(0, -1).map(function (x) { return x.workspaces || 0; }).concat([0]));
+    var since = hist.slice(Math.max(0, hist.map(function (x) { return !!x.intentional; }).lastIndexOf(true)));   // only counts since the last deliberate delete/restore
+    var peak = Math.max.apply(null, since.slice(0, -1).map(function (x) { return x.workspaces || 0; }).concat([0]));
     var tile2 = cur ? '<div class="rv-os-v ' + (cur.workspaces < peak ? 'bad' : '') + '">' + cur.workspaces + ' <span style="font-size:12px;font-weight:600;color:var(--text-dim)">workspaces</span></div><div class="rv-os-s">' + (cur.users != null ? cur.users + ' users · ' : '') + (cur.tickets != null ? cur.tickets + ' tickets · ' : '') + 'at the last backup' + (cur.workspaces < peak ? '<br><b style="color:#e5484d">Was ' + peak + ' before.</b>' : '') + '</div>' + spark(hist)
       : '<div class="rv-os-v">–</div><div class="rv-os-s">Shown after the first backup.</div>';
     var tile3 = '<div class="rv-os-v">' + b.count + '</div><div class="rv-os-s">' + esc(size(b.totalBytes)) + ' in total · 14 days, then 1 a week for 8 weeks</div>';

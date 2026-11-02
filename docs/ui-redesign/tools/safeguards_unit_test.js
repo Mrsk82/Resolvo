@@ -72,6 +72,31 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rv-safeguards-'));
   B.pruneBackups({ backupDir: solo, now });
   check('prune: the very last backup is never deleted, however old', B.listBackups(solo).length === 1);
 
+  // ---------- deliberate deletes: guard allowance and recycle bin ----------
+  g = G.protectBrands(cur, { brands: [{ slug: 'a', name: 'A' }, { slug: 'b', name: 'B' }] }, ['company-name']);
+  check('guard: a workspace the owner deleted on purpose is not put back', g.restored.length === 0 && g.data.brands.length === 2, g);
+  g = G.protectBrands(cur, { brands: [{ slug: 'a', name: 'A' }] }, ['company-name']);
+  check('guard: but another one missing from the same save still is', g.restored.join() === 'b' && g.data.brands.length === 2, g);
+  const T = require(path.join(ROOT, 'lib', 'trash.js')), bin = T.create(path.join(tmp, 'trash'), { keepDays: 30 });
+  const t0 = new Date(2026, 10, 1, 12, 0);
+  const e1 = bin.add({ type: 'user', label: 'Pat', slug: 'alpha' }, t0); bin.saveJSON(e1.id, 'item.json', { id: 'U1', email: 'pat@x.co' });
+  const e2 = bin.add({ type: 'workspace', label: 'Doomed', slug: 'doomed' }, new Date(2026, 10, 10, 12, 0));
+  check('trash: an item is listed with 30 days to go, newest first', bin.list(t0)[0].id === e2.id && bin.list(t0).find((x) => x.id === e1.id).daysLeft === 30, bin.list(t0));
+  check('trash: the removed record can be read back', bin.readJSON(e1.id, 'item.json').email === 'pat@x.co');
+  check('trash: days left count down', bin.list(new Date(2026, 10, 29, 12, 0)).find((x) => x.id === e1.id).daysLeft === 2);
+  check('trash: nothing is removed before 30 days', bin.purgeExpired(new Date(2026, 10, 30, 11, 0)).length === 0 && bin.list().length === 2);
+  const gone = bin.purgeExpired(new Date(2026, 11, 2, 12, 0));
+  check('trash: what is 30 days old is removed for good, with its files', gone.join() === e1.id && !fs.existsSync(bin.folder(e1.id)) && bin.list().length === 1, gone);
+  let bad = null; try { bin.folder('../../etc'); } catch (e) { bad = e; }
+  check('trash: an id that tries to leave the folder is refused', !!bad);
+  const srcDir = path.join(tmp, 'w'); fs.mkdirSync(srcDir); fs.writeFileSync(path.join(srcDir, 'db.sqlite'), 'data');
+  bin.moveDir(srcDir, bin.brandDir(e2.id));
+  const movedOk = !fs.existsSync(srcDir) && fs.readFileSync(path.join(bin.brandDir(e2.id), 'db.sqlite'), 'utf8') === 'data';
+  bin.moveDir(bin.brandDir(e2.id), srcDir);
+  check('trash: a workspace folder is moved whole, and moves back', movedOk && fs.existsSync(path.join(srcDir, 'db.sqlite')));
+  bin.remove(e2.id);
+  check('trash: remove clears the entry', bin.list().length === 0);
+
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
