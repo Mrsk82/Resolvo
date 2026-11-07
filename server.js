@@ -1900,6 +1900,7 @@ app.post('/api/owner/plan-requests/:id/decline',ownerOnly,(req,res)=>{
 app.post('/api/test-email',async(req,res)=>{const su=getSessionUser(req);if(!su)return res.json({success:false,error:'Not logged in'});const to=req.body.to||su.email;try{await sendEmail(to,'✅ TechTrack Email Test',testEmailHTML(),`Email test OK → ${to}`);res.json({success:true,message:`Sent to ${to}`});}catch(e){res.json({success:false,error:e.message});}});
 
 // BRAND API DISPATCHER
+const UPLOAD_EXT=new Set(['jpg','jpeg','png','gif','webp','heic','heif','pdf','txt','csv','doc','docx','xls','xlsx','ppt','pptx','mp3','m4a','aac','ogg','wav','webm','mp4','mov','zip']);
 app.post('/api/call',async(req,res)=>{
   const{fn,args=[]}=req.body;const su=getSessionUser(req);
   if(!su||su.isOwner)return res.json({success:false,error:'Brand session required.'});
@@ -2444,7 +2445,7 @@ app.post('/api/call',async(req,res)=>{
     getPlatformStats:()=>{const db=rDB(),now=new Date(),issues=db.issues||[],owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===slug)||{};return{success:true,users:{total:(db.users||[]).length,active:(db.users||[]).filter(u=>u.active).length,byRole:(db.users||[]).reduce((a,u)=>{a[u.role]=(a[u.role]||0)+1;return a;},{})},issues:{total:issues.length,open:issues.filter(i=>!['Resolved','Release Required','Closed'].includes(i.status)).length,resolved:issues.filter(i=>['Resolved','Release Required'].includes(i.status)).length,slaBreached:issues.filter(i=>{const d=getIssueSLAInfo(i).deadline;return now>d&&!['Resolved','Release Required'].includes(i.status);}).length},data:{comments:(db.comments||[]).length,activityLogs:(db.activityLog||[]).length,sprints:(db.sprints||[]).length,customFields:(db.customFields||[]).length,dbSizeKB:Math.round(fs.statSync(path.join(BRANDS_DIR,slug,'db.sqlite')).size/1024)},settings:db.settings||{},featureFlags:db.featureFlags||{},brand:{name:brand.name,tier:brand.tier,limits:brand.limits,accentColor:brand.accentColor,theme:brand.theme,logoUrl:brand.logoUrl}};},
     exportAllData:()=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};return{success:true,data:rDB(),exportedAt:nowIST()};},
     exportIssuesCSV:()=>{const db=rDB(),h=['IssueID','Title','Priority','Status','Module','RaisedBy','AssignedTo','CreatedDate','ResolvedDate','SLAHours'];return{success:true,csv:[h.join(','),...(db.issues||[]).map(i=>h.map(hh=>`"${(i[hh.charAt(0).toLowerCase()+hh.slice(1)]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n')};},
-    uploadFile:(fn,mt,b64)=>{const dir=path.join(__dirname,'public','uploads');if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});const ext=fn.split('.').pop(),sn=generateId('FILE')+'.'+ext;fs.writeFileSync(path.join(dir,sn),Buffer.from(b64,'base64'));return{success:true,url:'/uploads/'+sn,fileId:sn};},
+    uploadFile:(fn,mt,b64)=>{const dir=path.join(__dirname,'public','uploads');if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});const ext=String(fn||'').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'');if(!UPLOAD_EXT.has(ext))return{success:false,error:'This kind of file cannot be uploaded. Photos, PDFs, Office files, text and audio are fine.'};if(typeof b64!=='string'||b64.length*0.75>12*1024*1024)return{success:false,error:'That file is too big (12 MB at most).'};const sn=generateId('FILE')+'.'+ext;fs.writeFileSync(path.join(dir,sn),Buffer.from(b64,'base64'));return{success:true,url:'/uploads/'+sn,fileId:sn};},
     getAnnouncements:()=>{const db=rDB(),now=nowIST();return{success:true,announcements:(db.announcements||[]).filter(a=>a.active&&(!a.expiresAt||a.expiresAt>now))};},
     saveAnnouncement:(msg,type,exp)=>{if(su.role!=='Admin')return{success:false,error:'Admin only'};const db=rDB();db.announcements=db.announcements||[];db.announcements.push({id:generateId('ANN'),message:msg,type:type||'info',active:true,expiresAt:exp||null,createdBy:su.email,createdAt:nowIST()});wDB(db);return{success:true};},
     getActiveAnnouncements:()=>{const db=rDB();return{success:true,announcements:db.announcements||[]};},
@@ -6598,7 +6599,7 @@ app.get('/helpdesk-pricing-india',(req,res)=>res.sendFile(path.join(__dirname,'p
 app.get('/tools/support-calculator',(req,res)=>res.sendFile(path.join(__dirname,'public','tool-support-calculator.html')));
 // ── Android app (beta): download page and the signed APK ─────────────────────
 // The file lives in /downloads (not in /public) so it is only served through this route, which also keeps a simple daily count.
-const APK_NAME='Resolvo-Android-1.1.0.apk',APK_FILE=path.join(__dirname,'downloads',APK_NAME);
+const APK_NAME='Resolvo-Android-1.2.0.apk',APK_FILE=path.join(__dirname,'downloads',APK_NAME);
 app.get('/app',(req,res)=>res.sendFile(path.join(__dirname,'public','app.html')));
 app.get('/download/android',(req,res)=>{
   if(!fs.existsSync(APK_FILE))return res.status(404).type('text/plain').send('The Android app is not available right now. Please write to contact@resolvogroup.com and we will send it.');
@@ -8995,6 +8996,9 @@ try{
 async function pushToUser(slug,email,payload){
   if(!_webpush||!email)return 0;
   try{
+    // an alert that opens a ticket gets Reply / Assign to me / Resolve, with a signed token for that ticket and that person
+    const mt=/[?&]open=([^&]+)/.exec(String(payload&&payload.url||''));
+    if(mt&&!payload.actionToken){const tid=decodeURIComponent(mt[1]).replace(/[^A-Za-z0-9_-]/g,'');if(tid)payload=Object.assign({},payload,{ticketId:tid,actions:PUSH_ACTIONS,actionToken:_signToken({k:'push',s:slug,e:String(email).toLowerCase(),t:tid,ts:Date.now()})});}
     const db=readBrandDB(slug),subs=(db.pushSubs||[]).filter(x=>String(x.email).toLowerCase()===String(email).toLowerCase());
     if(!subs.length)return 0;
     let sent=0;const dead=new Set();
@@ -10382,6 +10386,61 @@ app.post('/api/owner/trash/:id/purge',ownerOnly,(req,res)=>{
   const e=trash.get(req.params.id);if(!e)return res.json({success:false,error:'It is no longer in the Recycle bin.'});
   try{trash.remove(e.id);const o=readOwner();ownerAuditLog(o,'recycle_purged',{type:e.type,label:e.label},req.owner.email);writeOwner(o);res.json({success:true,message:'Deleted for good: '+e.label});}
   catch(x){res.json({success:false,error:x.message});}
+});
+
+// ── PHONE: action buttons on alerts, widget summary ─────────────────────────
+// An alert about a ticket carries three buttons (Reply, Assign to me, Resolve). The alert holds a signed token good for 24 hours for
+// that one ticket and that one person; the device sends it back to /api/push-action. The action then runs through the normal
+// /api/call path with a two-minute session, so every rule that applies in the app (status rules, WhatsApp window...) applies here too.
+const _pushActHits=new Map();
+const PUSH_ACTIONS=[{action:'reply',type:'text',title:'Reply',placeholder:'Type your reply'},{action:'assign',title:'Assign to me'},{action:'resolve',title:'Resolve'}];
+function _loopbackCall(token,fn,args){
+  return new Promise(resolve=>{
+    const body=JSON.stringify({fn,args}),http=require('http');
+    const rq=http.request({host:'127.0.0.1',port:PORT,path:'/api/call',method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body),'x-session-token':token},timeout:20000},r=>{
+      let d='';r.on('data',c=>d+=c);r.on('end',()=>{try{resolve(JSON.parse(d));}catch(e){resolve({success:false,error:'Unexpected answer'});}});
+    });
+    rq.on('error',e=>resolve({success:false,error:e.message}));rq.on('timeout',()=>{rq.destroy();resolve({success:false,error:'The server took too long'});});
+    rq.write(body);rq.end();
+  });
+}
+app.post('/api/push-action',async(req,res)=>{
+  const{token,action,text}=req.body||{};
+  const p=_verifyToken(token,24*3600000);
+  if(!p||p.k!=='push'||!p.s||!p.e||!p.t)return res.status(401).json({success:false,error:'This alert is too old. Open the app to act on the ticket.'});
+  if(_rateLimited(_pushActHits,p.e+'|'+p.t,20,3600000))return res.status(429).json({success:false,error:'Too many taps. Try again later.'});
+  try{
+    const owner=readOwner(),brand=(owner.brands||[]).find(b=>b.slug===p.s);
+    if(!brand||brand.status!=='active')return res.json({success:false,error:'Workspace not available.'});
+    const db=readBrandDB(p.s),user=(db.users||[]).find(u=>_lc(u.email)===_lc(p.e)&&u.active!==false&&u.active!=='false');
+    if(!user)return res.json({success:false,error:'Your account is switched off.'});
+    let fn,args;
+    if(action==='reply'){const t=String(text||'').trim();if(!t)return res.json({success:false,error:'Write a reply first.'});if(t.length>4000)return res.json({success:false,error:'That reply is too long.'});fn='replyToTicket';args=[p.t,t,false];}
+    else if(action==='assign'){fn='assignTicket';args=[p.t,user.email];}
+    else if(action==='resolve'){fn='updateTicketStatus';args=[p.t,'resolved'];}
+    else return res.json({success:false,error:'Unknown action.'});
+    const tok=uuidv4();
+    sessions[tok]={isOwner:false,brandSlug:brand.slug,brandName:brand.name,brandAccentColor:brand.accentColor||'#10B981',brandTheme:brand.theme||'midnight',brandLogoUrl:brand.logoUrl||'',brandTier:brand.tier||'Free',trialEnds:brand.trialEnds||null,resolvedFeatureFlags:resolveFeatureFlags(brand,db.featureFlags||{}),isMajorAdmin:user.role==='Admin',id:user.id,email:user.email,name:user.name,team:user.team,role:user.role,skill:user.skill,slackId:user.slackId,maxTickets:user.maxTickets,active:user.active,expiresAt:Date.now()+120000};
+    let r;try{r=await _loopbackCall(tok,fn,args);}finally{delete sessions[tok];}
+    if(!r||r.success===false)return res.json({success:false,error:(r&&r.error)||'It did not work. Open the app to check the ticket.'});
+    res.json({success:true,message:action==='reply'?'Reply sent':action==='assign'?'Assigned to you':'Resolved'});
+  }catch(e){console.error('[PushAction]',e.message);res.json({success:false,error:'Something went wrong. Open the app to act on the ticket.'});}
+});
+// Counts for the home-screen widget (Android app) and any other small display. The caller sends its session token in x-session-token.
+app.get('/api/widget-summary',(req,res)=>{
+  const su=getSessionUser(req);
+  if(!su||su.isOwner||!su.brandSlug)return res.status(401).json({success:false,error:'Sign in to the app to see your numbers.'});
+  try{
+    const db=readBrandDB(su.brandSlug),me=_lc(su.email);let open=0,mine=0,unassigned=0,overdue=0,soon=0;
+    for(const t of db.tickets||[]){
+      if(['resolved','closed'].includes(String(t.status||'').toLowerCase()))continue;
+      open++;if(_lc(t.assignedTo)===me)mine++;if(!t.assignedTo)unassigned++;
+      let s={};try{s=getTicketSLAInfo(db,t)||{};}catch(e){}
+      if(s.slaBreached)overdue++;else if(s.slaRisk)soon++;
+    }
+    res.set('Cache-Control','no-store');
+    res.json({success:true,name:String(su.name||'').split(' ')[0],brand:su.brandName,open,mine,unassigned,overdue,soon,at:nowIST()});
+  }catch(e){res.json({success:false,error:'Could not read the numbers.'});}
 });
 
 // The console page itself lives in public/owner-console.html (styles in css/rv-console.css, script in js/rv-console.js).

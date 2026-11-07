@@ -3,7 +3,7 @@ import asyncio, hashlib, json, os, re, sys, urllib.request
 from playwright.async_api import async_playwright
 sys.stdout.reconfigure(encoding="utf-8")
 BASE = os.environ.get("RESOLVO_BASE", "http://localhost:3001"); PASS, FAIL = [], []
-APK = r"C:\Users\Asif\Desktop\New\TechTrack\downloads\Resolvo-Android-1.1.0.apk"
+APK = r"C:\Users\Asif\Desktop\New\TechTrack\downloads\Resolvo-Android-1.2.0.apk"
 COUNT = r"C:\Users\Asif\Desktop\New\TechTrack\data\app_downloads.json"
 SHOTS = "C:/Users/Asif/Desktop/New/Resolvo-UI-files/mobile-audit/site_"
 def check(n, ok, d=""):
@@ -17,11 +17,11 @@ async def main():
     c0 = count()
     r = urllib.request.urlopen(BASE + "/download/android", timeout=30); body = r.read(); h = r.headers
     check("download: serves the APK with the Android file type", h.get("Content-Type", "").startswith("application/vnd.android.package-archive"), h.get("Content-Type"))
-    check("download: arrives as a file named Resolvo-Android-1.1.0.apk", "attachment" in h.get("Content-Disposition", "") and "Resolvo-Android-1.1.0.apk" in h.get("Content-Disposition", ""), h.get("Content-Disposition"))
+    check("download: arrives as a file named Resolvo-Android-1.2.0.apk", "attachment" in h.get("Content-Disposition", "") and "Resolvo-Android-1.2.0.apk" in h.get("Content-Disposition", ""), h.get("Content-Disposition"))
     check("download: complete file, same fingerprint as the build", len(body) == size and hashlib.sha256(body).hexdigest() == sha, (len(body), size))
     check("download: it is a valid package (zip with the Android manifest)", body[:2] == b"PK" and b"AndroidManifest.xml" in body[:200000] + body[-200000:])
     check("download: a daily counter goes up by one", count() == c0 + 1, (c0, count()))
-    try: code = urllib.request.urlopen(BASE + "/downloads/Resolvo-Android-1.1.0.apk").status
+    try: code = urllib.request.urlopen(BASE + "/downloads/Resolvo-Android-1.2.0.apk").status
     except urllib.error.HTTPError as e: code = e.code
     check("download: the file is only reachable through the download route (direct path gives 404)", code == 404, code)
     page = urllib.request.urlopen(BASE + "/app").read().decode("utf-8")
@@ -53,7 +53,7 @@ async def main():
             check(f"/app {name}: every link on the page works", not bad, bad)
             async with pg.expect_download() as dl: await pg.locator("#dlMain").click()
             d = await dl.value; path = await d.path()
-            check(f"/app {name}: clicking Download saves the same file", d.suggested_filename == "Resolvo-Android-1.1.0.apk" and hashlib.sha256(open(path, "rb").read()).hexdigest() == sha, d.suggested_filename)
+            check(f"/app {name}: clicking Download saves the same file", d.suggested_filename == "Resolvo-Android-1.2.0.apk" and hashlib.sha256(open(path, "rb").read()).hexdigest() == sha, d.suggested_filename)
             txt = await pg.evaluate("document.body.textContent")
             check(f"/app {name}: install steps, FAQ and honest notes are there", all(t in txt for t in ["Why does Android show a warning", "Is there an iPhone app", "Does it work without internet", "On our list for the next updates"]))
             check(f"/app {name}: no console errors", not errs, errs[:2])

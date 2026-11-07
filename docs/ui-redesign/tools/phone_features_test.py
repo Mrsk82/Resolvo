@@ -68,7 +68,7 @@ async def main():
         check("contact buttons: call, WhatsApp and email links are right", pj == ["tel:+919876543210", "https://wa.me/919876543210", "mailto:a@b.com"], pj)
         check("no buttons when there is no phone or email", await pg.evaluate("RVP.contact({phone:'instagram:123',email:''})") == "")
         await pg.evaluate("App.navigate('customers')"); await pg.wait_for_timeout(1800)
-        await pg.locator(".cust-row", has_text="+9198").first.tap(); await pg.wait_for_timeout(2200)
+        await pg.locator(".cust-row", has_text="+9198").first.tap(position={"x": 30, "y": 10}); await pg.wait_for_timeout(2200)   # the row now has Call and WhatsApp buttons in its middle, so tap its corner
         links = await pg.evaluate("[...document.querySelectorAll('#contentArea .rvp-acts a')].map(a=>a.getAttribute('href'))")
         check("customer profile shows Call and WhatsApp for a customer with a phone", any(l.startswith("tel:+91") for l in links) and any("wa.me/91" in l for l in links), links)
         await pg.screenshot(path=SHOTS + "3_customer_contact.png")

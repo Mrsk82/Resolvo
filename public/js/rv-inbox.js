@@ -371,6 +371,9 @@
     if (!w.RVP) return ''; var from = String(t.from || ''), isMail = /@/.test(from);
     return w.RVP.contact({ phone: t.whatsappFrom || (isMail ? '' : from), email: isMail ? from : '', hideLoneEmail: true });
   }
+  RVI.currentId = function () { return S.ticket ? S.ticket.id : null; };
+  RVI.canned = function () { return S.canned || []; };
+  RVI.loadCanned = async function () { if (!S.canned) { var cr = await A().callAsync('getCannedResponses'); S.canned = (cr && cr.responses) || []; } return S.canned; };
   RVI.canPull = function () { return S.focus ? !S.fOpen : !S.sel; };
   RVI.pullRefresh = function () { return S.focus ? focusRefresh() : RVI.refresh(); };
 
@@ -463,6 +466,7 @@
     var isNote = S.mode === 'note'; S.fBusy = true; busy(true);
     var r = await a.callAsync('replyToTicket', t.id, text, isNote);
     S.fBusy = false; busy(false);
+    if (r && r.queued) { delete S.drafts[t.id + ':' + S.mode]; ta.value = ''; w.RV.toast('No signal. Saved, and it will send by itself when you are back online.', 'info'); return; }
     if (!r || !r.success) { fail('Not sent: ' + String((r && r.error) || 'please try again').replace(/[.]+$/, '') + '. Your text is still here.'); return; }
     delete S.drafts[t.id + ':' + S.mode]; w.RV.toast(isNote ? 'Note added' : 'Reply sent', 'success');
     await reopen(t.id); relist();
@@ -500,6 +504,8 @@
     if (tab === 'waiting') out = all.filter(function (t) { return t.awaitingCustomer; });
     else if (tab === 'mine') out = all.filter(function (t) { return lc(t.assignedTo) === e; });
     else if (tab === 'unassigned') out = all.filter(function (t) { return !t.assignedTo; });
+    else if (tab === 'overdue') out = all.filter(function (t) { return t.slaBreached; });
+    else if (tab === 'soon') out = all.filter(function (t) { return !t.slaBreached && t.slaRisk; });
     else if (tab === 'all') out = all.slice();
     else out = all.filter(needsYou);
     return out.sort(urgencyCmp);
@@ -511,10 +517,11 @@
   function statsHtml() {
     var c = S.counts || {}, needs = (S.fAll || []).filter(needsYou).length;
     var card = function (tab, label, n, hot) { return '<button type="button" class="rvf-stat' + (hot && n > 0 ? ' rvf-stat--hot' : '') + '" data-act="ftab" data-tab="' + tab + '" aria-pressed="' + (S.fTab === tab) + '"><span>' + label + '</span><b>' + n + '</b></button>'; };
-    return card('needs', 'Needs you now', needs, true) + card('waiting', 'Waiting on customer', c.waiting || 0) + card('resolved', 'Resolved today', c.resolvedToday || 0);
+    var all = S.fAll || [], over = all.filter(function (t) { return t.slaBreached; }).length, soon = all.filter(function (t) { return !t.slaBreached && t.slaRisk; }).length;
+    return card('needs', 'Needs you now', needs, true) + card('overdue', 'Overdue', over, true) + card('soon', 'Due soon', soon) + card('waiting', 'Waiting on customer', c.waiting || 0) + card('resolved', 'Resolved today', c.resolvedToday || 0);
   }
   function tabsHtml() {
-    var items = [['needs', 'Needs you'], ['all', 'All open'], ['mine', 'Mine'], ['unassigned', 'Unassigned'], ['waiting', 'Waiting'], ['resolved', 'Resolved today']];
+    var items = [['needs', 'Needs you'], ['overdue', 'Overdue'], ['soon', 'Due soon'], ['all', 'All open'], ['mine', 'Mine'], ['unassigned', 'Unassigned'], ['waiting', 'Waiting'], ['resolved', 'Resolved today']];
     return '<div class="rv-tabs rv-tabs--pills rvf-tabs" role="tablist" aria-label="Queue">' + items.map(function (i) { return '<button type="button" role="tab" class="rv-tab" data-act="ftab" data-tab="' + i[0] + '" aria-selected="' + (S.fTab === i[0]) + '">' + i[1] + '</button>'; }).join('') + '</div>';
   }
   function itemHtml(t, i) {
@@ -528,6 +535,7 @@
   }
   function emptyQueue() {
     var m = { needs: ['check', 'You are all caught up', 'Nothing needs you right now. New customer messages will show up here.'], waiting: ['clock', 'Nothing is waiting on a customer', 'Tickets you have answered will wait here until the customer replies.'],
+      overdue: ['check', 'Nothing is overdue', 'Every open ticket is still within its target time.'], soon: ['check', 'Nothing is close to its target', 'No ticket is about to pass its target time.'],
       resolved: ['check', 'Nothing resolved yet today', 'Tickets you resolve today will be listed here.'], mine: ['inbox', 'Nothing is assigned to you', 'Tickets assigned to you will appear here.'], unassigned: ['inbox', 'No unassigned tickets', 'Every open ticket has an owner.'], all: ['inbox', 'No open tickets', 'New customer messages will appear here. You can also create a ticket.'] }[S.fTab] || ['inbox', 'No tickets', ''];
     return w.RV.empty({ icon: m[0], title: m[1], text: m[2] });
   }
@@ -664,6 +672,7 @@
       try {
         if (withReply) {
           var r = await a.callAsync('replyToTicket', t.id, text, false);
+          if (r && r.queued) { delete S.drafts[t.id + ':reply']; w.RV.toast('No signal. Your reply is saved and will send by itself. The ticket was not resolved: resolve it when you are back online.', 'info'); return; }
           if (!r || !r.success) { fail('Not sent: ' + String((r && r.error) || 'please try again').replace(/[.]+$/, '') + '. Your text is still here, and the ticket was not resolved.'); return; }
           delete S.drafts[t.id + ':reply'];
         }

@@ -20,7 +20,7 @@
       (items ? '<div class="rvo-items">' + items + '</div>' : '') + (o.shipTo ? '<div class="rv-hint">Ships to ' + esc(o.shipTo) + '</div>' : '') +
       (o.refunded ? '<div class="rv-hint">Refunded ' + esc(money(o.refunded, o.currency)) + '</div>' : '') + trk +
       (o.matchedBy ? '<div class="rvo-how">Found by ' + esc(o.matchedBy) + '</div>' : '') +
-      '<footer class="rvo-act">' + (canReply ? '<button type="button" class="rv-btn rv-btn--sm" data-rvo="reply" data-key="' + key + '" data-i="' + i + '">Add to reply</button>' : '') +
+      '<footer class="rvo-act">' + (canReply ? '<button type="button" class="rv-btn rv-btn--sm rv-btn--primary" data-rvo="draft" data-key="' + key + '" data-i="' + i + '">Write the reply</button><button type="button" class="rv-btn rv-btn--sm" data-rvo="reply" data-key="' + key + '" data-i="' + i + '">Add details</button>' : '') +
       (o.adminUrl ? '<a class="rv-btn rv-btn--sm rv-btn--ghost" href="' + esc(o.adminUrl) + '" target="_blank" rel="noopener">Open in Shopify</a>' : '') + '</footer></article>';
   };
   // res: the RPC answer. opts: { canReply, hideWhenEmpty }
@@ -52,6 +52,15 @@
       var ta = document.getElementById('replyText'); if (!ta) { if (w.RV) w.RV.toast('Open a ticket to reply with this order.', 'info'); return; }
       ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + '\n\n' : '') + o.summary; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
       if (w.RV) w.RV.toast('Order details added to your reply. Edit it before sending.', 'success');
+    } else if (act === 'draft' && res) {
+      // a full reply written from the order's real status; the agent edits it before sending
+      var o2 = (res.orders || [])[+el.getAttribute('data-i')]; if (!o2) return;
+      var cm2 = document.querySelector('.rvf-composer, .rvi-composer'); if (cm2) cm2.classList.remove('is-collapsed');
+      var ta2 = document.getElementById('replyText'); if (!ta2) { if (w.RV) w.RV.toast('Open a ticket to reply about this order.', 'info'); return; }
+      var who = document.querySelector('.rvi-conv__who, .rvf-who'), first = who ? who.textContent.trim().split(/\s+/)[0] : '';
+      var txt = w.RVM && w.RVM.orderText ? w.RVM.orderText(o2, /@|^\+?\d/.test(first) ? 'there' : first) : o2.summary;
+      ta2.value = (ta2.value ? ta2.value.replace(/\s+$/, '') + '\n\n' : '') + txt; ta2.dispatchEvent(new Event('input', { bubbles: true })); ta2.focus();
+      if (w.RV) w.RV.toast('Reply written from the order. Read it and edit it before sending.', 'success');
     } else if (act === 'refresh' && f) {
       var box = document.querySelector('[data-rvo-key="' + key + '"]'); if (!box) return; box.innerHTML = '<div class="rvo-msg">Looking up orders&hellip;</div>';
       Promise.resolve(f.fetcher(true)).catch(function () { return { success: false, error: 'Could not look up orders.' }; }).then(function (r) { RVO._res[key] = r; box.innerHTML = RVO.html(r, key, f.opts); if (f.opts && f.opts.onLoaded) f.opts.onLoaded(r); });

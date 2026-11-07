@@ -7880,14 +7880,16 @@ tbody tr.row-selected {
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=2"></script>
   <link rel="stylesheet" href="/css/rv-inbox.css?v=14">
-  <script src="/js/rv-inbox.js?v=19"></script>
+  <script src="/js/rv-inbox.js?v=20"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-insights.css?v=1">
   <script src="/js/rv-insights.js?v=3"></script>
   <script src="/js/rv-device.js?v=2"></script>
   <script src="/js/rv-phone.js?v=3"></script>
-  <script src="/js/rv-orders.js?v=1"></script>
+  <script src="/js/rv-orders.js?v=2"></script>
+  <link rel="stylesheet" href="/css/rv-mobile-plus.css?v=6">
+  <script src="/js/rv-mobile-plus.js?v=3"></script>
   <link rel="stylesheet" href="/css/rv-owner.css?v=3">
   <script src="/js/rv-owner.js?v=3"></script>
   <link rel="apple-touch-icon" href="/icons/apple-touch-180.png">
@@ -7962,6 +7964,10 @@ tbody tr.row-selected {
             <a href="#" class="nav-item" data-page="customers" data-tooltip="Customers">
               <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
               <span class="nav-text">Customers</span>
+            </a>
+            <a href="#" class="nav-item" onclick="RVM.openSettings();return false;" data-tooltip="Phone &amp; app">
+              <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
+              <span class="nav-text">Phone &amp; app</span>
             </a>
           </div>
 
@@ -10250,6 +10256,7 @@ const App = {
                 ${[
                   ['🔗','Base URL',"App._showBaseUrlUpdater()"],
                   ['📢','Announce',"App._ownerBulkAnnounce()"],
+                  ['🧭','Owner Console',"location.href='/owner-console'"],
                   ['👥','Prospect CRM',"App._showOwnerCRM()"],
                   ['🎁','Referrals',"App._showReferralManager()"],
                   ['🔍','Search All Brands',"App._ownerCrossSearch()"],
@@ -17048,7 +17055,11 @@ const App = {
         return '<div class="cust-row" onclick="App.navigate(\'customer\',{id:\'' + c.id + '\'})" style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 90px 120px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'\'">' +
           '<div style="display:flex;align-items:center;gap:10px;min-width:0;"><div style="width:32px;height:32px;border-radius:50%;background:var(--accent-dim,rgba(16,185,129,.15));color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">' + self._esc(ini) + '</div>' +
             '<div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.name || c.email || c.phone) + (c.health && c.health.l ? ' <span class="cust-h cust-h--' + c.health.k + '">' + c.health.l + '</span>' : '') + '</div>' +
-            '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.email || c.phone) + (c.altCount ? ' <span title="Also reaches you from ' + c.altCount + ' other address' + (c.altCount === 1 ? '' : 'es') + '">+' + c.altCount + '</span>' : '') + '</div></div></div>' +
+            '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + self._esc(c.email || c.phone) + (c.altCount ? ' <span title="Also reaches you from ' + c.altCount + ' other address' + (c.altCount === 1 ? '' : 'es') + '">+' + c.altCount + '</span>' : '') + '</div>' + (function() {
+              // Call and WhatsApp straight from the list (shown on a phone only); a tap here must not open the customer
+              var p = window.RVP && RVP.phone(c.phone); if (!p) return '';
+              return '<div class="cust-acts" onclick="event.stopPropagation()"><a class="call" href="tel:' + p.tel + '" aria-label="Call ' + self._esc(c.name || c.phone) + '">📞 Call</a><a class="wa" href="https://wa.me/' + p.wa + '" target="_blank" rel="noopener" aria-label="WhatsApp ' + self._esc(c.name || c.phone) + '">💬 WhatsApp</a></div>';
+            })() + '</div></div>' +
           '<div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (c.company ? self._esc(c.company) : '<span style="color:var(--text-dim);">—</span>') + '</div>' +
           '<div style="font-size:12px;color:var(--text-secondary);">' + c.tickets + (c.openTickets ? ' <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--medium,#F59E0B);">' + c.openTickets + ' open</span>' : '') + '</div>' +
           '<div style="font-size:12px;color:var(--text-muted);">' + self._custAgo(c.lastContact || c.lastTicketDate || c.createdDate) + '</div>' +
@@ -20422,6 +20433,12 @@ const App = {
     };
 
     var r = await App.callAsync('createManualTicket', data);
+    if (r && r.queued) {
+      // no signal: the ticket is saved on this phone and created when the connection returns
+      App.showToast('No signal. The ticket is saved and will be created by itself when you are back online.', 'info');
+      document.querySelectorAll('.modal-overlay').forEach(function(m){ m.remove(); });
+      return;
+    }
     if (r && r.success) {
       App.showToast('✅ Ticket created: ' + r.ticketId, 'success');
       document.querySelectorAll('.modal-overlay').forEach(function(m){ m.remove(); });
@@ -31544,6 +31561,7 @@ App._shellRenderProfile = function() {
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="Themes.apply(Themes.current===\'resolvo-dark\'?\'resolvo\':\'resolvo-dark\',true);App._shellRenderProfile()">' + (dark ? 'Switch to light mode' : 'Switch to dark mode') + '</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="App._showWhatsNew()">What\'s new</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="Keyboard && Keyboard._toggleKbdHelp()">Keyboard shortcuts</button>' +
+    '<button type="button" role="menuitem" class="rv-menu__item" onclick="RVM.openSettings()">Phone &amp; app: lock, dictation, alerts</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="App.navigate(\'upgrade\')">Plan and upgrade</button>' +
     '<div class="rv-menu__sep"></div>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="App._logout()">Sign out</button>';
