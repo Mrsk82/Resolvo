@@ -10,6 +10,10 @@
 <link rel="stylesheet" href="/gridstack-extra.min.css">
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Trend charts (word cloud, command center and more) -->
+<link rel="stylesheet" href="/css/rv-tokens.css?v=1">
+<link rel="stylesheet" href="/css/rv-dashboard.css?v=2">
+<script src="/js/rv-dashboard.js?v=2"></script>
 <!-- GridStack JS -->
 <script src="/gridstack-all.js"></script>
 <style>
@@ -235,6 +239,7 @@ canvas{max-height:160px;}
   <div class="panel-search"><input type="text" placeholder="Search widgets…" oninput="filterPanel(this.value)" id="panelSearch"></div>
   <div class="panel-cats">
     <span class="pcat active" onclick="filterCat('all',this)">All</span>
+    <span class="pcat" onclick="filterCat('trends',this)">📈 Trends</span>
     <span class="pcat" onclick="filterCat('support',this)">🎫 Support</span>
     <span class="pcat" onclick="filterCat('engineering',this)">🐛 Engineering</span>
     <span class="pcat" onclick="filterCat('crm',this)">💰 CRM</span>
@@ -261,6 +266,14 @@ var WIDGETS=[
   {type:'unassigned_tickets',icon:'📬',name:'Unassigned Tickets',cat:'support',   desc:'Tickets with no agent — one-click to assign',        w:2,h:3},
   {type:'tickets_by_source', icon:'📦',name:'Tickets by Source', cat:'support',   desc:'How tickets arrive: email, widget, booking, etc.',   w:2,h:3},
   {type:'tickets_over_time', icon:'📈',name:'Tickets Over Time', cat:'support',   desc:'Created vs resolved per day — line chart',           w:4,h:3},
+  {type:'word_cloud',        icon:'☁️',name:'Word Cloud: Trending Topics',cat:'trends',desc:'The words customers use most, sized by how many tickets mention them, with what is rising and fading', w:4,h:4},
+  {type:'command_center',    icon:'🎛️',name:'Command Center',    cat:'trends',    desc:'Live: past SLA, at risk, critical, no owner, who is waiting, and each person\'s load',                 w:4,h:6},
+  {type:'backlog_trend',     icon:'📉',name:'Backlog Trend',     cat:'trends',    desc:'How many tickets were open at the end of each day',                                                   w:2,h:4},
+  {type:'sla_trend',         icon:'✅',name:'On-time Rate',      cat:'trends',    desc:'Share of resolved tickets closed within their SLA, day by day',                                       w:2,h:4},
+  {type:'reply_time_trend',  icon:'⏱️',name:'First Reply Time',  cat:'trends',    desc:'Average hours to the first reply, by the day tickets arrived',                                        w:2,h:4},
+  {type:'busiest_hours',     icon:'🗓️',name:'Busiest Hours',     cat:'trends',    desc:'Weekday and time of day heatmap of when tickets arrive',                                              w:4,h:5},
+  {type:'customer_mood',     icon:'🙂',name:'Customer Mood',     cat:'trends',    desc:'Happy, neutral and unhappy share of new messages',                                                    w:2,h:2},
+  {type:'top_customers',     icon:'👤',name:'Who Writes Most',   cat:'trends',    desc:'The customers with the most tickets in the period',                                                   w:2,h:4},
   {type:'critical_issues',   icon:'🚨',name:'Critical Issues',   cat:'engineering',desc:'All open Critical priority issues',                 w:4,h:3},
   {type:'issue_overview',    icon:'🐛',name:'Issue Overview',    cat:'engineering',desc:'Issues by status: Open, WIP, Testing, Resolved',    w:2,h:2},
   {type:'active_sprint',     icon:'🏃',name:'Active Sprint',     cat:'engineering',desc:'Current sprint progress, goal and days left',       w:2,h:2},
@@ -289,6 +302,8 @@ var DEFAULT_WIDGETS=[
   {id:'w10',type:'todays_appointments',x:0,y:14,w:4,h:3,config:{}},
   {id:'w11',type:'tickets_by_source', x:0,y:17,w:2,h:3,config:{}},
   {id:'w12',type:'agent_availability',x:2,y:17,w:2,h:3,config:{}},
+  {id:'w13',type:'word_cloud',        x:0,y:20,w:4,h:4,config:{}},
+  {id:'w14',type:'command_center',    x:0,y:24,w:4,h:6,config:{}},
 ];
 
 var SOURCE_COLORS=['#F59E0B','#2563EB','#059669','#7C3AED','#DC2626','#0891B2'];
@@ -692,6 +707,10 @@ function renderWidgetBody(type,el,data){
         +'<div class="stat-card"><div class="stat-num" style="color:var(--danger)">'+data.bounced+'</div><div class="stat-label">Bounced</div></div>'
         +'<div class="stat-card"><div class="stat-num stat-open">'+data.replyRate+'%</div><div class="stat-label">Reply Rate</div></div>'
       +'</div>';
+      break;
+
+    case'word_cloud':case'command_center':case'backlog_trend':case'sla_trend':case'reply_time_trend':case'busiest_hours':case'customer_mood':case'top_customers':
+      if(window.RVDash)RVDash.widget(type,el,data);else el.innerHTML='<div class="w-error">Charts could not load. Reload the page.</div>';
       break;
 
     default:

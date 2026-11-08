@@ -4949,6 +4949,7 @@ app.post('/api/call',async(req,res)=>{
         agents:Object.values(per).map(p=>({email:p.email,name:p.name,open:p.open,resolved:p.resolved,frtHours:r1(avg(p.frt)),slaPct:p.slaTot?Math.round(p.slaMet/p.slaTot*100):null,over:p.over,trend:p.trend})).sort((x,y)=>y.open-x.open),
         heat,unassignedOpen:open.filter(t=>!t.assignedTo).length};
     },
+    getDashboardTrends:(opts)=>_dashboardTrends(rDB(),opts),
     // One call that tells the Settings home page the state of every section (on / off / needs attention) and a short value to show.
     getSettingsOverview:()=>{
       const db=rDB(),n=a=>Array.isArray(a)?a.length:0,I={},users=(db.users||[]).filter(u=>u.active!==false),et=db.emailTicketing||{};
@@ -12723,6 +12724,72 @@ app.post('/api/:slug/dashboard/config',(req,res)=>{
 });
 
 // GET widget data
+// Dashboard extras (also used by the Custom Dashboard widgets): trending topics, per-day trend lines, busiest hours, mood, top customers and the live command center.
+// Everything is worked out from this workspace's own tickets; nothing is invented.
+function _dashboardTrends(db,opts){
+      const asked=parseInt(opts&&opts.days,10),days=asked>0?([7,14,30,60,90].find(d=>d>=asked)||90):14,commandOnly=!!(opts&&opts.only==='command');
+  const IST=5.5*3600000,dayKey=ms=>new Date(ms+IST).toISOString().slice(0,10),nowMs=Date.now();
+  const keys=[];for(let i=days*2-1;i>=0;i--)keys.push(dayKey(nowMs-i*864e5));
+  const idx={};keys.forEach((k,i)=>idx[k]=i);
+  const period=ms=>{const k=idx[dayKey(ms)];return k==null?-1:(k>=days?1:0);};   // 1 = this period, 0 = the one before
+  const all=(db.tickets||[]).filter(t=>!_ticketIsPromo(t)),sla=db.slaConfig||{Critical:4,High:8,Medium:24,Low:72};
+  const OPEN=t=>!['resolved','closed'].includes(t.status);
+  const STOP=new Set(['your','with','from','that','this','have','what','when','will','please','about','there','their','hello','thanks','thank','regarding','need','help','team','email','would','could','should','been','were','they','them','then','than','just','also','into','only','very','more','some','many','much','here','which','while','where','after','before','still','today','again','dear','hope','know','like','want','sent','send','kind','regards','best','message','mail','good','morning','evening','sir','madam','request','query','update','status','urgent','issue','issues','ticket','support','customer','hi','hey','the','and','for','you','not','are','was','has','had','can','get','but','all','any','our','out','its','who','how','why','now','new','one','see','try','let','did','does','done','make','made','able','going','being','able','still','really','pls','plz','kindly']);
+  const cur={},prev={};let prevCount=0;
+  const words=(t)=>{
+  const first=(t.thread||[]).find(m=>m.type==='incoming');
+  const txt=(String(t.subject||'')+' '+String((first&&first.body)||'').replace(/<[^>]+>/g,' ').replace(/https?:\/\/\S+/g,' ').slice(0,400)).toLowerCase().replace(/[^a-z\s]/g,' ');
+  return [...new Set(txt.split(/\s+/).filter(w=>w.length>=4&&!STOP.has(w)))];   // once per ticket, so one long email cannot dominate
+  };
+  const daily=keys.slice(days).map(k=>({date:k,created:0,resolved:0,backlog:0,slaMet:0,slaTot:0,frtSum:0,frtN:0}));
+  const di={};daily.forEach((d,i)=>di[d.date]=i);
+  const heat=Array.from({length:7},()=>new Array(8).fill(0));
+  const mood={positive:0,neutral:0,negative:0};const cust={};
+  if(!commandOnly)all.forEach(t=>{
+  const cMs=Date.parse(t.createdDate);if(isNaN(cMs))return;
+  const p=period(cMs);
+  if(p===0)prevCount++;
+  if(p>=0)words(t).forEach(w=>{(p===1?cur:prev)[w]=((p===1?cur:prev)[w]||0)+1;});
+  const rMs=Date.parse(t.resolvedDate||''),resolved=!OPEN(t)&&!isNaN(rMs);
+  if(p===1){
+    const d=daily[di[dayKey(cMs)]];d.created++;
+    const hh=new Date(cMs+IST);heat[(hh.getUTCDay()+6)%7][Math.floor(hh.getUTCHours()/3)]++;
+    const lv=t.sentimentLevel;if(lv==='positive'||lv==='negative'||lv==='neutral')mood[lv]++;
+    const em=String(t.from||'').toLowerCase();if(em){const c=cust[em]=cust[em]||{email:em,name:t.fromName||em,n:0,open:0};c.n++;if(OPEN(t))c.open++;if(t.fromName)c.name=t.fromName;}
+    const fr=(t.thread||[]).find(m=>m.type!=='incoming'&&m.type!=='note');
+    if(fr&&fr.timestamp){const h=(Date.parse(fr.timestamp)-cMs)/3600000;if(h>=0&&h<24*14){d.frtSum+=h;d.frtN++;}}
+  }
+  if(resolved){const k=di[dayKey(rMs)];if(k!=null){daily[k].resolved++;daily[k].slaTot++;if(rMs-cMs<=(sla[t.priority]||24)*3600000)daily[k].slaMet++;}}
+  // open at the end of each day of this period
+  daily.forEach((d,i)=>{const endMs=Date.parse(d.date+'T00:00:00Z')-IST+864e5;if(cMs<=endMs&&(!resolved||rMs>endMs))d.backlog++;});
+  });
+  const terms=Object.keys(cur).filter(w=>cur[w]>=2).map(w=>({word:w,n:cur[w],prev:prev[w]||0})).sort((a,b)=>b.n-a.n).slice(0,40);
+  const compare=prevCount>=5;   // rising/fading only means something when there were enough tickets before
+  terms.forEach(x=>{x.change=!compare?'flat':x.prev===0?(x.n>=3?'new':'flat'):(x.n>=x.prev*1.5&&x.n-x.prev>=2?'up':(x.n<=x.prev*0.5&&x.prev-x.n>=2?'down':'flat'));});
+  // live command center
+  const open=all.filter(OPEN);let breached=0,atRisk=0,oldest=null;
+  const me={},tm={};
+  for(const t of open){
+  let info;try{info=getTicketSLAInfo(db,t);}catch(e){continue;}
+  if(info.slaBreached)breached++;else if(info.slaRisk)atRisk++;
+  const wait=!_awaitingCustomer(t)?(nowMs-Date.parse((_lastIncomingMsg(t)||{}).timestamp||t.createdDate))/3600000:null;
+  if(wait!=null&&!isNaN(wait)&&(!oldest||wait>oldest.hours))oldest={id:t.id,subject:String(t.subject||'').slice(0,80),hours:Math.round(wait*10)/10};
+  const a=String(t.assignedTo||'').toLowerCase();if(a){const x=tm[a]=tm[a]||{open:0,over:0};x.open++;if(info.slaBreached)x.over++;}
+  }
+  const qc=db.queueConfig||{};
+  const agents=(db.users||[]).filter(u=>u.active!==false&&['Admin','Manager','Agent','Developer'].includes(u.role)).map(u=>{const e=String(u.email).toLowerCase(),x=tm[e]||{open:0,over:0},mx=u.maxTickets||10;
+  return{name:u.name||u.email,email:u.email,role:u.role,open:x.open,max:mx,pct:Math.min(100,Math.round(x.open/mx*100)),over:x.over,away:(u.availabilityStatus||'available')==='away'};})
+  .filter(a=>a.open>0||a.role!=='Admin').sort((a,b)=>b.pct-a.pct).slice(0,8);
+  const pri={Critical:0,High:0,Medium:0,Low:0};open.forEach(t=>{if(pri[t.priority]!=null)pri[t.priority]++;});
+  const command={open:open.length,breached,atRisk,critical:pri.Critical,unassigned:open.filter(t=>!String(t.assignedTo||'').trim()).length,
+  waitingOnUs:open.filter(t=>!_awaitingCustomer(t)).length,awaitingCustomer:open.filter(_awaitingCustomer).length,oldest,priority:pri,
+  queue:{on:!!qc.enabled,frozen:!!qc.frozen},agents,at:new Date().toISOString()};
+  if(commandOnly)return{success:true,command};
+  const r1=v=>Math.round(v*10)/10;
+  return{success:true,days,compare,terms,
+  daily:daily.map(d=>({date:d.date,created:d.created,resolved:d.resolved,backlog:d.backlog,slaPct:d.slaTot?Math.round(d.slaMet/d.slaTot*100):null,frtHours:d.frtN?r1(d.frtSum/d.frtN):null})),
+  heat,mood,topCustomers:Object.values(cust).sort((a,b)=>b.n-a.n).slice(0,6),command};
+}
 app.get('/api/:slug/dashboard/widget',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
   const slug=su.brandSlug;
@@ -12739,6 +12806,9 @@ app.get('/api/:slug/dashboard/widget',(req,res)=>{
   try{
     let data={};
     switch(type){
+      case'word_cloud':case'command_center':case'backlog_trend':case'sla_trend':case'reply_time_trend':case'busiest_hours':case'customer_mood':case'top_customers':{
+        data=_dashboardTrends(db,{days:range,only:type==='command_center'?'command':undefined});
+        break;}
       case'ticket_overview':{
         const inRange=tickets.filter(t=>new Date(t.createdDate||t.createdAt)>=cutoff);
         data={total:inRange.length,

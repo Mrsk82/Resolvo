@@ -22958,11 +22958,13 @@ App.renderDashboardV3 = async function() {
     '<div class="rv-stack">' +
       '<div id="v3onb"></div>' + empty + nowCard + attHtml +
       '<div class="rv-grid rv-grid--kpi">' + kpis + '</div>' +
+      (total ? '<div id="rvdCommand">' + RV.card({ title: 'Command center', body: RV.skeleton(4) }) + '</div>' : '') +
       '<div class="rv-grid rv-grid--main">' +
         RV.card({ title: 'Ticket volume', actions: RV.range([{ value: 7, label: '7d' }, { value: 14, label: '14d' }, { value: 30, label: '30d' }], days, 'App._v3SetDays'),
           body: vol.length ? self._v3Bars(vol) : RV.empty({ icon: 'chart', title: 'No data yet' }) }) +
         RV.card({ title: 'Channel distribution', body: chTotal ? '<div class="rv-cluster" style="gap:18px;align-items:center">' + self._v3Donut(chParts, chTotal, chColors) + '<div style="flex:1;min-width:150px">' + chList + '</div></div>' : RV.empty({ icon: 'inbox', title: 'No tickets yet' }) }) +
       '</div>' +
+      (total ? '<div id="rvdTrends">' + RV.card({ title: 'Trends', body: RV.skeleton(5) }) + '</div>' : '') +
       '<div class="rv-grid rv-grid--main">' +
         '<div class="rv-stack">' +
           RV.card({ title: 'Recent tickets', flush: true, actions: '<button class="rv-link" onclick="App.navigate(\'ticket-inbox\')">View all</button>', body: recent }) +
@@ -22974,6 +22976,8 @@ App.renderDashboardV3 = async function() {
         '</div>' +
       '</div>' +
     '</div></div>';
+
+  if (total && window.RVDash) RVDash.mount(days);   // command center and trend charts load after the page is up
 
   // the "get set up" card for workspaces that have not finished setup
   try {
