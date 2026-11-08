@@ -64,7 +64,7 @@ async def main():
     r = js("/api/owner/architecture", owner)
     check("access: the owner gets the text and live facts", r.get("success") and "<section" in r["html"] and r["live"]["routes"]["total"] > 100, list(r)[:6])
     L = r["live"]; html = r["html"]
-    check("secrets: nothing secret is in the answer (no hash, no key file contents, no .env values)", owner_hash not in json.dumps(r) and "EMAIL_PASS" not in json.dumps(L) and "password" not in json.dumps(L).lower())
+    check("secrets: nothing secret is in the answer (no hash, no key file contents, no .env values)", owner_hash not in json.dumps(r) and "EMAIL_PASS" not in json.dumps(L) and "password" not in json.dumps({k: v for k, v in L.items() if k != "listening"}).lower() and all(set(x) == {"id", "label", "paid", "env", "ready"} for x in L["listening"]))
 
     # ---------- live facts ----------
     check("live: the version, Node and Express are reported", L["build"]["node"].startswith("v") and L["build"]["express"] and L["build"]["uptimeSec"] >= 0)

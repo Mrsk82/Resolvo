@@ -314,10 +314,10 @@ const inviteTokens={}; // { token: { brandSlug, brandName, expiresAt, role } }
 // ── TIER FEATURE DEFAULTS ──────────────────────────────────────────────────
 // Owner assigns tier per brand → tier sets what features are ON by default
 // Owner can then override individual features per brand via Owner Portal
-const _base={KANBAN_ENABLED:false,SPRINTS_ENABLED:false,AI_ENABLED:false,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:false,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:false,CUSTOM_FIELDS_ENABLED:false,RELEASE_NOTES_ENABLED:false,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:false,DEPENDENCY_GRAPH_ENABLED:false,WATCHERS_ENABLED:true,REACTIONS_ENABLED:false,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:false,BULK_ACTIONS_ENABLED:false,ANNOUNCEMENT_BAR_ENABLED:false,ISSUE_TEMPLATES_ENABLED:false,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:false,WORKLOAD_ENABLED:false,SLA_REPORT_ENABLED:false,
+const _base={LISTENING_ENABLED:false,KANBAN_ENABLED:false,SPRINTS_ENABLED:false,AI_ENABLED:false,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:false,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:false,CUSTOM_FIELDS_ENABLED:false,RELEASE_NOTES_ENABLED:false,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:false,DEPENDENCY_GRAPH_ENABLED:false,WATCHERS_ENABLED:true,REACTIONS_ENABLED:false,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:false,BULK_ACTIONS_ENABLED:false,ANNOUNCEMENT_BAR_ENABLED:false,ISSUE_TEMPLATES_ENABLED:false,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:false,WORKLOAD_ENABLED:false,SLA_REPORT_ENABLED:false,
   // New features
   EMAIL_TICKETING_ENABLED:false,QUEUE_ENABLED:false,APPOINTMENT_BOOKING_ENABLED:false,KNOWLEDGE_BASE_ENABLED:false,ROADMAP_ENABLED:false,API_KEYS_ENABLED:false,TWO_FA_ENABLED:false,APPROVAL_WORKFLOWS_ENABLED:false,CUSTOMER_PORTAL_ENABLED:false,WIDGET_ENABLED:false,GDPR_TOOLS_ENABLED:false,SLA_POLICIES_ENABLED:false,COST_REPORT_ENABLED:false,AGENT_COACHING_ENABLED:false,IMPACT_SCORE_ENABLED:false};
-const _pro={...{KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:true,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true,
+const _pro={...{LISTENING_ENABLED:true,KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:true,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true,
   EMAIL_TICKETING_ENABLED:true,QUEUE_ENABLED:true,KNOWLEDGE_BASE_ENABLED:true,ROADMAP_ENABLED:true,TWO_FA_ENABLED:true,APPROVAL_WORKFLOWS_ENABLED:true,IMPACT_SCORE_ENABLED:true}};
 const TIER_FEATURES={
   Free:_base,
@@ -335,6 +335,7 @@ const FEATURE_META=[
   {key:'APPROVAL_WORKFLOWS_ENABLED',label:'Approval Workflows',group:'Workflow',tier:'Pro'},
   // Intelligence
   {key:'AI_ENABLED',label:'AI / Gemini',group:'Intelligence',tier:'Pro'},
+  {key:'LISTENING_ENABLED',label:'Topics (public listening)',group:'Intelligence',tier:'Pro'},
   {key:'EMAIL_TRIAGE_ENABLED',label:'Email Triage (AI)',group:'Intelligence',tier:'Enterprise'},
   {key:'FULL_TEXT_SEARCH_ENABLED',label:'Full Text Search',group:'Intelligence',tier:'Free'},
   {key:'IMPACT_SCORE_ENABLED',label:'Issue Impact Score',group:'Intelligence',tier:'Pro'},
@@ -2088,6 +2089,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
       const ticket=db.tickets[idx];
+      if(!isNote&&ticket.channel==='listening')return{success:false,error:'This is a public mention, so Resolvo cannot reply for you. Open the post and answer there. You can still add a note here.'};
       // WhatsApp tickets go out via Twilio or direct Meta Cloud API depending
       // on the brand's chosen provider — send first so a failure (e.g. not
       // configured) is reported instead of silently no-op'ing.
@@ -2509,7 +2511,8 @@ app.post('/api/call',async(req,res)=>{
         else if(filters.status==='snoozed')tickets=tickets.filter(isSnoozed);
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
         if(filters.promo==='exclude')tickets=tickets.filter(t=>!_ticketIsPromo(t));
-        else if(filters.promo==='only')tickets=tickets.filter(t=>_ticketIsPromo(t));
+        else if(filters.promo==='only')tickets=tickets.filter(t=>_ticketIsPromo(t)&&!_isMention(t));
+        if(filters.mentions==='only')tickets=tickets.filter(_isMention);
         if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
         if(filters.active)tickets=tickets.filter(t=>!['resolved','closed'].includes(t.status));
@@ -2570,7 +2573,7 @@ app.post('/api/call',async(req,res)=>{
       const istDay=nowIST().slice(0,10);
       const waitingN=(db.tickets||[]).filter(isWaiting).length;
       const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id),...getTicketSLAInfo(db,t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=getTicketSLAInfo(db,t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!terminalIds.includes(t.status)).length};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...getTicketSLAInfo(db,t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=getTicketSLAInfo(db,t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -4949,6 +4952,80 @@ app.post('/api/call',async(req,res)=>{
         agents:Object.values(per).map(p=>({email:p.email,name:p.name,open:p.open,resolved:p.resolved,frtHours:r1(avg(p.frt)),slaPct:p.slaTot?Math.round(p.slaMet/p.slaTot*100):null,over:p.over,trend:p.trend})).sort((x,y)=>y.open-x.open),
         heat,unassignedOpen:open.filter(t=>!t.assignedTo).length};
     },
+    // ── Topics (listening) ──
+    getTopics:()=>{
+      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const db=rDB(),usage=((db.listeningUsage||{})[_monthKey()])||{};
+      return{success:true,plan:{tier:plan.tier,topics:plan.topics,everyMin:plan.everyMin,x:plan.x,web:plan.web},usage,
+        sources:Object.keys(Listening.SOURCES).map(id=>({id,label:Listening.SOURCES[id].label,paid:Listening.SOURCES[id].paid,note:Listening.SOURCES[id].note,ready:Listening.configured(id),allowed:!Listening.SOURCES[id].paid||(id==='x'?plan.x>0:plan.web>0)})),
+        topics:(db.topics||[]).map(t=>({...t,stats:_topicStats(db,t),boolean:Listening.boolean(t)})),
+        users:(db.users||[]).filter(u=>u.active!==false).map(u=>({email:u.email,name:u.name||u.email}))};
+    },
+    saveTopic:(b)=>{
+      if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can change topics.'};
+      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const db=rDB();db.topics=db.topics||[];
+      const old=b&&b.id?db.topics.find(t=>t.id===b.id):null;
+      if(!old&&db.topics.length>=plan.topics)return{success:false,error:'Your plan allows '+plan.topics+' topics. Delete one or upgrade.'};
+      const r=_cleanTopic(b||{},old,db,plan);if(r.error)return{success:false,error:r.error};
+      if(old)db.topics[db.topics.indexOf(old)]=r.topic;else db.topics.push(r.topic);
+      wDB(db);
+      if(r.topic.active&&!process.env.LISTENING_NO_AUTORUN)setTimeout(()=>{_runTopic(slug,r.topic.id,plan).catch(e=>console.error('[Topics] first check:',e.message));},1500);   // first look straight away
+      return{success:true,topic:{...r.topic,stats:_topicStats(db,r.topic),boolean:Listening.boolean(r.topic)}};
+    },
+    deleteTopic:(id)=>{
+      if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can delete topics.'};
+      const db=rDB();const i=(db.topics||[]).findIndex(t=>t.id===id);if(i<0)return{success:false,error:'Topic not found'};
+      const name=db.topics[i].name;db.topics.splice(i,1);if(db.listeningSeen)delete db.listeningSeen[id];wDB(db);
+      _socialAudit(slug,su.email,'topic_deleted',{detail:'Deleted topic "'+name+'". Its tickets were kept.'});
+      return{success:true};
+    },
+    cloneTopic:(id)=>{
+      if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can change topics.'};
+      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const db=rDB();const t=(db.topics||[]).find(x=>x.id===id);if(!t)return{success:false,error:'Topic not found'};
+      if(db.topics.length>=plan.topics)return{success:false,error:'Your plan allows '+plan.topics+' topics. Delete one or upgrade.'};
+      const c={...t,id:generateId('TOP'),name:(t.name+' (copy)').slice(0,60),active:false,pausedUntil:null,createdAt:nowIST(),updatedAt:nowIST(),lastRun:null,lastError:'',lastCreated:0,lastSpikeDay:undefined};
+      db.topics.push(c);wDB(db);return{success:true,topic:{...c,stats:_topicStats(db,c),boolean:Listening.boolean(c)}};
+    },
+    setTopicActive:(id,active,pauseDays)=>{
+      if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can change topics.'};
+      const db=rDB();const t=(db.topics||[]).find(x=>x.id===id);if(!t)return{success:false,error:'Topic not found'};
+      t.active=!!active;
+      const d=parseInt(pauseDays,10);t.pausedUntil=(!active&&d>0)?new Date(Date.now()+Math.min(d,90)*864e5).toISOString():null;
+      if(active)t.pausedUntil=null;
+      t.updatedAt=nowIST();wDB(db);return{success:true,topic:t};
+    },
+    // Tries a topic without saving it or making tickets, so people can see what it would catch.
+    previewTopic:async(b)=>{
+      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      if(_topicLimited(slug,'preview',20))return{success:false,error:'Too many previews this hour. Try again later.'};
+      const db=rDB();const r=_cleanTopic(b||{},null,db,plan);if(r.error)return{success:false,error:r.error};
+      const usage=Object.assign({},((db.listeningUsage||{})[_monthKey()])||{});
+      const t={...r.topic,previewPaid:!!(b&&b.previewPaid)};
+      const out=await _fetchTopic(t,plan,usage,true);
+      if(b&&b.previewPaid){db.listeningUsage=db.listeningUsage||{};db.listeningUsage[_monthKey()]=usage;wDB(db);}
+      return{success:true,boolean:Listening.boolean(t),total:out.found.length,counts:out.counts,errors:out.errors,
+        items:out.found.slice(0,25).map(i=>({platform:i.platform,title:i.title,text:String(i.text||'').slice(0,240),author:i.author,handle:i.handle,url:i.url,publishedAt:i.publishedAt,matched:i.matched}))};
+    },
+    runTopicNow:async(id)=>{
+      if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can run topics.'};
+      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      if(_topicLimited(slug,'run',12))return{success:false,error:'Checked too often this hour. It also runs by itself every '+plan.everyMin/60+' hours.'};
+      const r=await _runTopic(slug,id,plan);return{success:true,created:r.created,errors:r.errors};
+    },
+    getTopicDetail:(id,days)=>{
+      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const db=rDB();const t=(db.topics||[]).find(x=>x.id===id);if(!t)return{success:false,error:'Topic not found'};
+      const n=[7,14,30].includes(parseInt(days,10))?parseInt(days,10):14,IST=5.5*3600000,day=ms=>new Date(ms+IST).toISOString().slice(0,10);
+      const mine=(db.tickets||[]).filter(x=>x.topicId===id);
+      const daily=[];for(let i=n-1;i>=0;i--)daily.push({date:day(Date.now()-i*864e5),n:0});const ix={};daily.forEach((d,i)=>ix[d.date]=i);
+      const plat={},mood={positive:0,neutral:0,negative:0},texts=[];
+      mine.forEach(x=>{const k=ix[String(x.createdDate).slice(0,10)];if(k!=null){daily[k].n++;const p=(x.listening&&x.listening.platform)||'other';plat[p]=(plat[p]||0)+1;if(mood[x.sentimentLevel]!=null)mood[x.sentimentLevel]++;texts.push((x.subject||'')+' '+((x.thread&&x.thread[0]&&x.thread[0].body)||''));}});
+      return{success:true,topic:{...t,boolean:Listening.boolean(t)},days:n,daily,platforms:Object.keys(plat).map(k=>({platform:k,label:(Listening.SOURCES[k]||{}).label||k,n:plat[k]})).sort((a,b)=>b.n-a.n),mood,
+        words:Listening.topWords(texts,[].concat(t.contains,t.andContains),30),
+        recent:mine.slice(0,15).map(x=>({id:x.id,title:(x.listening&&x.listening.title)||x.subject,platform:x.listening&&x.listening.platform,url:x.listening&&x.listening.url,at:x.createdDate,status:x.status,assignedTo:x.assignedTo,sentiment:x.sentimentLevel}))};
+    },
     getDashboardTrends:(opts)=>_dashboardTrends(rDB(),opts),
     // One call that tells the Settings home page the state of every section (on / off / needs attention) and a short value to show.
     getSettingsOverview:()=>{
@@ -5685,7 +5762,7 @@ app.post('/api/call',async(req,res)=>{
       });
       // Admins and managers: what the whole team has waiting
       if(['Admin','Manager'].includes(su.role)){
-        const open=(db.tickets||[]).filter(OPEN),un=open.filter(t=>!String(t.assignedTo||'').trim()).length;
+        const open=(db.tickets||[]).filter(t=>OPEN(t)&&!_isMention(t)),un=open.filter(t=>!String(t.assignedTo||'').trim()).length;
         if(un>0)sys.push({id:'unassigned_'+un,type:'info',title:un+(un===1?' ticket has':' tickets have')+' no owner',body:'Assign them so nobody waits.',at:now.toISOString(),read:false,icon:'📥'});
         let br=0;for(const t of open){try{if(getTicketSLAInfo(db,t).slaBreached)br++;}catch(e){}}
         if(br>0)sys.push({id:'teambreach_'+br,type:'sla',title:br+(br===1?' ticket is':' tickets are')+' past SLA across the team',body:'Open the inbox and sort by overdue.',at:now.toISOString(),read:false,icon:'🔴'});
@@ -6801,6 +6878,7 @@ function _archLive(){
     workspaces:{total:brands.length,byStatus:by('status'),byTier:by('tier'),prospects:(owner.prospects||[]).length,leads:(owner.leadLog||[]).length},
     storage:{ownerJsonBytes:_bytesIn(path.dirname(OWNER_PATH),['owner.json']),brandFolders:dirs.length,brandDbBytes:dbBytes,backups:backups.length,lastBackup:backups[0]?backups[0].createdAt:null,backupBytes:backups.reduce((a,b)=>a+(b.bytes||0),0),trashItems:trashN,analyticsBytes:_bytesIn(path.dirname(OWNER_PATH),['analytics.json'])},
     code:{serverLines:lines('server.js'),publicPages:count('public',/\.html$/),libModules:count('lib',/\.js$/),testFiles:count('docs/ui-redesign/tools',/_test\.(py|js)$/),dependencies:dep},
+    listening:Object.keys(Listening.SOURCES).map(id=>({id,label:Listening.SOURCES[id].label,paid:Listening.SOURCES[id].paid,env:Listening.SOURCES[id].env,ready:Listening.configured(id)})),
     cron:_cronSeen.slice()
   };
 }
@@ -7564,6 +7642,7 @@ const _PROMO_HOST=/^(mail|email|e|news|send|mg|em|mailer|bounce|notify|campaign|
 const _PROMO_BODY=/(unsubscribe|view (this email )?in (your )?browser|manage (your )?(email )?preferences|update (your )?(email )?preferences|you (are )?receiv(ed|ing) this (email|message) because|to stop receiving)/i;
 function _ticketIsPromo(t){
   try{
+    if(t&&t.channel==='listening')return true;   // mentions are kept out of every support number
     if(t.notPromo)return false;
     if(t.isSample||t.isBulk)return !!t.isBulk;
     const ch=t.channel||t.source||'email';
@@ -7738,6 +7817,7 @@ function _businessDeadlineMs(fromMs, budgetMs, wh) {
 //      applied on top of whichever base hours were selected, for ad-hoc VIP
 //      emails/domains that don't warrant a full named policy.
 function getTicketSLAInfo(db, ticket) {
+  if (ticket && ticket.channel === 'listening') return { slaHours: 0, slaDeadline: null, slaBreached: false, slaRisk: false, slaHoursRemaining: null, slaPolicyName: null };   // a public mention has no customer waiting
   const slaConfig = db.slaConfig || { Critical: 4, High: 8, Medium: 24, Low: 72 };
   const fromDomain = (ticket.from || '').split('@')[1]?.toLowerCase() || '';
   const policy = fromDomain ? (db.slaPolicies || []).find(p => p.domain && p.domain.toLowerCase() === fromDomain) : null;
@@ -9985,6 +10065,8 @@ function runBackgroundJobs(){
   cron.schedule('30 3 * * *',()=>{runBackup('scheduled');});
   // Monday 09:00: your week in five numbers, emailed to the owner (can be switched off in the Owner Console, Growth tab).
   cron.schedule('0 9 * * 1',()=>{sendGrowthDigest(false).catch(()=>{});});
+  // Every 30 minutes: check each workspace's active topics that are due (Pro every 3 hours, Enterprise every hour) and turn new public mentions into tickets.
+  cron.schedule('*/30 * * * *',()=>{runListening().catch(e=>console.error('[Topics]',e.message));});
   // Recycle bin: remove what has been in it for 30 days.
   cron.schedule('15 4 * * *',()=>{try{const g=trash.purgeExpired();if(g.length)console.log('[Trash] removed '+g.length+' expired item(s) for good');}catch(e){console.error('[Trash] purge failed:',e.message);}});
   setTimeout(()=>{const l=Backup.listBackups(BACKUP_DIR)[0];if(!l||Date.now()-l.createdAt.getTime()>26*3600000)runBackup('catch-up');},90000);
@@ -12790,6 +12872,137 @@ function _dashboardTrends(db,opts){
   daily:daily.map(d=>({date:d.date,created:d.created,resolved:d.resolved,backlog:d.backlog,slaPct:d.slaTot?Math.round(d.slaMet/d.slaTot*100):null,frtHours:d.frtN?r1(d.frtSum/d.frtN):null})),
   heat,mood,topCustomers:Object.values(cust).sort((a,b)=>b.n-a.n).slice(0,6),command};
 }
+// ── TOPICS (listening) ───────────────────────────────────────────────────────────────────────────────────────────────────
+// A topic is a set of keywords. Every public mention found for it becomes a ticket on the "listening" channel, so the team can
+// assign it, tag it, note it and close it like any other ticket. Mentions are kept out of support numbers (SLA, first reply, volume).
+const Listening=require('./lib/listening');
+const _LISTEN_PLAN={Trial:{topics:3,everyMin:360,x:0,web:0},Pro:{topics:10,everyMin:180,x:1000,web:300},Enterprise:{topics:50,everyMin:60,x:5000,web:1500}};
+const _isMention=t=>!!t&&t.channel==='listening';
+function _listenPlan(slug){
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug);if(!brand)return null;
+  let adf={};try{adf=readBrandDB(slug).featureFlags||{};}catch(e){}
+  if(!resolveFeatureFlags(brand,adf).LISTENING_ENABLED)return null;
+  return{tier:brand.tier||'Pro',...(_LISTEN_PLAN[brand.tier]||_LISTEN_PLAN.Pro)};
+}
+function _cleanTopic(b,old,db,plan){
+  const name=String(b.name||'').replace(/[\u0000-\u001f<>]/g,' ').trim().slice(0,60);
+  if(!name)return{error:'Give the topic a name.'};
+  const contains=Listening.terms(b.contains);
+  if(!contains.length)return{error:'Add at least one keyword in "Contains".'};
+  const sources={};
+  for(const id of Object.keys(Listening.SOURCES)){const on=!!(b.sources&&b.sources[id]);sources[id]=on&&(!Listening.SOURCES[id].paid||(plan.x>0||plan.web>0));}
+  sources.tickets=!!(b.sources&&b.sources.tickets);
+  const feeds=(Array.isArray(b.feeds)?b.feeds:String(b.feeds||'').split(/\s+/)).map(x=>String(x).trim()).filter(x=>/^https?:\/\/\S{4,500}$/i.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,5);
+  if(sources.feeds&&!feeds.length)return{error:'Add at least one feed link, or untick "Your own feeds".'};
+  if(plan.x===0)sources.x=false;if(plan.web===0)sources.web=false;
+  if(!Object.keys(sources).some(k=>sources[k]))return{error:'Choose at least one place to listen.'};
+  const users=(db.users||[]).filter(u=>u.active!==false).map(u=>String(u.email).toLowerCase());
+  const assignTo=users.indexOf(String(b.assignTo||'').toLowerCase())>=0?String(b.assignTo).toLowerCase():'';
+  const cap=Math.max(1,Math.min(200,parseInt(b.dailyCap,10)||30));
+  return{topic:{id:old?old.id:generateId('TOP'),name,contains,feeds,feedsTrust:b.feedsTrust!==false,andContains:Listening.terms(b.andContains),notContains:Listening.terms(b.notContains),sources,
+    languages:(Array.isArray(b.languages)?b.languages:[]).map(l=>String(l).toLowerCase().slice(0,2)).filter(l=>/^[a-z]{2}$/.test(l)).slice(0,3),
+    country:/^[A-Za-z]{2}$/.test(String(b.country||''))?String(b.country).toUpperCase():'',
+    excludeDomains:Listening.terms(b.excludeDomains),excludeHandles:Listening.terms(b.excludeHandles),
+    xHandle:String(b.xHandle||'').replace(/[^A-Za-z0-9_@]/g,'').slice(0,40),includeRetweets:!!b.includeRetweets,includeReplies:!!b.includeReplies,
+    assignTo,priority:['Low','Medium','High','Critical'].includes(b.priority)?b.priority:'Low',raiseOnNegative:b.raiseOnNegative!==false,dailyCap:cap,
+    active:b.active!==false,pausedUntil:old?old.pausedUntil||null:null,createdAt:old?old.createdAt:nowIST(),updatedAt:nowIST(),
+    lastRun:old?old.lastRun||null:null,lastError:old?old.lastError||'':'',lastCreated:old?old.lastCreated||0:0}};
+}
+const _monthKey=()=>nowIST().slice(0,7);
+function _mentionTicket(topic,it){
+  const now=nowIST(),id=generateId('TKT');
+  const plat={news:'News',hn:'Hacker News',bluesky:'Bluesky',youtube:'YouTube',web:'Web',x:'X'}[it.platform]||it.platform;
+  const s=_analyzeSentimentNLP((it.title||'')+' '+(it.text||''));
+  let pr=topic.priority||'Low';
+  if(topic.raiseOnNegative&&s.level==='negative'){const o=['Low','Medium','High','Critical'];pr=o[Math.min(2,o.indexOf(pr)+1)];}   // up one step, never above High on its own
+  const who=String(it.handle||it.author||it.domain||'unknown').slice(0,80);
+  const text=String(it.text||it.title||'').slice(0,2000);
+  const from=('listening:'+it.platform+':'+who).slice(0,120);
+  return{id,subject:(plat+': '+(it.title||text).slice(0,110)).trim(),from,fromName:String(it.author||it.domain||'Public mention').slice(0,80),
+    body:text+'\n\nSource: '+it.url,status:'new',priority:pr,assignedTo:topic.assignTo||'',createdDate:now,lastActivity:now,channel:'listening',source:'listening',
+    tags:['listening','topic:'+topic.name,it.platform],topicId:topic.id,topicName:topic.name,noSLA:true,sentimentLevel:s.level,sentimentScore:s.score,
+    listening:{platform:it.platform,url:it.url,title:it.title||'',author:it.author||'',handle:it.handle||'',domain:it.domain||'',publishedAt:it.publishedAt||now,matched:it.matched||[],mid:String(it.id||it.url)},
+    thread:[{id:generateId('MSG'),type:'incoming',from,fromName:String(it.author||'Public mention').slice(0,80),body:text+'\n\nSource: '+it.url,timestamp:now}]};
+}
+// Asks each chosen place for mentions. Nothing is saved here.
+async function _fetchTopic(topic,plan,usage,preview){
+  const found=[],errors={},counts={};
+  for(const id of Object.keys(Listening.SOURCES)){
+    if(!topic.sources||!topic.sources[id])continue;
+    const meta=Listening.SOURCES[id];
+    if(meta.paid&&(preview&&!topic.previewPaid)){errors[id]='Skipped in the preview so it does not use your paid searches.';continue;}
+    const cap=id==='x'?plan.x:id==='web'?plan.web:Infinity;
+    if(meta.paid&&(usage[id]||0)>=cap){errors[id]='This month\'s limit for '+meta.label+' is used up ('+cap+').';continue;}
+    try{const items=await Listening.fetchSource(id,topic);counts[id]=items.length;items.forEach(i=>found.push(i));if(meta.paid)usage[id]=(usage[id]||0)+(id==='x'?Math.max(1,items.length):1);}
+    catch(e){errors[id]=String(e.message||e).slice(0,160);}
+  }
+  found.sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt)));
+  return{found,errors,counts};
+}
+// Checks one topic for a workspace and creates tickets for new mentions.
+async function _runTopic(slug,topicId,plan){
+  let db=readBrandDB(slug);let topic=(db.topics||[]).find(t=>t.id===topicId);if(!topic)return{created:0,errors:{}};
+  const usage=Object.assign({},((db.listeningUsage||{})[_monthKey()])||{});
+  const r=await _fetchTopic(topic,plan,usage,false);
+  db=readBrandDB(slug);topic=(db.topics||[]).find(t=>t.id===topicId);if(!topic)return{created:0,errors:r.errors};
+  db.listeningSeen=db.listeningSeen||{};const seen=new Set(db.listeningSeen[topic.id]||[]);
+  const today=nowIST().slice(0,10),made=(db.tickets||[]).filter(t=>t.topicId===topic.id&&String(t.createdDate).slice(0,10)===today).length;
+  let room=Math.max(0,(topic.dailyCap||30)-made),created=0;
+  db.tickets=db.tickets||[];
+  for(const it of r.found){
+    const key=String(it.id||it.url);if(seen.has(key))continue;
+    if(room<=0)break;
+    db.tickets.unshift(_mentionTicket(topic,it));seen.add(key);room--;created++;
+  }
+  db.listeningSeen[topic.id]=Array.from(seen).slice(-3000);
+  // tag the workspace's own tickets that mention the topic
+  if(topic.sources&&topic.sources.tickets){
+    const cut=Date.now()-3*864e5,tag='topic:'+topic.name;
+    (db.tickets||[]).forEach(t=>{if(_isMention(t)||(t.tags||[]).includes(tag))return;const c=Date.parse(t.createdDate);if(isNaN(c)||c<cut)return;
+      const first=(t.thread||[]).find(m=>m.type==='incoming');if(Listening.matches((t.subject||'')+' '+((first&&first.body)||t.body||''),topic).ok){t.tags=(t.tags||[]).concat([tag]);}});
+  }
+  db.listeningUsage=db.listeningUsage||{};db.listeningUsage[_monthKey()]=usage;
+  Object.keys(db.listeningUsage).sort().slice(0,-6).forEach(k=>delete db.listeningUsage[k]);
+  topic.lastRun=nowIST();topic.lastCreated=created;topic.lastCounts=r.counts;topic.lastError=Object.keys(r.errors).map(k=>Listening.SOURCES[k].label+': '+r.errors[k]).join(' · ').slice(0,300);
+  // spike: today against the usual
+  try{
+    const mine=db.tickets.filter(t=>t.topicId===topic.id),dayOf=t=>String(t.createdDate).slice(0,10);
+    const tc=mine.filter(t=>dayOf(t)===today).length;let prev=0;for(let i=1;i<=7;i++){const d=new Date(Date.now()+5.5*3600000-i*864e5).toISOString().slice(0,10);prev+=mine.filter(t=>dayOf(t)===d).length;}
+    const avg=prev/7;
+    if(tc>=5&&tc>=3*Math.max(1,avg)&&topic.lastSpikeDay!==today){
+      topic.lastSpikeDay=today;db.notifications=db.notifications||[];
+      db.notifications.unshift({id:generateId('NOT'),global:true,type:'info',title:'Spike: "'+topic.name+'"',body:tc+' mentions today, usually about '+Math.round(avg),at:nowIST(),read:false,icon:'📈',meta:{topicId:topic.id}});
+      db.notifications=db.notifications.slice(0,200);
+    }
+  }catch(e){}
+  writeBrandDB(slug,db);
+  return{created,errors:r.errors};
+}
+let _listenRunning=false;
+async function runListening(){
+  if(_listenRunning)return;_listenRunning=true;
+  try{
+    for(const brand of (readOwner().brands||[]).filter(b=>b.status==='active')){
+      const plan=_listenPlan(brand.slug);if(!plan)continue;
+      let topics=[];try{topics=(readBrandDB(brand.slug).topics||[]).filter(t=>t.active);}catch(e){continue;}
+      for(const t of topics){
+        if(t.pausedUntil&&Date.parse(t.pausedUntil)>Date.now())continue;
+        if(t.lastRun&&Date.now()-Date.parse(t.lastRun)<plan.everyMin*60000-60000)continue;
+        try{await _runTopic(brand.slug,t.id,plan);}catch(e){console.error('[Topics] '+brand.slug+' '+t.name+': '+e.message);}
+      }
+    }
+  }finally{_listenRunning=false;}
+}
+function _topicStats(db,topic){
+  const mine=(db.tickets||[]).filter(t=>t.topicId===topic.id),IST=5.5*3600000,day=ms=>new Date(ms+IST).toISOString().slice(0,10);
+  const daily=[];for(let i=13;i>=0;i--)daily.push({date:day(Date.now()-i*864e5),n:0});
+  const ix={};daily.forEach((d,i)=>ix[d.date]=i);
+  mine.forEach(t=>{const k=ix[String(t.createdDate).slice(0,10)];if(k!=null)daily[k].n++;});
+  return{total:mine.length,today:daily[13].n,week:daily.slice(7).reduce((a,d)=>a+d.n,0),daily,open:mine.filter(t=>!['resolved','closed'].includes(t.status)).length};
+}
+const _topicHits=new Map();
+function _topicLimited(slug,kind,max){const k=slug+':'+kind,now=Date.now(),a=(_topicHits.get(k)||[]).filter(t=>now-t<3600000);if(a.length>=max){_topicHits.set(k,a);return true;}a.push(now);_topicHits.set(k,a);return false;}
+
 app.get('/api/:slug/dashboard/widget',(req,res)=>{
   const su=getSessionUser(req);if(!su)return res.status(401).json({error:'Unauthorized'});
   const slug=su.brandSlug;

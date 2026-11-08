@@ -155,6 +155,34 @@
   <p>Twilio or Meta Cloud posts the message to <code>/api/whatsapp/webhook</code>; it becomes or joins a ticket; replies go back through the same provider.</p>
 </section>
 
+<section class="a-sec" id="topics" data-title="Topics (listening)" data-group="How it works">
+  <p class="eyebrow">Topics</p>
+  <h2>Topics: listening to the public web</h2>
+  <p class="lead">A topic is a set of keywords. Every public mention found for it becomes a ticket on the <b>listening</b> channel, so the team can assign it, add notes and close it like any other ticket.</p>
+  <ol class="steps">
+    <li><b>Set up</b>A person (Admin or Manager) writes the keywords: <i>contains</i> (any of), <i>and also contains</i> (needs one of these too) and <i>does not contain</i>. They choose places, language, country, sites and profiles to leave out, who gets the tickets, a priority and a daily limit. "Try it first" shows what it would catch without making tickets.</li>
+    <li><b>Check</b>Every 30 minutes the server asks each chosen place for new mentions of each topic that is due. Every result is checked again against the keywords here, because the places only roughly match.</li>
+    <li><b>Ticket</b>Each new mention makes a ticket (channel <code>listening</code>) with the link, author, place and the topic as a tag. Repeats are skipped. An unhappy-sounding post is raised one priority step. The daily limit stops a flood.</li>
+    <li><b>Alert</b>A sudden jump (at least 5 mentions and 3 times the usual) adds a note to the bell for the team.</li>
+  </ol>
+  <h3>What mentions are not</h3>
+  <ul>
+    <li>No customer is waiting, so they have <b>no SLA clock</b> and are left out of ticket counts, first reply time, backlog, the dashboard charts and Insights.</li>
+    <li>Resolvo cannot reply to a public post, so the reply box is replaced with notes and an "Open the post" link.</li>
+    <li>They are shown in Inbox, Listening, and found by search.</li>
+  </ul>
+  <h3>Feeds each brand adds</h3>
+  <p>A brand can paste up to 5 feed links (RSS or Atom) into a topic, for example a free Google Alerts feed. The server reads them (public https links only: private and local addresses, odd ports and redirects to them are refused) and every item becomes a mention. A trusted feed skips the keyword check but still honours the "does not contain" words and the exclusions.</p>
+  <h3>Places and what each needs</h3>
+  <p>Keys are set as environment variables on the server (the platform pays, not each brand). A place without its key is shown as not set up and skipped.</p>
+  <div data-live-block="listening"></div>
+  <ul>
+    <li><b>Limits by plan:</b> Pro: 10 topics, checked every 3 hours, 300 web searches and 1,000 X posts a month. Enterprise: 50 topics, every hour, 1,500 web searches and 5,000 X posts. Trial: 3 topics, free places only. Free: not included.</li>
+    <li><b>Not available:</b> Instagram and Facebook keyword search (only paid data resellers have it), and Google News (its feed is for personal use only).</li>
+    <li><b>Where it lives:</b> <code>lib/listening.js</code> (matching and the places), the Topics block in <code>server.js</code>, and <code>public/js/rv-topics.js</code>. Tests answer from a file (<code>LISTENING_MOCK</code>), so nothing goes online.</li>
+  </ul>
+</section>
+
 <section class="a-sec" id="queue" data-title="Queue engine" data-group="How it works">
   <p class="eyebrow">Queue</p>
   <h2>Queue engine: who gets the next ticket</h2>
@@ -198,6 +226,7 @@
     <tr data-cron="0 8 * * *"><td><code>08:00 daily</code></td><td>24-hour appointment reminders.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 9 * * *"><td><code>09:00 daily</code></td><td>Daily digest email for each active workspace.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 9 * * 1"><td><code>09:00 Monday</code></td><td>Growth digest to the owner (can be switched off in the Growth tab).</td><td class="cron-state"></td></tr>
+    <tr data-cron="*/30 * * * *"><td><code>every 30 min</code></td><td>Topics: checks each active topic that is due (Pro every 3 hours, Enterprise every hour) and turns new public mentions into tickets.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 10 * * *"><td><code>10:00 daily</code></td><td>Nurture emails for new sign-ups (day 1, 3, 7, 14) and the prospect drip.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 11 * * *"><td><code>11:00 daily</code></td><td>Customer satisfaction (NPS) surveys, capped at 20 a day per workspace.</td><td class="cron-state"></td></tr>
   </tbody></table></div>
@@ -263,6 +292,7 @@
   <p class="eyebrow">Changes</p>
   <h2>Recent changes</h2>
   <div class="a-scroll"><table class="a-table"><thead><tr><th>When</th><th>What</th></tr></thead><tbody>
+    <tr><td class="mono">Nov 2026</td><td>Topics: public web listening (news, Hacker News, Bluesky, YouTube, web search, X) that turns each mention into a ticket on a new Listening channel; dashboard command center, trend charts and word cloud; unified notification bell.</td></tr>
     <tr><td class="mono">Nov 2026</td><td>Growth tracking: cookie-free visit counts, lead sources, funnel, Monday digest, Growth tab; WhatsApp-templates tool, SLA calculator and Shopify support pages; this architecture page rebuilt; site map page.</td></tr>
     <tr><td class="mono">Nov 2026</td><td>Website pass: trust pages (features, integrations, security, customers, changelog), cookie choice, WhatsApp button, search and sharing tags, app code split into cached files.</td></tr>
     <tr><td class="mono">Nov 2026</td><td>Phone batch: outbox, dictation, photos, app lock, widget, alert buttons; Android 1.2.0.</td></tr>

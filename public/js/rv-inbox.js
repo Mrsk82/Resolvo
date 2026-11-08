@@ -28,12 +28,14 @@
     var a = A();
     return { status: a._ticketFilter || 'all', channel: a._ticketChannel || 'all', priority: a._ticketPriority || 'all', sort: a._ticketSort || 'newest', search: a._ticketSearch || '', limit: S.limit,
       assignedTo: a._ticketAssignee || 'all', team: a._ticketTeam || '', tag: a._ticketTag || '', dateFrom: a._ticketFrom || '', dateTo: a._ticketTo || '', sla: a._ticketSla || '', active: !!a._ticketActive,
-      promo: a._ticketPromo === 'only' ? 'only' : ((a._ticketSearch || '') ? 'all' : 'exclude') };
+      promo: a._ticketPromo === 'only' ? 'only' : ((a._ticketPromo === 'mentions' || a._ticketChannel === 'listening' || (a._ticketSearch || '')) ? 'all' : 'exclude'),
+      mentions: (a._ticketPromo === 'mentions' || a._ticketChannel === 'listening') ? 'only' : '' };
   }
   function currentView() {
     var a = A(), f = a._ticketFilter || 'all';
     var plain = (a._ticketChannel || 'all') === 'all' && !(a._ticketSearch) && (a._ticketAssignee || 'all') === 'all' && !a._ticketTeam && !a._ticketTag && !a._ticketFrom && !a._ticketTo;
     if (a._ticketPromo === 'only') return 'promo';
+    if (a._ticketPromo === 'mentions') return 'mentions';
     if (a._ticketSla === 'breached') return 'sla-breached';
     if (a._ticketSla === 'atrisk') return 'sla-risk';
     if (a._ticketPriority === 'Critical' && a._ticketActive && f === 'all') return 'critical';
@@ -49,6 +51,7 @@
     else if (v === 'sla-risk') a._ticketSla = 'atrisk';
     else if (v === 'sla-breached') a._ticketSla = 'breached';
     else if (v === 'promo') a._ticketPromo = 'only';
+    else if (v === 'mentions') a._ticketPromo = 'mentions';
     else if (/^status:/.test(String(v))) a._ticketFilter = String(v).slice(7).replace(/[^A-Za-z0-9_-]/g, '');
     S.limit = 25; persist();
   };
@@ -65,7 +68,7 @@
     if (t.slaRisk) return w.RV.badge('SLA ' + (t.slaHoursRemaining != null ? t.slaHoursRemaining + 'h left' : 'at risk'), 'warning');
     return '';
   }
-  function channelName(c) { var m = { email: 'Email', whatsapp: 'WhatsApp', widget: 'Web widget', web: 'Website', sms: 'SMS', call: 'Call', manual: 'Manual', sample: 'Sample', voice: 'Voice' }; c = String(c || 'email').toLowerCase(); return m[c] || (c.charAt(0).toUpperCase() + c.slice(1)); }
+  function channelName(c) { var m = { email: 'Email', whatsapp: 'WhatsApp', widget: 'Web widget', web: 'Website', sms: 'SMS', call: 'Call', manual: 'Manual', sample: 'Sample', voice: 'Voice', listening: 'Listening' }; c = String(c || 'email').toLowerCase(); return m[c] || (c.charAt(0).toUpperCase() + c.slice(1)); }
   function selectHtml(id, label, options, value, wide) {
     return '<div class="rv-field' + (wide ? ' rv-field--wide' : '') + '"><label class="rv-label" for="' + id + '">' + esc(label) + '</label><select class="rv-select" id="' + id + '" data-filter="' + id + '">' +
       options.map(function (o) { return '<option value="' + esc(o.v) + '"' + (String(o.v) === String(value) ? ' selected' : '') + '>' + esc(o.l) + '</option>'; }).join('') + '</select></div>';
@@ -82,12 +85,12 @@
       }).join('') + '<button type="button" class="rvi-view" data-act="save-view" style="color:var(--rv-link)"><span>+ Save current filters</span></button>';
     }
     return '<h3>Views</h3>' + v('mine', 'My tickets', c.mine) + v('unassigned', 'Unassigned', c.unassigned, true) + v('all', 'All tickets', c.all) + v('critical', 'Critical', c.critical, true) +
-      v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + saved +
+      v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + v('mentions', 'Listening', c.mentions) + saved +
       '<div class="rvi-queue"><div id="queueAgentList"><span class="rv-hint">Loading queue...</span></div></div>';
   }
   function pillsRow() {
     var c = S.counts || {}, cur = currentView();
-    var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed], ['promo', 'Promos', c.promo]];
+    var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed], ['promo', 'Promos', c.promo], ['mentions', 'Listening', c.mentions]];
     return '<div class="rvi-pills rv-tabs rv-tabs--pills" role="tablist" aria-label="Inbox views">' + items.map(function (i) {
       return '<button type="button" role="tab" class="rv-tab" data-act="view" data-view="' + i[0] + '" aria-selected="' + (cur === i[0]) + '">' + esc(i[1]) + (i[2] != null ? '<span class="rv-tab__count">' + i[2] + '</span>' : '') + '</button>'; }).join('') + '</div>';
   }
@@ -95,7 +98,7 @@
     var a = A(), f = S.facets || {};
     var stOpts = [{ v: 'all', l: 'All statuses' }].concat((S.statuses || []).map(function (s) { return { v: s.id, l: (s.label || s.id) + ' (' + ((S.counts || {})[s.id] || 0) + ')' }; }));
     var asg = [{ v: 'all', l: 'Anyone' }, { v: 'none', l: 'Unassigned' }].concat((f.assignees || []).map(function (u) { return { v: u.email, l: u.name + (u.count ? ' (' + u.count + ')' : '') }; }));
-    var chOpts = [['all', 'All channels'], ['email', 'Email'], ['whatsapp', 'WhatsApp'], ['widget', 'Web widget'], ['sms', 'SMS'], ['call', 'Call'], ['manual', 'Manual']].map(function (x) { return { v: x[0], l: x[1] }; });
+    var chOpts = [['all', 'All channels'], ['email', 'Email'], ['whatsapp', 'WhatsApp'], ['widget', 'Web widget'], ['sms', 'SMS'], ['call', 'Call'], ['manual', 'Manual'], ['listening', 'Listening']].map(function (x) { return { v: x[0], l: x[1] }; });
     var prOpts = [['all', 'All priorities'], ['Critical', 'Critical'], ['High', 'High'], ['Medium', 'Medium'], ['Low', 'Low']].map(function (x) { return { v: x[0], l: x[1] }; });
     var srt = [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['priority', 'Priority'], ['sla', 'SLA risk']].map(function (x) { return { v: x[0], l: x[1] }; });
     var team = [{ v: '', l: 'Any team' }].concat((f.teams || []).map(function (x) { return { v: x.team, l: x.team + ' (' + x.count + ')' }; }));
@@ -349,6 +352,15 @@
   function isPhone() { return !!(w.matchMedia && w.matchMedia('(max-width: 768px)').matches); }
   // On a phone the composer starts as one line ("Write a reply...") so the conversation keeps the screen; tapping it opens the full composer.
   function composerCollapsed(draft, isNote) { return isPhone() && !draft && !isNote && !S.cOpen; }
+  // A public mention (found by a Topic) cannot be answered from here: the team adds notes and opens the post to reply there.
+  function noteMode(t) { t = t || S.ticket; return S.mode === 'note' || !!(t && t.channel === 'listening'); }
+  function mentionBar(t) {
+    if (!t || t.channel !== 'listening') return '';
+    var l = t.listening || {}, url = /^https?:\/\//i.test(l.url || '') ? l.url : '';
+    var plat = { news: 'the news', hn: 'Hacker News', bluesky: 'Bluesky', youtube: 'YouTube', web: 'the web', x: 'X' }[l.platform] || l.platform || 'the web';
+    return '<div class="rvi-mention"><div><b>Public mention</b> found on ' + esc(plat) + (l.author ? ' by ' + esc(l.author) : '') + (t.topicName ? ' for the topic <b>' + esc(t.topicName) + '</b>' : '') + '. Resolvo cannot reply for you: open the post to answer there, and use notes here to share what you did.</div>' +
+      (url ? '<a class="rv-btn rv-btn--sm" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Open the post</a>' : '') + '</div>';
+  }
   function composerBar(done) {
     return '<div class="rvp-bar"><button type="button" class="rvp-bar__input" data-act="compose-open" aria-label="Write a reply">' + w.RV.icon('mail', 16) + '<span>Write a reply&hellip;</span></button>' +
       (done ? '' : '<button type="button" class="rvp-bar__ok" data-act="' + (S.focus ? 'resolve-quick' : 'resolve') + '" aria-label="Resolve this ticket">' + w.RV.icon('check', 18) + '<span>Resolve</span></button>') + '</div>';
@@ -385,7 +397,7 @@
     var asgOpts = '<option value="">Unassigned</option>' + users.map(function (u) { return '<option value="' + esc(u.email) + '"' + (String(u.email).toLowerCase() === String(t.assignedTo || '').toLowerCase() ? ' selected' : '') + '>' + esc(u.name || u.email) + '</option>'; }).join('');
     var thread = threadHtml(t);
     var draft = S.drafts[t.id + ':' + S.mode] || '';
-    var isNote = S.mode === 'note';
+    var isNote = noteMode(t);
     var who0 = t.fromName || t.from || 'Customer';
     if (!keepScroll) S.cOpen = false;
     var collapsed = composerCollapsed(draft, isNote);
@@ -398,8 +410,8 @@
         '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + priOpts.map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
         '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select>' + slaChip(t) + issueLink(t) +
         '<span style="flex:1"></span>' + (['resolved', 'closed'].indexOf(t.status) < 0 ? w.RV.btn({ label: 'Resolve', kind: 'primary', size: 'sm', icon: 'check', attrs: { 'data-act': 'resolve' } }) : '') + '</div>' +
-      waitingNudge(t) + '<div class="rvi-thread" id="rviThread">' + thread + '</div>' +
-      '<div class="rvi-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(['resolved', 'closed'].indexOf(t.status) >= 0) +
+      mentionBar(t) + waitingNudge(t) + '<div class="rvi-thread" id="rviThread">' + thread + '</div>' +
+      '<div' + (t.channel === 'listening' ? ' data-mention="1"' : '') + ' class="rvi-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(['resolved', 'closed'].indexOf(t.status) >= 0) +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply to customer</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
         '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' + (isNote ? '' : '<div class="rvp-chips" id="rvpChips" role="group" aria-label="Saved replies" hidden></div>') +
@@ -463,7 +475,7 @@
   async function send() {
     var a = A(), t = S.ticket, ta = document.getElementById('replyText'), btn = document.getElementById('rviSend'); if (!t || !ta || S.fBusy) return;
     var text = ta.value.trim(); if (!text) { w.RV.toast('Write something first', 'error'); return; }
-    var isNote = S.mode === 'note'; S.fBusy = true; busy(true);
+    var isNote = noteMode(); S.fBusy = true; busy(true);
     var r = await a.callAsync('replyToTicket', t.id, text, isNote);
     S.fBusy = false; busy(false);
     if (r && r.queued) { delete S.drafts[t.id + ':' + S.mode]; ta.value = ''; w.RV.toast('No signal. Saved, and it will send by itself when you are back online.', 'info'); return; }
@@ -606,7 +618,7 @@
   function drawFocusRead(keep) {
     var a = A(), t = S.ticket, read = document.getElementById('rvfRead'); if (!t || !read) return;
     var ids = S.fIds || [], idx = ids.indexOf(t.id), n = ids.length, users = (S.users && S.users.users) || [];
-    var who = t.fromName || t.from || 'Customer', isNote = S.mode === 'note', draft = S.drafts[t.id + ':' + S.mode] || '', done = isDone(t.status);
+    var who = t.fromName || t.from || 'Customer', isNote = noteMode(t), draft = S.drafts[t.id + ':' + S.mode] || '', done = isDone(t.status);
     if (!keep) S.cOpen = false;
     var collapsed = composerCollapsed(draft, isNote);
     var asgName = '', u = users.filter(function (x) { return lc(x.email) === lc(t.assignedTo); })[0]; if (t.assignedTo) asgName = u ? (u.name || u.email) : t.assignedTo;
@@ -627,7 +639,7 @@
           '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select></div></details>' +
         '<details class="rvf-fold" id="rvfCust"><summary data-act="fcust">Customer details</summary><div class="rvf-fold__body rvf-fold__body--block"><div id="crmPanel_' + esc(t.id) + '"><span class="rv-hint">Loading...</span></div>' + ((t.tags && t.tags.length) ? '<div class="rv-cluster" style="margin-top:10px">' + t.tags.map(function (g) { return w.RV.badge(g, 'accent'); }).join('') + '</div>' : '') + '</div></details>' + ordersFold(t) + '</div>' +
         '<div class="rvi-thread rvf-thread" id="rviThread">' + threadHtml(t) + '</div></article>' + waitingNudge(t) +
-      '<div class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(done) +
+      '<div' + (t.channel === 'listening' ? ' data-mention="1"' : '') + ' class="rvf-composer' + (isNote ? ' rvi-composer--note' : '') + (collapsed ? ' is-collapsed' : '') + '">' + composerBar(done) +
         '<div class="rvi-composer__top"><div class="rv-tabs rv-tabs--pills" role="tablist" aria-label="Reply type"><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="reply" aria-selected="' + !isNote + '">Reply</button><button type="button" role="tab" class="rv-tab" data-act="mode" data-mode="note" aria-selected="' + isNote + '">Internal note</button></div>' +
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
         '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' + (isNote ? '' : '<div class="rvp-chips" id="rvpChips" role="group" aria-label="Saved replies" hidden></div>') +
@@ -662,7 +674,7 @@
   // Resolve the open ticket and move on. With a reply: send it first, resolve only if it was sent.
   async function focusResolve(withReply) {
     var a = A(), t = S.ticket; if (!t || S.fBusy) return;
-    var ta = document.getElementById('replyText'), text = ta ? ta.value.trim() : '', isNote = S.mode === 'note', already = isDone(t.status);
+    var ta = document.getElementById('replyText'), text = ta ? ta.value.trim() : '', isNote = noteMode(t), already = isDone(t.status);
     if (withReply && isNote) { w.RV.toast('Switch to Reply to send this to the customer', 'error'); return; }
     if (withReply && !text) { w.RV.toast('Write a reply first, or press E to resolve without one', 'error'); return; }
     if (!withReply && text && !isNote) { w.RV.toast('You have an unsent reply. Use "Send & resolve" to send it, or clear it first.', 'error'); return; }

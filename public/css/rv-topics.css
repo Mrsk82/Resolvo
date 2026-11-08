@@ -1,0 +1,61 @@
+/* Topics page. Uses only the rv tokens. */
+.rvt .rvt-strip { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 0 0 14px; }
+.rvt .rvt-strip span { padding: 4px 10px; border-radius: 99px; background: var(--rv-surface-2); border: 1px solid var(--rv-border-soft); font-size: var(--rv-text-xs, 12px); color: var(--rv-text-muted); font-weight: 600; }
+.rvt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--rv-space-4, 16px); }
+.rvt-card { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.rvt-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.rvt-card__name { margin: 0; font-size: 16px; font-weight: 750; letter-spacing: -.01em; min-width: 0; overflow-wrap: anywhere; }
+.rvt-link { background: none; border: 0; padding: 0; font: inherit; font-weight: inherit; color: var(--rv-text); cursor: pointer; text-align: left; }
+.rvt-link:hover { color: var(--rv-accent-strong); text-decoration: underline; }
+.rvt-link:focus-visible { outline: 2px solid var(--rv-accent); outline-offset: 2px; border-radius: 4px; }
+.rvt-bool { display: block; padding: 8px 10px; border-radius: 8px; background: var(--rv-surface-2); font: 12px/1.45 var(--rv-font-mono, ui-monospace, monospace); color: var(--rv-text-2); overflow-wrap: anywhere; }
+.rvt-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.rvt-chip { display: inline-block; padding: 2px 9px; border-radius: 99px; background: var(--rv-accent-soft); color: var(--rv-accent-strong); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.rvt-nums { display: flex; align-items: flex-end; gap: 18px; }
+.rvt-nums div { display: flex; flex-direction: column; }
+.rvt-nums b { font-size: 22px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rvt-nums span { font-size: var(--rv-text-xs, 12px); color: var(--rv-text-muted); }
+.rvt-spark { margin-left: auto; width: 110px; height: 30px; }
+.rvt-meta { font-size: var(--rv-text-xs, 12px); color: var(--rv-text-muted); }
+.rvt-warn { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: var(--rv-warning-soft); color: var(--rv-text-2); font-size: var(--rv-text-xs, 12px); line-height: 1.4; }
+.rvt-warn svg { flex: none; margin-top: 1px; }
+.rvt-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 4px; }
+
+.rvt-form { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--rv-space-5, 20px); align-items: start; }
+@media (max-width: 1100px) { .rvt-form { grid-template-columns: minmax(0, 1fr); } }
+.rvt-side { position: sticky; top: 76px; }
+@media (max-width: 1100px) { .rvt-side { position: static; } }
+.rvt-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .rvt-two { grid-template-columns: minmax(0, 1fr); } }
+.rvt-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; min-height: 40px; border: 1px solid var(--rv-border); border-radius: 8px; background: var(--rv-input); }
+.rvt-tags:focus-within { border-color: var(--rv-accent); box-shadow: 0 0 0 3px var(--rv-accent-soft); }
+.rvt-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 99px; background: var(--rv-accent-soft); color: var(--rv-accent-strong); font-size: 13px; font-weight: 650; }
+.rvt-tag button { border: 0; background: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; color: inherit; font-size: 16px; line-height: 1; }
+.rvt-tag button:hover { background: color-mix(in srgb, var(--rv-accent) 20%, transparent); }
+.rvt-taginput { flex: 1 1 140px; min-width: 120px; border: 0; outline: none; background: transparent; color: var(--rv-text); font: inherit; padding: 4px 2px; }
+.rvt-bool span { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--rv-text-muted); }
+.rvt-srcs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.rvt-src { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--rv-border); border-radius: 10px; cursor: pointer; background: var(--rv-surface); }
+.rvt-src:has(input:checked) { border-color: var(--rv-accent); background: var(--rv-accent-soft); }
+.rvt-src.is-off { opacity: .55; cursor: not-allowed; }
+.rvt-src input { margin-top: 3px; }
+.rvt-src b { display: block; font-size: 14px; }
+.rvt-src small { display: block; margin-top: 2px; font-size: var(--rv-text-xs, 12px); color: var(--rv-text-muted); line-height: 1.35; }
+.rvt-paid { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 99px; background: var(--rv-high-soft); color: var(--rv-high); margin-left: 4px; }
+.rvt-xopts { margin-bottom: 14px; padding: 12px; border-radius: 10px; background: var(--rv-surface-2); }
+.rvt-check { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: var(--rv-text-sm, 13px); }
+.rvt-bar { display: flex; gap: 8px; padding: 4px 0 24px; }
+.rvt-prev { margin-top: 14px; display: grid; gap: 10px; }
+.rvt-found { margin: 0; font-size: var(--rv-text-sm, 13px); }
+.rvt-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.rvt-items li { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--rv-border-soft); }
+.rvt-items li:last-child { border-bottom: 0; }
+.rvt-items li > div { min-width: 0; flex: 1; }
+.rvt-items a:not(.rv-btn) { display: block; color: var(--rv-text); font-size: var(--rv-text-sm, 13px); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.rvt-items a:not(.rv-btn):hover { color: var(--rv-accent-strong); text-decoration: underline; }
+.rvt-items small { display: block; margin-top: 2px; font-size: var(--rv-text-xs, 12px); color: var(--rv-text-muted); }
+.rvt-items--big .rvt-link { font-size: var(--rv-text-base, 14px); font-weight: 650; }
+.rvt-none { padding: 8px 10px; border-radius: 8px; background: var(--rv-info-soft); color: var(--rv-text-2); font-size: var(--rv-text-xs, 12px); line-height: 1.45; }
+.rvt-how { margin-top: 8px; font-size: var(--rv-text-sm, 13px); color: var(--rv-text-2); }
+.rvt-how summary { cursor: pointer; font-weight: 650; color: var(--rv-accent-strong); }
+.rvt-how ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }

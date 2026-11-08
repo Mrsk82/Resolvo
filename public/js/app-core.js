@@ -3779,6 +3779,7 @@ const App = {
     
     const breadcrumbs = {
       'dashboard': '',
+      'topics': 'Inbox / Topics',
       'create-issue': 'Issues / New Issue',
       'issue-list': 'Issues / All Issues',
       'my-issues': 'Issues / My Issues',
@@ -3824,6 +3825,7 @@ const App = {
       case 'sprints': this.renderSprints(); break;
       case 'reports': this.renderReports(params && params.tab); break;
       case 'insights': this.renderInsights(params && params.tab); break;
+      case 'topics': this.renderTopics(); break;
       case 'ai-hub': this.renderAIHub(); break;
       case 'revenue-dashboard': this.renderRevenueDashboard(); break;
       case 'customer-health': this.renderCustomerHealth(); break;
@@ -23166,6 +23168,7 @@ App._shellRenderProfile = function() {
 
 // ── Insights: one page; Reports and Customer health keep their pages and gain the same tab bar ──
 (function() {
+  App.renderTopics = function() { return window.RVT ? RVT.render() : App.navigate('dashboard'); };
   App.renderInsights = function(tab) { return window.RVN ? RVN.render(tab) : App.renderReports(); };
   [['renderReports', 'reports'], ['renderCustomerHealth', 'customers'], ['renderAnalytics', 'overview'], ['renderWorkload', 'team']].forEach(function(p) {
     var orig = App[p[0]]; if (typeof orig !== 'function') return;

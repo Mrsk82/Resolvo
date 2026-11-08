@@ -53,6 +53,7 @@
       if (o.static) return '<span class="rvd-word ' + esc(t.change) + '" style="' + st + '" title="' + esc(t.word + ': ' + hint) + '">' + esc(t.word) + mark + '</span>';
       return '<button type="button" class="rvd-word ' + esc(t.change) + '" style="' + st + '" title="' + esc(hint) + '" aria-label="' + esc(t.word + ': ' + hint + '. Search tickets') + '" onclick="RVDash.search(\'' + esc(t.word) + '\')">' + esc(t.word) + mark + '</button>';
     }).join('');
+    if (o.noSide) return '<div class="rvd-cloud">' + words + '</div>';
     var rising = terms.filter(function (t) { return t.change === 'up' || t.change === 'new'; }).sort(function (a, b) { return (b.n - b.prev) - (a.n - a.prev); }).slice(0, 5);
     var fading = terms.filter(function (t) { return t.change === 'down'; }).sort(function (a, b) { return (b.prev - b.n) - (a.prev - a.n); }).slice(0, 3);
     var row = function (t, kind) { return '<li><b>' + esc(t.word) + '</b><span class="' + kind + '">' + (kind === 'up' ? '▲ ' : '▼ ') + (t.prev ? t.prev + ' → ' + t.n : 'new, ' + t.n) + '</span></li>'; };
@@ -168,5 +169,6 @@
       if (Date.now() - lastCmd > 29000) load(true);
     }, 5000);
   };
+  RVDash.views = { line: line, cloud: cloud, mood: mood, heat: heat };
   window.RVDash = RVDash;
 })();

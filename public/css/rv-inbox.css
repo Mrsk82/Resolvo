@@ -257,3 +257,8 @@
 .rvo-msg { font-size: var(--rv-text-sm, 13px); color: var(--rv-text-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .rvo-msg--err { color: var(--rv-danger); }
 .rvo-count { margin-left: 6px; font-size: 11px; font-weight: 700; background: var(--rv-accent-soft); color: var(--rv-accent-strong); border-radius: 10px; padding: 1px 7px; }
+
+/* a public mention found by a Topic: notes only, with a link to the post */
+.rvi-mention { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 14px; border-radius: 10px; background: var(--rv-info-soft); color: var(--rv-text-2); font-size: var(--rv-text-sm, 13px); line-height: 1.45; }
+.rvi-mention b { color: var(--rv-text); }
+.rvi-composer[data-mention] [data-mode="reply"], .rvf-composer[data-mention] [data-mode="reply"] { display: none; }
