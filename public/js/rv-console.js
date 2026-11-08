@@ -323,6 +323,7 @@
 
   /* ---------- health ---------- */
   function loadHealth() {
+    loadSite();
     var wrap = $('healthTableWrap');
     api('/api/owner/db-monitor').then(function (r) {
       if (!r || !r.success) { wrap.innerHTML = '<div class="rvc-empty">Could not load.</div>'; return; }
@@ -334,6 +335,16 @@
     }).catch(function () { wrap.innerHTML = '<div class="rvc-empty">Could not load.</div>'; });
   }
   $('healthRefresh').onclick = loadHealth;
+  function loadSite() {
+    api('/api/owner/site-settings').then(function (d) { if (d && d.success) { $('siteWa').value = d.whatsapp || ''; $('siteWaText').value = d.whatsappText || ''; } }).catch(function () {});
+  }
+  $('siteSave').onclick = function () {
+    var b = $('siteSave'), m = $('siteMsg'); b.disabled = true; m.textContent = '';
+    api('/api/owner/site-settings', { whatsapp: $('siteWa').value, whatsappText: $('siteWaText').value }).then(function (d) {
+      b.disabled = false; m.textContent = d.success ? d.message : (d.error || 'Could not save'); m.style.color = d.success ? '' : '#c0262b';
+      if (d.success) { $('siteWa').value = d.whatsapp; toast('Saved'); }
+    }).catch(function () { b.disabled = false; m.textContent = 'No answer from the server.'; m.style.color = '#c0262b'; });
+  };
   function migrate(dry) {
     var slug = $('healthMigrateBrand').value, err = $('migrateErr'), res = $('migrateResult'); err.hidden = true;
     var go = function () {

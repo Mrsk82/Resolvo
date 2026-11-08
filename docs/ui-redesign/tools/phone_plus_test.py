@@ -89,7 +89,7 @@ async def main():
     check("alert buttons: a token for someone who is not in the workspace is refused", http("/api/push-action", None, {"token": ghost, "action": "assign"}).get("success") is False)
     src = open(os.path.join(ROOT, "server.js"), encoding="utf-8").read(); sw = open(os.path.join(ROOT, "public", "sw.js"), encoding="utf-8").read()
     check("alert buttons: alerts about a ticket carry Reply, Assign and Resolve, and the service worker acts on them", "actionToken" in src and "PUSH_ACTIONS" in src and "e.reply" in sw and "/api/push-action" in sw and "actions: Array.isArray" in sw)
-    check("owner: the Owner Console is linked from the owner Tools menu", "Owner Console" in open(os.path.join(ROOT, "public", "index.html"), encoding="utf-8").read())
+    check("owner: the Owner Console is linked from the owner Tools menu", "Owner Console" in open(os.path.join(ROOT, "public", "js", "app-core.js"), encoding="utf-8").read())
 
     # ---------- screens ----------
     async with async_playwright() as p:

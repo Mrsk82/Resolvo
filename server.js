@@ -241,7 +241,23 @@ const fs_init=require('fs');
 if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
 app.use(helmet({contentSecurityPolicy:false})); // security headers (CSP off — inline scripts in SPA)
 app.use(cors());app.use(express.json({limit:'20mb',verify:(req,_res,buf)=>{req.rawBody=buf;}}));app.use(express.urlencoded({extended:false,limit:'20mb'})); // Twilio webhooks (WhatsApp) post as form-urlencoded, not JSON. rawBody is kept for Meta webhook signature verification (integrations/social/meta-shared.js).
-app.use(express.static(path.join(__dirname,'public')));
+// The app page (index.html) is small. Its script and styles are separate files (js/app-core.js, css/app-core.css) addressed by a version
+// made from their content, so a returning visitor reads them from the browser cache and only downloads them again after an update.
+const _idx={key:'',html:''};
+function sendIndex(req,res){
+  const d=path.join(__dirname,'public');
+  try{
+    const files=['index.html','js/app-core.js','css/app-core.css'].map(f=>path.join(d,f)),key=files.map(f=>fs.statSync(f).mtimeMs).join('|');
+    if(_idx.key!==key){
+      const h=require('crypto').createHash('sha1');h.update(fs.readFileSync(files[1]));h.update(fs.readFileSync(files[2]));
+      _idx.html=fs.readFileSync(files[0],'utf8').split('__APPV__').join(h.digest('hex').slice(0,10));_idx.key=key;
+    }
+    res.set('Cache-Control','no-cache');res.type('html').send(_idx.html);
+  }catch(e){res.sendFile(path.join(d,'index.html'));}
+}
+app.get(['/','/index.html','/reset-password','/join'],sendIndex);
+app.use((req,res,next)=>{if(req.query.v&&(req.path==='/js/app-core.js'||req.path==='/css/app-core.css'))res.set('Cache-Control','public, max-age=31536000, immutable');next();});
+app.use(express.static(path.join(__dirname,'public'),{index:false}));
 app.use(monitorReq); // Layer 2 — slow request tracker
 app.set('trust proxy',1); // trust ngrok/Railway proxy for req.ip
 
@@ -6613,6 +6629,28 @@ app.get('/download/android',(req,res)=>{
   res.download(APK_FILE,APK_NAME);
 });
 app.get('/partners',(req,res)=>res.sendFile(path.join(__dirname,'public','partners.html')));
+// ── PUBLIC WEBSITE: new pages, redirects, favicon, and the WhatsApp number for the site's chat button ──
+for(const[p,f]of[['features','features.html'],['integrations','integrations.html'],['security','security.html'],['customers','customers.html'],['changelog','changelog.html']])app.get('/'+p,(req,res)=>res.sendFile(path.join(__dirname,'public',f)));
+app.get(['/docs','/help'],(req,res)=>res.redirect(301,'/learn'));
+app.get('/gdpr',(req,res)=>res.redirect(301,'/security#data-rights'));
+app.get('/favicon.ico',(req,res)=>{res.set('Cache-Control','public, max-age=86400');res.sendFile(path.join(__dirname,'public','icons','icon-192.png'));});
+// The website's "Chat on WhatsApp" button appears only once the owner has saved a number (Owner Console, Health & Backups).
+app.get('/api/site-config',(req,res)=>{
+  let s={};try{s=readOwner().siteSettings||{};}catch(e){}
+  const n=String(s.whatsapp||'').replace(/\D/g,'');
+  res.set('Cache-Control','public, max-age=300');
+  res.json({success:true,whatsapp:n.length>=8&&n.length<=15?n:'',whatsappText:String(s.whatsappText||'').slice(0,200)});
+});
+app.get('/api/owner/site-settings',ownerOnly,(req,res)=>{const s=readOwner().siteSettings||{};res.json({success:true,whatsapp:String(s.whatsapp||''),whatsappText:String(s.whatsappText||'')});});
+app.post('/api/owner/site-settings',ownerOnly,(req,res)=>{
+  const b=req.body||{},digits=String(b.whatsapp||'').replace(/\D/g,''),text=String(b.whatsappText||'').trim().slice(0,200);
+  if(digits&&(digits.length<8||digits.length>15))return res.json({success:false,error:'Enter the number with the country code, for example 91 98765 43210.'});
+  if(digits&&digits.length===10)return res.json({success:false,error:'Add the country code in front. For India that is 91, so 91 followed by your 10 digits.'});
+  const o=readOwner();o.siteSettings=Object.assign({},o.siteSettings,{whatsapp:digits,whatsappText:text});
+  ownerAuditLog(o,'site_settings',{whatsapp:digits?'set':'removed'},req.owner.email);writeOwner(o);
+  res.json({success:true,whatsapp:digits,whatsappText:text,message:digits?'Saved. The WhatsApp button now shows on the website (it can take 5 minutes).':'Removed. The WhatsApp button is hidden.'});
+});
+
 app.get('/vs/linear',(req,res)=>res.sendFile(path.join(__dirname,'public','vs-linear.html')));
 app.get('/pricing',(req,res)=>res.redirect('/pitch#pricing'));
 app.get('/demo',(req,res)=>res.sendFile(path.join(__dirname,'public','demo.html')));

@@ -124,6 +124,16 @@
     <section id="panel-health" class="rvc-panel">
       <div id="rvOwnAttention"></div>
       <div id="rvOwnSystem"></div>
+      <div class="rvc-card" id="siteCard">
+        <div class="rvc-card-t">Website settings</div>
+        <p class="rvc-p">A green <b>Chat on WhatsApp</b> button appears on your public website once you save a number here. Leave it empty to hide the button.</p>
+        <div class="rvc-row">
+          <div class="rvc-grow"><label for="siteWa">WhatsApp number, with country code</label><input id="siteWa" type="tel" inputmode="tel" placeholder="91 98765 43210" autocomplete="off"></div>
+          <div class="rvc-grow"><label for="siteWaText">First message (optional)</label><input id="siteWaText" type="text" maxlength="200" placeholder="Hi, I have a question about Resolvo." autocomplete="off"></div>
+          <div><button class="rvc-btn main" id="siteSave">Save</button></div>
+        </div>
+        <div class="rvc-note" id="siteMsg" role="status"></div>
+      </div>
       <div class="rvc-card">
         <div class="rvc-card-t">Database size per workspace <span class="rvc-muted">(over about 5 MB is worth a look)</span></div>
         <div class="rvc-row-actions"><button class="rvc-btn" id="healthRefresh">🔄 Refresh</button></div>
@@ -182,6 +192,6 @@
   </div>
 
   <script src="/js/rv-owner.js?v=3"></script>
-  <script src="/js/rv-console.js?v=3"></script>
+  <script src="/js/rv-console.js?v=4"></script>
 </body>
 </html>

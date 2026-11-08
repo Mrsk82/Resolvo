@@ -146,7 +146,7 @@ const mails = () => (fs.existsSync(mailFile) ? fs.readFileSync(mailFile, 'utf8')
     check('no email: the change record says the welcome email was NOT sent', (r.logs || []).some((l) => /NOT sent/.test(l.detail || '')), (r.logs || []).slice(0, 3));
 
     // ---- page and static checks ----
-    const html = await fetch(BASE + '/').then((x) => x.text());
+    const html = await fetch(BASE + '/js/app-core.js').then((x) => x.text());   // the app's script now lives in its own file
     check('page: the forgot-password box does not auto-capitalise', /id="forgotEmail"[^>]*autocapitalize="none"/.test(html));
     const src = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
     check('ack email: marked as an automatic reply', /Reply to this email to add more details\.`,\s*\n\s*\{ auto: true \}/.test(src));
