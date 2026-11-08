@@ -52,7 +52,14 @@
 
   // footers get a small link to change the choice later
   function footerLink() {
-    var f = document.querySelector('footer'); if (!f || f.querySelector('[data-rvs-cookie]')) return;
+    var f = document.querySelector('footer');
+    if (!f && !noBanner && document.body) {   // a public page without a footer still ends with the way to every page
+      f = document.createElement('footer'); f.setAttribute('data-rvs-footer', '1');
+      f.style.cssText = 'padding:18px 16px 28px;text-align:center;font-size:13px;color:inherit;opacity:.85';
+      f.innerHTML = '<a href="/pitch">Home</a> &middot; <a href="/site-map">Site map</a> &middot; <a href="/privacy">Privacy</a>';
+      document.body.appendChild(f);
+    }
+    if (!f || f.querySelector('[data-rvs-cookie]')) return;
     var a = document.createElement('a'); a.href = '#'; a.textContent = 'Cookie settings'; a.setAttribute('data-rvs-cookie', '1'); a.style.marginLeft = '12px';
     a.addEventListener('click', function (e) { e.preventDefault(); showBar(); });
     f.appendChild(a);

@@ -22,7 +22,7 @@
 <!-- Google tag (gtag.js) -->
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
+  <link rel="stylesheet" href="/css/resolvo-v3.css?v=8">
   <link rel="stylesheet" href="/css/rv-mobile.css?v=7">
   <link rel="stylesheet" href="/css/rv-tokens.css?v=1">
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
@@ -326,7 +326,7 @@
               spellcheck="false"
             >
             <!-- Result panel renders here -->
-            <div id="aiPanel" style="display:none"></div>
+            <div id="aiPanel" class="ai-panel" style="display:none"></div>
             <div class="ai-backdrop" id="aiBackdrop" style="display:none" onclick="AI.close()"></div>
           </div>
 
@@ -373,7 +373,7 @@
 
               <!-- Notification centre -->
               <div class="notif-bell-wrap" id="notifWrap" style="position:relative">
-                <button class="notif-bell-btn" id="notifBellBtn" onclick="App._showNotifPanel();App._loadNotificationBell();" title="Notifications" aria-label="Toggle notifications panel" style="position:relative;">
+                <button class="notif-bell-btn" id="notifBellBtn" onclick="NotifCenter.open()" title="Notifications" aria-label="Toggle notifications panel" style="position:relative;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   <span class="notif-count" id="notifCount" style="display:none">0</span>
                 </button>

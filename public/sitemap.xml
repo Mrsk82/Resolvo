@@ -27,6 +27,9 @@
 
   <!-- Product pages -->
 
+  <!-- Product pages -->
+  <url><loc>https://app.resolvogroup.com/site-map</loc><lastmod>2026-11-08</lastmod><changefreq>monthly</changefreq><priority>0.4</priority></url>
+
   <!-- Blog index -->
   <url><loc>https://app.resolvogroup.com/blog</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
 

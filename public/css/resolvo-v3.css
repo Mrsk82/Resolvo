@@ -341,7 +341,8 @@ html[data-theme^="resolvo"] .ai-bar-wrap { flex: 0 1 240px; max-width: 240px; mi
   html[data-theme^="resolvo"] .ai-bar-wrap { flex: 0 0 44px; max-width: 44px; overflow: hidden; cursor: pointer; }
   html[data-theme^="resolvo"] .ai-bar-wrap .ai-bar { width: 0; padding: 0; opacity: 0; }
   html[data-theme^="resolvo"] .ai-bar-wrap:focus-within { flex: 0 1 300px; max-width: 300px; overflow: visible; position: relative; z-index: 5; }
-  html[data-theme^="resolvo"] .ai-bar-wrap:focus-within .ai-bar { width: 100%; padding: revert; opacity: 1; }
+  html[data-theme^="resolvo"] .ai-bar-wrap:focus-within .ai-bar { width: 100%; padding: 0 14px 0 40px; height: 100%; opacity: 1; }
+  html[data-theme^="resolvo"] .ai-bar-wrap:focus-within .ai-panel { right: auto; width: min(420px, 92vw); max-height: min(70vh, 560px); }
 }
 /* phones: drawer sits above the header, header stays one compact row */
 @media (max-width: 768px) {

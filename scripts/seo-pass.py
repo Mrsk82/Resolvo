@@ -9,7 +9,7 @@ import glob, html, json, os, re
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PUB = os.path.join(ROOT, "public")
 SITE = "https://app.resolvogroup.com"
-NEW = {"features", "integrations", "security", "customers", "changelog", "tool-whatsapp-templates", "tool-sla-calculator", "seo-shopify-support"}                      # built by build-site-pages.py
+NEW = {"features", "integrations", "security", "customers", "changelog", "tool-whatsapp-templates", "tool-sla-calculator", "seo-shopify-support", "site-map"}                      # built by build-site-pages.py
 APP_PAGES = {"index", "portal", "dashboard", "crm", "owner-console", "offline", "404", "500", "styleguide", "architecture", "marketing-content", "blog-TEMPLATE"}
 esc = lambda s: html.escape(s, quote=True)
 
@@ -153,6 +153,9 @@ def process(path):
     # 8. fade-in sections stay readable if the script is slow or blocked
     if re.search(r"\.reveal\s*\{", s) and "rv-fadein" not in s:
         s = s.replace("</head>", '<style id="rv-fadein">html:not(.js) .reveal{opacity:1!important;transform:none!important}</style>\n<script>(function(){var d=document.documentElement;d.className+=" js";setTimeout(function(){if(!document.querySelector(".reveal.in"))d.className=d.className.replace(/\\bjs\\b/,"")},6000)})();</script>\n</head>', 1); report["reveal"] += 1
+    # every public page ends with a link to the full list of pages, so nothing is hidden
+    if "</footer>" in s and 'href="/site-map"' not in s:
+        i = s.rfind("</footer>"); s = s[:i] + ' <a href="/site-map" class="rv-sitemap-link" style="margin-left:12px">Site map</a>' + s[i:]
     if s != o:
         with open(path, "w", encoding="utf-8", newline="") as f: f.write(s)
 
@@ -233,7 +236,7 @@ for line in x.split("\n"):
     out.append(line)
 x = "\n".join(out)
 add = "".join('  <url><loc>%s%s</loc><lastmod>2026-11-08</lastmod><changefreq>%s</changefreq><priority>%s</priority></url>\n' % (SITE, p, c, pr) for p, c, pr in
-              [("/features", "monthly", "0.9"), ("/integrations", "monthly", "0.8"), ("/security", "monthly", "0.8"), ("/customers", "monthly", "0.6"), ("/changelog", "weekly", "0.6"), ("/shopify-customer-support-india", "monthly", "0.7"), ("/tools/whatsapp-templates", "monthly", "0.7"), ("/tools/sla-calculator", "monthly", "0.7")] if SITE + p not in seen)
+              [("/features", "monthly", "0.9"), ("/integrations", "monthly", "0.8"), ("/security", "monthly", "0.8"), ("/customers", "monthly", "0.6"), ("/changelog", "weekly", "0.6"), ("/shopify-customer-support-india", "monthly", "0.7"), ("/tools/whatsapp-templates", "monthly", "0.7"), ("/tools/sla-calculator", "monthly", "0.7"), ("/site-map", "monthly", "0.4")] if SITE + p not in seen)
 x = x.replace("  <!-- Blog index -->", "  <!-- Product pages -->\n" + add + "\n  <!-- Blog index -->", 1)
 with open(sm, "w", encoding="utf-8", newline="") as f: f.write(x)
 report["sitemap_urls"] = len(re.findall(r"<url>", x))

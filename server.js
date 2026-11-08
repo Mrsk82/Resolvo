@@ -239,6 +239,7 @@ const OWNER_PATH=path.join(__dirname,'data','owner.json'),BRANDS_DIR=path.join(_
 // Auto-create data directories on fresh deploy (VPS without data/)
 const fs_init=require('fs');
 if(!fs_init.existsSync(BRANDS_DIR))fs_init.mkdirSync(BRANDS_DIR,{recursive:true});
+const _cronSeen=[];{const _nc=require('node-cron'),_sch=_nc.schedule;_nc.schedule=function(e,...r){_cronSeen.push(String(e));return _sch.call(_nc,e,...r);};} // for the /architecture page
 app.use(helmet({contentSecurityPolicy:false})); // security headers (CSP off — inline scripts in SPA)
 app.use(cors());app.use(express.json({limit:'20mb',verify:(req,_res,buf)=>{req.rawBody=buf;}}));app.use(express.urlencoded({extended:false,limit:'20mb'})); // Twilio webhooks (WhatsApp) post as form-urlencoded, not JSON. rawBody is kept for Meta webhook signature verification (integrations/social/meta-shared.js).
 // The app page (index.html) is small. Its script and styles are separate files (js/app-core.js, css/app-core.css) addressed by a version
@@ -5652,24 +5653,44 @@ app.post('/api/call',async(req,res)=>{
     // GROUP A: IN-APP NOTIFICATIONS (#8)
     // DB CHANGE: adds db.notifications — backward safe
     // ══════════════════════════════════════════════════════════════════════
+    // The one feed behind the bell: what needs this person, built from live data, plus anything sent to them directly.
+    // Ids stay the same while the situation stays the same, so "read" survives a reload (the phone and browser remember read ids).
     getInAppNotifications:()=>{
-      const db=rDB();const now=new Date();
-      const notes=db.notifications||[];
-      // Add system-generated notifications
-      const sysNotes=[];
-      // SLA at risk (assigned to me)
+      const db=rDB();const now=new Date();const me=String(su.email||'').toLowerCase();
+      const OPEN=t=>!['resolved','closed'].includes(t.status);
+      const mine=t=>String(t.assignedTo||'').toLowerCase().trim()===me;
+      const sys=[];
+      // Tickets: breached or about to breach, assigned to me
+      let ticketBreach=0;
+      for(const t of (db.tickets||[]).filter(t=>OPEN(t)&&mine(t))){
+        let info;try{info=getTicketSLAInfo(db,t);}catch(e){continue;}
+        if(info.slaBreached){ticketBreach++;if(sys.filter(x=>x.type==='sla').length<8)sys.push({id:'tsla_'+t.id,type:'sla',title:'SLA breached',body:String(t.subject||t.id).slice(0,80),ticketId:t.id,at:info.slaDeadline,read:false,icon:'🔴'});}
+        else if(info.slaRisk)sys.push({id:'tsr_'+t.id,type:'sla',title:'SLA at risk',body:String(t.subject||t.id).slice(0,70)+' · '+Math.max(0,Math.round(info.slaHoursRemaining*60))+' min left',ticketId:t.id,at:now.toISOString(),read:false,icon:'🟡'});
+      }
+      if(ticketBreach>8)sys.push({id:'tsla_more_'+ticketBreach,type:'sla',title:ticketBreach-8+' more tickets are past their SLA',body:'Open your ticket inbox and sort by overdue.',at:now.toISOString(),read:false,icon:'🔴'});
+      // Tickets: new ones assigned to me that I have not opened
+      for(const t of (db.tickets||[]).filter(t=>OPEN(t)&&mine(t)&&!(t.viewedBy||{})[su.email]).slice(0,6))
+        sys.push({id:'tas_'+t.id,type:'assigned',title:'Ticket assigned to you',body:String(t.subject||t.id).slice(0,80),ticketId:t.id,at:t.lastActivity||t.createdDate||now.toISOString(),read:false,icon:'👤'});
+      // Issues: SLA (issue tracker)
       (db.issues||[]).filter(i=>i.assignedTo===su.email&&!['Resolved','Release Required','Closed'].includes(i.status)).forEach(i=>{
-        const sla=getIssueSLAInfo(i).deadline;
-        const hr=(sla-now)/3600000;
-        if(hr<0)sysNotes.push({id:'sla_'+i.id,type:'sla_breach',title:'SLA Breached',body:i.title,issueId:i.id,at:now.toISOString(),read:false,icon:'🔴'});
-        else if(hr<2)sysNotes.push({id:'slar_'+i.id,type:'sla_risk',title:'SLA at Risk',body:`${i.id}: ${i.title.substring(0,50)} — ${Math.round(hr*60)}m left`,issueId:i.id,at:now.toISOString(),read:false,icon:'🟡'});
+        const hr=(getIssueSLAInfo(i).deadline-now)/3600000;
+        if(hr<0)sys.push({id:'sla_'+i.id,type:'sla',title:'SLA breached',body:i.title,issueId:i.id,at:now.toISOString(),read:false,icon:'🔴'});
+        else if(hr<2)sys.push({id:'slar_'+i.id,type:'sla',title:'SLA at risk',body:`${i.id}: ${String(i.title||'').substring(0,50)} — ${Math.round(hr*60)}m left`,issueId:i.id,at:now.toISOString(),read:false,icon:'🟡'});
       });
-      // Follow-ups due today
+      // Follow-ups due
       const today=now.toISOString().split('T')[0];
-      (db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===su.email).forEach(t=>{
-        sysNotes.push({id:'fu_'+t.id,type:'follow_up',title:'Follow-up Due',body:t.subject.substring(0,60),ticketId:t.id,at:t.followUpAt,read:false,icon:'⏰'});
+      (db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&mine(t)).forEach(t=>{
+        sys.push({id:'fu_'+t.id,type:'info',title:'Follow-up due',body:String(t.subject||'').substring(0,60),ticketId:t.id,at:t.followUpAt,read:false,icon:'⏰'});
       });
-      const all=[...sysNotes,...notes.filter(n=>n.userId===su.email||n.global)].slice(0,30);
+      // Admins and managers: what the whole team has waiting
+      if(['Admin','Manager'].includes(su.role)){
+        const open=(db.tickets||[]).filter(OPEN),un=open.filter(t=>!String(t.assignedTo||'').trim()).length;
+        if(un>0)sys.push({id:'unassigned_'+un,type:'info',title:un+(un===1?' ticket has':' tickets have')+' no owner',body:'Assign them so nobody waits.',at:now.toISOString(),read:false,icon:'📥'});
+        let br=0;for(const t of open){try{if(getTicketSLAInfo(db,t).slaBreached)br++;}catch(e){}}
+        if(br>0)sys.push({id:'teambreach_'+br,type:'sla',title:br+(br===1?' ticket is':' tickets are')+' past SLA across the team',body:'Open the inbox and sort by overdue.',at:now.toISOString(),read:false,icon:'🔴'});
+      }
+      const stored=(db.notifications||[]).filter(n=>n.userId===su.email||n.global);
+      const all=[...sys,...stored].sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))).slice(0,40);
       return{success:true,notifications:all,unread:all.filter(n=>!n.read).length};
     },
     markNotificationRead:(nId)=>{
@@ -6734,32 +6755,60 @@ app.get('/robots.txt',(req,res)=>{
 });
 
 // Architecture page — owner password protected
+// ── ARCHITECTURE PAGE (owner only) ───────────────────────────────────────────────────────────────────────────────────────
+// The page at /architecture is an empty shell. The text lives in internal/architecture-content.html and is only handed to a signed-in
+// owner session (like the Owner Console), together with live facts read from this running server, so it cannot drift out of date.
 app.get('/architecture',(req,res)=>{
-  const owner=readOwner();
-  const provided=req.query.key||req.headers['x-arch-key']||'';
-  // Check against owner password (plain or hash)
-  const valid=provided===owner.passwordHash||provided===owner.email+':arch'||provided==='arch_'+owner.passwordHash.substring(0,8);
-  if(!valid){
-    return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Architecture — Resolvo</title>
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#06070A;color:#F1F5F9;font-family:Inter,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;}
-.box{background:#0F131C;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px;width:100%;max-width:380px;text-align:center;}
-.icon{font-size:40px;margin-bottom:16px;}h2{font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px;}
-p{font-size:13px;color:#475569;margin-bottom:24px;}
-input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px 16px;font-size:14px;color:#F1F5F9;outline:none;font-family:inherit;margin-bottom:12px;}
-input:focus{border-color:#22D3EE;}
-button{width:100%;background:linear-gradient(135deg,#22D3EE,#818CF8);color:#000;border:none;border-radius:9px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;}
-</style></head><body>
-<div class="box">
-  <div class="icon">🔐</div>
-  <h2>Architecture Docs</h2>
-  <p>Owner access only. Enter your password to continue.</p>
-  <input type="password" id="k" placeholder="Owner password" onkeydown="if(event.key==='Enter')go()">
-  <button onclick="go()">Access Architecture →</button>
-</div>
-<script>function go(){var k=document.getElementById('k').value;if(k)window.location.href='/architecture?key='+encodeURIComponent(k);}</script>
-</body></html>`);
-  }
+  if(req.query.key!==undefined)return res.redirect(302,'/architecture'); // old bookmarks carried a key in the address: drop it
+  res.setHeader('Cache-Control','no-store');
   res.sendFile('architecture.html',{root:path.join(__dirname,'public')});
+});
+let _gitCache={at:0,v:null};
+function _gitInfo(){
+  if(Date.now()-_gitCache.at<60000)return _gitCache.v;
+  let v=null;
+  try{const o=require('child_process').execFileSync('git',['log','-1','--format=%h|%cI|%s'],{cwd:__dirname,timeout:3000,stdio:['ignore','pipe','ignore']}).toString().trim().split('|');v={commit:o[0],date:o[1],subject:o.slice(2).join('|')};}catch(e){}
+  _gitCache={at:Date.now(),v};return v;
+}
+function _routeFacts(){
+  const byMethod={},groups={};let total=0;
+  const walk=(stack)=>{for(const l of stack||[]){
+    if(l.route){const ms=Object.keys(l.route.methods).filter(m=>l.route.methods[m]);const paths=[].concat(l.route.path);for(const p of paths){for(const m of ms){total++;byMethod[m.toUpperCase()]=(byMethod[m.toUpperCase()]||0)+1;}const seg=String(p).split('/').filter(Boolean);const g='/'+(seg[0]==='api'&&seg[1]?seg[0]+'/'+String(seg[1]).replace(/^:.*/,':id'):(seg[0]||''));groups[g]=(groups[g]||0)+ms.length;}}
+    else if(l.handle&&l.handle.stack)walk(l.handle.stack);}};
+  try{walk(app._router&&app._router.stack);}catch(e){}
+  return{total,byMethod,groups:Object.keys(groups).map(k=>({prefix:k,n:groups[k]})).sort((a,b)=>b.n-a.n).slice(0,16)};
+}
+function _bytesIn(dir,names){let n=0;for(const f of names){try{n+=fs.statSync(path.join(dir,f)).size;}catch(e){}}return n;}
+function _archLive(){
+  const owner=readOwner(),brands=owner.brands||[],now=Date.now();
+  const by=(k)=>brands.reduce((a,b)=>{const v=b[k]||'none';a[v]=(a[v]||0)+1;return a;},{});
+  let dbBytes=0,dirs=[];try{dirs=fs.readdirSync(BRANDS_DIR);}catch(e){}
+  for(const d of dirs)dbBytes+=_bytesIn(path.join(BRANDS_DIR,d),['db.sqlite','db.sqlite-wal','db.json']);
+  let backups=[],trashN=0;try{backups=Backup.listBackups(BACKUP_DIR);}catch(e){}try{trashN=trash.list().length;}catch(e){}
+  const lines=(f)=>{try{return fs.readFileSync(path.join(__dirname,f),'utf8').split('\n').length;}catch(e){return 0;}};
+  const count=(dir,re)=>{try{return fs.readdirSync(path.join(__dirname,dir)).filter(f=>re.test(f)).length;}catch(e){return 0;}};
+  const flags=Object.keys(TIER_FEATURES.Enterprise);
+  const tiers=['Free','Trial','Pro','Enterprise'].map(t=>({tier:t,on:flags.filter(k=>TIER_FEATURES[t][k]===true).length,total:flags.length}));
+  const matrix=FEATURE_META.map(f=>({key:f.key,label:f.label,group:f.group,tier:f.tier,on:['Free','Trial','Pro','Enterprise'].filter(t=>TIER_FEATURES[t][f.key]===true)}));
+  let pkg={};try{pkg=require('./package.json');}catch(e){}
+  const dep=Object.keys(pkg.dependencies||{}).map(k=>({name:k,version:String((pkg.dependencies||{})[k]).replace(/^[\^~]/,'')}));
+  let expressV='';try{expressV=require('express/package.json').version;}catch(e){}
+  return{
+    build:{git:_gitInfo(),node:process.version,express:expressV,uptimeSec:Math.round(process.uptime()),startedAt:new Date(now-process.uptime()*1000).toISOString(),env:process.env.NODE_ENV||'production',baseUrl:BASE_URL,mail:['true','1','yes'].includes(String(process.env.EMAIL_ENABLED||'').toLowerCase()),memoryMb:Math.round(process.memoryUsage().rss/1048576)},
+    routes:_routeFacts(),
+    tiers,matrix,
+    workspaces:{total:brands.length,byStatus:by('status'),byTier:by('tier'),prospects:(owner.prospects||[]).length,leads:(owner.leadLog||[]).length},
+    storage:{ownerJsonBytes:_bytesIn(path.dirname(OWNER_PATH),['owner.json']),brandFolders:dirs.length,brandDbBytes:dbBytes,backups:backups.length,lastBackup:backups[0]?backups[0].createdAt:null,backupBytes:backups.reduce((a,b)=>a+(b.bytes||0),0),trashItems:trashN,analyticsBytes:_bytesIn(path.dirname(OWNER_PATH),['analytics.json'])},
+    code:{serverLines:lines('server.js'),publicPages:count('public',/\.html$/),libModules:count('lib',/\.js$/),testFiles:count('docs/ui-redesign/tools',/_test\.(py|js)$/),dependencies:dep},
+    cron:_cronSeen.slice()
+  };
+}
+app.get('/api/owner/architecture',ownerOnly,(req,res)=>{
+  try{
+    const html=fs.readFileSync(path.join(__dirname,'internal','architecture-content.html'),'utf8');
+    res.setHeader('Cache-Control','no-store');
+    res.json({success:true,html,live:_archLive(),generatedAt:new Date().toISOString()});
+  }catch(e){res.json({success:false,error:'Could not load the architecture page: '+e.message});}
 });
 app.get('/pitch',(req,res)=>res.sendFile(path.join(__dirname,'public','pitch.html')));
 app.get('/use-cases',(req,res)=>res.sendFile(path.join(__dirname,'public','use-cases.html')));
@@ -10560,7 +10609,7 @@ app.post('/api/owner/growth/digest',ownerOnly,(req,res)=>{const o=readOwner();o.
 app.post('/api/owner/growth/digest/send',ownerOnly,async(req,res)=>{const ok=await sendGrowthDigest(true);res.json({success:!!ok,error:ok?undefined:'The email could not be sent. Check that the server email is set up.',message:ok?'Sent to '+readOwner().email:undefined});});
 
 // New public pages
-for(const[p,f]of[['tools/whatsapp-templates','tool-whatsapp-templates.html'],['tools/sla-calculator','tool-sla-calculator.html'],['shopify-customer-support-india','seo-shopify-support.html']])app.get('/'+p,(req,res)=>res.sendFile(path.join(__dirname,'public',f)));
+for(const[p,f]of[['tools/whatsapp-templates','tool-whatsapp-templates.html'],['tools/sla-calculator','tool-sla-calculator.html'],['shopify-customer-support-india','seo-shopify-support.html'],['site-map','site-map.html']])app.get('/'+p,(req,res)=>res.sendFile(path.join(__dirname,'public',f)));
 
 // The console page itself lives in public/owner-console.html (styles in css/rv-console.css, script in js/rv-console.js).
 app.get('/owner-console',(req,res)=>{res.set('Cache-Control','no-cache');res.sendFile(path.join(__dirname,'public','owner-console.html'));});

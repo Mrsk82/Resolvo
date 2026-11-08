@@ -1,0 +1,281 @@
+<!-- Resolvo architecture text. Shown only to the signed-in owner at /architecture. Live numbers (routes, plans, storage, schedules) are filled in by the server.
+     To keep it current: edit this file, and read the "Does this page match the server?" box at the bottom: it lists schedules and packages not described here. -->
+<span data-stamp="8 November 2026" hidden></span>
+
+<section class="a-sec" id="overview" data-title="Overview" data-group="Big picture">
+  <p class="eyebrow">Resolvo</p>
+  <h2>How Resolvo is built</h2>
+  <p class="lead">Resolvo is customer support software for small Indian brands. One server holds many separate workspaces; each workspace is one customer brand with its own people, tickets and settings.</p>
+  <div data-live-block="kpis"></div>
+  <div class="diagram">
+    <svg viewBox="0 0 880 330" role="img" aria-label="Request path: browsers, phone app, widget and webhooks reach one Node server, which reads the owner registry and one database per workspace, and sends email, WhatsApp, push and AI calls out.">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="d-a"/></marker></defs>
+      <rect class="d-box soft" x="10" y="20" width="190" height="290" rx="12"/><text class="d-s" x="24" y="42">WHO CALLS IN</text>
+      <rect class="d-box" x="26" y="56" width="158" height="46" rx="8"/><text class="d-t" x="40" y="76">Web app</text><text class="d-s" x="40" y="92">agents, managers, admins</text>
+      <rect class="d-box" x="26" y="112" width="158" height="46" rx="8"/><text class="d-t" x="40" y="132">Android app</text><text class="d-s" x="40" y="148">same app, in a shell</text>
+      <rect class="d-box" x="26" y="168" width="158" height="46" rx="8"/><text class="d-t" x="40" y="188">Website and forms</text><text class="d-s" x="40" y="204">sign-up, demo, contact</text>
+      <rect class="d-box" x="26" y="224" width="158" height="68" rx="8"/><text class="d-t" x="40" y="244">Customers' channels</text><text class="d-s" x="40" y="260">email, WhatsApp, widget,</text><text class="d-s" x="40" y="274">portal, Gmail push</text>
+      <path class="d-l" d="M200 165H262" marker-end="url(#ar)"/>
+      <rect class="d-box hi" x="264" y="20" width="250" height="290" rx="12"/><text class="d-s" x="280" y="42">ONE NODE SERVER (server.js)</text>
+      <rect class="d-box" x="282" y="56" width="214" height="44" rx="8"/><text class="d-t" x="296" y="75">Security headers, CORS, JSON</text><text class="d-s" x="296" y="91">helmet, rate limits, bot check</text>
+      <rect class="d-box" x="282" y="110" width="214" height="44" rx="8"/><text class="d-t" x="296" y="129">Session check</text><text class="d-s" x="296" y="145">owner session or workspace session</text>
+      <rect class="d-box" x="282" y="164" width="214" height="62" rx="8"/><text class="d-t" x="296" y="183">Handlers</text><text class="d-s" x="296" y="199">/api/call (in-app functions), public</text><text class="d-s" x="296" y="213">forms and webhooks, owner tools</text>
+      <rect class="d-box" x="282" y="236" width="214" height="60" rx="8"/><text class="d-t" x="296" y="255">Background jobs</text><text class="d-s" x="296" y="271">node-cron: reminders, digests,</text><text class="d-s" x="296" y="285">backups, mail polling</text>
+      <path class="d-l" d="M514 110H574" marker-end="url(#ar)"/><path class="d-l" d="M514 235H574" marker-end="url(#ar)"/>
+      <rect class="d-box soft" x="576" y="20" width="294" height="130" rx="12"/><text class="d-s" x="592" y="42">DATA ON DISK (data/)</text>
+      <rect class="d-box" x="592" y="54" width="262" height="40" rx="8"/><text class="d-t" x="606" y="72">owner.json</text><text class="d-s" x="606" y="86">every workspace, prospects, logs</text>
+      <rect class="d-box" x="592" y="102" width="262" height="40" rx="8"/><text class="d-t" x="606" y="120">brands/&lt;slug&gt;/db.sqlite</text><text class="d-s" x="606" y="134">one database per workspace</text>
+      <rect class="d-box soft" x="576" y="170" width="294" height="140" rx="12"/><text class="d-s" x="592" y="192">GOES OUT TO</text>
+      <text class="d-t" x="592" y="216">Email (Gmail, SMTP)</text><text class="d-t" x="592" y="238">WhatsApp (Twilio, Meta)</text><text class="d-t" x="592" y="260">Web push to phones</text><text class="d-t" x="592" y="282">Gemini for AI drafts</text><text class="d-s" x="592" y="300">Shopify order lookups, Turnstile check</text>
+    </svg>
+  </div>
+  <h3>Three ideas to hold on to</h3>
+  <ul>
+    <li><b>One server, many workspaces.</b> Everything runs in one Node process. Each workspace reads and writes only its own database file.</li>
+    <li><b>The owner is separate from every workspace.</b> The owner session can see everything through the Owner Console but cannot call workspace functions; workspace users can never reach owner tools.</li>
+    <li><b>No build step.</b> The app is plain JavaScript and CSS served as files. What is in the folder is what runs.</li>
+  </ul>
+</section>
+
+<section class="a-sec" id="control" data-title="Who controls what" data-group="Big picture">
+  <p class="eyebrow">Control hierarchy</p>
+  <h2>Who controls what</h2>
+  <p class="lead">Three levels of people, and customers who never sign in.</p>
+  <div class="a-grid">
+    <div class="a-card"><div class="k">LEVEL 1</div><h3>Platform owner</h3><p>One account (you). Signs in at the Owner Console. Creates, pauses and deletes workspaces, changes plans and feature switches, reads the audit log, runs backups, sees website growth. Owner sessions are refused by <code>/api/call</code>.</p></div>
+    <div class="a-card"><div class="k">LEVEL 2</div><h3>Workspace (a brand)</h3><p>Has a slug, a plan (Free, Trial, Pro or Enterprise), limits (for example the number of users, 20 unless raised), feature overrides and a status: pending until the sign-up email is verified, then active.</p></div>
+    <div class="a-card"><div class="k">LEVEL 3</div><h3>People in a workspace</h3><p>Roles: <b>Admin</b>, <b>Manager</b>, <b>Agent</b>, <b>Developer</b>, <b>QA</b>. Admins manage users and settings. Each person has a ticket limit (default 10), a skill, and an available/away status that the queue respects.</p></div>
+    <div class="a-card"><div class="k">OUTSIDE</div><h3>Customers</h3><p>Do not sign in to the app. They reach a workspace by email, WhatsApp, the embeddable widget, the public ticket form, or the self-service portal (Enterprise).</p></div>
+  </div>
+  <div class="callout"><b>Protection for the owner registry</b>A guard puts back any workspace that goes missing from <code>owner.json</code> by mistake, and deletes only happen when a slug is named explicitly. Deleted workspaces go to a 30-day recycle bin first.</div>
+</section>
+
+<section class="a-sec" id="customer" data-title="A brand's journey" data-group="Big picture">
+  <p class="eyebrow">Customer journey</p>
+  <h2>What a brand goes through</h2>
+  <p class="lead">From the website to a first answered ticket. These are the same steps the Growth tab measures.</p>
+  <ol class="steps">
+    <li><b>Visit and sign up</b>A public page counts a cookie-free visit. The sign-up form saves where the person came from with the request.</li>
+    <li><b>Verify the email</b>The workspace is pending until the link in the email is used (valid for 48 hours; a new link is sent if they try again). Then it becomes active.</li>
+    <li><b>14-day Trial</b>A trial gives Pro features except the Enterprise-only ones. After it, the workspace moves to Free unless they pick Pro or Enterprise.</li>
+    <li><b>Connect a channel</b>Gmail (OAuth, with push), another mailbox over IMAP, WhatsApp through Twilio or Meta Cloud, the widget, or the public ticket form.</li>
+    <li><b>Work tickets</b>Messages become tickets with a priority and a response target. The queue can assign them. Agents reply from the web or phone app; AI can draft a reply that a person reviews.</li>
+    <li><b>Stay with it</b>Reminders, nudges, reports and a daily digest keep people coming back. The Growth funnel counts "still using it a week later".</li>
+  </ol>
+  <p>Prices per brand per month: Free ₹0, Pro ₹999, Enterprise ₹2,499 (no per-agent charge).</p>
+</section>
+
+<section class="a-sec" id="stack" data-title="Technology stack" data-group="How it is built">
+  <p class="eyebrow">Technical</p>
+  <h2>Technology stack</h2>
+  <div class="a-scroll"><table class="a-table"><thead><tr><th>Part</th><th>What is used</th><th>Notes</th></tr></thead><tbody>
+    <tr><td>Server</td><td>Node.js, Express 4</td><td>One file, <code>server.js</code>, plus four helpers in <code>lib/</code>: analytics, backup, owner guard, recycle bin.</td></tr>
+    <tr><td>Workspace data</td><td>SQLite through <code>better-sqlite3</code></td><td>One file per workspace. Tickets, users and so on are stored in tables; settings live in a key-value table. Older JSON files are still read and migrated.</td></tr>
+    <tr><td>Owner data</td><td>One JSON file</td><td><code>data/owner.json</code>: workspaces, prospects, audit log, lead log, Monday digest switch.</td></tr>
+    <tr><td>Passwords</td><td><code>bcryptjs</code></td><td>Old passwords are upgraded to a hash the next time the server starts.</td></tr>
+    <tr><td>Email</td><td><code>nodemailer</code>, <code>imap</code>, <code>mailparser</code>, <code>googleapis</code></td><td>Gmail push through Google, IMAP polling as the fallback, SMTP/Gmail to send.</td>
+    </tr>
+    <tr><td>WhatsApp</td><td><code>twilio</code> and Meta Cloud API</td><td>Webhook at <code>/api/whatsapp/webhook</code>.</td></tr>
+    <tr><td>AI</td><td>Gemini (<code>gemini-2.0-flash</code>) through one shared helper</td><td>Used for reply drafts and email triage; people review what is sent.</td></tr>
+    <tr><td>Schedules</td><td><code>node-cron</code></td><td>See "Background jobs".</td></tr>
+    <tr><td>Phone push</td><td><code>web-push</code> (VAPID keys in <code>data/vapid.json</code>)</td><td>Notification buttons can act on one ticket.</td></tr>
+    <tr><td>Security headers</td><td><code>helmet</code>, <code>cors</code></td><td>Content-Security-Policy is off because the app uses inline scripts.</td></tr>
+    <tr><td>Other libraries</td><td><code>axios</code>, <code>dotenv</code>, <code>ssh2</code>, <code>mysql2</code></td><td><code>mysql2</code> is only for the earlier migration script; workspace data does not use MySQL.</td></tr>
+    <tr><td>Web app</td><td>Plain JavaScript and CSS</td><td><code>public/js/app-core.js</code> and <code>public/css/app-core.css</code>; no framework, no bundler. Files carry a version in the address and are cached for a year.</td></tr>
+    <tr><td>Website</td><td>Static HTML pages</td><td>Generated and checked by scripts in <code>scripts/</code>. Site script <code>public/js/site.js</code> handles the cookie choice, WhatsApp button and visit counting.</td></tr>
+    <tr><td>Android app</td><td>Capacitor shell around the web app</td><td>Project lives outside this repository.</td></tr>
+    <tr><td>Hosting</td><td>Contabo server, <code>pm2</code></td><td>Deploy is <code>git pull</code>, install, restart.</td></tr>
+  </tbody></table></div>
+  <h3>Installed packages on this server (live)</h3>
+  <div data-live-block="deps"></div>
+  <h3>This server right now (live)</h3>
+  <div data-live-block="build"></div>
+</section>
+
+<section class="a-sec" id="data" data-title="Where data lives" data-group="How it is built">
+  <p class="eyebrow">Data</p>
+  <h2>Where data lives</h2>
+  <div class="a-scroll"><table class="a-table"><thead><tr><th>Location</th><th>Holds</th></tr></thead><tbody>
+    <tr><td><code>data/owner.json</code></td><td>Every workspace (name, slug, plan, status, limits, attribution), prospects, the owner audit log, the lead log, settings such as the Monday digest switch.</td></tr>
+    <tr><td><code>data/brands/&lt;slug&gt;/db.sqlite</code></td><td>One workspace: tickets, issues, users, comments, activity log, processed email ids (so mail is not imported twice), CRM tables (contacts, companies, deals, activities, outreach, templates), ticket attachments, and a key-value table for settings.</td></tr>
+    <tr><td><code>data/backups/</code></td><td>Nightly backups of the owner file, keys and every workspace (kept for a while, older ones pruned).</td></tr>
+    <tr><td><code>data/trash/</code></td><td>Recycle bin: deleted workspaces and records are kept 30 days, then removed for good at 04:15.</td></tr>
+    <tr><td><code>data/analytics.json</code></td><td>Cookie-free website visit counts: per day, page, source and device. No IP addresses.</td></tr>
+    <tr><td><code>data/credentials.key</code>, <code>vapid.json</code>, <code>app-secret.txt</code></td><td>Secrets the server needs. Backed up with the rest, never committed to git.</td></tr>
+    <tr><td><code>data/app_downloads.json</code>, <code>alert-cooldown.json</code></td><td>Android download counts; a cooldown so the same alert is not emailed repeatedly.</td></tr>
+  </tbody></table></div>
+  <div class="callout warn"><b>Git carries code only</b>The <code>data/</code> folder is ignored by git. The laptop holds test data; the server holds real customer data. Never copy one over the other.</div>
+  <h3>Sizes right now (live)</h3>
+  <div data-live-block="storage"></div>
+  <h3>Workspaces right now (live)</h3>
+  <div data-live-block="workspaces"></div>
+</section>
+
+<section class="a-sec" id="tiers" data-title="Plans and switches" data-group="How it is built">
+  <p class="eyebrow">Plans</p>
+  <h2>Plans and feature switches</h2>
+  <p class="lead">Each plan is a set of on/off switches. The owner can override a switch for one workspace without changing its plan.</p>
+  <p>How a workspace's switches are worked out: start from the plan's set, apply any default changes the owner made, then apply that workspace's own overrides. The table below is read from the running server, so it is always the real list.</p>
+  <div data-live-block="tiers"></div>
+</section>
+
+<section class="a-sec" id="api" data-title="API and routes" data-group="How it is built">
+  <p class="eyebrow">API</p>
+  <h2>API and routes</h2>
+  <div class="a-grid">
+    <div class="a-card"><h3>In-app functions</h3><p><code>POST /api/call</code> with a function name and arguments. Needs a workspace session. Admin-only functions check the role inside.</p></div>
+    <div class="a-card"><h3>Owner tools</h3><p><code>/api/owner/…</code>. Need an owner session (<code>ownerOnly</code>): workspaces, data browser, monitor, backups, recycle bin, site settings, growth, this page.</p></div>
+    <div class="a-card"><h3>Public endpoints</h3><p>Sign-up, demo request, contact, visit beacon (<code>/api/hit</code>), public ticket create, widget script, WhatsApp webhook, site config. Rate-limited; forms are escaped before they become email.</p></div>
+    <div class="a-card"><h3>Sign-in</h3><p><code>POST /api/login</code> returns a session token sent back as the <code>x-session-token</code> header. Owner sessions last 30 days; workspace sessions 8 hours or 30 days.</p></div>
+  </div>
+  <h3>Routes registered right now (live)</h3>
+  <div data-live-block="routes"></div>
+</section>
+
+<section class="a-sec" id="flows" data-title="Key flows" data-group="How it works">
+  <p class="eyebrow">Flows</p>
+  <h2>Key flows</h2>
+  <h3>An email becomes a ticket</h3>
+  <ol class="steps">
+    <li><b>Arrives</b>Gmail pushes the message to Resolvo, or the poller fetches it (every 2 minutes, only for mailboxes not on Gmail push).</li>
+    <li><b>De-duplicated</b>The message id is checked against <code>processed_email_ids</code> so nothing is imported twice.</li>
+    <li><b>Ticket made</b>A new thread becomes a ticket; a reply in an existing thread is added to it. If email triage is on, AI suggests priority and category.</li>
+    <li><b>Assigned</b>The queue engine picks a person (next section). Push notifications go out.</li>
+    <li><b>Answered</b>The agent replies (optionally from an AI draft). The reply is sent from the workspace's own mailbox.</li>
+  </ol>
+  <h3>A new brand signs up</h3>
+  <ol class="steps">
+    <li><b>Form</b>Rate-limited, checked with Turnstile, reserved and test addresses refused.</li>
+    <li><b>Pending workspace</b>Created with its attribution (campaign, source) and a verify link.</li>
+    <li><b>Verified</b>The link activates the workspace and its first Admin. Nurture emails then go out on day 1, 3, 7 and 14.</li>
+  </ol>
+  <h3>Shopify order lookup</h3>
+  <p>Inside a ticket the agent can look up the customer's order from the connected Shopify store (read-only lookup, tested against a fake store).</p>
+  <h3>WhatsApp</h3>
+  <p>Twilio or Meta Cloud posts the message to <code>/api/whatsapp/webhook</code>; it becomes or joins a ticket; replies go back through the same provider.</p>
+</section>
+
+<section class="a-sec" id="queue" data-title="Queue engine" data-group="How it works">
+  <p class="eyebrow">Queue</p>
+  <h2>Queue engine: who gets the next ticket</h2>
+  <p class="lead">Runs when a ticket arrives and the workspace has the queue switched on. First rule that finds someone available wins.</p>
+  <ol class="steps">
+    <li><b>Frozen?</b>If the queue is frozen, nobody is assigned.</li>
+    <li><b>Routing rules</b>Rules by keyword in the subject, sender's domain, exact sender, or priority. A match assigns to the named person if they are active, not away, and under their ticket limit.</li>
+    <li><b>Critical priority</b>If priority routing is on, a Critical ticket goes to the person in the queue with the most free capacity.</li>
+    <li><b>Time rules</b>Rules for hours of the day assign to a named person during those hours.</li>
+    <li><b>Round robin</b>Otherwise the next person in the queue who is available and under their limit.</li>
+  </ol>
+  <p>Capacity is the person's ticket limit minus their open tickets (resolved and closed do not count).</p>
+</section>
+
+<section class="a-sec" id="email" data-title="Email system" data-group="How it works">
+  <p class="eyebrow">Email</p>
+  <h2>Email system</h2>
+  <div class="a-grid">
+    <div class="a-card"><h3>Resolvo's own email</h3><p>Sign-up verification, password reset, welcome and nurture messages, the Monday growth digest and owner alerts. Sent from the server's mailbox. If it is off, the Owner Console health tab and a banner say so.</p></div>
+    <div class="a-card"><h3>Each brand's email</h3><p>Replies to customers go from the brand's own connected mailbox (Gmail OAuth or SMTP/IMAP settings), so customers see the brand, not Resolvo.</p></div>
+    <div class="a-card"><h3>Safe in tests</h3><p>With <code>MAIL_CAPTURE</code> set, every email is written to a file instead of being sent. All automatic tests use it.</p></div>
+    <div class="a-card"><h3>No reply loops</h3><p>Automatic messages carry auto-reply headers so another helpdesk does not answer them.</p></div>
+  </div>
+  <div class="callout warn"><b>One rule when testing</b>Always blank <code>EMAIL_USER</code> and <code>EMAIL_PASS</code> for a test server copy. The contact form used to send real mail through those settings even in tests; it now honours <code>MAIL_CAPTURE</code>.</div>
+</section>
+
+<section class="a-sec" id="jobs" data-title="Background jobs" data-group="How it works">
+  <p class="eyebrow">Jobs</p>
+  <h2>Background jobs</h2>
+  <p>Times are server time. The right-hand column checks that each schedule is registered on this server.</p>
+  <div class="a-scroll"><table class="a-table"><thead><tr><th>Schedule</th><th>What it does</th><th>Now</th></tr></thead><tbody>
+    <tr data-cron="*/2 * * * *" data-optional><td><code>every 2 min</code></td><td>Mailbox poller for mail on IMAP. Only registered while some workspace has a mailbox that needs polling.</td><td class="cron-state"></td></tr>
+    <tr data-cron="*/5 * * * *"><td><code>every 5 min</code></td><td>Memory check; alerts on a spike.</td><td class="cron-state"></td></tr>
+    <tr data-cron="*/5 * * * *"><td><code>every 5 min</code></td><td>Health check; alerts if the server restarted in the last 2 minutes.</td><td class="cron-state"></td></tr>
+    <tr data-cron="*/15 * * * *"><td><code>every 15 min</code></td><td>Appointment reminders (15 minutes to 2 hours ahead).</td><td class="cron-state"></td></tr>
+    <tr data-cron="*/15 * * * *"><td><code>every 15 min</code></td><td>SLA breach alerts, once per item.</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 2 */6 * *"><td><code>02:00, every 6 days</code></td><td>Renew the Gmail push watch (Google expires it after 7 days).</td><td class="cron-state"></td></tr>
+    <tr data-cron="30 3 * * *"><td><code>03:30 daily</code></td><td>Nightly backup. A catch-up backup also runs at start if the last one is over 26 hours old.</td><td class="cron-state"></td></tr>
+    <tr data-cron="15 4 * * *"><td><code>04:15 daily</code></td><td>Remove expired items from the recycle bin.</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 8 * * *"><td><code>08:00 daily</code></td><td>Follow-up nudges on quiet tickets.</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 8 * * *"><td><code>08:00 daily</code></td><td>24-hour appointment reminders.</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 9 * * *"><td><code>09:00 daily</code></td><td>Daily digest email for each active workspace.</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 9 * * 1"><td><code>09:00 Monday</code></td><td>Growth digest to the owner (can be switched off in the Growth tab).</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 10 * * *"><td><code>10:00 daily</code></td><td>Nurture emails for new sign-ups (day 1, 3, 7, 14) and the prospect drip.</td><td class="cron-state"></td></tr>
+    <tr data-cron="0 11 * * *"><td><code>11:00 daily</code></td><td>Customer satisfaction (NPS) surveys, capped at 20 a day per workspace.</td><td class="cron-state"></td></tr>
+  </tbody></table></div>
+  <p>Also running without cron: the visit-count file is saved every 30 seconds and on shutdown; each workspace's health score is snapshotted every 24 hours.</p>
+</section>
+
+<section class="a-sec" id="security" data-title="Security" data-group="Safety">
+  <p class="eyebrow">Security</p>
+  <h2>Security</h2>
+  <div class="a-grid">
+    <div class="a-card"><h3>Sign-in</h3><p>Hashed passwords (bcrypt). Session tokens in a header, not cookies. Two-factor sign-in is a Pro switch.</p></div>
+    <div class="a-card"><h3>Separation</h3><p>Each workspace has its own database file. Owner and workspace sessions cannot call each other's routes.</p></div>
+    <div class="a-card"><h3>Public forms</h3><p>Rate limits, length limits, Turnstile on sign-up, escaped HTML in emails to the owner, reserved and test addresses refused.</p></div>
+    <div class="a-card"><h3>Secrets</h3><p>Hashes, tokens and keys are removed on the server before the Owner Console sees them. Social-channel tokens are stored encrypted. Secrets are never in git.</p></div>
+    <div class="a-card"><h3>Recovery</h3><p>Nightly backups, a 30-day recycle bin, a guard against missing workspaces, and an audit trail of owner actions.</p></div>
+    <div class="a-card"><h3>Privacy of the website</h3><p>Google Analytics only after the visitor accepts. Visit counts are cookie-free and store no IP address; the app itself is not counted.</p></div>
+  </div>
+  <div class="callout warn"><b>Known limits</b>Content-Security-Policy is off (the app uses inline scripts). Workspace sessions live in server memory, so a restart signs everyone out. No SOC 2 or ISO 27001 certification; the public Security page says so.</div>
+  <div class="callout bad"><b>Fixed on 8 November 2026</b>This page used to open with the owner's password hash (or a short prefix of it) in the address, which is easy to guess and ends up in browser history. It now needs a normal owner sign-in, and old addresses with <code>?key=</code> are redirected without the key.</div>
+</section>
+
+<section class="a-sec" id="phone" data-title="Phone app" data-group="Around the product">
+  <p class="eyebrow">Phone</p>
+  <h2>Phone app and phone screen</h2>
+  <ul>
+    <li>The Android app is the same web app inside a Capacitor shell. Its project and release key are kept outside this repository.</li>
+    <li>On a phone the web app switches to a phone layout with larger tap targets and screens arranged for one hand.</li>
+    <li>Push notifications through web push, with buttons that act on one ticket and pass through the normal permission checks.</li>
+    <li>Phone extras: an outbox that holds replies sent while offline, voice dictation, photos in replies, an app lock, and a home-screen widget.</li>
+    <li>Download counts are kept in <code>data/app_downloads.json</code>; the website's <code>/app</code> page links to the download.</li>
+  </ul>
+</section>
+
+<section class="a-sec" id="website" data-title="Website and growth" data-group="Around the product">
+  <p class="eyebrow">Website</p>
+  <h2>Website and growth tracking</h2>
+  <ul>
+    <li><b>Pages:</b> static HTML in <code>public/</code>, generated or checked by <code>scripts/build-site-pages.py</code>, <code>seo-pass.py</code> and <code>make-og-images.py</code>. The sitemap lists every public page, and the Site map page in the footer links to all of them.</li>
+    <li><b>Site script:</b> <code>public/js/site.js</code> handles the cookie choice, the WhatsApp button (number set in Owner Console), tagged-link capture and the visit beacon.</li>
+    <li><b>Counting:</b> <code>lib/analytics.js</code>. Cookie-free, no IP stored, bots and app pages ignored, a daily-rotating salted hash for "visitors per day".</li>
+    <li><b>Leads:</b> every sign-up, demo, design-partner application and contact message is logged with source, medium and campaign (<code>owner.leadLog</code>).</li>
+    <li><b>Owner Console, Growth tab:</b> visits, sources, funnel (signed up, activated, channel connected, first reply, active after 7 days), stuck workspaces, tagged-link builder, Monday email.</li>
+    <li><b>Free tools:</b> support calculator, SLA calculator, WhatsApp template generator. Guides for set-up and posting are in <code>docs/growth/</code>.</li>
+  </ul>
+</section>
+
+<section class="a-sec" id="ops" data-title="Deploy and tests" data-group="Operating it">
+  <p class="eyebrow">Operations</p>
+  <h2>Deploying, backups and tests</h2>
+  <h3>Deploy</h3>
+  <ol class="steps">
+    <li><b>Commit and push</b>Stage explicit paths only (never <code>git add .</code>) and push to <code>main</code> on GitHub.</li>
+    <li><b>Server pulls</b>Over SSH: <code>git pull origin main</code>, <code>npm install --omit=dev</code>, <code>pm2 restart resolvo</code>.</li>
+    <li><b>Check</b>Open the app and this page: the commit shown in the top bar should be the one just pushed.</li>
+  </ol>
+  <h3>Tests</h3>
+  <p>Suites live in <code>docs/ui-redesign/tools/</code> and run a throwaway copy of the app on their own port with mail captured, so nothing real is touched. Covered: website audit, Owner Console, owner portal and delete, safeguards (backups, recycle bin), phone layout and features, first-customer fixes, Shopify, growth tracking, SEO pages.</p>
+  <h3>Backups and monitoring</h3>
+  <p>Nightly at 03:30. The Owner Console health tab shows the last backup, size and history. Memory spikes, restarts and failures email the owner.</p>
+</section>
+
+<section class="a-sec" id="changes" data-title="Recent changes" data-group="Operating it">
+  <p class="eyebrow">Changes</p>
+  <h2>Recent changes</h2>
+  <div class="a-scroll"><table class="a-table"><thead><tr><th>When</th><th>What</th></tr></thead><tbody>
+    <tr><td class="mono">Nov 2026</td><td>Growth tracking: cookie-free visit counts, lead sources, funnel, Monday digest, Growth tab; WhatsApp-templates tool, SLA calculator and Shopify support pages; this architecture page rebuilt; site map page.</td></tr>
+    <tr><td class="mono">Nov 2026</td><td>Website pass: trust pages (features, integrations, security, customers, changelog), cookie choice, WhatsApp button, search and sharing tags, app code split into cached files.</td></tr>
+    <tr><td class="mono">Nov 2026</td><td>Phone batch: outbox, dictation, photos, app lock, widget, alert buttons; Android 1.2.0.</td></tr>
+    <tr><td class="mono">Oct 2026</td><td>Safeguards: nightly backups, recycle bin, safer owner file, change record, reset and welcome email fixes.</td></tr>
+    <tr><td class="mono">Oct 2026</td><td>First-customer fixes: dead ends for agents, email connect errors, WhatsApp set-up guide. Shopify order lookup in tickets.</td></tr>
+    <tr><td class="mono">Oct 2026</td><td>Redesign; Android app and phone layout; SEO pages and support calculator.</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="a-sec" id="check" data-title="Does this match?" data-group="Operating it">
+  <p class="eyebrow">Keeping it current</p>
+  <h2>Does this page match the server?</h2>
+  <p>This compares the text above with what the server is really doing. If it shows a warning, update <code>internal/architecture-content.html</code>.</p>
+  <div id="docCheck"></div>
+  <p class="stamp">Plans, routes, sizes, packages and schedules above are read live. The prose is edited by hand.</p>
+</section>

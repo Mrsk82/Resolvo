@@ -54,6 +54,13 @@ async def main():
     bad = [u for u in urls if get(u.replace(LIVE, ""))[0] != 200]
     check(f"sitemap: all {len(urls)} addresses load", not bad, bad)
     pages = {u: page_html(u) for u in urls}
+    # ---------- nothing hidden: the site map lists every page, and every page ends with a link to it ----------
+    c, _, mb = get("/site-map"); mapl = mb.decode()
+    missing = [u for u in urls if ('href="%s"' % (u.replace(LIVE, "") or "/")) not in mapl]
+    check(f"site map: /site-map links to all {len(urls)} addresses in the sitemap", c == 200 and not missing, missing)
+    check("site map: the site map page is itself in the sitemap", LIVE + "/site-map" in urls)
+    nofoot = [u for u in urls if 'href="/site-map"' not in pages[u] and not u.endswith("/site-map")]
+    check("site map: every page in the sitemap has a footer link to it, or gets one from the site script", all(("<footer" not in pages[u]) for u in nofoot) , nofoot[:5])
     # ---------- every page ----------
     rows = {"title": [], "desc": [], "h1": [], "canon": [], "og": [], "tw": [], "ga": [], "site": [], "ld": [], "resolvoapp": []}
     for u, s in pages.items():
@@ -202,6 +209,9 @@ async def main():
             ok = await pg.evaluate("document.documentElement.scrollWidth<=document.documentElement.clientWidth+1")
             wide = await pg.evaluate("[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>window.innerWidth+2&&!e.closest('pre,.tablewrap,.mobile-panel,nav,.marquee-track,.tabs,.feat-tabs,.cmp-table-wrap,[class*=marquee]')&&getComputedStyle(e).position!=='fixed'}).slice(0,3).map(e=>e.tagName+'.'+e.className)")
             check(f"phone: /{p_} does not scroll sideways", ok and not wide, wide)
+        for p_ in ("signup", "demo", "learn", "pro"):
+            await pg.goto(BASE + "/" + p_); await pg.wait_for_timeout(900)
+            check(f"site map: /{p_} ends with a footer that links to the site map", await pg.locator('footer a[href="/site-map"]').count() >= 1)
         await pg.goto(BASE + "/security"); await pg.wait_for_timeout(600); await pg.screenshot(path=os.path.join(SHOTS, "site_security_phone.png"))
         await pg.goto(BASE + "/pitch"); await pg.wait_for_timeout(1500); await pg.screenshot(path=os.path.join(SHOTS, "site_home_phone.png"))
         check("phone: no script errors on the pages", not errs, errs)

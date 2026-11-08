@@ -129,6 +129,12 @@ const Notif = {
   }
 };
 
+// There is one notification system now (NotifCenter, defined further down). The older header panel only forwards to it.
+Notif.push = function(text, type, issueId) { NotifCenter.push(String(text || ''), '', (type === 'warning' || type === 'error') ? 'critical' : (type || 'info'), issueId, { silent: true }); };
+Notif.toggle = function() { NotifCenter.open(); };
+Notif.markAllRead = function() { NotifCenter.markAllRead(); };
+Notif._updateBadge = function() { NotifCenter._updateBell(); };
+
 // ============================================================
 // SMART SEARCH
 // ============================================================
@@ -13196,39 +13202,8 @@ const App = {
   },
 
   // ── NOTIFICATION BELL ────────────────────────────────────────────────────────
-  _loadNotificationBell: async function() {
-    var r = await App.callAsync('getInAppNotifications');
-    var unread = (r&&r.unread)||0;
-    var bell = document.getElementById('notifBellBtn');
-    var badge = document.getElementById('notifBadge');
-    if(badge){badge.textContent=unread>0?unread:'';badge.style.display=unread>0?'':'none';}
-    // Store for panel
-    App._notifications = (r&&r.notifications)||[];
-  },
-  _showNotifPanel: function() {
-    var notes = App._notifications||[];
-    var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal" style="max-width:420px;max-height:80vh;">'+
-      '<div class="modal-header"><span class="modal-title">🔔 Notifications</span>'+
-        '<div style="display:flex;gap:8px;align-items:center;">'+
-          '<button onclick="App.callAsync(\'markAllNotificationsRead\').then(()=>{App._loadNotificationBell();this.closest(\'.modal-overlay\').remove();})" style="font-size:11px;color:var(--text-dim);background:none;border:none;cursor:pointer;">Mark all read</button>'+
-          '<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">×</button>'+
-        '</div>'+
-      '</div>'+
-      '<div style="max-height:calc(80vh - 60px);overflow-y:auto;">'+
-      (notes.length===0?'<div style="padding:28px;text-align:center;color:var(--text-dim);">✅ All caught up!</div>':
-      notes.map(function(n){
-        return '<div style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:'+(n.read?'':'var(--accent-dim)')+';">'+
-          '<span style="font-size:18px;flex-shrink:0;">'+n.icon+'</span>'+
-          '<div style="flex:1;min-width:0;">'+
-            '<div style="font-size:13px;font-weight:'+(n.read?500:700)+';color:var(--text-primary);">'+App._esc(n.title)+'</div>'+
-            '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+App._esc(n.body||'')+'</div>'+
-            '<div style="font-size:10px;color:var(--text-dim);margin-top:3px;">'+((n.at||'').replace('T',' ').substring(0,16))+'</div>'+
-          '</div>'+
-          (n.issueId?'<button onclick="App.navigate(\'issue-detail\',{id:\''+n.issueId+'\'});this.closest(\'.modal-overlay\').remove();" style="font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--accent);cursor:pointer;flex-shrink:0;">View</button>':'')+'</div>';
-      }).join(''))+
-      '</div></div></div>';
-    document.body.insertAdjacentHTML('beforeend', html);
-  },
+  _loadNotificationBell: function() { return NotifCenter.load(true); },
+  _showNotifPanel: function() { NotifCenter.open(); },
 
   // ── ONBOARDING CHECKLIST (#10) ─────────────────────────────────────────────
   _loadOnboardingProgress: async function() {
@@ -18771,11 +18746,11 @@ const App = {
     if (!existingLegal) {
       var legal = document.createElement('div');
       legal.id = 'sidebarLegalLinks';
-      legal.style.cssText = 'padding:6px 10px 8px;font-size:9px;color:var(--text-dim);text-align:center;border-top:1px solid var(--border);line-height:1.8;';
-      legal.innerHTML = '<a href="/privacy" target="_blank" style="color:var(--text-dim);text-decoration:none;" onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">Privacy</a>'
-        + ' · <a href="/terms" target="_blank" style="color:var(--text-dim);text-decoration:none;" onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">Terms</a>'
-        + ' · <a href="/refund" target="_blank" style="color:var(--text-dim);text-decoration:none;" onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">Refund</a>'
-        + '<br>© 2026 Resolvo Group';
+      legal.style.cssText = 'padding:8px 10px 10px;font-size:11px;color:var(--text-dim);text-align:center;border-top:1px solid var(--border);line-height:1.8;';
+      legal.innerHTML = '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px"><a href="/privacy" target="_blank" style="color:var(--text-dim);text-decoration:none;" onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">Privacy</a>'
+        + '<a href="/terms" target="_blank" style="color:var(--text-dim);text-decoration:none;" onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">Terms</a>'
+        + '<a href="/refund" target="_blank" style="color:var(--text-dim);text-decoration:none;" onmouseover="this.style.opacity=\'0.7\'" onmouseout="this.style.opacity=\'1\'">Refund</a>'
+        + '</div><div style="margin-top:2px">© 2026 Resolvo Group</div>';
       var sidebarFooter = document.querySelector('.sidebar-footer');
       if (sidebarFooter) sidebarFooter.appendChild(legal);
     }
@@ -20834,57 +20809,83 @@ const NotifCenter = {
     this._render();
   },
 
-  load: async function() {
-    var list = document.getElementById('notifCenterList');
-    if (!list) return;
-    list.innerHTML = '<div class="notif-empty" style="color:var(--text-muted);">Loading...</div>';
+  _readIds: function() { try { return JSON.parse(localStorage.getItem('tt_notif_read') || '[]'); } catch (e) { return []; } },
+  _rememberRead: function(ids) {
     try {
-      var r = await App.callAsync('getNotifications', {});
-      if (r && r.success && r.notifications) {
-        this._items = r.notifications;
-      } else {
-        this._items = this._localItems();
-      }
-    } catch(e) {
-      this._items = this._localItems();
-    }
+      var seen = this._readIds();
+      ids.forEach(function(i) { if (seen.indexOf(i) < 0) seen.push(i); });
+      localStorage.setItem('tt_notif_read', JSON.stringify(seen.slice(-400)));
+    } catch (e) {}
+  },
+
+  // One feed behind the bell and the drawer: what the server says needs this person, plus anything this device pushed.
+  load: async function(silent) {
+    var list = document.getElementById('notifCenterList');
+    if (list && !silent && !this._items.length) list.innerHTML = '<div class="notif-empty" style="color:var(--text-muted);">Loading...</div>';
+    var server = [], failed = false;
+    try {
+      var r = await App.callAsync('getInAppNotifications');
+      if (r && r.success && Array.isArray(r.notifications)) server = r.notifications; else failed = true;
+    } catch (e) { failed = true; }
+    var read = this._readIds();
+    var mapped = server.map(function(n) {
+      return {
+        id: String(n.id), title: n.title || '', desc: n.body || n.message || '',
+        type: (n.type === 'sla_breach' || n.type === 'sla_risk') ? 'sla' : (n.type || 'info'),
+        issueId: n.issueId || '', ticketId: n.ticketId || '', time: n.at || new Date().toISOString(),
+        read: !!n.read || read.indexOf(String(n.id)) >= 0, server: true
+      };
+    });
+    var local = this._localItems().filter(function(n) { return !mapped.some(function(m) { return m.id === n.id; }); });
+    this._items = mapped.concat(local);
+    this._items.sort(function(a, b) { return (Date.parse(b.time) || 0) - (Date.parse(a.time) || 0); });
+    this._failed = failed;
     this._render();
     this._updateBell();
   },
 
   _localItems: function() {
-    return JSON.parse(localStorage.getItem('tt_notifications') || '[]');
+    var raw;
+    try { raw = JSON.parse(localStorage.getItem('tt_notifications') || '[]'); } catch (e) { raw = []; }
+    return raw.map(function(n) {
+      return { id: String(n.id), title: n.title || n.text || '', desc: n.desc || '', type: n.type || 'info', issueId: n.issueId || '', ticketId: n.ticketId || '', time: n.time || new Date().toISOString(), read: !!n.read, local: true };
+    });
   },
 
   _saveLocal: function() {
-    localStorage.setItem('tt_notifications', JSON.stringify(this._items.slice(0, 50)));
+    try { localStorage.setItem('tt_notifications', JSON.stringify(this._items.filter(function(n) { return n.local; }).slice(0, 50))); } catch (e) {}
   },
 
-  push: function(title, desc, type, issueId) {
+  push: function(title, desc, type, issueId, opts) {
     var item = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2),
       title: title, desc: desc, type: type || 'info',
-      issueId: issueId || '', time: new Date().toISOString(), read: false
+      issueId: issueId || '', ticketId: '', time: new Date().toISOString(), read: false, local: true
     };
     this._items.unshift(item);
     this._saveLocal();
     this._render();
     this._updateBell();
-    App.showToast('🔔 ' + title, 'info');
+    if (!(opts && opts.silent)) App.showToast('🔔 ' + title, 'info');
   },
 
   markAllRead: function() {
-    this._items.forEach(function(n) { n.read = true; });
+    var ids = [];
+    this._items.forEach(function(n) { n.read = true; ids.push(String(n.id)); });
+    this._rememberRead(ids);
     this._saveLocal();
     this._render();
     this._updateBell();
+    try { App.callAsync('markAllNotificationsRead').catch(function() {}); } catch (e) {}
   },
 
   markRead: function(id) {
-    var item = this._items.find(function(n) { return n.id === id; });
+    var item = this._items.find(function(n) { return String(n.id) === String(id); });
     if (item) item.read = true;
+    this._rememberRead([String(id)]);
     this._saveLocal();
     this._updateBell();
+    if (/^NOT/.test(String(id))) { try { App.callAsync('markNotificationRead', id).catch(function() {}); } catch (e) {} }
   },
 
   _updateBell: function() {
@@ -20894,6 +20895,8 @@ const NotifCenter = {
       badge.textContent = unread > 99 ? '99+' : unread;
       badge.style.display = unread > 0 ? 'flex' : 'none';
     }
+    var bell = document.getElementById('notifBellBtn');
+    if (bell) bell.setAttribute('aria-label', unread ? 'Notifications, ' + unread + ' unread' : 'Notifications');
   },
 
   _render: function() {
@@ -20944,7 +20947,7 @@ const NotifCenter = {
       var g = groupOf(n);
       if (g !== lastGroup) { html += '<div class="notif-group-label">' + g + '</div>'; lastGroup = g; }
       var idArg = String(n.id).replace(/'/g, '');
-      html += '<div class="notif-item' + (n.read ? '' : ' unread') + '" tabindex="0" role="button" aria-label="' + App._esc((n.read ? '' : 'Unread: ') + n.title) + '" onclick="NotifCenter._click(\'' + idArg + '\',\'' + (n.issueId || '') + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">' +
+      html += '<div class="notif-item' + (n.read ? '' : ' unread') + '" tabindex="0" role="button" aria-label="' + App._esc((n.read ? '' : 'Unread: ') + n.title) + '" onclick="NotifCenter._click(\'' + idArg + '\',\'' + String(n.issueId || '').replace(/'/g, '') + '\',\'' + String(n.ticketId || '').replace(/'/g, '') + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">' +
         '<div class="notif-item-icon" style="background:' + (bgMap[n.type] || bgMap.info) + '">' + (iconMap[n.type] || '🔔') + '</div>' +
         '<div class="notif-item-body">' +
         '<div class="notif-item-title">' + App._esc(n.title) + '</div>' +
@@ -20955,26 +20958,24 @@ const NotifCenter = {
     list.innerHTML = html;
   },
 
-  _click: function(id, issueId) {
+  _click: function(id, issueId, ticketId) {
     this.markRead(id);
     this._render();
-    if (issueId) {
+    if (ticketId) {
+      this.close();
+      App.navigate('ticket-detail', { id: ticketId });
+    } else if (issueId) {
       this.close();
       App.navigate('issue-detail', { id: issueId });
     }
   }
 };
 
-// Patch the notification bell to open NotifCenter drawer
-(function patchNotifBell() {
-  var bell = document.getElementById('notifBell') || document.querySelector('.notif-bell-btn');
-  if (bell) {
-    bell.addEventListener('click', function(e) {
-      e.stopPropagation();
-      NotifCenter.open();
-    }, true);
-  }
-  setTimeout(function() { NotifCenter.load(); }, 2000);
+// The bell (index.html) opens the drawer itself. Refresh the list now, whenever the tab comes back, and every minute.
+(function startNotifFeed() {
+  setTimeout(function() { NotifCenter.load(true); }, 1500);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) NotifCenter.load(true); });
+  setInterval(function() { if (!document.hidden) NotifCenter.load(true); }, 60000);
 })();
 
 

@@ -9,7 +9,7 @@ E = html.escape
 
 NAV = [("/features", "Features"), ("/integrations", "Integrations"), ("/security", "Security"), ("/pitch#pricing", "Pricing"), ("/customers", "Customers"), ("/blog", "Blog")]
 FOOT = [("/pitch", "Home"), ("/features", "Features"), ("/integrations", "Integrations"), ("/security", "Security"), ("/customers", "Customers"), ("/changelog", "What's new"), ("/partners", "Design partners"),
-        ("/shopify-customer-support-india", "For Shopify stores"), ("/tools/whatsapp-templates", "WhatsApp templates"), ("/tools/sla-calculator", "SLA calculator"), ("/app", "Android app"), ("/demo", "Book a demo"), ("/blog", "Blog"), ("/privacy", "Privacy"), ("/terms", "Terms"), ("/refund", "Refunds"), ("/status", "Status")]
+        ("/shopify-customer-support-india", "For Shopify stores"), ("/tools/whatsapp-templates", "WhatsApp templates"), ("/tools/sla-calculator", "SLA calculator"), ("/app", "Android app"), ("/site-map", "Site map"), ("/demo", "Book a demo"), ("/blog", "Blog"), ("/privacy", "Privacy"), ("/terms", "Terms"), ("/refund", "Refunds"), ("/status", "Status")]
 
 def page(slug, title, desc, tag, h1, sub, body, extra_ld=None, toc=None, cta=True, script="", head="", file=None):
     url = f"{SITE}/{slug}"
@@ -314,7 +314,38 @@ P_SHOP = page("shopify-customer-support-india", "Shopify Customer Support Softwa
     toc=[("problem", "The problem"), ("what", "What it does"), ("connect", "Connect"), ("limits", "Limits")], file="seo-shopify-support")
 
 
+# ---------------------------------------------------------------- site map: every public page, built from sitemap.xml so nothing can be left out
+def _site_map_body():
+    import glob, re
+    titles = {}
+    for f in glob.glob(os.path.join(OUT, "*.html")):
+        t = open(f, encoding="utf-8", errors="replace").read()
+        c = re.search(r'rel="canonical" href="([^"]+)"', t); h = re.search(r"<title>(.*?)</title>", t, re.S)
+        if c and h: titles[c.group(1)] = html.unescape(h.group(1)).replace(" | Resolvo", "").strip()
+    xml = open(os.path.join(OUT, "sitemap.xml"), encoding="utf-8").read()
+    names = {"Core pages": "Main pages", "Product pages": "Product, plans, guides and free tools", "Blog index": "Blog", "Tool Comparisons": "Comparisons with other helpdesks"}
+    groups, order, cur = {}, [], "Main pages"
+    for line in xml.splitlines():
+        m = re.search(r"<!--\s*(.*?)\s*-->", line)
+        if m: cur = names.get(m.group(1), "Blog: " + m.group(1))
+        m = re.search(r"<loc>(.*?)</loc>", line)
+        if not m: continue
+        loc = m.group(1); path = loc.replace(SITE, "") or "/"
+        if cur not in groups: groups[cur] = []; order.append(cur)
+        label = titles.get(loc) or path.strip("/").split("/")[-1].replace("-", " ").capitalize()
+        groups[cur].append((path, label))
+    out = []
+    for g in order:
+        out.append(f'<section class="block"><h2>{E(g)} <span class="pill-n">{len(groups[g])}</span></h2><ul class="maplist">' + "".join(f'<li><a href="{E(pa)}">{E(la)}</a></li>' for pa, la in groups[g]) + "</ul></section>")
+    total = sum(len(v) for v in groups.values())
+    return "".join(out), total
+
+_map_body, _map_total = _site_map_body()
+P_MAP = page("site-map", "Site map | Resolvo", "Every public page on the Resolvo website in one list: product, plans, free tools, comparisons, guides and blog articles.",
+    "Site map", "Every page on this website.", f"{_map_total} pages, nothing hidden. This list is built from the same file search engines read, so a new page cannot be forgotten.", _map_body,
+    cta=False, head="<style>.maplist{list-style:none;margin:0;padding:0;columns:2 300px;column-gap:32px}.maplist li{break-inside:avoid;padding:5px 0;line-height:1.4}.pill-n{font-size:12px;font-weight:600;color:var(--muted,#667);margin-left:6px}</style>")
+
 for slug, content in [("features", P_FEATURES), ("integrations", P_INTEGRATIONS), ("security", P_SECURITY), ("customers", P_CUSTOMERS), ("changelog", P_CHANGELOG),
-                      ("tool-whatsapp-templates", P_WA), ("tool-sla-calculator", P_SLA), ("seo-shopify-support", P_SHOP)]:
+                      ("tool-whatsapp-templates", P_WA), ("tool-sla-calculator", P_SLA), ("seo-shopify-support", P_SHOP), ("site-map", P_MAP)]:
     with open(os.path.join(OUT, slug + ".html"), "w", encoding="utf-8", newline=chr(10)) as f: f.write(content)
     print("wrote", slug + ".html", len(content))
