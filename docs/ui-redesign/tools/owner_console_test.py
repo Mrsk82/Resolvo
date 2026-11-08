@@ -134,7 +134,16 @@ async def main():
         await pg0.context.close()
 
         pg, errs = await page(1440, 1000)
-        check("desktop: connected, with six tabs", "Connected" in await pg.inner_text("#connStatus") and await pg.locator(".rvc-tab").count() == 6)
+        check("desktop: connected, with seven tabs", "Connected" in await pg.inner_text("#connStatus") and await pg.locator(".rvc-tab").count() == 7)
+        await pg.click(".rvc-tab[data-tab=growth]"); await pg.wait_for_selector("#gwStats .rvc-stat"); await pg.wait_for_timeout(500)
+        check("growth tab: five number tiles, a funnel area and the visits chart", await pg.locator("#gwStats .rvc-stat").count() == 5 and await pg.locator("#gwFunnel").is_visible() and await pg.locator("#gwChart svg").count() == 1)
+        check("growth tab: empty states are friendly, not errors", "rvc-err" not in await pg.inner_html("#gwFunnel") and "rvc-err" not in await pg.inner_html("#gwLeads"))
+        await pg.fill("#ubCamp", "Nov Launch!"); await pg.select_option("#ubSrc", "linkedin") if await pg.locator("#ubSrc option[value=linkedin]").count() else None; await pg.wait_for_timeout(200)
+        link = await pg.input_value("#ubOut")
+        check("growth tab: the link builder makes a clean tagged link", link.startswith("https://app.resolvogroup.com") and "utm_campaign=nov-launch" in link and "utm_source=" in link and "!" not in link, link)
+        await pg.click("#gwRange .rvc-chip[data-d='7']"); await pg.wait_for_timeout(600)
+        check("growth tab: the range buttons switch the period", await pg.locator("#gwRange .rvc-chip[data-d='7'].active").count() == 1)
+        await pg.click(".rvc-tab[data-tab=find]") if await pg.locator(".rvc-tab[data-tab=find]").count() else None
         check("desktop: the health tab shows a red count for what needs attention", await pg.locator("#healthBadge").is_visible())
         tiles = await pg.locator(".rvc-tile").count()
         check("desktop: nine report tiles are shown", tiles == 9, tiles)

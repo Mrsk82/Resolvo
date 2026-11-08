@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SLA Calculator for Small Support Teams | Resolvo</title>
+<meta name="description" content="Free SLA calculator: enter your team size and ticket volume to see how full your team is and realistic first-response targets by priority.">
+<link rel="canonical" href="https://app.resolvogroup.com/tools/sla-calculator">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Resolvo"><meta property="og:url" content="https://app.resolvogroup.com/tools/sla-calculator">
+<meta property="og:title" content="SLA Calculator for Small Support Teams | Resolvo"><meta property="og:description" content="Free SLA calculator: enter your team size and ticket volume to see how full your team is and realistic first-response targets by priority.">
+<meta property="og:image" content="https://app.resolvogroup.com/img/og-resolvo.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Resolvo: customer support for Indian brands">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="SLA Calculator for Small Support Teams | Resolvo"><meta name="twitter:description" content="Free SLA calculator: enter your team size and ticket volume to see how full your team is and realistic first-response targets by priority."><meta name="twitter:image" content="https://app.resolvogroup.com/img/og-resolvo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/site-pages.css?v=1">
+<style>.tool .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}.tool label{display:block;font-size:13px;font-weight:600;color:#374151}.tool input,.tool select{display:block;width:100%;margin-top:5px;min-height:44px;padding:9px 12px;border:1px solid #D1D5DB;border-radius:9px;font:inherit;font-size:15px;background:#fff}.tool input:focus,.tool select:focus{outline:2px solid #10B981;outline-offset:1px}.btn.small{min-height:38px;padding:6px 16px;font-size:14px;border:0;cursor:pointer}pre{white-space:pre-wrap}</style>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "WebPage", "name": "SLA Calculator for Small Support Teams | Resolvo", "description": "Free SLA calculator: enter your team size and ticket volume to see how full your team is and realistic first-response targets by priority.", "url": "https://app.resolvogroup.com/tools/sla-calculator", "isPartOf": {"@type": "WebSite", "name": "Resolvo", "url": "https://app.resolvogroup.com"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://app.resolvogroup.com/pitch"}, {"@type": "ListItem", "position": 2, "name": "Free tool", "item": "https://app.resolvogroup.com/tools/sla-calculator"}], "@context": "https://schema.org"}]</script>
+</head>
+<body>
+<nav>
+  <a href="/pitch" class="logo"><img src="/logo-mark.svg" alt="Resolvo" width="26" height="26" style="border-radius:6px"><span class="logo-name">resolvo</span></a>
+  <div class="nav-links"><a href="/features">Features</a><a href="/integrations">Integrations</a><a href="/security">Security</a><a href="/pitch#pricing">Pricing</a><a href="/customers">Customers</a><a href="/blog">Blog</a><a href="/signup" class="nav-cta">Start free</a></div>
+</nav>
+<header class="hero"><div class="wrap">
+  <div class="tag">Free tool</div>
+  <h1>Set response targets you can actually keep.</h1>
+  <p class="sub">Tell us how many people answer customers and how many tickets arrive. We show how full your team is and suggest first-response targets.</p>
+  
+</div></header>
+<main class="wrap">
+<section class="block"><h2>Your team</h2><p class="lead">Nothing you type leaves your browser.</p>
+<form id="slForm" class="tool" onsubmit="return false"><div class="tgrid">
+<label>Agents answering customers<input id="slAg" type="number" min="1" value="3" inputmode="numeric"></label><label>Tickets a day<input id="slTk" type="number" min="0" value="40" inputmode="numeric"></label>
+<label>Minutes of work per ticket<input id="slMn" type="number" min="1" value="12" inputmode="numeric"></label><label>Productive hours per agent a day<input id="slHr" type="number" min="1" max="10" value="6" step="0.5" inputmode="decimal"></label></div></form></section>
+<section class="block"><div class="grid"><div class="card"><h3>How full your team is</h3><div style="font-size:40px;font-weight:800;margin:6px 0" id="slUse"></div><div style="height:12px;border-radius:6px;background:#E5E7EB;overflow:hidden"><div id="slBar" style="height:100%;width:0"></div></div><p style="margin-top:10px" id="slMsg"></p><p style="margin-top:6px;font-size:13px" id="slWork"></p></div>
+<div class="card"><h3>Suggested first-response targets</h3><p>For <span id="slTeam"></span>:</p><div class="tablewrap"><table><thead><tr><th>Priority</th><th>First reply within</th></tr></thead><tbody id="slTbl"></tbody></table></div><p style="margin-top:10px;font-size:13px">Starting points, not promises. Set the ones you can keep, then tighten them as you learn your real numbers.</p></div></div>
+<p class="note">Resolvo starts a clock on every ticket from these targets and shows what is Overdue or Due soon. Set them in Settings, then SLA. More in our <a href="/blog/sla-management-guide">guide to SLAs</a> and <a href="/tools/support-calculator">support team calculator</a>.</p></section>
+<div class="cta"><div><h2>Try it on your own tickets</h2><p>14 days free, no card. After that you keep the Free plan or choose Pro or Enterprise.</p></div><div class="row"><a class="btn" href="/signup">Start free</a><a class="btn ghost" href="/demo">Book a demo</a></div></div>
+</main>
+<footer>&copy; 2026 Resolvo<br><a href="/pitch">Home</a> &middot; <a href="/features">Features</a> &middot; <a href="/integrations">Integrations</a> &middot; <a href="/security">Security</a> &middot; <a href="/customers">Customers</a> &middot; <a href="/changelog">What's new</a> &middot; <a href="/partners">Design partners</a> &middot; <a href="/shopify-customer-support-india">For Shopify stores</a> &middot; <a href="/tools/whatsapp-templates">WhatsApp templates</a> &middot; <a href="/tools/sla-calculator">SLA calculator</a> &middot; <a href="/app">Android app</a> &middot; <a href="/demo">Book a demo</a> &middot; <a href="/blog">Blog</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="/refund">Refunds</a> &middot; <a href="/status">Status</a><br><a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></footer>
+<script src="/js/site.js" defer data-wa="1"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var T={s:[['Critical','4 hours'],['High','12 hours'],['Medium','48 hours'],['Low','72 hours']],m:[['Critical','2 hours'],['High','8 hours'],['Medium','24 hours'],['Low','72 hours']],l:[['Critical','1 hour'],['High','4 hours'],['Medium','12 hours'],['Low','48 hours']]};
+  function run(){
+    var a=Math.max(1,+$('slAg').value||1),t=Math.max(0,+$('slTk').value||0),m=Math.max(1,+$('slMn').value||1),h=Math.max(1,Math.min(10,+$('slHr').value||6));
+    var work=t*m,cap=a*h*60,u=cap?work/cap:0,pct=Math.round(u*100),k=a<=3?'s':a<=10?'m':'l';
+    var msg=u<0.6?'Comfortable. You have room for spikes, so aggressive targets are realistic.':u<0.8?'Busy but workable. Keep targets as below and watch the queue on Mondays.':u<=1?'Tight. Any bad day will create a backlog. Use the relaxed end of each target or add capacity.':'Overloaded. About '+Math.ceil((work-cap)/m)+' tickets a day will be left over, so no target will hold until capacity or the ticket count changes.';
+    $('slUse').textContent=pct+'%';$('slMsg').textContent=msg;$('slWork').textContent=Math.round(work/60*10)/10+' hours of work a day for '+a+' '+(a===1?'agent':'agents')+' with '+h+' productive hours each ('+Math.round(cap/60)+' hours capacity)';
+    $('slBar').style.width=Math.min(100,pct)+'%';$('slBar').style.background=u<0.6?'#10b981':u<0.8?'#f59e0b':'#ef4444';
+    $('slTbl').innerHTML=T[k].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';}).join('');
+    $('slTeam').textContent=a<=3?'a team of 1 to 3':a<=10?'a team of 4 to 10':'a team of more than 10';
+  }
+  $('slForm').addEventListener('input',run);run();
+})();
+</script>
+</body>
+</html>

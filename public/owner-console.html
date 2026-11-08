@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
   <link rel="stylesheet" href="/css/resolvo-v3.css?v=7">
   <link rel="stylesheet" href="/css/rv-owner.css?v=3">
-  <link rel="stylesheet" href="/css/rv-console.css?v=4">
+  <link rel="stylesheet" href="/css/rv-console.css?v=5">
   <script>
     // same look as the app: Resolvo light, or Resolvo dark when the app is set to it
     try { var th = localStorage.getItem('tt_theme'); if (th === 'resolvo-dark') document.documentElement.setAttribute('data-theme', 'resolvo-dark'); } catch (e) {}
@@ -32,6 +32,7 @@
     <button class="rvc-tab" role="tab" data-tab="monitor">📊 Live Monitor</button>
     <button class="rvc-tab" role="tab" data-tab="nurture">📧 Nurture Emails</button>
     <button class="rvc-tab" role="tab" data-tab="health">🩺 Health &amp; Backups <span class="rvc-tabbadge" id="healthBadge" hidden></span></button>
+    <button class="rvc-tab" role="tab" data-tab="growth">📈 Growth</button>
     <button class="rvc-tab" role="tab" data-tab="trash">🗑 Recycle bin <span class="rvc-tabbadge calm" id="trashBadge" hidden></span></button>
   </nav>
 
@@ -109,6 +110,49 @@
         <div class="rvc-card-t">Full email schedule</div>
         <div class="rvc-sched" id="nurtureSchedule"></div>
       </div>
+    </section>
+
+    <!-- GROWTH -->
+    <section id="panel-growth" class="rvc-panel">
+      <div class="rvc-chips" id="gwRange" role="group" aria-label="Period">
+        <button class="rvc-chip" data-d="7">Last 7 days</button><button class="rvc-chip active" data-d="30">Last 30 days</button><button class="rvc-chip" data-d="90">Last 90 days</button>
+        <button class="rvc-chip push" id="gwRefresh">🔄 Refresh</button>
+      </div>
+      <div class="rvc-stats" id="gwStats"></div>
+      <div class="rvc-card"><div class="rvc-card-t">From sign-up to using it <span class="rvc-muted">(new workspaces in this period)</span></div><div id="gwFunnel"><div class="rvc-empty">Loading…</div></div><div id="gwStuck"></div></div>
+      <div class="rvc-card"><div class="rvc-card-t">Visits per day <span class="rvc-muted">(counted without cookies)</span></div><div id="gwChart"></div></div>
+      <div class="rvc-two">
+        <div class="rvc-card"><div class="rvc-card-t">Top pages</div><div id="gwPages"></div></div>
+        <div class="rvc-card"><div class="rvc-card-t">Where visits come from</div><div id="gwSources"></div></div>
+      </div>
+      <div class="rvc-card"><div class="rvc-card-t">Where leads come from</div><div class="rvc-tablewrap rvc-cardtable" id="gwLeadSrc"></div></div>
+      <div class="rvc-card"><div class="rvc-card-t">Latest leads</div><div id="gwLeads"></div></div>
+      <div class="rvc-card">
+        <div class="rvc-card-t">Make a tagged link</div>
+        <p class="rvc-p">Use one of these every time you share Resolvo, so a sign-up shows which post, email or partner brought it.</p>
+        <div class="rvc-row">
+          <div><label for="ubPage">Page</label><select id="ubPage"><option value="/pitch">Home</option><option value="/signup">Sign up</option><option value="/partners">Design partners</option><option value="/demo">Live demo</option><option value="/features">Features</option><option value="/security">Security</option><option value="/shopify-customer-support-india">Shopify support page</option><option value="/tools/whatsapp-templates">WhatsApp templates tool</option><option value="/tools/sla-calculator">SLA calculator</option><option value="/tools/support-calculator">Support calculator</option><option value="/vs/freshdesk">Resolvo vs Freshdesk</option></select></div>
+          <div><label for="ubSrc">Where you post it</label><select id="ubSrc"><option>linkedin</option><option>email</option><option>whatsapp</option><option>producthunt</option><option>partner</option><option>community</option><option>google-ads</option><option>other</option></select></div>
+          <div><label for="ubMed">Type</label><select id="ubMed"><option>social</option><option>cold-email</option><option>message</option><option>listing</option><option>referral</option><option>cpc</option></select></div>
+          <div class="rvc-grow"><label for="ubCamp">Campaign name</label><input id="ubCamp" type="text" placeholder="nov-launch" autocapitalize="none" spellcheck="false"></div>
+        </div>
+        <div class="rvc-row" style="margin-top:12px"><div class="rvc-grow"><label for="ubOut">Your link</label><input id="ubOut" type="text" readonly></div><div><button class="rvc-btn main" id="ubCopy">Copy link</button></div></div>
+      </div>
+      <div class="rvc-card">
+        <div class="rvc-card-t">Your week, by email</div>
+        <p class="rvc-p">Every Monday at 9:00 an email with the five numbers that matter goes to your owner address.</p>
+        <div class="rvc-row-actions"><label class="rvc-chk"><input type="checkbox" id="gwDigest"> Send me the Monday email</label><button class="rvc-btn" id="gwDigestNow">Send this week's email now</button></div>
+        <div class="rvc-note" id="gwDigestMsg" role="status"></div>
+      </div>
+      <details class="rvc-card rvc-details">
+        <summary>One-time Google set-up (10 minutes, in your own Google account)</summary>
+        <ol class="rvc-steps">
+          <li><b>Search Console:</b> open <a href="https://search.google.com/search-console" target="_blank" rel="noopener">search.google.com/search-console</a>, add the property <code>https://app.resolvogroup.com</code>, verify with the HTML tag method (send me the tag and I will place it), then open Sitemaps and submit <code>sitemap.xml</code>.</li>
+          <li><b>Bing:</b> open <a href="https://www.bing.com/webmasters" target="_blank" rel="noopener">bing.com/webmasters</a> and import the site from Search Console in one click.</li>
+          <li><b>Google Analytics:</b> in your GA4 property, open Admin, Events, and mark <code>sign_up</code>, <code>generate_lead</code>, <code>cta_demo</code> and <code>download_android_app</code> as key events.</li>
+          <li><b>Remember:</b> Google Analytics only counts visitors who accepted the cookie choice. The numbers on this page count everyone, without cookies.</li>
+        </ol>
+      </details>
     </section>
 
     <!-- RECYCLE BIN -->
@@ -192,6 +236,6 @@
   </div>
 
   <script src="/js/rv-owner.js?v=3"></script>
-  <script src="/js/rv-console.js?v=4"></script>
+  <script src="/js/rv-console.js?v=5"></script>
 </body>
 </html>

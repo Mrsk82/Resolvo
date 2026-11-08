@@ -43,6 +43,7 @@
     document.querySelectorAll('.rvc-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + name); });
     try { history.replaceState(null, '', '#' + name); } catch (e) {}
     if (name === 'monitor') loadMonitor();
+    if (name === 'growth') loadGrowth();
     if (name === 'trash') loadTrash();
     if (name === 'health') { if (!loaded.health) { loaded.health = 1; if (window.RVOwner) RVOwner.mount(document.body); } loadHealth(); }
   }
@@ -407,6 +408,60 @@
     }
   });
 
+  /* ---------- growth: visits, leads, funnel, tagged links ---------- */
+  var gwDays = 30;
+  function gwBar(label, n, base, note) {
+    var pct = base > 0 ? Math.round(n / base * 100) : 0;
+    return '<div class="rvc-bar"><span class="l">' + esc(label) + '</span><span class="t"><i style="width:' + Math.min(100, pct) + '%"></i></span><span class="n">' + n + (base > 0 ? ' · ' + pct + '%' : '') + '</span></div>' + (note ? '<div class="rvc-note" style="margin:-4px 0 8px">' + esc(note) + '</div>' : '');
+  }
+  function gwList(items, empty) {
+    return items.length ? '<div class="rvc-list">' + items.map(function (x) { return '<div class="rvc-li"><span>' + esc(x.name) + '</span><b>' + x.views + '</b></div>'; }).join('') + '</div>' : '<div class="rvc-empty">' + esc(empty) + '</div>';
+  }
+  function gwChart(days) {
+    var max = Math.max.apply(null, days.map(function (x) { return x.views; }).concat([1])), W = 760, H = 150, bw = W / days.length;
+    var bars = days.map(function (x, i) { var h = Math.round(x.views / max * (H - 24)); return '<rect x="' + (i * bw + 1) + '" y="' + (H - 18 - h) + '" width="' + Math.max(1, bw - 2) + '" height="' + Math.max(h, x.views ? 2 : 0) + '" rx="2" fill="var(--accent)"><title>' + esc(x.date) + ': ' + x.views + ' visits, ' + x.uniques + ' visitors</title></rect>'; }).join('');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Visits per day, most recent on the right" style="display:block;max-height:190px">' + bars +
+      '<text x="0" y="' + (H - 3) + '" font-size="11" fill="currentColor" opacity=".6">' + esc(days[0].date) + '</text><text x="' + W + '" y="' + (H - 3) + '" font-size="11" text-anchor="end" fill="currentColor" opacity=".6">' + esc(days[days.length - 1].date) + '</text>' +
+      '<text x="' + W + '" y="11" font-size="11" text-anchor="end" fill="currentColor" opacity=".6">' + max + ' at most in a day</text></svg>';
+  }
+  function renderGrowth(d) {
+    var t = d.traffic, L = d.leads, f = d.funnel, ty = L.byType || {};
+    var tile = function (l, v, s) { return '<div class="rvc-stat"><div class="l">' + esc(l) + '</div><div class="v">' + v + '</div>' + (s ? '<div class="rvc-muted" style="font-size:11px;margin-top:2px">' + esc(s) + '</div>' : '') + '</div>'; };
+    $('gwStats').innerHTML = tile('Visits', t.views) + tile('Visitors', t.uniques, 'counted once per day') + tile('Sign-ups', ty.signup || 0) + tile('Demo and partner requests', (ty.demo || 0) + (ty.partner || 0)) + tile('Contact messages', (ty.contact || 0) + (ty.calculator || 0));
+    $('gwFunnel').innerHTML = f.signedUp ? gwBar('Signed up', f.signedUp, f.signedUp) + gwBar('Activated their workspace', f.activated, f.signedUp) + gwBar('Connected email or WhatsApp', f.channelConnected, f.signedUp) + gwBar('Sent a first reply', f.firstReply, f.signedUp) +
+      gwBar('Still using it a week later', f.activeAfter7, f.matured, f.matured ? f.matured + ' of them are old enough to judge.' : 'None is a week old yet.') : '<div class="rvc-empty">No new sign-ups in this period yet. Test and demo workspaces are left out.</div>';
+    $('gwStuck').innerHTML = f.stuck.length ? '<div class="rvc-group"><div class="rvc-group-t">Stuck: worth a personal message (' + f.stuck.length + ')</div>' + f.stuck.slice(0, 12).map(function (s) {
+      return '<div class="rvc-result"><div class="b"><div class="t">' + esc(s.name) + '</div><div class="s">' + esc(s.email || '') + ' · ' + esc(s.at) + '</div></div><button class="rvc-btn sm" data-gw-find="' + esc(s.slug) + '">Find</button></div>'; }).join('') + '</div>' : '';
+    $('gwChart').innerHTML = gwChart(t.days);
+    $('gwPages').innerHTML = gwList(t.pages, 'No visits counted yet. They start showing as soon as this version is live.');
+    $('gwSources').innerHTML = gwList(t.sources, 'No visits counted yet.') + '<div class="rvc-note">Phone ' + t.devices.phone + ' · Computer ' + t.devices.desktop + '</div>';
+    var rows = L.bySource;
+    $('gwLeadSrc').innerHTML = rows.length ? '<table><thead><tr><th>Source</th><th>Sign-ups</th><th>Demos</th><th>Partners</th><th>Contacts</th><th>Total</th></tr></thead><tbody>' + rows.map(function (r) {
+      return '<tr><td data-l="Source">' + esc(r.label) + '</td><td data-l="Sign-ups">' + (r.signup || 0) + '</td><td data-l="Demos">' + (r.demo || 0) + '</td><td data-l="Partners">' + (r.partner || 0) + '</td><td data-l="Contacts">' + ((r.contact || 0) + (r.calculator || 0)) + '</td><td data-l="Total"><b>' + r.total + '</b></td></tr>'; }).join('') + '</tbody></table>' : '<div class="rvc-empty">No leads yet in this period. Each sign-up, demo request and message is recorded with where it came from.</div>';
+    var NAMES = { signup: 'Sign-up', demo: 'Demo', partner: 'Design partner', contact: 'Message', calculator: 'Calculator' };
+    $('gwLeads').innerHTML = L.recent.length ? L.recent.map(function (l) { return '<div class="rvc-result"><div class="b"><div class="t">' + esc(l.name || l.email) + (l.company ? ' <span class="rvc-muted">· ' + esc(l.company) + '</span>' : '') + '</div><div class="s">' + pill(NAMES[l.type] || l.type) + esc(l.email) + '<br>From <b>' + esc(l.label || l.source) + '</b>' + (l.campaign ? ' · ' + esc(l.campaign) : '') + (l.landing ? ' · landed on ' + esc(l.landing) : '') + ' · ' + esc(when(l.at)) + '</div></div></div>'; }).join('') : '<div class="rvc-empty">Nothing yet.</div>';
+    $('gwDigest').checked = d.digest !== false;
+    document.querySelectorAll('#gwRange .rvc-chip[data-d]').forEach(function (c) { c.classList.toggle('active', +c.getAttribute('data-d') === d.days); });
+  }
+  function loadGrowth() {
+    api('/api/owner/growth?days=' + gwDays).then(function (d) {
+      if (!d || !d.success) { $('gwFunnel').innerHTML = '<div class="rvc-err">' + esc((d && d.error) || 'Could not load') + '</div>'; return; }
+      renderGrowth(d);
+    }).catch(function () { $('gwFunnel').innerHTML = '<div class="rvc-err">No answer from the server.</div>'; });
+  }
+  $('gwRange').addEventListener('click', function (e) { var c = e.target.closest('.rvc-chip[data-d]'); if (c) { gwDays = +c.getAttribute('data-d'); loadGrowth(); } });
+  $('gwRefresh').onclick = loadGrowth;
+  $('panel-growth').addEventListener('click', function (e) { var b = e.target.closest('[data-gw-find]'); if (b) { showTab('find'); $('findQ').value = b.getAttribute('data-gw-find'); runFind(b.getAttribute('data-gw-find')); window.scrollTo({ top: 0 }); } });
+  function buildLink() {
+    var camp = $('ubCamp').value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
+    var q = 'utm_source=' + encodeURIComponent($('ubSrc').value) + '&utm_medium=' + encodeURIComponent($('ubMed').value) + (camp ? '&utm_campaign=' + encodeURIComponent(camp) : '');
+    $('ubOut').value = 'https://app.resolvogroup.com' + $('ubPage').value + '?' + q;
+  }
+  ['ubPage', 'ubSrc', 'ubMed'].forEach(function (id) { $(id).onchange = buildLink; }); $('ubCamp').oninput = buildLink; buildLink();
+  $('ubCopy').onclick = function () { if (!$('ubCamp').value.trim()) { toast('Add a campaign name first, for example nov-launch.', 'warning'); $('ubCamp').focus(); return; } copy($('ubOut').value); };
+  $('gwDigest').onchange = function () { api('/api/owner/growth/digest', { enabled: this.checked }).then(function (d) { $('gwDigestMsg').textContent = d.success ? (d.enabled ? 'On: you get the email every Monday at 9:00.' : 'Off: no Monday email.') : (d.error || 'Could not save'); }); };
+  $('gwDigestNow').onclick = function () { var b = this; b.disabled = true; api('/api/owner/growth/digest/send', {}).then(function (d) { b.disabled = false; $('gwDigestMsg').textContent = d.success ? d.message : (d.error || 'Could not send'); }).catch(function () { b.disabled = false; }); };
+
   /* ---------- start ---------- */
   document.querySelector('.rvc-tabs').addEventListener('click', function (e) { var t = e.target.closest('.rvc-tab'); if (t) showTab(t.getAttribute('data-tab')); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (!$('editOverlay').hidden) closeEdit(); else if (!$('confirmOverlay').hidden) $('confirmCancel').click(); } });
@@ -420,7 +475,7 @@
         if (n) { $('healthBadge').textContent = n; $('healthBadge').hidden = false; }
       });
       var h = (location.hash || '').replace('#', ''), qs = new URLSearchParams(location.search).get('q');
-      if (['browse', 'monitor', 'nurture', 'health', 'trash'].indexOf(h) >= 0) showTab(h);
+      if (['browse', 'monitor', 'nurture', 'health', 'growth', 'trash'].indexOf(h) >= 0) showTab(h);
       if (qs) { $('findQ').value = qs; runFind(qs); }
     }).catch(function () { $('connStatus').textContent = 'No answer from the server'; });
   }

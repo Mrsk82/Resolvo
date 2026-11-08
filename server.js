@@ -6564,7 +6564,7 @@ app.post('/api/signup',async(req,res)=>{
   writeBrandDB(finalSlug,bdb);
   const brand={id:generateId('BRD'),slug:finalSlug,name:company,logoUrl:'',accentColor:'#10B981',theme:'midnight',status:'pending',verifyToken,verifyExpires:Date.now()+48*3600*1000,tier:'Trial',category:category||'',majorAdminEmail:email,createdDate:nowIST(),lastActive:null,limits:{maxUsers:10,maxIssues:100},plan:{tier:'free',appointmentLimit:250}};
   owner.brands=owner.brands||[];owner.brands.push(brand);
-  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null,ip:clientIp,userAgent:clientUa},owner.email);
+  ownerAuditLog(owner,'brand_created',{brandSlug:finalSlug,brandName:company,source:'self-signup',ref:ref||null,ip:clientIp,userAgent:clientUa},owner.email);brand.attribution=Analytics.cleanAttr(req.body.attribution);_logLead(owner,'signup',{email,name,company},req.body.attribution);
   // Track referral if ref code provided
   if(ref&&owner.referrals&&owner.referrals[ref]){
     owner.referrals[ref].uses=(owner.referrals[ref].uses||0)+1;
@@ -6594,7 +6594,8 @@ app.post('/api/demo-request',async(req,res)=>{
   owner.prospects=owner.prospects||[];
   const ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim();
   const existing=owner.prospects.find(p=>(p.email||'').toLowerCase()===email.toLowerCase());
-  if(existing){existing.updatedAt=nowIST();}else{owner.prospects.push({id:uuidv4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',ip,createdAt:nowIST(),updatedAt:nowIST(),lastContact:null});}
+  if(existing){existing.updatedAt=nowIST();}else{owner.prospects.push({id:uuidv4().substring(0,8),name,email,company:company||'',status:'lead',notes:message||'',source:'website',attribution:Analytics.cleanAttr(_b.attribution),ip,createdAt:nowIST(),updatedAt:nowIST(),lastContact:null});}
+  _logLead(owner,/^DESIGN PARTNER/i.test(message)?'partner':'demo',{email,name,company},_b.attribution);
   writeOwner(owner);
   await sendEmail(owner.email,`Demo Request: ${_escHtml(name)} from ${_escHtml(company||'unknown')}`,`<p><strong>Name:</strong> ${_escHtml(name)}<br><strong>Email:</strong> ${_escHtml(email)}<br><strong>Company:</strong> ${_escHtml(company||'—')}<br><strong>Message:</strong> ${_escHtml(message||'—')}</p><p><a href="mailto:${_escHtml(email)}">Reply to ${_escHtml(name)}</a></p>`,`Demo request from ${_escHtml(name)} (${_escHtml(email)}) — ${_escHtml(company||'')}`).catch(()=>{});
   // Auto-reply to prospect
@@ -6661,12 +6662,16 @@ app.get('/contact',(req,res)=>res.sendFile(path.join(__dirname,'public','contact
 
 app.post('/api/contact',async(req,res)=>{
   try{
-    const {name,email,phone,company,topic,message}=req.body||{};
+    const _cb=req.body||{};
+    if(_rateLimited(_contactHits,_clientIp(req),6,3600000))return res.status(429).json({error:'Too many messages. Please email contact@resolvogroup.com.'});
+    const _cl=(v,n)=>String(v==null?'':v).trim().slice(0,n);
+    const name=_cl(_cb.name,120),email=_cl(_cb.email,200),phone=_cl(_cb.phone,40),company=_cl(_cb.company,160),topic=_cl(_cb.topic,120),message=_cl(_cb.message,4000);
     if(!name||!email||!message)return res.status(400).json({error:'Missing required fields'});
+    if(!/^[^@\s<>"']+@[^@\s<>"']+\.[^@\s<>"']+$/.test(email))return res.status(400).json({error:'Please enter a valid email address.'});
+    const hn=_escHtml(name),he=_escHtml(email),hp=_escHtml(phone),hc=_escHtml(company),ht=_escHtml(topic),hm=_escHtml(message);
     const nm=require('nodemailer');
     const user=process.env.EMAIL_USER||'',pass=(process.env.EMAIL_PASS||'').replace(/\s/g,'');
-    if(!user||!pass)return res.status(500).json({error:'Email not configured'});
-    const t=nm.createTransport({service:'gmail',auth:{user,pass}});
+    if(!process.env.MAIL_CAPTURE&&(!user||!pass))return res.status(500).json({error:'Email not configured'});
     const html=`<!DOCTYPE html><html><body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;padding:24px 16px;">
 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
 <div style="background:#10B981;padding:20px 28px;">
@@ -6675,29 +6680,33 @@ app.post('/api/contact',async(req,res)=>{
 </div>
 <div style="padding:24px 28px;">
   <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;">
-    <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;width:120px;">Name</td><td style="padding:8px 12px;font-size:14px;font-weight:600;">${name}</td></tr>
-    <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Email</td><td style="padding:8px 12px;font-size:14px;"><a href="mailto:${email}">${email}</a></td></tr>
-    ${phone?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Phone</td><td style="padding:8px 12px;font-size:14px;">${phone}</td></tr>`:''}
-    ${company?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Company</td><td style="padding:8px 12px;font-size:14px;">${company}</td></tr>`:''}
-    ${topic?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Topic</td><td style="padding:8px 12px;font-size:14px;">${topic}</td></tr>`:''}
+    <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;width:120px;">Name</td><td style="padding:8px 12px;font-size:14px;font-weight:600;">${hn}</td></tr>
+    <tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Email</td><td style="padding:8px 12px;font-size:14px;"><a href="mailto:${he}">${he}</a></td></tr>
+    ${phone?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Phone</td><td style="padding:8px 12px;font-size:14px;">${hp}</td></tr>`:''}
+    ${company?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Company</td><td style="padding:8px 12px;font-size:14px;">${hc}</td></tr>`:''}
+    ${topic?`<tr><td style="padding:8px 12px;font-size:12px;color:#6b7280;font-weight:600;">Topic</td><td style="padding:8px 12px;font-size:14px;">${ht}</td></tr>`:''}
   </table>
   <div style="margin-top:20px;background:#1e293b;border-radius:8px;padding:16px 20px;">
     <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Message</div>
-    <pre style="margin:0;font-size:13px;color:#e2e8f0;white-space:pre-wrap;line-height:1.6;">${message}</pre>
+    <pre style="margin:0;font-size:13px;color:#e2e8f0;white-space:pre-wrap;line-height:1.6;">${hm}</pre>
   </div>
 </div>
 <div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;">
-  Reply directly to this email to respond to ${name}
+  Reply directly to this email to respond to ${hn}
 </div>
 </div></body></html>`;
-    await t.sendMail({
+    const contactMail={
       from:`"Resolvo Website" <${user}>`,
       to:'contact@resolvogroup.com',
       replyTo:email,
       subject:`[Contact Form] ${topic||'Enquiry'} — ${name}${company?' ('+company+')':''}`,
       text:`Name: ${name}\nEmail: ${email}\nPhone: ${phone||'-'}\nCompany: ${company||'-'}\nTopic: ${topic||'-'}\n\nMessage:\n${message}`,
       html
-    });
+    };
+    // Tests (MAIL_CAPTURE) write the email to a file instead of sending it.
+    if(process.env.MAIL_CAPTURE)_captureMail({via:'contact',to:contactMail.to,replyTo:email,subject:contactMail.subject,text:contactMail.text,html});
+    else await nm.createTransport({service:'gmail',auth:{user,pass}}).sendMail(contactMail);
+    try{const _o=readOwner();_logLead(_o,/calculator/i.test(topic)?'calculator':'contact',{email,name,company},_cb.attribution);writeOwner(_o);}catch(e){}
     res.json({ok:true});
   }catch(e){
     console.error('[Contact] Form email error:',e.message);
@@ -9924,6 +9933,8 @@ function runBackgroundJobs(){
   });
   // Daily backup at 03:30 (server time is IST). Also one shortly after a start if the newest backup is older than a day.
   cron.schedule('30 3 * * *',()=>{runBackup('scheduled');});
+  // Monday 09:00: your week in five numbers, emailed to the owner (can be switched off in the Owner Console, Growth tab).
+  cron.schedule('0 9 * * 1',()=>{sendGrowthDigest(false).catch(()=>{});});
   // Recycle bin: remove what has been in it for 30 days.
   cron.schedule('15 4 * * *',()=>{try{const g=trash.purgeExpired();if(g.length)console.log('[Trash] removed '+g.length+' expired item(s) for good');}catch(e){console.error('[Trash] purge failed:',e.message);}});
   setTimeout(()=>{const l=Backup.listBackups(BACKUP_DIR)[0];if(!l||Date.now()-l.createdAt.getTime()>26*3600000)runBackup('catch-up');},90000);
@@ -10480,6 +10491,76 @@ app.get('/api/widget-summary',(req,res)=>{
     res.json({success:true,name:String(su.name||'').split(' ')[0],brand:su.brandName,open,mine,unassigned,overdue,soon,at:nowIST()});
   }catch(e){res.json({success:false,error:'Could not read the numbers.'});}
 });
+
+// ── GROWTH: where visitors and leads come from, cookie-free visit counts, funnel, weekly digest ──────────────────────────────
+const Analytics=require('./lib/analytics');
+const webStats=Analytics.createStore(path.join(__dirname,'data','analytics.json'));
+setInterval(()=>webStats.flush(),30000).unref();
+for(const sig of['SIGINT','SIGTERM'])process.on(sig,()=>{try{webStats.flush();}catch(e){}process.exit(0);});
+const _hitHits=new Map(),_contactHits=new Map();
+// A page view. No cookie, no identifier: only the page, the source and phone-or-desktop are counted (see lib/analytics.js).
+app.post('/api/hit',(req,res)=>{
+  res.status(204).end();
+  try{
+    const b=req.body||{};
+    if(_rateLimited(_hitHits,_clientIp(req),240,3600000))return;
+    webStats.hit({path:b.p,attr:b.a,device:b.d,ip:_clientIp(req),ua:String(req.headers['user-agent']||'')});
+  }catch(e){}
+});
+// One line per sign-up, demo request, partner application or contact message, with where the person came from.
+function _logLead(owner,type,info,attrRaw){
+  const attr=Analytics.cleanAttr(attrRaw),c=Analytics.classify(attr);
+  owner.leadLog=owner.leadLog||[];
+  owner.leadLog.unshift({id:uuidv4().substring(0,8),type,at:nowIST(),email:String(info.email||'').slice(0,200).toLowerCase(),name:String(info.name||'').slice(0,120),company:String(info.company||'').slice(0,160),source:c.source,medium:c.medium,campaign:c.campaign,label:Analytics.label(c),landing:(attr&&attr.l)||'',referrer:(attr&&attr.r)||''});
+  if(owner.leadLog.length>1500)owner.leadLog.length=1500;
+}
+// How far each new workspace gets: signed up, activated, a channel connected, first reply sent, still using it a week later.
+const _TEST_EMAIL=/\.local$|@example\.|@test\./i;
+function _growthFunnel(days){
+  const owner=readOwner(),cut=Date.now()-days*86400000,now=Date.now();
+  const f={signedUp:0,activated:0,channelConnected:0,firstReply:0,matured:0,activeAfter7:0,stuck:[]};
+  for(const b of owner.brands||[]){
+    const created=Date.parse(b.createdDate||'');if(isNaN(created)||created<cut)continue;
+    if(_TEST_EMAIL.test(String(b.majorAdminEmail||'')))continue;
+    f.signedUp++;
+    if(b.status!=='active'){f.stuck.push({name:b.name,slug:b.slug,email:b.majorAdminEmail,at:'never activated'});continue;}
+    f.activated++;
+    let db={};try{db=readBrandDB(b.slug);}catch(e){}
+    const et=db.emailTicketing||{},wa=db.whatsappConfig||{},wc=db.whatsappCloudConfig||{};
+    const chan=!!(et.enabled||(et.gmailOAuth&&et.gmailOAuth.refreshToken)||wa.accountSid||wc.phoneNumberId);
+    const replied=(db.tickets||[]).some(t=>(t.thread||[]).some(m=>m.type==='reply'&&!m.botHandled&&m.from!=='bot'));
+    if(chan)f.channelConnected++;if(replied)f.firstReply++;
+    if(now-created>=7*86400000){f.matured++;const la=Date.parse(b.lastActive||'');if(!isNaN(la)&&la>=created+7*86400000)f.activeAfter7++;}
+    if(!chan||!replied)f.stuck.push({name:b.name,slug:b.slug,email:b.majorAdminEmail,at:!chan?'no email or WhatsApp connected':'no reply sent yet'});
+  }
+  return f;
+}
+function _growthReport(days){
+  days=Math.max(1,Math.min(parseInt(days,10)||30,365));
+  const owner=readOwner(),cut=Date.now()-days*86400000,inRange=(l)=>{const t=Date.parse(l.at||'');return !isNaN(t)&&t>=cut;};
+  const leads=(owner.leadLog||[]).filter(inRange),byType={},bySource={};
+  for(const l of leads){byType[l.type]=(byType[l.type]||0)+1;const k=l.label||l.source;bySource[k]=bySource[k]||{label:k,total:0,signup:0,demo:0,partner:0,contact:0,calculator:0};bySource[k].total++;bySource[k][l.type]=(bySource[k][l.type]||0)+1;}
+  const traffic=webStats.report(days);
+  return{days,traffic,leads:{total:leads.length,byType,bySource:Object.values(bySource).sort((a,b)=>b.total-a.total),recent:leads.slice(0,30)},funnel:_growthFunnel(days),
+    digest:owner.growthDigest!==false};
+}
+app.get('/api/owner/growth',ownerOnly,(req,res)=>{try{res.json({success:true,..._growthReport(req.query.days)});}catch(e){res.json({success:false,error:e.message});}});
+function _digestMail(){
+  const r=_growthReport(7),f=r.funnel,top=r.leads.bySource[0],pg=r.traffic.pages[0],src=r.traffic.sources[0];
+  const lines=[['Visits (7 days)',r.traffic.views],['Visitors, counted per day',r.traffic.uniques],['Sign-ups',r.leads.byType.signup||0],['Demo and partner requests',(r.leads.byType.demo||0)+(r.leads.byType.partner||0)],['Contact messages',(r.leads.byType.contact||0)+(r.leads.byType.calculator||0)],['Activated workspaces',f.activated+' of '+f.signedUp+' new'],['Sent a first reply',f.firstReply+' of '+f.activated]];
+  const text=lines.map(l=>l[0]+': '+l[1]).join('\n')+'\n\nBest source for leads: '+(top?top.label+' ('+top.total+')':'none yet')+'\nTop page: '+(pg?pg.name+' ('+pg.views+')':'none yet')+'\nTop traffic source: '+(src?src.name+' ('+src.views+')':'none yet')+(f.stuck.length?'\n\nNew workspaces that are stuck:\n'+f.stuck.slice(0,8).map(s=>'- '+s.name+' ('+s.email+'): '+s.at).join('\n'):'')+'\n\nOpen the Growth tab: '+BASE_URL+'/owner-console#growth';
+  const html='<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px"><h2 style="margin:0 0 12px;color:#047857">Your Resolvo week</h2><table style="width:100%;border-collapse:collapse">'+lines.map(l=>'<tr><td style="padding:7px 0;border-bottom:1px solid #e5e7eb;color:#374151">'+_escHtml(l[0])+'</td><td style="padding:7px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700">'+_escHtml(String(l[1]))+'</td></tr>').join('')+'</table><p style="color:#374151;margin-top:16px">'+text.split('\n\n').slice(1).map(p=>_escHtml(p).replace(/\n/g,'<br>')).join('</p><p style="color:#374151">')+'</p></div>';
+  return{subject:'Resolvo this week: '+r.traffic.views+' visits, '+(r.leads.byType.signup||0)+' sign-ups, '+f.activated+' activated',text,html};
+}
+async function sendGrowthDigest(force){
+  const o=readOwner();if(!force&&o.growthDigest===false)return false;
+  const m=_digestMail();return sendEmail(o.email,m.subject,m.html,m.text);
+}
+app.post('/api/owner/growth/digest',ownerOnly,(req,res)=>{const o=readOwner();o.growthDigest=!(req.body&&req.body.enabled===false);ownerAuditLog(o,'growth_digest',{enabled:o.growthDigest},req.owner.email);writeOwner(o);res.json({success:true,enabled:o.growthDigest});});
+app.post('/api/owner/growth/digest/send',ownerOnly,async(req,res)=>{const ok=await sendGrowthDigest(true);res.json({success:!!ok,error:ok?undefined:'The email could not be sent. Check that the server email is set up.',message:ok?'Sent to '+readOwner().email:undefined});});
+
+// New public pages
+for(const[p,f]of[['tools/whatsapp-templates','tool-whatsapp-templates.html'],['tools/sla-calculator','tool-sla-calculator.html'],['shopify-customer-support-india','seo-shopify-support.html']])app.get('/'+p,(req,res)=>res.sendFile(path.join(__dirname,'public',f)));
 
 // The console page itself lives in public/owner-console.html (styles in css/rv-console.css, script in js/rv-console.js).
 app.get('/owner-console',(req,res)=>{res.set('Cache-Control','no-cache');res.sendFile(path.join(__dirname,'public','owner-console.html'));});

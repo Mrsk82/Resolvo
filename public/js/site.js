@@ -71,7 +71,62 @@
     }).catch(function () {});
   }
 
+  /* ---- where did this visit come from? ----
+     The tagged link (?utm_source=...) or the site that sent the visitor is kept for this browser tab only (sessionStorage), and it is used for two
+     things: counting the visit without cookies, and labelling a form the visitor chooses to send (sign-up, demo, contact). */
+  var ATTR = 'rv_attr', attr = null;
+  function readAttr() {
+    var q = new URLSearchParams(location.search), cur = null, host = '';
+    try { cur = JSON.parse(sessionStorage.getItem(ATTR) || 'null'); } catch (e) {}
+    try { host = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : ''; } catch (e) {}
+    var tagged = q.get('utm_source') ? { s: q.get('utm_source'), m: q.get('utm_medium') || '', c: q.get('utm_campaign') || '', t: q.get('utm_term') || '', n: q.get('utm_content') || '' } : null;
+    if (tagged || !cur) cur = Object.assign({ r: tagged ? '' : host, l: location.pathname }, tagged || {});   // the first page of a visit, or a newly tagged link, sets it
+    try { sessionStorage.setItem(ATTR, JSON.stringify(cur)); } catch (e) {}
+    return cur;
+  }
+  window.rvAttr = function () { return attr || readAttr(); };
+  function sendHit() {
+    if (noBanner || navigator.doNotTrack === '1') return;   // the app is not counted; "Do Not Track" is respected
+    var body = JSON.stringify({ p: location.pathname, a: attr, d: window.matchMedia && matchMedia('(max-width: 768px)').matches ? 'phone' : 'desktop' });
+    try { if (!(navigator.sendBeacon && navigator.sendBeacon('/api/hit', new Blob([body], { type: 'application/json' })))) fetch('/api/hit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }); } catch (e) {}
+  }
+  // Forms that matter carry the source with them, so a sign-up or demo request shows where it came from.
+  var LEAD_URL = /\/api\/(signup|demo-request|contact)(\?|$)/, origFetch = window.fetch;
+  if (origFetch) window.fetch = function (input, init) {
+    try {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (init && init.method && String(init.method).toUpperCase() === 'POST' && LEAD_URL.test(url) && typeof init.body === 'string') {
+        var o = JSON.parse(init.body); if (o && typeof o === 'object' && !o.attribution) { o.attribution = window.rvAttr(); init = Object.assign({}, init, { body: JSON.stringify(o) }); }
+      }
+    } catch (e) {}
+    var p = origFetch.call(this, input, init);
+    try {
+      var m = LEAD_URL.exec(typeof input === 'string' ? input : (input && input.url) || '');
+      if (m) p.then(function (r) { r.clone().json().then(function (j) { if (j && (j.success || j.ok)) window.gtag('event', m[1] === 'signup' ? 'sign_up' : 'generate_lead', { form: m[1] }); }).catch(function () {}); }).catch(function () {});
+    } catch (e) {}
+    return p;
+  };
+  // Standard events (only sent to Google Analytics if the visitor agreed): buttons that lead to sign-up, demo, partners, email; pricing seen; a form started.
+  function wireEvents() {
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
+      var h = a.getAttribute('href') || '', where = (a.closest('nav') ? 'nav' : a.closest('footer') ? 'footer' : a.closest('.hero') || a.closest('header') ? 'hero' : 'page');
+      if (/^\/(signup|pro)(\?|#|$)/.test(h)) window.gtag('event', 'cta_signup', { location: where });
+      else if (/^\/demo(\?|#|$)/.test(h)) window.gtag('event', 'cta_demo', { location: where });
+      else if (/^\/partners/.test(h)) window.gtag('event', 'cta_partners', { location: where });
+      else if (/^mailto:/.test(h)) window.gtag('event', 'click_email', { location: where });
+      else if (/\/download\/android/.test(h)) window.gtag('event', 'download_android_app', { location: where });
+    });
+    document.addEventListener('focusin', function (e) {
+      var f = e.target.form; if (!f || f.getAttribute('data-rv-started')) return;
+      f.setAttribute('data-rv-started', '1'); window.gtag('event', 'form_start', { form: f.id || f.getAttribute('name') || 'form' });
+    });
+    var pr = document.getElementById('pricing');
+    if (pr && 'IntersectionObserver' in window) { var io = new IntersectionObserver(function (en) { if (en[0].isIntersecting) { window.gtag('event', 'view_pricing'); io.disconnect(); } }, { threshold: 0.3 }); io.observe(pr); }
+  }
+
   function start() {
+    attr = readAttr(); sendHit(); wireEvents();
     footerLink();
     if (store.get() === null && !noBanner) showBar();
     if (wantWA) whatsapp();

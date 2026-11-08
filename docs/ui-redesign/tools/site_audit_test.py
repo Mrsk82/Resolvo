@@ -50,7 +50,7 @@ async def main():
     # ---------- sitemap ----------
     c, _, b = get("/sitemap.xml"); urls = re.findall(r"<loc>(.*?)</loc>", b.decode())
     check("sitemap: no address is listed twice", len(urls) == len(set(urls)), [u for u in set(urls) if urls.count(u) > 1])
-    check("sitemap: the thin /pro page is left out and the five new pages are in", not any(u.endswith("/pro") for u in urls) and all(any(u.endswith("/" + p) for u in urls) for p in ("features", "integrations", "security", "customers", "changelog")))
+    check("sitemap: the thin /pro page is left out and the new pages are in", not any(u.endswith("/pro") for u in urls) and all(any(u.endswith("/" + p) for u in urls) for p in ("features", "integrations", "security", "customers", "changelog", "shopify-customer-support-india", "tools/whatsapp-templates", "tools/sla-calculator")))
     bad = [u for u in urls if get(u.replace(LIVE, ""))[0] != 200]
     check(f"sitemap: all {len(urls)} addresses load", not bad, bad)
     pages = {u: page_html(u) for u in urls}
@@ -107,7 +107,7 @@ async def main():
     check("home: navigation and footer link to Features, Integrations, Security, Customers and What's new", all(('href="/%s"' % p) in home for p in ("features", "integrations", "security", "customers", "changelog")))
     check("home: the Android banner no longer says beta", "(beta)" not in home)
     # ---------- new pages and routes ----------
-    for p in ("features", "integrations", "security", "customers", "changelog"):
+    for p in ("features", "integrations", "security", "customers", "changelog", "shopify-customer-support-india", "tools/whatsapp-templates", "tools/sla-calculator"):
         c, h, b = get("/" + p); s = b.decode("utf-8", "replace")
         check(f"/{p}: loads with a heading and its own canonical", c == 200 and "<h1>" in s and f'rel="canonical" href="{LIVE}/{p}"' in s)
     sec = page_html(LIVE + "/security")
@@ -123,7 +123,7 @@ async def main():
     check("privacy: updated for 2026, the cookie choice, AI, WhatsApp, Shopify and backups", all(k in priv for k in ("November 8, 2026", "Cookie settings", "Google Gemini", "Twilio and Meta", "Shopify", "nightly backups")) and "© 2025" not in priv and "&copy; 2025" not in priv)
     # internal links on the new pages, the home page, privacy and partners
     links = set()
-    for u in (LIVE + x for x in ("/pitch", "/features", "/integrations", "/security", "/customers", "/changelog", "/privacy", "/partners")):
+    for u in (LIVE + x for x in ("/pitch", "/features", "/integrations", "/security", "/customers", "/changelog", "/privacy", "/partners", "/shopify-customer-support-india", "/tools/whatsapp-templates", "/tools/sla-calculator")):
         for hr in re.findall(r'href="(/[^"#?]*)', pages.get(u) or page_html(u)): links.add(hr)
     dead = [l for l in sorted(links) if l not in ("/download/android",) and get(l, follow=False)[0] not in (200, 301, 302)]
     check(f"links: none of the {len(links)} internal links on those pages is dead", not dead, dead)
@@ -196,7 +196,7 @@ async def main():
         c6 = await br.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True); pg = await c6.new_page(); errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)[:120]))
         await c6.route("**/*", lambda route: route.abort() if re.search(r"googletagmanager|fonts\.g", route.request.url) else route.continue_())
-        for p_ in ("pitch", "features", "integrations", "security", "customers", "changelog", "privacy"):
+        for p_ in ("pitch", "features", "integrations", "security", "customers", "changelog", "privacy", "shopify-customer-support-india", "tools/whatsapp-templates", "tools/sla-calculator"):
             await pg.goto(BASE + "/" + p_); await pg.wait_for_timeout(900)
             await pg.evaluate("window.scrollTo(0, document.body.scrollHeight)"); await pg.wait_for_timeout(300)
             ok = await pg.evaluate("document.documentElement.scrollWidth<=document.documentElement.clientWidth+1")

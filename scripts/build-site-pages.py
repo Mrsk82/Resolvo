@@ -9,9 +9,9 @@ E = html.escape
 
 NAV = [("/features", "Features"), ("/integrations", "Integrations"), ("/security", "Security"), ("/pitch#pricing", "Pricing"), ("/customers", "Customers"), ("/blog", "Blog")]
 FOOT = [("/pitch", "Home"), ("/features", "Features"), ("/integrations", "Integrations"), ("/security", "Security"), ("/customers", "Customers"), ("/changelog", "What's new"), ("/partners", "Design partners"),
-        ("/app", "Android app"), ("/demo", "Book a demo"), ("/blog", "Blog"), ("/privacy", "Privacy"), ("/terms", "Terms"), ("/refund", "Refunds"), ("/status", "Status")]
+        ("/shopify-customer-support-india", "For Shopify stores"), ("/tools/whatsapp-templates", "WhatsApp templates"), ("/tools/sla-calculator", "SLA calculator"), ("/app", "Android app"), ("/demo", "Book a demo"), ("/blog", "Blog"), ("/privacy", "Privacy"), ("/terms", "Terms"), ("/refund", "Refunds"), ("/status", "Status")]
 
-def page(slug, title, desc, tag, h1, sub, body, extra_ld=None, toc=None, cta=True):
+def page(slug, title, desc, tag, h1, sub, body, extra_ld=None, toc=None, cta=True, script="", head="", file=None):
     url = f"{SITE}/{slug}"
     crumbs = {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": SITE + "/pitch"}, {"@type": "ListItem", "position": 2, "name": h1.split(":")[0] if len(h1) < 40 else tag, "item": url}]}
     ld = [{"@context": "https://schema.org", "@type": "WebPage", "name": title, "description": desc, "url": url, "isPartOf": {"@type": "WebSite", "name": "Resolvo", "url": SITE}}, dict(crumbs, **{"@context": "https://schema.org"})]
@@ -35,6 +35,7 @@ def page(slug, title, desc, tag, h1, sub, body, extra_ld=None, toc=None, cta=Tru
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{E(title)}"><meta name="twitter:description" content="{E(desc)}"><meta name="twitter:image" content="{SITE}/img/og-resolvo.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/site-pages.css?v=1">
+{head}
 <script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>
 </head>
 <body>
@@ -54,6 +55,7 @@ def page(slug, title, desc, tag, h1, sub, body, extra_ld=None, toc=None, cta=Tru
 </main>
 <footer>&copy; 2026 Resolvo<br>{foot}<br><a href="mailto:contact@resolvogroup.com">contact@resolvogroup.com</a></footer>
 <script src="/js/site.js" defer data-wa="1"></script>
+{("<script>" + script + "</script>") if script else ""}
 </body>
 </html>
 '''
@@ -213,6 +215,106 @@ body = f'<section class="block"><div class="log">{ent}</div><p class="note">Want
 P_CHANGELOG = page("changelog", "What's new in Resolvo: product updates | Resolvo", "Every Resolvo update with its date, in plain words: phone app, offline replies, dictation, backups, Shopify orders, the new inbox and more.",
     "What's new", "What we shipped, week by week.", "Resolvo improves every week. Here is every change that is live, newest first.", body, cta=False)
 
-for slug, content in [("features", P_FEATURES), ("integrations", P_INTEGRATIONS), ("security", P_SECURITY), ("customers", P_CUSTOMERS), ("changelog", P_CHANGELOG)]:
-    with open(os.path.join(OUT, slug + ".html"), "w", encoding="utf-8", newline="\n") as f: f.write(content)
+# ---------------------------------------------------------------- free tools and the Shopify page
+WA_JS = r"""
+(function(){
+  var NL=String.fromCharCode(10);
+  var S=[
+   ['Order confirmed','Utility','Hi {{name}}, thank you for your order {{order}} from {{brand}}. We are getting it ready and will message you when it ships.'],
+   ['Order shipped','Utility','Hi {{name}}, your order {{order}} from {{brand}} has shipped. Track it here: {{link}}'],
+   ['Out for delivery','Utility','Hi {{name}}, your order {{order}} is out for delivery today. Please keep your phone nearby.'],
+   ['Delivered','Utility','Hi {{name}}, your order {{order}} was delivered. If anything is not right, just reply to this message and we will help.'],
+   ['Delivery delayed','Utility','Hi {{name}}, your order {{order}} is running late and should reach you by {{eta}}. Sorry for the wait. Reply here if you need anything.'],
+   ['Cash on delivery check','Utility','Hi {{name}}, please confirm your cash on delivery order {{order}} from {{brand}} by replying YES. We will ship it once you confirm.'],
+   ['Refund processed','Utility','Hi {{name}}, your refund of {{amount}} for order {{order}} has been processed. It can take 5 to 7 working days to show in your account.'],
+   ['Payment pending','Utility','Hi {{name}}, we have not received the payment for order {{order}} yet. You can complete it here: {{link}}'],
+   ['Support follow-up','Utility','Hi {{name}}, this is {{brand}} following up on your request. Did the solution work for you? Reply here if you still need help.']
+  ];
+  var $=function(id){return document.getElementById(id);};
+  $('wtScn').innerHTML=S.map(function(s,i){return '<option value="'+i+'">'+s[0]+'</option>';}).join('');
+  var KEYS=['name','order','brand','link','eta','amount'];
+  function fill(t){var v={name:$('wtName').value||'Asha',order:$('wtOrder').value||'#1042',brand:$('wtBrand').value||'Your brand',link:$('wtLink').value||'https://example.com/track/123',eta:$('wtEta').value||'Friday',amount:$('wtAmt').value||'Rs 499'};return t.replace(/\{\{(\w+)\}\}/g,function(m,k){return v[k]!=null?v[k]:m;});}
+  function render(){
+    var s=S[+$('wtScn').value],t=s[2],used=[];
+    t.replace(/\{\{(\w+)\}\}/g,function(m,k){if(used.indexOf(k)<0)used.push(k);return m;});
+    $('wtPrev').textContent=fill(t);
+    var num=t,ex=[];used.forEach(function(k,i){num=num.split('{{'+k+'}}').join('{{'+(i+1)+'}}');ex.push('{{'+(i+1)+'}} = '+fill('{{'+k+'}}'));});
+    $('wtTpl').textContent=num;$('wtEx').textContent=ex.join(NL);$('wtCat').textContent=s[1];
+  }
+  document.getElementById('wtForm').addEventListener('input',render);document.getElementById('wtForm').addEventListener('change',render);
+  function cp(id,btn){var t=$(id).textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){btn.textContent='Copied';setTimeout(function(){btn.textContent=btn.getAttribute('data-l');},1500);}).catch(function(){var r=document.createRange();r.selectNodeContents($(id));var sel=getSelection();sel.removeAllRanges();sel.addRange(r);});}
+  [['wtCopyPrev','wtPrev'],['wtCopyTpl','wtTpl']].forEach(function(p){var b=$(p[0]);b.setAttribute('data-l',b.textContent);b.addEventListener('click',function(){cp(p[1],b);if(window.gtag)gtag('event','tool_copy',{tool:'whatsapp_templates'});});});
+  render();
+})();
+"""
+wa_form = '''<section class="block"><h2>Pick a message and fill in your details</h2><p class="lead">Nothing you type leaves your browser.</p>
+<form id="wtForm" class="tool" onsubmit="return false"><div class="tgrid">
+<label>Message<select id="wtScn"></select></label><label>Your brand<input id="wtBrand" placeholder="Your brand" autocomplete="off"></label>
+<label>Customer name<input id="wtName" placeholder="Asha" autocomplete="off"></label><label>Order number<input id="wtOrder" placeholder="#1042" autocomplete="off"></label>
+<label>Tracking or payment link<input id="wtLink" placeholder="https://..." autocomplete="off"></label><label>Expected by (for delays)<input id="wtEta" placeholder="Friday" autocomplete="off"></label>
+<label>Refund amount<input id="wtAmt" placeholder="Rs 499" autocomplete="off"></label></div></form></section>
+<section class="block"><div class="grid">
+<div class="card"><h3>What your customer sees</h3><pre id="wtPrev" style="white-space:pre-wrap"></pre><div class="row" style="margin-top:12px"><button type="button" class="btn small" id="wtCopyPrev">Copy message</button></div></div>
+<div class="card"><h3>Text for WhatsApp Manager <span class="badge free" id="wtCat"></span></h3><pre id="wtTpl" style="white-space:pre-wrap"></pre><p style="margin-top:10px"><b>Example values to give Meta</b></p><pre id="wtEx" style="white-space:pre-wrap"></pre><div class="row" style="margin-top:12px"><button type="button" class="btn small" id="wtCopyTpl">Copy template</button></div></div></div></section>
+<section class="block"><h2>Before you submit a template</h2><ul class="tick">
+<li>A message you start yourself, outside the 24 hours after a customer last wrote, must use a <b>template that WhatsApp has approved</b>. Inside those 24 hours you can write freely.</li>
+<li>Order updates belong in the <b>Utility</b> category. If a Utility template reads like a promotion, WhatsApp can move it to Marketing, which is priced differently.</li>
+<li>Keep variables in order ({{1}}, {{2}}...), give an example for each, and keep the text short and plain.</li>
+<li>You submit templates in Meta's WhatsApp Manager, or in your Twilio console if you use Twilio. Approval can take minutes or a day. WhatsApp's rules change, so read their current guidance before you submit.</li>
+<li>Resolvo answers customer messages in the shared inbox and tells you when the 24-hour window has closed. <a href="/whatsapp-helpdesk-india">How WhatsApp works in Resolvo</a>.</li></ul></section>'''
+
+SLA_JS = r"""
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var T={s:[['Critical','4 hours'],['High','12 hours'],['Medium','48 hours'],['Low','72 hours']],m:[['Critical','2 hours'],['High','8 hours'],['Medium','24 hours'],['Low','72 hours']],l:[['Critical','1 hour'],['High','4 hours'],['Medium','12 hours'],['Low','48 hours']]};
+  function run(){
+    var a=Math.max(1,+$('slAg').value||1),t=Math.max(0,+$('slTk').value||0),m=Math.max(1,+$('slMn').value||1),h=Math.max(1,Math.min(10,+$('slHr').value||6));
+    var work=t*m,cap=a*h*60,u=cap?work/cap:0,pct=Math.round(u*100),k=a<=3?'s':a<=10?'m':'l';
+    var msg=u<0.6?'Comfortable. You have room for spikes, so aggressive targets are realistic.':u<0.8?'Busy but workable. Keep targets as below and watch the queue on Mondays.':u<=1?'Tight. Any bad day will create a backlog. Use the relaxed end of each target or add capacity.':'Overloaded. About '+Math.ceil((work-cap)/m)+' tickets a day will be left over, so no target will hold until capacity or the ticket count changes.';
+    $('slUse').textContent=pct+'%';$('slMsg').textContent=msg;$('slWork').textContent=Math.round(work/60*10)/10+' hours of work a day for '+a+' '+(a===1?'agent':'agents')+' with '+h+' productive hours each ('+Math.round(cap/60)+' hours capacity)';
+    $('slBar').style.width=Math.min(100,pct)+'%';$('slBar').style.background=u<0.6?'#10b981':u<0.8?'#f59e0b':'#ef4444';
+    $('slTbl').innerHTML=T[k].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';}).join('');
+    $('slTeam').textContent=a<=3?'a team of 1 to 3':a<=10?'a team of 4 to 10':'a team of more than 10';
+  }
+  $('slForm').addEventListener('input',run);run();
+})();
+"""
+sla_body = '''<section class="block"><h2>Your team</h2><p class="lead">Nothing you type leaves your browser.</p>
+<form id="slForm" class="tool" onsubmit="return false"><div class="tgrid">
+<label>Agents answering customers<input id="slAg" type="number" min="1" value="3" inputmode="numeric"></label><label>Tickets a day<input id="slTk" type="number" min="0" value="40" inputmode="numeric"></label>
+<label>Minutes of work per ticket<input id="slMn" type="number" min="1" value="12" inputmode="numeric"></label><label>Productive hours per agent a day<input id="slHr" type="number" min="1" max="10" value="6" step="0.5" inputmode="decimal"></label></div></form></section>
+<section class="block"><div class="grid"><div class="card"><h3>How full your team is</h3><div style="font-size:40px;font-weight:800;margin:6px 0" id="slUse"></div><div style="height:12px;border-radius:6px;background:#E5E7EB;overflow:hidden"><div id="slBar" style="height:100%;width:0"></div></div><p style="margin-top:10px" id="slMsg"></p><p style="margin-top:6px;font-size:13px" id="slWork"></p></div>
+<div class="card"><h3>Suggested first-response targets</h3><p>For <span id="slTeam"></span>:</p><div class="tablewrap"><table><thead><tr><th>Priority</th><th>First reply within</th></tr></thead><tbody id="slTbl"></tbody></table></div><p style="margin-top:10px;font-size:13px">Starting points, not promises. Set the ones you can keep, then tighten them as you learn your real numbers.</p></div></div>
+<p class="note">Resolvo starts a clock on every ticket from these targets and shows what is Overdue or Due soon. Set them in Settings, then SLA. More in our <a href="/blog/sla-management-guide">guide to SLAs</a> and <a href="/tools/support-calculator">support team calculator</a>.</p></section>'''
+
+shop_body = block("problem", "The tab you keep switching to", "A customer writes on WhatsApp: where is my order? You open Shopify, search the order, copy the status, go back, and type it. Multiply by every customer, every day.",
+    '<ul class="tick"><li>Orders are in Shopify. Conversations are in Gmail, WhatsApp and Instagram.</li><li>Agents lose minutes on every ticket just finding the order.</li><li>Nobody can see which conversations are about to wait too long.</li></ul>')
+shop_body += block("what", "What Resolvo does for a Shopify store", "The order sits next to the conversation, and one tap turns it into a reply.", cards([
+    ("The order beside the ticket", "Status, items, shipping address and tracking number appear next to the customer's message, found by order number, email or phone."),
+    ("A reply written from the order", "Tap Write the reply and get a full answer from the order's real status: shipped with the courier and tracking link, not shipped yet, partly shipped, cancelled or refunded. You edit it, then send."),
+    ("WhatsApp and email in one inbox", "Customers write wherever they like. You answer from one queue, sorted by who has waited longest."),
+    ("A clock on every ticket", "Overdue and Due soon tickets are counted and can buzz your phone, so no customer is forgotten."),
+    ("On your phone", "The Android app swipes tickets to take, resolve or snooze, works offline, and takes a photo of a damaged parcel in one tap."),
+    ("One price per brand", "Not per agent. Add your whole team at the same price.")]))
+shop_body += block("connect", "Connect your store in five minutes", "You decide what Resolvo can see, and it can only read.", '<ol class="tick" style="list-style:decimal;padding-left:22px"><li>In Shopify, create a custom app and turn on <code>read_orders</code> and <code>read_customers</code>.</li><li>Install the app and copy its Client ID and secret (or its Admin API access token).</li><li>In Resolvo open Settings, then Integrations, then Shopify.</li><li>Enter your store address (<code>your-store.myshopify.com</code>) and paste the keys, then press Test.</li><li>Open any ticket from a customer who ordered: their order appears beside it.</li></ol>')
+shop_body += block("limits", "What it does not do", "So you know before you start.", '<ul class="tick"><li>It is <b>read-only</b>. Refunds, cancellations and edits stay in Shopify.</li><li>It does not send WhatsApp promotions. Business-started WhatsApp messages need templates approved by WhatsApp: <a href="/tools/whatsapp-templates">free template generator</a>.</li><li>It does not replace your Shopify admin. It saves the trips there.</li></ul>')
+shop_faq = {"@type": "FAQPage", "mainEntity": [
+    {"@type": "Question", "name": "Can Resolvo change or refund my Shopify orders?", "acceptedAnswer": {"@type": "Answer", "text": "No. The connection is read-only: Resolvo reads orders and customers so agents can see them beside a ticket. Refunds, cancellations and edits stay in Shopify."}},
+    {"@type": "Question", "name": "Which Shopify permissions does Resolvo need?", "acceptedAnswer": {"@type": "Answer", "text": "A custom app with read_orders and read_customers. You paste its Client ID and secret, or its Admin API access token, into Resolvo."}},
+    {"@type": "Question", "name": "How does Resolvo find the right order?", "acceptedAnswer": {"@type": "Answer", "text": "By the order number the customer mentions, or by their email address or phone number."}},
+    {"@type": "Question", "name": "Does Resolvo price per agent?", "acceptedAnswer": {"@type": "Answer", "text": "No. Resolvo is priced per brand, so you can add your whole team at the same price."}}]}
+
+TOOL_CSS = '<style>.tool .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}.tool label{display:block;font-size:13px;font-weight:600;color:#374151}.tool input,.tool select{display:block;width:100%;margin-top:5px;min-height:44px;padding:9px 12px;border:1px solid #D1D5DB;border-radius:9px;font:inherit;font-size:15px;background:#fff}.tool input:focus,.tool select:focus{outline:2px solid #10B981;outline-offset:1px}.btn.small{min-height:38px;padding:6px 16px;font-size:14px;border:0;cursor:pointer}pre{white-space:pre-wrap}</style>'
+P_WA = page("tools/whatsapp-templates", "WhatsApp Order Update Templates, Free Generator | Resolvo", "Free generator for WhatsApp order-update templates: shipped, delayed, refund, cash on delivery. Copy the text ready for WhatsApp Manager.",
+    "Free tool", "WhatsApp message templates for your store.", "Pick a situation, fill in your details and copy a message that is clear, short and ready to submit for approval.", wa_form, script=WA_JS, head=TOOL_CSS, file="tool-whatsapp-templates")
+P_SLA = page("tools/sla-calculator", "SLA Calculator for Small Support Teams | Resolvo", "Free SLA calculator: enter your team size and ticket volume to see how full your team is and realistic first-response targets by priority.",
+    "Free tool", "Set response targets you can actually keep.", "Tell us how many people answer customers and how many tickets arrive. We show how full your team is and suggest first-response targets.", sla_body, script=SLA_JS, head=TOOL_CSS, file="tool-sla-calculator")
+P_SHOP = page("shopify-customer-support-india", "Shopify Customer Support Software for Indian Stores | Resolvo", "See the Shopify order next to every WhatsApp or email ticket, and reply in one tap. Read-only connection, priced per brand in rupees.",
+    "For Shopify stores", "Customer support software for Shopify stores in India.", "Answer \"where is my order?\" without leaving the conversation. Resolvo shows the order beside the ticket and writes the reply from its real status.", shop_body, extra_ld=shop_faq,
+    toc=[("problem", "The problem"), ("what", "What it does"), ("connect", "Connect"), ("limits", "Limits")], file="seo-shopify-support")
+
+
+for slug, content in [("features", P_FEATURES), ("integrations", P_INTEGRATIONS), ("security", P_SECURITY), ("customers", P_CUSTOMERS), ("changelog", P_CHANGELOG),
+                      ("tool-whatsapp-templates", P_WA), ("tool-sla-calculator", P_SLA), ("seo-shopify-support", P_SHOP)]:
+    with open(os.path.join(OUT, slug + ".html"), "w", encoding="utf-8", newline=chr(10)) as f: f.write(content)
     print("wrote", slug + ".html", len(content))
