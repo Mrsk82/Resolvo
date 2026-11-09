@@ -3590,6 +3590,8 @@ const App = {
   },
   
   setupUI() {
+    // Topics is switched off for everyone until the server says otherwise (it costs money), so its sidebar item stays hidden
+    try { var _tn = document.getElementById('topicsNav'), _tv = this.featureFlags && this.featureFlags.LISTENING_ENABLED; if (_tn) _tn.style.display = (_tv === true || _tv === 'true') ? '' : 'none'; } catch (e) {}
     // Init theme from saved preference
     Themes.init();
     // Init AI command bar

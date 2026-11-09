@@ -55,9 +55,10 @@ function build() {
 const nowIso = () => new Date().toISOString();
 const mention = (n, o) => ({ id: 'm' + n, url: 'https://news.example.com/a' + n, title: 'Resolvo review ' + n, text: 'Resolvo helpdesk review number ' + n + ' with a shared inbox', author: 'Daily Example', handle: 'news.example.com', publishedAt: nowIso(), lang: 'en', domain: 'news.example.com', ...o });
 let srv, srvLog = '';
-let noAuto = true;
+let noAuto = true, topicsOn = true;
 async function start() {
-  srv = cp.spawn(process.execPath, ['server.js'], { cwd: app, env: { ...process.env, ...(noAuto ? { LISTENING_NO_AUTORUN: '1' } : {}), PORT: String(PORT), LISTENING_MOCK: mockFile, MAIL_CAPTURE: path.join(tmp, 'mail.jsonl'), EMAIL_ENABLED: '', EMAIL_USER: '', EMAIL_PASS: '', NODE_ENV: 'test' } });
+  const env0 = { ...process.env }; delete env0.TOPICS_ENABLED;
+  srv = cp.spawn(process.execPath, ['server.js'], { cwd: app, env: { ...env0, ...(topicsOn ? { TOPICS_ENABLED: '1' } : {}), ...(noAuto ? { LISTENING_NO_AUTORUN: '1' } : {}), PORT: String(PORT), LISTENING_MOCK: mockFile, MAIL_CAPTURE: path.join(tmp, 'mail.jsonl'), EMAIL_ENABLED: '', EMAIL_USER: '', EMAIL_PASS: '', NODE_ENV: 'test' } });
   srv.stdout.on('data', (d) => (srvLog += d)); srv.stderr.on('data', (d) => (srvLog += d));
   for (let i = 0; i < 80; i++) { try { const r = await fetch(BASE + '/api/signup-config'); if (r.ok) return; } catch (e) {} await sleep(250); }
   throw new Error('server did not start: ' + srvLog.slice(-500));
@@ -225,6 +226,27 @@ const setTier = (tier) => { const f = path.join(app, 'data', 'owner.json'), o = 
     const dt = await rpc(adm2, 'getTopicDetail', r.topic.id, 14);
     check('first check: a new active topic is checked within seconds, not half an hour', dt.success && dt.recent.length >= 3, dt.recent && dt.recent.length);
     check('server: no crash while running topics', !/TypeError|ReferenceError|UnhandledPromise/.test(log), log.slice(-300));
+
+    // ---- the master switch: Topics costs money, so with TOPICS_ENABLED unset it is off for every plan ----
+    const flagsOn = await rpc(adm2, 'getAllFeatureFlags');
+    check('switch on: Enterprise sees the Topics feature flag as on', flagsOn.success && (flagsOn.flags.LISTENING_ENABLED === true || flagsOn.flags.LISTENING_ENABLED === 'true'), flagsOn.flags && flagsOn.flags.LISTENING_ENABLED);
+    const ticketsBefore = (await rpc(adm2, 'getTickets', { status: 'all', mentions: 'only', promo: 'all', limit: 500 })).tickets.length;
+    srv.kill(); await sleep(800); topicsOn = false; noAuto = false; const logMark = srvLog.length; await start();
+    const adm3 = (await post('/api/login', { email: 'admin@demo.local', password: 'demo1234' })).token;
+    r = await rpc(adm3, 'getTopics');
+    check('switch off: Topics is switched off even on Enterprise', !r.success && r.off === true && /switched off/i.test(r.error), r);
+    const lg = await post('/api/login', { email: 'admin@demo.local', password: 'demo1234' });
+    const fl = await rpc(adm3, 'getAllFeatureFlags');
+    check('switch off: the Topics feature flag is off, so the sidebar item stays hidden', fl.success && !(fl.flags.LISTENING_ENABLED === true || fl.flags.LISTENING_ENABLED === 'true'), fl.flags && fl.flags.LISTENING_ENABLED);
+    check('switch off: the flag handed out at login is off too', !(lg.user && lg.user.resolvedFeatureFlags && (lg.user.resolvedFeatureFlags.LISTENING_ENABLED === true || lg.user.resolvedFeatureFlags.LISTENING_ENABLED === 'true')), lg.user && lg.user.resolvedFeatureFlags && lg.user.resolvedFeatureFlags.LISTENING_ENABLED);
+    for (const [fn, a] of [['saveTopic', [{ name: 'Sneaky', contains: ['x'], sources: { news: true } }]], ['previewTopic', [{ name: 'x', contains: ['x'], sources: { news: true } }]], ['runTopicNow', ['any']], ['getTopicDetail', ['any', 14]], ['cloneTopic', ['any']]]) {
+      const rr = await rpc(adm3, fn, ...a);
+      check('switch off: ' + fn + ' is refused and does nothing', !rr.success && rr.off === true, rr);
+    }
+    await sleep(2500);
+    const ticketsAfter = (await rpc(adm3, 'getTickets', { status: 'all', mentions: 'only', promo: 'all', limit: 500 })).tickets.length;
+    check('switch off: nothing is checked and no mention tickets appear', ticketsAfter === ticketsBefore, [ticketsBefore, ticketsAfter]);
+    check('switch off: no Topics errors in the server log', !/\[Topics\]/.test(srvLog.slice(logMark)), srvLog.slice(logMark).slice(-300));
   } catch (e) { check('test run finished without an exception', false, String((e && e.stack) || e)); }
   srv.kill(); await sleep(500);
   console.log(`\n${pass} passed, ${fail} failed`);

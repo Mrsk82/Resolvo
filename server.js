@@ -375,7 +375,10 @@ const FEATURE_META=[
   {key:'API_INTEGRATION_ENABLED',label:'Jira/ServiceNow API Sync',group:'Integrations',tier:'Enterprise'},
   {key:'API_KEYS_ENABLED',label:'API Key Access',group:'Integrations',tier:'Enterprise'},
 ];
-function resolveFeatureFlags(brand,adf){return{...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};}
+// Topics (public listening) costs money (search and X credits), so it is OFF for everyone until the owner sets TOPICS_ENABLED=1 in .env.
+// While it is off: no sidebar item, no checks, no cost, whatever the plan says. The code stays in place so it can be switched on later.
+const topicsSwitchedOn=()=>process.env.TOPICS_ENABLED==='1';
+function resolveFeatureFlags(brand,adf){const f={...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};if(!topicsSwitchedOn())f.LISTENING_ENABLED=false;return f;}
 
 // ── SELF-SERVICE PLAN CHANGE ────────────────────────────────────────────────
 // Real, paid tiers a brand admin can pick between (ascending). Trial is
@@ -4954,7 +4957,7 @@ app.post('/api/call',async(req,res)=>{
     },
     // ── Topics (listening) ──
     getTopics:()=>{
-      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const plan=_listenPlan(slug);if(!plan)return _noTopics();
       const db=rDB(),usage=((db.listeningUsage||{})[_monthKey()])||{};
       return{success:true,plan:{tier:plan.tier,topics:plan.topics,everyMin:plan.everyMin,x:plan.x,web:plan.web},usage,
         sources:Object.keys(Listening.SOURCES).map(id=>({id,label:Listening.SOURCES[id].label,paid:Listening.SOURCES[id].paid,note:Listening.SOURCES[id].note,ready:Listening.configured(id),allowed:!Listening.SOURCES[id].paid||(id==='x'?plan.x>0:plan.web>0)})),
@@ -4963,7 +4966,7 @@ app.post('/api/call',async(req,res)=>{
     },
     saveTopic:(b)=>{
       if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can change topics.'};
-      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const plan=_listenPlan(slug);if(!plan)return _noTopics();
       const db=rDB();db.topics=db.topics||[];
       const old=b&&b.id?db.topics.find(t=>t.id===b.id):null;
       if(!old&&db.topics.length>=plan.topics)return{success:false,error:'Your plan allows '+plan.topics+' topics. Delete one or upgrade.'};
@@ -4982,7 +4985,7 @@ app.post('/api/call',async(req,res)=>{
     },
     cloneTopic:(id)=>{
       if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can change topics.'};
-      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const plan=_listenPlan(slug);if(!plan)return _noTopics();
       const db=rDB();const t=(db.topics||[]).find(x=>x.id===id);if(!t)return{success:false,error:'Topic not found'};
       if(db.topics.length>=plan.topics)return{success:false,error:'Your plan allows '+plan.topics+' topics. Delete one or upgrade.'};
       const c={...t,id:generateId('TOP'),name:(t.name+' (copy)').slice(0,60),active:false,pausedUntil:null,createdAt:nowIST(),updatedAt:nowIST(),lastRun:null,lastError:'',lastCreated:0,lastSpikeDay:undefined};
@@ -4998,7 +5001,7 @@ app.post('/api/call',async(req,res)=>{
     },
     // Tries a topic without saving it or making tickets, so people can see what it would catch.
     previewTopic:async(b)=>{
-      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const plan=_listenPlan(slug);if(!plan)return _noTopics();
       if(_topicLimited(slug,'preview',20))return{success:false,error:'Too many previews this hour. Try again later.'};
       const db=rDB();const r=_cleanTopic(b||{},null,db,plan);if(r.error)return{success:false,error:r.error};
       const usage=Object.assign({},((db.listeningUsage||{})[_monthKey()])||{});
@@ -5010,12 +5013,12 @@ app.post('/api/call',async(req,res)=>{
     },
     runTopicNow:async(id)=>{
       if(!['Admin','Manager'].includes(su.role))return{success:false,error:'Only an Admin or Manager can run topics.'};
-      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const plan=_listenPlan(slug);if(!plan)return _noTopics();
       if(_topicLimited(slug,'run',12))return{success:false,error:'Checked too often this hour. It also runs by itself every '+plan.everyMin/60+' hours.'};
       const r=await _runTopic(slug,id,plan);return{success:true,created:r.created,errors:r.errors};
     },
     getTopicDetail:(id,days)=>{
-      const plan=_listenPlan(slug);if(!plan)return{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'};
+      const plan=_listenPlan(slug);if(!plan)return _noTopics();
       const db=rDB();const t=(db.topics||[]).find(x=>x.id===id);if(!t)return{success:false,error:'Topic not found'};
       const n=[7,14,30].includes(parseInt(days,10))?parseInt(days,10):14,IST=5.5*3600000,day=ms=>new Date(ms+IST).toISOString().slice(0,10);
       const mine=(db.tickets||[]).filter(x=>x.topicId===id);
@@ -6878,7 +6881,7 @@ function _archLive(){
     workspaces:{total:brands.length,byStatus:by('status'),byTier:by('tier'),prospects:(owner.prospects||[]).length,leads:(owner.leadLog||[]).length},
     storage:{ownerJsonBytes:_bytesIn(path.dirname(OWNER_PATH),['owner.json']),brandFolders:dirs.length,brandDbBytes:dbBytes,backups:backups.length,lastBackup:backups[0]?backups[0].createdAt:null,backupBytes:backups.reduce((a,b)=>a+(b.bytes||0),0),trashItems:trashN,analyticsBytes:_bytesIn(path.dirname(OWNER_PATH),['analytics.json'])},
     code:{serverLines:lines('server.js'),publicPages:count('public',/\.html$/),libModules:count('lib',/\.js$/),testFiles:count('docs/ui-redesign/tools',/_test\.(py|js)$/),dependencies:dep},
-    listening:Object.keys(Listening.SOURCES).map(id=>({id,label:Listening.SOURCES[id].label,paid:Listening.SOURCES[id].paid,env:Listening.SOURCES[id].env,ready:Listening.configured(id)})),
+    listening:Object.keys(Listening.SOURCES).map(id=>({id,label:Listening.SOURCES[id].label,paid:Listening.SOURCES[id].paid,env:Listening.SOURCES[id].env,ready:Listening.configured(id)})),topicsOn:topicsSwitchedOn(),
     cron:_cronSeen.slice()
   };
 }
@@ -12878,6 +12881,7 @@ function _dashboardTrends(db,opts){
 const Listening=require('./lib/listening');
 const _LISTEN_PLAN={Trial:{topics:3,everyMin:360,x:0,web:0},Pro:{topics:10,everyMin:180,x:1000,web:300},Enterprise:{topics:50,everyMin:60,x:5000,web:1500}};
 const _isMention=t=>!!t&&t.channel==='listening';
+const _noTopics=()=>topicsSwitchedOn()?{success:false,upgrade:true,error:'Topics are on the Pro and Enterprise plans.'}:{success:false,off:true,error:'Topics are switched off for now.'};
 function _listenPlan(slug){
   const brand=(readOwner().brands||[]).find(b=>b.slug===slug);if(!brand)return null;
   let adf={};try{adf=readBrandDB(slug).featureFlags||{};}catch(e){}
@@ -12980,7 +12984,7 @@ async function _runTopic(slug,topicId,plan){
 }
 let _listenRunning=false;
 async function runListening(){
-  if(_listenRunning)return;_listenRunning=true;
+  if(!topicsSwitchedOn()||_listenRunning)return;_listenRunning=true;
   try{
     for(const brand of (readOwner().brands||[]).filter(b=>b.status==='active')){
       const plan=_listenPlan(brand.slug);if(!plan)continue;

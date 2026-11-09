@@ -86,7 +86,7 @@
       ].map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }));
     },
     listening: function (L) {
-      return table([{ t: 'Place' }, { t: 'Cost' }, { t: 'Needs' }, { t: 'On this server' }], (L.listening || []).map(function (x) {
+      return '<p>' + (L.topicsOn ? '<span class="pill ok">Topics is switched on</span>' : '<span class="pill warn">Topics is switched off</span> Hidden from every workspace and nothing is checked, so there is no cost. To turn it on, add <code>TOPICS_ENABLED=1</code> to the server settings and restart.') + '</p>' + table([{ t: 'Place' }, { t: 'Cost' }, { t: 'Needs' }, { t: 'On this server' }], (L.listening || []).map(function (x) {
         return '<tr><td>' + esc(x.label) + '</td><td>' + (x.paid ? 'Paid' : 'Free') + '</td><td>' + (x.env.length ? x.env.map(function (e) { return '<code>' + esc(e) + '</code>'; }).join(' ') : 'nothing') + '</td><td>' + (x.ready ? '<span class="pill ok">ready</span>' : '<span class="pill warn">not set up</span>') + '</td></tr>'; }));
     },
     deps: function (L) {

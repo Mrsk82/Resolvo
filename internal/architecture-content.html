@@ -159,6 +159,7 @@
   <p class="eyebrow">Topics</p>
   <h2>Topics: listening to the public web</h2>
   <p class="lead">A topic is a set of keywords. Every public mention found for it becomes a ticket on the <b>listening</b> channel, so the team can assign it, add notes and close it like any other ticket.</p>
+  <p><b>Status: switched off.</b> Topics costs money (search and X credits), so it is hidden from every workspace and checks nothing until <code>TOPICS_ENABLED=1</code> is added to the server settings. The live block below shows whether it is on.</p>
   <ol class="steps">
     <li><b>Set up</b>A person (Admin or Manager) writes the keywords: <i>contains</i> (any of), <i>and also contains</i> (needs one of these too) and <i>does not contain</i>. They choose places, language, country, sites and profiles to leave out, who gets the tickets, a priority and a daily limit. "Try it first" shows what it would catch without making tickets.</li>
     <li><b>Check</b>Every 30 minutes the server asks each chosen place for new mentions of each topic that is due. Every result is checked again against the keywords here, because the places only roughly match.</li>

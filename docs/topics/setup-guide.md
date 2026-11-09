@@ -1,5 +1,7 @@
 # Topics (public listening): set-up for the platform owner
 
+> **Status: switched off.** Topics costs money (search and X credits), so it is hidden from every workspace and checks nothing. Nothing in this guide is needed until you decide to turn it on. To turn it on later: add the line `TOPICS_ENABLED=1` to `/opt/resolvo/.env` on the server and restart Resolvo (`pm2 restart resolvo`). To turn it off again, remove that line and restart.
+
 Topics watch the public web for a brand's keywords and turn every mention into a ticket on the **Listening** channel. Brands set topics up themselves (sidebar, Inbox, Topics). You switch on the places by adding keys on the server. A place without its key shows as "not set up" and is skipped. You can see which are ready on the Architecture page (Topics section).
 
 ## The quickest way to add keys (nothing typed into chat)

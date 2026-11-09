@@ -85,12 +85,14 @@
       }).join('') + '<button type="button" class="rvi-view" data-act="save-view" style="color:var(--rv-link)"><span>+ Save current filters</span></button>';
     }
     return '<h3>Views</h3>' + v('mine', 'My tickets', c.mine) + v('unassigned', 'Unassigned', c.unassigned, true) + v('all', 'All tickets', c.all) + v('critical', 'Critical', c.critical, true) +
-      v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + v('mentions', 'Listening', c.mentions) + saved +
+      v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + (listenOn(c) ? v('mentions', 'Listening', c.mentions) : '') + saved +
       '<div class="rvi-queue"><div id="queueAgentList"><span class="rv-hint">Loading queue...</span></div></div>';
   }
+  // The Listening view only appears when Topics is switched on for this workspace, or mentions already exist
+  function listenOn(c) { var f = (window.App && App.featureFlags) || {}, v = f.LISTENING_ENABLED; return v === true || v === 'true' || (c && c.mentions > 0); }
   function pillsRow() {
     var c = S.counts || {}, cur = currentView();
-    var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed], ['promo', 'Promos', c.promo], ['mentions', 'Listening', c.mentions]];
+    var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed], ['promo', 'Promos', c.promo]].concat(listenOn(c) ? [['mentions', 'Listening', c.mentions]] : []);
     return '<div class="rvi-pills rv-tabs rv-tabs--pills" role="tablist" aria-label="Inbox views">' + items.map(function (i) {
       return '<button type="button" role="tab" class="rv-tab" data-act="view" data-view="' + i[0] + '" aria-selected="' + (cur === i[0]) + '">' + esc(i[1]) + (i[2] != null ? '<span class="rv-tab__count">' + i[2] + '</span>' : '') + '</button>'; }).join('') + '</div>';
   }
@@ -98,7 +100,7 @@
     var a = A(), f = S.facets || {};
     var stOpts = [{ v: 'all', l: 'All statuses' }].concat((S.statuses || []).map(function (s) { return { v: s.id, l: (s.label || s.id) + ' (' + ((S.counts || {})[s.id] || 0) + ')' }; }));
     var asg = [{ v: 'all', l: 'Anyone' }, { v: 'none', l: 'Unassigned' }].concat((f.assignees || []).map(function (u) { return { v: u.email, l: u.name + (u.count ? ' (' + u.count + ')' : '') }; }));
-    var chOpts = [['all', 'All channels'], ['email', 'Email'], ['whatsapp', 'WhatsApp'], ['widget', 'Web widget'], ['sms', 'SMS'], ['call', 'Call'], ['manual', 'Manual'], ['listening', 'Listening']].map(function (x) { return { v: x[0], l: x[1] }; });
+    var chOpts = [['all', 'All channels'], ['email', 'Email'], ['whatsapp', 'WhatsApp'], ['widget', 'Web widget'], ['sms', 'SMS'], ['call', 'Call'], ['manual', 'Manual']].concat(listenOn(S.counts || {}) ? [['listening', 'Listening']] : []).map(function (x) { return { v: x[0], l: x[1] }; });
     var prOpts = [['all', 'All priorities'], ['Critical', 'Critical'], ['High', 'High'], ['Medium', 'Medium'], ['Low', 'Low']].map(function (x) { return { v: x[0], l: x[1] }; });
     var srt = [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['priority', 'Priority'], ['sla', 'SLA risk']].map(function (x) { return { v: x[0], l: x[1] }; });
     var team = [{ v: '', l: 'Any team' }].concat((f.teams || []).map(function (x) { return { v: x.team, l: x.team + ' (' + x.count + ')' }; }));

@@ -39,7 +39,7 @@ now = datetime.now(timezone.utc).isoformat()
 def m(n, **k):
     d = {"id": f"m{n}", "url": f"https://news.example.com/a{n}", "title": f"Resolvo helpdesk review {n}", "text": f"Resolvo helpdesk review {n}: the shared inbox is great", "author": "Daily Example", "handle": "news.example.com", "publishedAt": now, "lang": "en", "domain": "news.example.com"}; d.update(k); return d
 json.dump({"news": [m(1), m(2), m(3, title="Resolvo helpdesk is terrible and awful", text="Resolvo helpdesk is terrible and awful, worst support ever, I hate it")], "hn": [m(4, id="hn:4", url="https://news.ycombinator.com/item?id=4", platform="hn", domain="news.ycombinator.com", handle="pg")]}, open(mock, "w"))
-env = dict(os.environ, LISTENING_NO_AUTORUN="1", PORT=str(PORT), LISTENING_MOCK=mock, MAIL_CAPTURE=os.path.join(tmp, "mail.jsonl"), EMAIL_ENABLED="", EMAIL_USER="", EMAIL_PASS="", NODE_ENV="test")
+env = dict(os.environ, LISTENING_NO_AUTORUN="1", TOPICS_ENABLED="1", PORT=str(PORT), LISTENING_MOCK=mock, MAIL_CAPTURE=os.path.join(tmp, "mail.jsonl"), EMAIL_ENABLED="", EMAIL_USER="", EMAIL_PASS="", NODE_ENV="test")
 LOG = open(os.path.join(tmp, "server.log"), "w"); srv = subprocess.Popen(["node", "server.js"], cwd=app, env=env, stdout=LOG, stderr=LOG)
 
 async def main():
@@ -54,7 +54,8 @@ async def main():
             pg.on("pageerror", lambda e: errs.append(str(e)[:200]))
             pg.on("console", lambda m_: errs.append(m_.text[:200]) if m_.type == "error" and "Failed to load resource" not in m_.text else None)
             await pg.goto(BASE + "/"); await pg.evaluate("t=>{localStorage.setItem('tt_session_token',t);localStorage.setItem('tt_theme','resolvo')}", tok)
-            await pg.goto(BASE + "/"); await pg.wait_for_selector("#topicsNav", timeout=20000); await pg.wait_for_timeout(1200)
+            await pg.goto(BASE + "/"); await pg.wait_for_selector("#topicsNav", state="attached", timeout=20000)
+            await pg.wait_for_timeout(1200)
             return pg, errs
         pg, errs = await page()
         check("sidebar: Topics is listed under Inbox", await pg.locator("#topicsNav .nav-text").inner_text() == "Topics")
@@ -151,6 +152,7 @@ async def main():
         # plans
         setTier("Free")
         pg, errs = await page(); await pg.evaluate("App.navigate('topics')"); await pg.wait_for_selector(".rvt .rv-empty", timeout=15000)
+        check("Free plan: the sidebar item is hidden", not await pg.locator("#topicsNav").is_visible())
         check("Free plan: the page explains Topics is on Pro and Enterprise and links to plans", "Pro and Enterprise plans" in await pg.inner_text(".rvt") and await pg.locator('.rvt a[href="/pitch#pricing"]').count() == 1)
         await pg.context.close()
         setTier("Enterprise")
