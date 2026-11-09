@@ -66,9 +66,11 @@
     a.callAsync = function (fn) {
       var args = Array.prototype.slice.call(arguments, 1);
       if (!QUEUEABLE[fn]) return a._rvmRaw.apply(a, arguments);
+      // one key per send: if the answer is lost and the saved copy is replayed later, the server recognises it and does not send twice
+      if (fn === 'replyToTicket' && !args[3]) { args[2] = !!args[2]; args[3] = 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
       var offline = typeof navigator !== 'undefined' && navigator.onLine === false;
       if (offline) { enqueue(fn, args); return Promise.resolve({ success: true, queued: true }); }
-      return a._rvmRaw.apply(a, arguments).then(function (r) {
+      return a._rvmRaw.apply(a, [fn].concat(args)).then(function (r) {
         if (r && r.success === false && NET.test(String(r.error || ''))) { enqueue(fn, args); return { success: true, queued: true }; }
         if (r && r.success && fn === 'replyToTicket') store.del('rv_draft:' + me() + ':' + args[0]);
         return r;

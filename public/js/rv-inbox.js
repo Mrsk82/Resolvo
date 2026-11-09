@@ -154,7 +154,7 @@
     var pri = (t.priority === 'Critical' || t.priority === 'High') ? w.RV.priority(t.priority) : '';
     var st = (t.status === 'open') ? '' : statusBadge(t.status);
     var owner = asg ? '<span class="rvi-row__owner">' + w.RV.avatar(asg, 'sm') + esc(String(asg).split(' ')[0]) + '</span>' : (done ? '' : '<span class="rvi-row__owner rvi-row__owner--none">Unassigned</span>');
-    var badges = slaChip(t) + pri + st + (vip ? w.RV.badge('VIP', 'warning') : '') + (snoozed ? w.RV.badge('Snoozed', '') : '');
+    var badges = slaChip(t) + pri + st + (vip ? w.RV.badge('VIP', 'warning') : '') + (t.deliveryFailed ? w.RV.badge('Reply not delivered', 'danger') : '') + (snoozed ? w.RV.badge('Snoozed', '') : '');
     return '<div class="ticket-row rvi-row' + (unread ? ' is-unread' : '') + '" role="option" tabindex="0" data-act="open" data-ticket-id="' + esc(t.id) + '" aria-selected="' + sel + '">' +
       '<input type="checkbox" class="ticket-checkbox" data-ticket-id="' + esc(t.id) + '" data-act="check" aria-label="Select ticket ' + esc(t.id) + '"' + (a._selectedTickets && a._selectedTickets.has(t.id) ? ' checked' : '') + '>' +
       '<span class="rvi-row__av">' + w.RV.avatar(who, null) + (unread ? '<i class="rvi-row__dot" title="Unread"></i>' : '') + '</span>' +
@@ -321,15 +321,29 @@
     var id = t && t.linkedIssueId ? String(t.linkedIssueId).replace(/[^A-Za-z0-9_-]/g, '') : ''; if (!id) return '';
     return '<button type="button" class="rv-btn rv-btn--sm" title="This ticket was raised to the tech team" onclick="App.navigate(\'issue-detail\',{id:\'' + id + '\'})">Issue ' + esc(id) + ' &rarr;</button>';
   }
+  // Email replies say what really happened: Sending, Delivered, or Not delivered with the reason and a Retry button.
+  function deliveryTag(m) {
+    if (m.type !== 'reply' || !m.sentAsEmail || !m.deliveryStatus) return '';
+    if (m.deliveryStatus === 'sent') return ' &middot; <span class="rvi-dlv rvi-dlv--ok" title="The email provider accepted this message">&#10003; Delivered</span>';
+    if (m.deliveryStatus === 'pending') return ' &middot; <span class="rvi-dlv rvi-dlv--wait">Sending&hellip;</span>';
+    if (m.deliveryStatus === 'failed') return ' &middot; <span class="rvi-dlv rvi-dlv--bad">&#9888; Not delivered</span>';
+    return '';
+  }
+  function deliveryFail(m, t) {
+    var stuck = m.deliveryStatus === 'pending' && m.sendStartedMs && Date.now() - m.sendStartedMs > 180000;
+    if (m.type !== 'reply' || !m.sentAsEmail || !(m.deliveryStatus === 'failed' || stuck)) return '';
+    return '<div class="rvi-dlvbox" role="alert"><span>' + esc(stuck ? 'This reply may not have gone out.' : (m.deliveryError || 'The email was not accepted.')) + ' The customer has not been told.</span><button type="button" class="rv-btn rv-btn--sm" data-act="retry-reply" data-ticket="' + esc(t.id) + '" data-msg="' + esc(m.id) + '">Retry sending</button></div>';
+  }
+  function newKey() { return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function threadHtml(t) {
     return (t.thread || []).map(function (m) {
       var inc = m.type === 'incoming', note = m.type === 'note', who = m.fromName || m.from || (inc ? 'Customer' : 'Agent');
       // long emails (alerts, newsletters, quoted history) show the first part with a "Show full message" button
       var raw = m.body && String(m.body).trim() ? String(m.body).trim().replace(/\n{3,}/g, '\n\n').slice(0, 6000) : '';
       var long = raw.length > 700 || (raw.match(/\n/g) || []).length > 12;
-      return '<div class="rvi-msg ' + (inc ? '' : (note ? 'rvi-msg--note' : 'rvi-msg--out')) + '">' + w.RV.avatar(who, null) + '<div class="rvi-msg__body"><div class="rvi-msg__who"><b>' + esc(who) + '</b>' + (note ? ' &middot; <span style="color:var(--rv-warning);font-weight:700">Internal note</span>' : '') + (m.timestamp ? ' &middot; ' + esc(ago(m.timestamp)) : '') + '</div>' +
+      return '<div class="rvi-msg ' + (inc ? '' : (note ? 'rvi-msg--note' : 'rvi-msg--out')) + '">' + w.RV.avatar(who, null) + '<div class="rvi-msg__body"><div class="rvi-msg__who"><b>' + esc(who) + '</b>' + (note ? ' &middot; <span style="color:var(--rv-warning);font-weight:700">Internal note</span>' : '') + (m.timestamp ? ' &middot; ' + esc(ago(m.timestamp)) : '') + deliveryTag(m) + '</div>' +
         '<div class="rvi-bubble' + (long ? ' rvi-bubble--long is-clamped' : '') + '">' + (raw ? esc(raw) : '<span class="rv-hint">(No text content. Open the full page to see the original email.)</span>') + '</div>' +
-        (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + '</div></div>';
+        (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + deliveryFail(m, t) + '</div></div>';
     }).join('') || '<div class="rv-hint" style="text-align:center">No messages yet.</div>';
   }
   // ---------- Shopify orders ----------
@@ -478,11 +492,13 @@
     var a = A(), t = S.ticket, ta = document.getElementById('replyText'), btn = document.getElementById('rviSend'); if (!t || !ta || S.fBusy) return;
     var text = ta.value.trim(); if (!text) { w.RV.toast('Write something first', 'error'); return; }
     var isNote = noteMode(); S.fBusy = true; busy(true);
-    var r = await a.callAsync('replyToTicket', t.id, text, isNote);
+    var r = await a.callAsync('replyToTicket', t.id, text, isNote, newKey());
     S.fBusy = false; busy(false);
     if (r && r.queued) { delete S.drafts[t.id + ':' + S.mode]; ta.value = ''; w.RV.toast('No signal. Saved, and it will send by itself when you are back online.', 'info'); return; }
     if (!r || !r.success) { fail('Not sent: ' + String((r && r.error) || 'please try again').replace(/[.]+$/, '') + '. Your text is still here.'); return; }
-    delete S.drafts[t.id + ':' + S.mode]; w.RV.toast(isNote ? 'Note added' : 'Reply sent', 'success');
+    delete S.drafts[t.id + ':' + S.mode];
+    if (!isNote && r.deliveryStatus === 'failed') w.RV.toast('Saved in the ticket, but the email was NOT delivered: ' + String(r.warning || 'it was not accepted').replace(/[.]+$/, '') + '. Press Retry under the message.', 'error');
+    else w.RV.toast(isNote ? 'Note added' : 'Reply sent', 'success');
     await reopen(t.id); relist();
   }
   // grey out the send buttons while a request is running so nothing is sent twice
@@ -685,10 +701,11 @@
       var ok = false;
       try {
         if (withReply) {
-          var r = await a.callAsync('replyToTicket', t.id, text, false);
+          var r = await a.callAsync('replyToTicket', t.id, text, false, newKey());
           if (r && r.queued) { delete S.drafts[t.id + ':reply']; w.RV.toast('No signal. Your reply is saved and will send by itself. The ticket was not resolved: resolve it when you are back online.', 'info'); return; }
           if (!r || !r.success) { fail('Not sent: ' + String((r && r.error) || 'please try again').replace(/[.]+$/, '') + '. Your text is still here, and the ticket was not resolved.'); return; }
           delete S.drafts[t.id + ':reply'];
+          if (r.deliveryStatus === 'failed') { fail('The email was NOT delivered: ' + String(r.warning || 'it was not accepted').replace(/[.]+$/, '') + '. The ticket was not resolved. Press Retry under the message.'); await focusOpenId(t.id); return; }
         }
         if (!already) {
           var r2 = await a.callAsync('updateTicketStatus', t.id, 'resolved');
@@ -787,6 +804,13 @@
       if (!e.target.closest('.rvi-views, .rvi-cust, [data-act="views-panel"], [data-act="cust"], .rv-overlay, .rv-menu')) { root.classList.remove('rvi--views-open'); if (root.classList.contains('rvi--cust-open')) { root.classList.remove('rvi--cust-open'); S.custOpen = false; } }
       var el = e.target.closest('[data-act]'); if (!el || !root.contains(el)) return;
       var act = el.getAttribute('data-act'), a = A();
+      if (act === 'retry-reply') {
+        if (el.disabled) return; el.disabled = true; el.textContent = 'Sending...';
+        var rr = await a.callAsync('retryReply', el.getAttribute('data-ticket'), el.getAttribute('data-msg'));
+        if (!rr || !rr.success) { el.disabled = false; el.textContent = 'Retry sending'; fail((rr && rr.error) || 'It could not be sent again.'); return; }
+        if (rr.deliveryStatus === 'sent') w.RV.toast('Delivered', 'success'); else w.RV.toast('Still not delivered: ' + String(rr.warning || 'the email was not accepted').replace(/[.]+$/, '') + '.', 'error');
+        await reopen(el.getAttribute('data-ticket'), true); relist(); return;
+      }
       if (act === 'views-panel') { root.classList.toggle('rvi--views-open'); root.classList.remove('rvi--cust-open'); S.custOpen = false; return; }
       if (act === 'view' || act === 'saved') root.classList.remove('rvi--views-open');
       if (act === 'check') { e.stopPropagation(); a._toggleTicketSelect(el.getAttribute('data-ticket-id'), el.checked); return; }

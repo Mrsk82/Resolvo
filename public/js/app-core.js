@@ -7766,8 +7766,11 @@ const App = {
     var ta = document.getElementById('splitReplyText');
     var text = ta ? ta.value.trim() : '';
     if (!text) return;
-    var r = await self.callAsync('replyToTicket', ticketId, text, false);
-    if (r && r.success) {
+    var r = await self.callAsync('replyToTicket', ticketId, text, false, 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+    if (r && r.success && r.deliveryStatus === 'failed') {
+      self.showToast('Saved in the ticket, but the email was NOT delivered: ' + String(r.warning || 'it was not accepted') + ' Open the ticket in the Inbox and press Retry.', 'error');
+      self._renderSplitTicketDetail(ticketId);
+    } else if (r && r.success) {
       self.showToast('Reply sent', 'success');
       self._renderSplitTicketDetail(ticketId); // refresh thread in place
     } else {
@@ -9331,9 +9334,10 @@ const App = {
     var btn = document.getElementById('sendReplyBtn');
     var isNote = btn && btn.getAttribute('data-mode') === 'note';
     if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
-    var r = await self.callAsync('replyToTicket', ticketId, text, isNote);
+    var r = await self.callAsync('replyToTicket', ticketId, text, isNote, 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
     if (r && r.success) {
-      self.showToast(isNote ? '✓ Note added' : '✓ Reply sent to customer', 'success');
+      if (!isNote && r.deliveryStatus === 'failed') self.showToast('Saved in the ticket, but the email was NOT delivered: ' + String(r.warning || 'it was not accepted') + ' Open the ticket in the Inbox and press Retry.', 'error');
+      else self.showToast(isNote ? '✓ Note added' : '✓ Reply sent to customer', 'success');
       self.renderTicketDetail(ticketId);
     } else {
       self.showToast('Failed: ' + (r && r.error || 'unknown'), 'error');

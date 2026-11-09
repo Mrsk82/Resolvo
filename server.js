@@ -716,7 +716,7 @@ async function sendBrandEmail(slug,to,subject,html,text,opts){
   const headers=opts.auto?AUTO_REPLY_HEADERS:undefined;
   if(process.env.MAIL_CAPTURE){
     const bm0=getBrandMailer(slug);
-    if(bm0||opts.critical)return _captureMail({via:bm0?'brand':'platform-fallback',slug,to,subject,text:text||subject,headers:headers||null});
+    if(bm0||opts.critical)return _captureMail({via:bm0?'brand':'platform-fallback',slug,to,subject,text:text||subject,html:html||'',headers:headers||null});
     return false;
   }
   const bm=getBrandMailer(slug);
@@ -2088,10 +2088,20 @@ app.post('/api/call',async(req,res)=>{
         return{success:true,message:`Test email sent to ${toEmail||su.email}`};
       }catch(e){return{success:false,error:e.message};}
     },
-    replyToTicket:async(ticketId,replyText,isNote)=>{
-      const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+    // clientKey: made by the screen for each send. The same key arriving twice (double click, a queued message sent again after a lost
+    // answer) returns the reply that already exists and sends nothing.
+    replyToTicket:async(ticketId,replyText,isNote,clientKey)=>{
+      let db=rDB();let idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
       const ticket=db.tickets[idx];
+      const ck=clientKey?String(clientKey).replace(/[^\w.:-]/g,'').slice(0,64):'';
+      if(ck){
+        const dup=(ticket.thread||[]).find(m=>m.clientKey===ck);
+        if(dup)return{success:true,msgId:dup.id,duplicate:true,deliveryStatus:dup.deliveryStatus};
+        if(_replyBusy.has(ticketId+'|'+ck))return{success:true,duplicate:true,busy:true};
+        _replyBusy.add(ticketId+'|'+ck);
+      }
+      try{
       if(!isNote&&ticket.channel==='listening')return{success:false,error:'This is a public mention, so Resolvo cannot reply for you. Open the post and answer there. You can still add a note here.'};
       // WhatsApp tickets go out via Twilio or direct Meta Cloud API depending
       // on the brand's chosen provider — send first so a failure (e.g. not
@@ -2158,13 +2168,21 @@ app.post('/api/call',async(req,res)=>{
       }
       const msgId=generateId('MSG');
       const now=nowIST();
-      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:!isNote&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel),channel:['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)?ticket.channel:undefined,
-        ...(socialSendResult?{platformMessageId:socialSendResult.platformMessageId,deliveryStatus:socialSendResult.status}:{})};
+      const viaEmail=!isNote&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel);
+      const willSend=viaEmail&&!!ticket.from&&!ticket.isSample;
+      const msg={id:msgId,type:isNote?'note':'reply',from:su.email,fromName:su.name||su.email,body:replyText,timestamp:now,sentAsEmail:viaEmail,channel:['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)?ticket.channel:undefined,
+        ...(socialSendResult?{platformMessageId:socialSendResult.platformMessageId,deliveryStatus:socialSendResult.status}:{}),
+        ...(ck?{clientKey:ck}:{}),
+        // an email reply is "pending" until the provider accepts it (see _deliverEmailReply and _recordDelivery below)
+        ...(willSend?{deliveryStatus:'pending',deliveryAttempts:0,sendStartedMs:Date.now()}:{})};
+      // A provider call above can take seconds. Save onto a FRESH copy so a customer email or another agent's change that arrived meanwhile is not overwritten.
+      db=rDB();idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
+      if(idx===-1)return{success:false,error:'Ticket not found'};
       db.tickets[idx].thread=db.tickets[idx].thread||[];db.tickets[idx].thread.push(msg);
       db.tickets[idx].lastActivity=now;
       if(db.tickets[idx].status==='new'&&!isNote)db.tickets[idx].status='open';
       // Track first response time (first agent reply)
-      if(!isNote&&!db.tickets[idx].firstResponseAt&&su.email!==db.tickets[idx].from){
+      if(!isNote&&!willSend&&!db.tickets[idx].firstResponseAt&&su.email!==db.tickets[idx].from){   // an email counts as the first response only once it is delivered (_recordDelivery)
         db.tickets[idx].firstResponseAt=now;
         const createdAt=new Date(db.tickets[idx].createdDate||db.tickets[idx].lastActivity);
         db.tickets[idx].firstResponseMinutes=Math.round((new Date(now)-createdAt)/60000);
@@ -2180,24 +2198,13 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].timeline=db.tickets[idx].timeline||[];
       db.tickets[idx].timeline.push({event:isNote?'note_added':'reply_sent',by:su.email,byName:su.name||su.email,at:now,detail:replyText.substring(0,120)});
       wDB(db);
-      if(!isNote&&ticket.from&&!ticket.isSample&&!['whatsapp','sms',...SOCIAL_CHANNELS].includes(ticket.channel)){
-        const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
-        const brandName=brand.name||'Support';const brandColor=brand.accentColor||'#10B981';
-        const replySubject=`Re: [${brandName}] ${ticket.subject}`;
-        const replyHtml=`<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#202124;">
-<div style="white-space:pre-wrap;">${replyText}</div>
-<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e8eaed;font-size:12px;color:#5f6368;">${brandName} Support &nbsp;·&nbsp; Ref: ${ticketId}<br>Reply to this email to continue the conversation.</div>
-</div>`;
-        // Prefer sending through the brand's connected Gmail OAuth account (same
-        // authenticated inbox used for receiving, properly threaded) — fall back
-        // to brand/owner SMTP if this brand has no Gmail Push connection or it fails.
-        let sentViaGmailApi=false;
-        try{ sentViaGmailApi=await sendGmailApiReply(slug,ticket,replySubject,replyHtml,replyText); }
-        catch(e){ console.error(`[GmailPush] Reply send failed for ${ticketId}, falling back to SMTP:`,e.message); }
-        if(!sentViaGmailApi)await sendBrandEmail(slug,ticket.from,replySubject,replyHtml,replyText);
-        for(const ccEmail of (ticket.cc||[])){
-          sendBrandEmail(slug,ccEmail,`CC: Re: [${brandName}] ${ticket.subject}`,`<p>${replyText}</p><p style="color:#9ca3af;font-size:12px;">You are CC'd on ticket ${ticketId}</p>`,replyText).catch(()=>{});
-        }
+      let deliveryStatus=msg.deliveryStatus,deliveryWarning;
+      if(willSend){
+        // The reply is saved as "pending". It becomes "sent" only after the email provider accepts it, or "failed" (with the reason and a Retry button) if not.
+        const dr=await _deliverEmailReply(slug,ticket,replyText,ticketId);
+        _recordDelivery(slug,ticketId,msgId,dr,su,true);
+        deliveryStatus=dr.ok?'sent':'failed';if(!dr.ok)deliveryWarning=dr.error;
+        if(dr.ok)_sendReplyCCs(slug,ticket,replyText,ticketId);
       }
       // Notify watchers
       const dbFresh=rDB();const updatedTicket=(dbFresh.tickets||[]).find(t=>t.id===ticketId);
@@ -2207,11 +2214,31 @@ app.post('/api/call',async(req,res)=>{
           const wu=(dbFresh.users||[]).find(u=>u.email===wEmail);
           if(wu&&wu.notifyPrefs?.onTicketReply===false)return; // opted out — see getNotifyPrefs
           sendBrandEmail(slug,wEmail,`[Watching] New reply on ${ticketId}: ${updatedTicket.subject}`,
-            `<p>Hi ${wu?.name||wEmail},</p><p>${su.name||su.email} replied to a ticket you're watching.</p><p><strong>${updatedTicket.subject}</strong></p><p style="background:#f9fafb;padding:12px;border-radius:8px;">${replyText.substring(0,300)}</p><a href="${BASE_URL}">View ticket →</a>`,
+            `<p>Hi ${wu?.name||wEmail},</p><p>${su.name||su.email} replied to a ticket you're watching.</p><p><strong>${updatedTicket.subject}</strong></p><p style="background:#f9fafb;padding:12px;border-radius:8px;">${_escHtml(replyText.substring(0,300))}</p><a href="${BASE_URL}">View ticket →</a>`,
             `New reply on ${ticketId}`).catch(()=>{});
         });
       }
-      return{success:true,msgId};
+      return{success:true,msgId,...(deliveryStatus?{deliveryStatus}:{}),...(deliveryWarning?{warning:deliveryWarning}:{})};
+      }finally{if(ck)_replyBusy.delete(ticketId+'|'+ck);}
+    },
+    // Tries a failed (or long-stuck) email reply again. It reuses the same message, so the customer can never receive it twice from us.
+    retryReply:async(ticketId,msgId)=>{
+      const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
+      if(!ticket)return{success:false,error:'Ticket not found'};
+      const m=(ticket.thread||[]).find(x=>x.id===msgId);
+      if(!m||m.type!=='reply'||!m.sentAsEmail||!m.deliveryStatus)return{success:false,error:'That message cannot be sent again.'};
+      if(m.deliveryStatus==='sent')return{success:true,deliveryStatus:'sent',duplicate:true};
+      const key=ticketId+'|'+msgId;
+      if(_replyBusy.has(key))return{success:true,busy:true,deliveryStatus:m.deliveryStatus};
+      if(m.deliveryStatus==='pending'&&Date.now()-(m.sendStartedMs||0)<180000)return{success:false,error:'This message is still being sent. Give it a minute.'};
+      _replyBusy.add(key);
+      try{
+        const firstTime=!m.deliveredVia;
+        const dr=await _deliverEmailReply(slug,ticket,m.body||'',ticketId);
+        _recordDelivery(slug,ticketId,msgId,dr,su,false);
+        if(dr.ok&&firstTime)_sendReplyCCs(slug,ticket,m.body||'',ticketId);
+        return dr.ok?{success:true,deliveryStatus:'sent'}:{success:true,deliveryStatus:'failed',warning:dr.error};
+      }finally{_replyBusy.delete(key);}
     },
   };
 
@@ -2576,7 +2603,7 @@ app.post('/api/call',async(req,res)=>{
       const istDay=nowIST().slice(0,10);
       const waitingN=(db.tickets||[]).filter(isWaiting).length;
       const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...getTicketSLAInfo(db,t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=getTicketSLAInfo(db,t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...getTicketSLAInfo(db,t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=getTicketSLAInfo(db,t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -9160,6 +9187,51 @@ async function sendGmailApiReply(slug,ticket,subject,html,text){
   });
   await gmail.users.messages.send({userId:'me',requestBody:{raw,threadId:ticket.gmailThreadId||undefined}});
   return true;
+}
+
+// ── Sending an agent's email reply, honestly ──────────────────────────────────────────────────────────────────────────────
+// _deliverEmailReply says what really happened ({ok,via} or {ok:false,error}); _recordDelivery writes that onto the message so the screen
+// shows Sent or Not delivered (with Retry). A reply is never shown as sent unless the provider accepted it.
+const _replyBusy=new Set();   // "ticket|clientKey" or "ticket|message" being sent right now (stops double sends)
+async function _deliverEmailReply(slug,ticket,replyText,ticketId){
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+  const brandName=brand.name||'Support';
+  const replySubject=`Re: [${brandName}] ${ticket.subject}`;
+  const replyHtml=`<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#202124;">
+<div style="white-space:pre-wrap;">${_escHtml(replyText)}</div>
+<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e8eaed;font-size:12px;color:#5f6368;">${_escHtml(brandName)} Support &nbsp;&middot;&nbsp; Ref: ${_escHtml(ticketId)}<br>Reply to this email to continue the conversation.</div>
+</div>`;
+  let err='';
+  // Prefer the brand's connected Gmail (the inbox mail arrives in, so it threads properly), then the workspace's own email.
+  try{ if(await sendGmailApiReply(slug,ticket,replySubject,replyHtml,replyText))return{ok:true,via:'gmail'}; }
+  catch(e){ err='Gmail said: '+String(e.message||e).slice(0,160); console.error(`[GmailPush] Reply send failed for ${ticketId}, trying the workspace email:`,e.message); }
+  try{ if(await sendBrandEmail(slug,ticket.from,replySubject,replyHtml,replyText))return{ok:true,via:'smtp'}; }
+  catch(e){ err='The email server said: '+String(e.message||e).slice(0,160); }
+  if(!err)err=getBrandMailer(slug)?'The email server did not accept the message.':'Email is not connected for this workspace. Connect Gmail or your own email in Settings, then press Retry.';
+  return{ok:false,error:err};
+}
+function _recordDelivery(slug,ticketId,msgId,r,by,isFirstTry){
+  try{
+    const d=readBrandDB(slug);const t=(d.tickets||[]).find(x=>x.id===ticketId);const m=t&&(t.thread||[]).find(x=>x.id===msgId);
+    if(!m)return false;
+    const now=nowIST();
+    m.deliveryStatus=r.ok?'sent':'failed';m.deliveryAttempts=(m.deliveryAttempts||0)+1;m.deliveryAt=now;
+    if(r.ok){m.deliveredVia=r.via;delete m.deliveryError;}else m.deliveryError=r.error;
+    t.timeline=t.timeline||[];
+    t.timeline.push({event:r.ok?'email_sent':'email_failed',by:by.email,byName:by.name||by.email,at:now,detail:r.ok?('Delivered through '+r.via+(isFirstTry?'':' (retry)')):String(r.error||'').slice(0,160)});
+    // the first response time counts from the moment the customer could actually read it
+    if(r.ok&&!t.firstResponseAt&&by.email!==t.from){
+      t.firstResponseAt=now;
+      const createdAt=new Date(t.createdDate||t.lastActivity);t.firstResponseMinutes=Math.round((new Date(now)-createdAt)/60000);
+    }
+    writeBrandDB(slug,d);return true;
+  }catch(e){console.error('[reply] could not record delivery:',e.message);return false;}
+}
+function _sendReplyCCs(slug,ticket,replyText,ticketId){
+  const brandName=((readOwner().brands||[]).find(b=>b.slug===slug)||{}).name||'Support';
+  for(const ccEmail of (ticket.cc||[])){
+    sendBrandEmail(slug,ccEmail,`CC: Re: [${brandName}] ${ticket.subject}`,`<p style="white-space:pre-wrap">${_escHtml(replyText)}</p><p style="color:#9ca3af;font-size:12px;">You are CC'd on ticket ${_escHtml(ticketId)}</p>`,replyText).catch(()=>{});
+  }
 }
 
 // Get Gmail OAuth status for Settings UI

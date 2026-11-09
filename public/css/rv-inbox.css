@@ -262,3 +262,10 @@
 .rvi-mention { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 14px; border-radius: 10px; background: var(--rv-info-soft); color: var(--rv-text-2); font-size: var(--rv-text-sm, 13px); line-height: 1.45; }
 .rvi-mention b { color: var(--rv-text); }
 .rvi-composer[data-mention] [data-mode="reply"], .rvf-composer[data-mention] [data-mode="reply"] { display: none; }
+
+/* delivery state of an emailed reply */
+.rvi-dlv { font-weight: 600; font-size: 11.5px; }
+.rvi-dlv--ok { color: var(--rv-success, #0a7d4b); }
+.rvi-dlv--wait { color: var(--rv-text-muted, #6b7280); }
+.rvi-dlv--bad { color: var(--rv-danger, #b42318); }
+.rvi-dlvbox { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--rv-danger, #b42318); border-radius: 8px; background: var(--rv-danger-soft, #fdecea); color: var(--rv-danger, #b42318); font-size: 12.5px; }
