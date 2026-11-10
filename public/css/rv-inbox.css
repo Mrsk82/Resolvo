@@ -288,3 +288,28 @@
 .rvi-sys span { font-size: 11.5px; color: var(--rv-text-faint, #6b7280); background: var(--rv-surface-2, #f4f5f7); padding: 3px 10px; border-radius: 999px; max-width: 92%; overflow-wrap: anywhere; text-align: center; }
 .rvi-fold { display: block; margin: 8px auto; padding: 6px 14px; border: 1px dashed var(--rv-border); border-radius: 999px; background: transparent; color: var(--rv-link, #2563eb); font: inherit; font-size: 12.5px; cursor: pointer; }
 .rvi-fold:hover { background: var(--rv-surface-2, #f4f5f7); }
+
+/* ---- import tickets from another help desk (rv-import.js) ---- */
+.rvx .rv-modal { width: min(760px, 96vw); max-height: 92dvh; }
+.rvx .rv-modal__body { overflow-y: auto; }
+.rvx-lead { margin: 0 0 var(--rv-space-3); line-height: 1.5; }
+.rvx-h { margin: var(--rv-space-4) 0 var(--rv-space-2); font-size: var(--rv-text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--rv-text-faint); }
+.rvx-how { border: 1px solid var(--rv-border); border-radius: var(--rv-radius-md); padding: 8px 12px; margin-bottom: 6px; }
+.rvx-how summary { cursor: pointer; font-weight: 600; } .rvx-how p { margin: 8px 0 2px; font-size: var(--rv-text-sm); line-height: 1.5; }
+.rvx-drop { display: flex; align-items: center; justify-content: center; text-align: center; padding: 22px 16px; border: 2px dashed var(--rv-border); border-radius: var(--rv-radius-lg); cursor: pointer; background: var(--rv-surface-2); }
+.rvx-drop:hover, .rvx-drop:focus-within { border-color: var(--rv-accent); } .rvx-drop input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rvx-list { display: flex; flex-direction: column; gap: 6px; }
+.rvx-imp { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 12px; border: 1px solid var(--rv-border); border-radius: var(--rv-radius-md); }
+.rvx-src { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; align-items: center; margin-bottom: var(--rv-space-3); }
+.rvx-src .rv-label { margin: 0; }
+.rvx-grid { display: flex; flex-direction: column; border: 1px solid var(--rv-border); border-radius: var(--rv-radius-md); }
+.rvx-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--rv-border-soft); }
+.rvx-row:first-child { border-top: 0; } .rvx-row .rv-label { margin: 0; font-weight: 600; }
+.rvx-ex { font-size: var(--rv-text-xs); color: var(--rv-text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rvx-stats { display: flex; gap: var(--rv-space-3); margin-bottom: var(--rv-space-3); flex-wrap: wrap; }
+.rvx-stats > div { flex: 1 1 130px; padding: 12px 14px; border: 1px solid var(--rv-border); border-radius: var(--rv-radius-md); display: flex; flex-direction: column; }
+.rvx-stats b { font-size: var(--rv-text-xl); } .rvx-stats span { font-size: var(--rv-text-xs); color: var(--rv-text-faint); }
+.rvx-warn { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--rv-radius-md); background: var(--rv-warning-soft); font-size: var(--rv-text-sm); margin-bottom: var(--rv-space-3); }
+.rvx-tablewrap { overflow-x: auto; } .rvx-table { width: 100%; border-collapse: collapse; font-size: var(--rv-text-sm); }
+.rvx-table th, .rvx-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--rv-border-soft); vertical-align: top; } .rvx-table th { font-size: var(--rv-text-xs); color: var(--rv-text-faint); }
+@media (max-width: 620px) { .rvx-row { grid-template-columns: 1fr; } .rvx-src { grid-template-columns: 1fr; } }

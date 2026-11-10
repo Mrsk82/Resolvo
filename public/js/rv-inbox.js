@@ -179,7 +179,7 @@
     var pri = (t.priority === 'Critical' || t.priority === 'High') ? w.RV.priority(t.priority) : '';
     var st = (t.status === 'open') ? '' : statusBadge(t.status);
     var owner = asg ? '<span class="rvi-row__owner">' + w.RV.avatar(asg, 'sm') + esc(String(asg).split(' ')[0]) + '</span>' : (done ? '' : '<span class="rvi-row__owner rvi-row__owner--none">Unassigned</span>');
-    var badges = slaChip(t) + pri + st + (vip ? w.RV.badge('VIP', 'warning') : '') + (t.deliveryFailed ? w.RV.badge('Reply not delivered', 'danger') : '') + (plus() && t.sentimentLevel === 'negative' && !done ? w.RV.badge('Unhappy', 'danger') : '') + (snoozed ? w.RV.badge('Snoozed', '') : '');
+    var badges = slaChip(t) + pri + st + (vip ? w.RV.badge('VIP', 'warning') : '') + (t.deliveryFailed ? w.RV.badge('Reply not delivered', 'danger') : '') + (t.imported ? w.RV.badge('Imported', '') : '') + (plus() && t.sentimentLevel === 'negative' && !done ? w.RV.badge('Unhappy', 'danger') : '') + (snoozed ? w.RV.badge('Snoozed', '') : '');
     return '<div class="ticket-row rvi-row' + (unread ? ' is-unread' : '') + '" role="option" tabindex="0" data-act="open" data-ticket-id="' + esc(t.id) + '" aria-selected="' + sel + '">' +
       '<input type="checkbox" class="ticket-checkbox" data-ticket-id="' + esc(t.id) + '" data-act="check" aria-label="Select ticket ' + esc(t.id) + '"' + (a._selectedTickets && a._selectedTickets.has(t.id) ? ' checked' : '') + '>' +
       '<span class="rvi-row__av">' + w.RV.avatar(who, null) + (unread ? '<i class="rvi-row__dot" title="Unread"></i>' : '') + '</span>' +
@@ -203,7 +203,7 @@
     var menu = w.RV.menu({ label: 'Inbox actions', items: [
       { label: 'Check inbox now', icon: 'mail', onclick: 'App._pollAndRefresh()' },
       c.new > 0 ? { label: 'Close all ' + c.new + ' new tickets', icon: 'check', onclick: "App._closeAllByStatus('new'," + c.new + ')' } : null,
-      '-', { label: 'Email and spam settings', onclick: "App.navigate('email-ticketing')" }, { label: 'WhatsApp settings', onclick: "App.navigate('whatsapp-settings')" }, { label: 'Queue settings', onclick: "App.navigate('settings',{tab:'queue-config'})" },
+      '-', (a.currentUser && a.currentUser.role === 'Admin') ? { label: 'Import tickets from another help desk', onclick: 'RVImport.open()' } : null, { label: 'Email and spam settings', onclick: "App.navigate('email-ticketing')" }, { label: 'WhatsApp settings', onclick: "App.navigate('whatsapp-settings')" }, { label: 'Queue settings', onclick: "App.navigate('settings',{tab:'queue-config'})" },
       '-', { label: 'Use the classic inbox layout', onclick: 'RVI.useClassic(true)' }].filter(Boolean) });
     return '<div class="rvi-tools"><div class="rvi-tools__head"><span class="rvi-tools__title">Tickets</span><span class="rv-hint" id="rviCount" aria-live="polite">' + S.tickets.length + ' of ' + S.total + '</span><span style="flex:1"></span>' +
       '<button type="button" class="rv-btn rv-btn--sm rvi-viewsbtn" data-act="views-panel" title="Saved views and queue tools">Views</button>' +

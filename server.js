@@ -2361,7 +2361,7 @@ app.post('/api/call',async(req,res)=>{
       const rules=(db.escalationRules||[]).filter(r=>r.enabled);
       let escalated=0;
       if(rules.length){
-        for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+        for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status)&&!t.imported)){
           const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
           const already=ticket.escalations||[];
           for(const rule of rules){
@@ -2565,7 +2565,7 @@ app.post('/api/call',async(req,res)=>{
         if(filters.sla==='breached'||filters.sla==='atrisk'){
           tickets=tickets.filter(t=>{if(['resolved','closed'].includes(t.status))return false;const s=sla(t);return filters.sla==='breached'?!!s.slaBreached:(!s.slaBreached&&!!s.slaRisk);});
         }
-        if(filters.search){const q=String(filters.search).toLowerCase().slice(0,200);tickets=tickets.filter(t=>String(t.subject||'').toLowerCase().includes(q)||String(t.from||'').toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||String(t.id||'').toLowerCase().includes(q)||(t.priority||'').toLowerCase().includes(q)||(t.sentimentLevel||'').toLowerCase().includes(q)||(t.thread||[]).some(m=>String(m.body||'').toLowerCase().includes(q)));}
+        if(filters.search){const q=String(filters.search).toLowerCase().slice(0,200);tickets=tickets.filter(t=>String(t.subject||'').toLowerCase().includes(q)||String(t.from||'').toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||String(t.id||'').toLowerCase().includes(q)||(t.priority||'').toLowerCase().includes(q)||(t.sentimentLevel||'').toLowerCase().includes(q)||String(t.externalId||'').toLowerCase()===q||(t.thread||[]).some(m=>String(m.body||'').toLowerCase().includes(q)));}
         // Sort — 'newest' (default) already applied above; re-sort for the other modes
         if(filters.sort&&filters.sort!=='newest'){
           if(filters.sort==='activity')tickets=tickets.slice().sort((a,b)=>new Date(b.lastActivity||b.createdDate)-new Date(a.lastActivity||a.createdDate));
@@ -2619,7 +2619,7 @@ app.post('/api/call',async(req,res)=>{
       const istDay=nowIST().slice(0,10);
       const waitingN=(db.tickets||[]).filter(isWaiting).length;
       const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,archived:arch(t),deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...sla(t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&!arch(t)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=sla(t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length,waiting:openR.filter(t=>!isSnoozed(t)&&_awaitingCustomer(t)).length,high:openR.filter(t=>t.priority==='High').length,following:openR.filter(t=>(t.watchers||[]).some(w=>String(w).toLowerCase()===me)).length,archived:(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&arch(t)).length,byStatus:real.reduce((o,t)=>{o[t.status]=(o[t.status]||0)+1;return o;},{})};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,archived:arch(t),imported:!!t.imported,deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...sla(t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&!arch(t)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=sla(t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length,waiting:openR.filter(t=>!isSnoozed(t)&&_awaitingCustomer(t)).length,high:openR.filter(t=>t.priority==='High').length,following:openR.filter(t=>(t.watchers||[]).some(w=>String(w).toLowerCase()===me)).length,archived:(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&arch(t)).length,byStatus:real.reduce((o,t)=>{o[t.status]=(o[t.status]||0)+1;return o;},{})};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -2662,6 +2662,105 @@ app.post('/api/call',async(req,res)=>{
       });
       if(done)wDB(db);
       return{success:true,updated:done};
+    },
+    // ── Import tickets from another help desk (CSV). The screen reads the file and sends rows in batches. ──
+    // Imported tickets are history: no SLA, no automations or surveys, never auto-assigned, no emails, never "unread" (see t.imported).
+    getTicketImports:()=>{
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can import tickets.'};
+      return{success:true,imports:(_kvGet(slug,'ticketImports')||[]).slice(-20).reverse(),limits:{maxRows:_IMPORT_MAX_ROWS,batch:_IMPORT_BATCH}};
+    },
+    detectTicketImport:(headers)=>{
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can import tickets.'};
+      if(!Array.isArray(headers)||!headers.length||headers.length>200)return{success:false,error:'That file has no usable header row.'};
+      const hs=headers.map(h=>String(h).slice(0,120));
+      return{success:true,source:ImportLib.detectSource(hs),map:ImportLib.autoMap(hs)};
+    },
+    previewTicketImport:(rows,mapping,opts)=>{
+      const gate=requireFeature(ff,'EMAIL_TICKETING_ENABLED');if(gate)return gate;
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can import tickets.'};
+      if(!Array.isArray(rows)||!rows.length)return{success:false,error:'The file has no rows.'};
+      mapping=_cleanImportMap(mapping);
+      if(!mapping.email)return{success:false,error:'Choose which column holds the customer email. Without it a ticket cannot be created.'};
+      const o={source:opts&&opts.source,dateOrder:opts&&opts.dateOrder==='mdy'?'mdy':'dmy'},db=rDB(),statusIds=_statusIds(db);
+      const sample=rows.slice(0,300),skipped={},unknownStatus={},out=[];let ok=0,noDate=0,noBody=0,dupes=0;
+      const have=_importKeys(slug);
+      sample.forEach(r=>{
+        const n=ImportLib.normalizeRow(r,mapping,o);
+        if(n.skip){skipped[n.skip]=(skipped[n.skip]||0)+1;return;}
+        const t=n.ticket;ok++;if(t.noDate)noDate++;if(!t.body)noBody++;if(have.has(t.externalKey))dupes++;
+        if(t.statusUnknown)unknownStatus[t.statusUnknown]=(unknownStatus[t.statusUnknown]||0)+1;
+        if(out.length<6)out.push({subject:t.subject,email:t.email,name:t.name,status:statusIds.has(t.status)?t.status:'pending',priority:t.priority,created:t.createdMs?ImportLib.toIST(t.createdMs).slice(0,16).replace('T',' '):'',tags:t.tags,body:t.body.slice(0,120),externalId:t.externalId});
+      });
+      return{success:true,total:rows.length,sampled:sample.length,ok,skipped,unknownStatus,noDate,noBody,duplicates:dupes,sample:out,tooMany:rows.length>_IMPORT_MAX_ROWS};
+    },
+    startTicketImport:(meta)=>{
+      const gate=requireFeature(ff,'EMAIL_TICKETING_ENABLED');if(gate)return gate;
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can import tickets.'};
+      meta=meta||{};const total=Math.max(0,parseInt(meta.total,10)||0);
+      if(total<1)return{success:false,error:'The file has no rows.'};
+      if(total>_IMPORT_MAX_ROWS)return{success:false,error:'That file has '+total+' rows. The limit is '+_IMPORT_MAX_ROWS+' per import. Split it into smaller files.'};
+      const log=_kvGet(slug,'ticketImports')||[];
+      if(log.some(x=>x.status==='running'&&Date.now()-Date.parse(x.startedAt)<30*60000))return{success:false,error:'Another import is still running. Wait for it to finish.'};
+      const id=generateId('IMP');
+      log.push({id,startedAt:new Date().toISOString(),by:su.email,source:ImportLib.SOURCES[meta.source]?meta.source:'other',fileName:String(meta.fileName||'').replace(/[^\w .()\-]/g,'').slice(0,80),total,created:0,skipped:0,duplicates:0,status:'running'});
+      _kvSet(slug,'ticketImports',log.slice(-50));
+      _importState.set(slug+'|'+id,{keys:_importKeys(slug),rows:0});
+      return{success:true,importId:id};
+    },
+    importTicketBatch:(importId,rows,mapping,opts)=>{
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can import tickets.'};
+      const log=_kvGet(slug,'ticketImports')||[],entry=log.find(x=>x.id===importId&&x.status==='running');
+      if(!entry)return{success:false,error:'This import is not running. Start it again.'};
+      if(!Array.isArray(rows)||rows.length>_IMPORT_BATCH)return{success:false,error:'Too many rows in one step.'};
+      mapping=_cleanImportMap(mapping);if(!mapping.email)return{success:false,error:'No email column chosen.'};
+      let st=_importState.get(slug+'|'+importId);if(!st){st={keys:_importKeys(slug),rows:entry.created+entry.skipped+entry.duplicates};_importState.set(slug+'|'+importId,st);}
+      if(st.rows+rows.length>_IMPORT_MAX_ROWS)return{success:false,error:'Import limit reached.'};
+      const o={source:entry.source,dateOrder:opts&&opts.dateOrder==='mdy'?'mdy':'dmy'},db=rDB(),statusIds=_statusIds(db);
+      const users=(db.users||[]).filter(u=>u.active!==false),byEmail={},byName={};users.forEach(u=>{byEmail[String(u.email).toLowerCase()]=u.email;if(u.name)byName[String(u.name).toLowerCase()]=u.email;});
+      const label=ImportLib.SOURCES[entry.source],now=nowIST(),conn=_openDB(slug),ins=conn.prepare('INSERT OR IGNORE INTO tickets(id,data) VALUES(?,?)');
+      let created=0,skipped=0,dupes=0,unmatched=0;
+      conn.transaction(()=>{
+        for(const r of rows){
+          const n=ImportLib.normalizeRow(r,mapping,o);
+          if(n.skip){skipped++;continue;}
+          const t=n.ticket;
+          if(st.keys.has(t.externalKey)){dupes++;continue;}
+          st.keys.add(t.externalKey);
+          const createdIso=t.createdMs?ImportLib.toIST(t.createdMs):now,done=['resolved','closed'].includes(t.status);
+          const lastMs=t.updatedMs||t.resolvedMs||t.createdMs,assigned=byEmail[String(t.assignee||'').toLowerCase()]||byName[String(t.assignee||'').toLowerCase()]||'';
+          if(t.assignee&&!assigned)unmatched++;
+          const tid=generateTicketId(slug),status=statusIds.has(t.status)?t.status:(done?'closed':'pending');
+          const msg=t.body?{id:generateId('MSG'),type:'incoming',from:t.email,fromName:t.name,body:t.body,timestamp:createdIso}
+            :{id:generateId('MSG'),type:'note',from:'import',fromName:'Import',body:'Imported from '+label+'. The exported file had no message text for this ticket, only its details.',timestamp:createdIso};
+          const ticket={id:tid,subject:t.subject,status,priority:t.priority,from:t.email,fromName:t.name,assignedTo:assigned,module:'Support',tags:Array.from(new Set(['imported'].concat(t.tags))).slice(0,11),isVIP:false,
+            createdDate:createdIso,lastActivity:lastMs?ImportLib.toIST(lastMs):createdIso,...(done?{resolvedDate:ImportLib.toIST(t.resolvedMs||t.updatedMs||t.createdMs||Date.now())}:{}),
+            linkedIssueId:null,messageIds:[],channel:'email',source:'import',imported:true,importId,importSource:entry.source,externalId:t.externalId,externalKey:t.externalKey,...(t.assignee&&!assigned?{importedAgent:t.assignee}:{}),
+            thread:[msg],timeline:[{event:'imported',by:su.email,byName:su.name||su.email,at:now,detail:'Imported from '+label+(t.externalId?' (ticket '+t.externalId+')':'')}]};
+          ins.run(tid,JSON.stringify(ticket));created++;
+        }
+      })();
+      st.rows+=rows.length;entry.created+=created;entry.skipped+=skipped;entry.duplicates+=dupes;entry.unmatchedAgents=(entry.unmatchedAgents||0)+unmatched;
+      _kvSet(slug,'ticketImports',log);
+      return{success:true,created,skipped,duplicates:dupes,progress:st.rows};
+    },
+    finishTicketImport:(importId)=>{
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can import tickets.'};
+      const log=_kvGet(slug,'ticketImports')||[],entry=log.find(x=>x.id===importId);if(!entry)return{success:false,error:'Import not found.'};
+      entry.status='done';entry.finishedAt=new Date().toISOString();_kvSet(slug,'ticketImports',log);_importState.delete(slug+'|'+importId);
+      _socialAudit(slug,su.email,'tickets_imported',{detail:'Imported '+entry.created+' tickets from '+ImportLib.SOURCES[entry.source]+' ('+entry.fileName+'); '+entry.skipped+' skipped, '+entry.duplicates+' already there.'});
+      return{success:true,import:entry};
+    },
+    // Removes everything one import created. Tickets that were imported are only deleted if nobody has worked on them since (no reply, note or status change by the team).
+    undoTicketImport:(importId)=>{
+      if(su.role!=='Admin')return{success:false,error:'Only an Admin can remove an import.'};
+      const log=_kvGet(slug,'ticketImports')||[],entry=log.find(x=>x.id===importId);if(!entry)return{success:false,error:'Import not found.'};
+      if(entry.status==='removed')return{success:true,removed:0,kept:0,import:entry};
+      const conn=_openDB(slug),rows=conn.prepare("SELECT id,data FROM tickets WHERE json_extract(data,'$.importId')=?").all(importId);
+      let removed=0,kept=0;
+      conn.transaction(()=>{for(const r of rows){const t=JSON.parse(r.data);const touched=(t.thread||[]).some(m=>m.type==='reply'||(m.type==='note'&&m.from!=='import'))||(t.timeline||[]).some(e=>e.event!=='imported');if(touched){kept++;continue;}conn.prepare('DELETE FROM tickets WHERE id=?').run(r.id);removed++;}})();
+      entry.status='removed';entry.removedAt=new Date().toISOString();entry.removed=removed;entry.kept=kept;_kvSet(slug,'ticketImports',log);_importState.delete(slug+'|'+importId);
+      _socialAudit(slug,su.email,'import_removed',{detail:'Removed '+removed+' imported tickets'+(kept?' ('+kept+' kept because the team had already worked on them)':'')+' from import '+importId});
+      return{success:true,removed,kept,import:entry};
     },
     // Lazy-load a single message's original email HTML — kept out of the main
     // ticket blob (see ticket_assets) so getTicketById/getTickets stay fast
@@ -4063,7 +4162,7 @@ app.post('/api/call',async(req,res)=>{
       const rules=(db.automationRules||[]).filter(r=>r.enabled&&r.trigger?.type==='ticket_age');
       let fired=0;
       if(rules.length){
-        for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+        for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status)&&!t.imported)){
           const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
           for(const rule of rules){
             const already=ticket.automationFired||[];
@@ -4441,7 +4540,7 @@ app.post('/api/call',async(req,res)=>{
       // Only assign 'new' real tickets — skip automated senders and auto-resolved
       const unassigned=(db.tickets||[]).filter(t=>
         !t.assignedTo&&t.status==='new'&&
-        !SPAM_PAT.test(t.from||'')&&!t.autoResolved&&!_ticketIsPromo(t)
+        !SPAM_PAT.test(t.from||'')&&!t.autoResolved&&!_ticketIsPromo(t)&&!t.imported
       ).sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate)); // oldest first
       let assigned=0,skipped=0;
       for(const t of unassigned){
@@ -5645,7 +5744,7 @@ app.post('/api/call',async(req,res)=>{
       const agents=(db.users||[]).filter(u=>u.active);
       let sent=0;
       for(const agent of agents){
-        const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status));
+        const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status)&&!t.imported);
         const myApts=(db.appointments||[]).filter(a=>a.assignedTo===agent.email&&a.date===today&&a.status!=='cancelled');
         const myFollowUps=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===agent.email);
         if(myTickets.length===0&&myApts.length===0&&myFollowUps.length===0)continue;
@@ -5827,7 +5926,7 @@ app.post('/api/call',async(req,res)=>{
       }
       if(ticketBreach>8)sys.push({id:'tsla_more_'+ticketBreach,type:'sla',title:ticketBreach-8+' more tickets are past their SLA',body:'Open your ticket inbox and sort by overdue.',at:now.toISOString(),read:false,icon:'🔴'});
       // Tickets: new ones assigned to me that I have not opened
-      for(const t of (db.tickets||[]).filter(t=>OPEN(t)&&mine(t)&&!(t.viewedBy||{})[su.email]).slice(0,6))
+      for(const t of (db.tickets||[]).filter(t=>OPEN(t)&&mine(t)&&!t.imported&&!(t.viewedBy||{})[su.email]).slice(0,6))
         sys.push({id:'tas_'+t.id,type:'assigned',title:'Ticket assigned to you',body:String(t.subject||t.id).slice(0,80),ticketId:t.id,at:t.lastActivity||t.createdDate||now.toISOString(),read:false,icon:'👤'});
       // Issues: SLA (issue tracker)
       (db.issues||[]).filter(i=>i.assignedTo===su.email&&!['Resolved','Release Required','Closed'].includes(i.status)).forEach(i=>{
@@ -7749,6 +7848,7 @@ function _isArchived(t){
 // Archive only exists while the Inbox 2.0 pilot is on for the workspace (read fresh, so switching it off brings archived tickets straight back).
 function _inboxPlusOn(slug){try{const b=(readOwner().brands||[]).find(x=>x.slug===slug);return !!b&&(b.featureOverrides||{}).INBOX_PLUS_ENABLED===true;}catch(e){return false;}}
 function _isTicketUnread(t,email){
+  if(t&&t.imported)return false;   // history brought in from another help desk is never "unread"
   const lastIn=_lastIncomingMsg(t);
   if(!lastIn)return false;
   const viewedAt=(t.viewedBy||{})[email];
@@ -7905,7 +8005,7 @@ function _businessDeadlineMs(fromMs, budgetMs, wh) {
 //      applied on top of whichever base hours were selected, for ad-hoc VIP
 //      emails/domains that don't warrant a full named policy.
 function getTicketSLAInfo(db, ticket) {
-  if (ticket && ticket.channel === 'listening') return { slaHours: 0, slaDeadline: null, slaBreached: false, slaRisk: false, slaHoursRemaining: null, slaPolicyName: null };   // a public mention has no customer waiting
+  if (ticket && (ticket.channel === 'listening' || ticket.imported)) return { slaHours: 0, slaDeadline: null, slaBreached: false, slaRisk: false, slaHoursRemaining: null, slaPolicyName: null };   // a public mention has no customer waiting
   const slaConfig = db.slaConfig || { Critical: 4, High: 8, Medium: 24, Low: 72 };
   const fromDomain = (ticket.from || '').split('@')[1]?.toLowerCase() || '';
   const policy = fromDomain ? (db.slaPolicies || []).find(p => p.domain && p.domain.toLowerCase() === fromDomain) : null;
@@ -9250,6 +9350,13 @@ async function sendGmailApiReply(slug,ticket,subject,html,text){
 // ── Sending an agent's email reply, honestly ──────────────────────────────────────────────────────────────────────────────
 // _deliverEmailReply says what really happened ({ok,via} or {ok:false,error}); _recordDelivery writes that onto the message so the screen
 // shows Sent or Not delivered (with Retry). A reply is never shown as sent unless the provider accepted it.
+const ImportLib=require('./lib/ticket-import');
+const _IMPORT_MAX_ROWS=20000,_IMPORT_BATCH=500,_importState=new Map();
+function _kvGet(slug,key){try{const r=_openDB(slug).prepare('SELECT value FROM kv WHERE key=?').get(key);return r?JSON.parse(r.value):null;}catch(e){return null;}}
+function _kvSet(slug,key,val){_openDB(slug).prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,JSON.stringify(val));}
+function _importKeys(slug){try{return new Set(_openDB(slug).prepare("SELECT json_extract(data,'$.externalKey') k FROM tickets WHERE json_extract(data,'$.externalKey') IS NOT NULL").pluck().all());}catch(e){return new Set();}}
+function _statusIds(db){return new Set((db.statusConfig||[{id:'new'},{id:'open'},{id:'pending'},{id:'on-hold'},{id:'escalated'},{id:'resolved'},{id:'closed'}]).map(x=>x.id));}
+function _cleanImportMap(m){const o={};ImportLib.FIELDS.forEach(f=>{o[f]=(m&&typeof m[f]==='string')?m[f].slice(0,120):'';});return o;}
 const _replyBusy=new Set();   // "ticket|clientKey" or "ticket|message" being sent right now (stops double sends)
 async function _deliverEmailReply(slug,ticket,replyText,ticketId){
   const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
@@ -9990,7 +10097,7 @@ function runBackgroundJobs(){
         const today=nowIST().split('T')[0];
         const agents=(db.users||[]).filter(u=>u.active);
         for(const agent of agents){
-          const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status));
+          const myTickets=(db.tickets||[]).filter(t=>t.assignedTo===agent.email&&!['resolved','closed'].includes(t.status)&&!t.imported);
           const myApts=(db.appointments||[]).filter(a=>a.assignedTo===agent.email&&a.date===today&&a.status!=='cancelled');
           const myFollowUps=(db.tickets||[]).filter(t=>t.followUpAt&&!t.followUpDone&&t.followUpAt<=today&&t.assignedTo===agent.email);
           if(myTickets.length===0&&myApts.length===0&&myFollowUps.length===0)continue;
@@ -10122,7 +10229,7 @@ function runBackgroundJobs(){
         // One customer per normalized email identifier, using their most recent ticket for contact info
         const byCustomer=new Map();
         for(const t of (db.tickets||[])){
-          if(!t.from||!t.from.includes('@'))continue; // NPS via email only for now
+          if(!t.from||!t.from.includes('@')||t.imported)continue; // NPS via email only for now; imported history is never surveyed
           const norm=_normalizeIdentifier(t.from);
           const existing=byCustomer.get(norm);
           if(!existing||new Date(t.createdDate)>new Date(existing.createdDate))byCustomer.set(norm,t);
@@ -11362,7 +11469,7 @@ setInterval(async()=>{
       const rules=(db.escalationRules||[]).filter(r=>r.enabled);
       if(!rules.length)continue;
       let changed=false;
-      for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+      for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status)&&!t.imported)){
         const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
         const already=ticket.escalations||[];
         for(const rule of rules){
@@ -11554,7 +11661,7 @@ setInterval(async()=>{
       const rules=(db.automationRules||[]).filter(r=>r.enabled&&r.trigger?.type==='ticket_age');
       if(!rules.length)continue;
       let changed=false;
-      for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status))){
+      for(const ticket of(db.tickets||[]).filter(t=>!['resolved','closed'].includes(t.status)&&!t.imported)){
         const ageHours=(Date.now()-new Date(ticket.createdDate||ticket.lastActivity).getTime())/3600000;
         for(const rule of rules){
           const already=ticket.automationFired||[];
