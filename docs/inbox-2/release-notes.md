@@ -74,7 +74,7 @@ Ticket data additions (all optional, old tickets unaffected): message `deliveryS
 | Suite | Checks | Covers |
 |---|---|---|
 | `reply_reliability_test.js` | 25 | failed send, retry, no double send (including three simultaneous clicks), escaping, notes, sample tickets |
-| `inbox_phase2_test.js` | 38 | search, filters, read/unread, sorts, archive and auto-return, counts, history, pilot switch on/off |
+| `inbox_phase2_test.js` | 41 | search, filters, read/unread, sorts, archive and auto-return, counts, history, pilot switch on/off, rollback brings archived tickets back |
 | `inbox_phase2_ui_test.py` | 45 | grouped views, docked/collapse/remembered, narrow and phone, filters, saved views, bulk and archive dialog, follow, folded thread, pilot-off unchanged |
 | `inbox_perf_test.js` | 10 | 5,000 tickets: about 70 ms per list call. 25,000 tickets: 0.3 to 1.2 s. No database change needed. |
 | existing, run on a throwaway copy | inbox_focus 72, first_customers 30, reply_helpers 10, mobile 17, nav 12, phone_features 23, housekeeping 17, topics 74 + 34 | no regressions |
@@ -103,5 +103,5 @@ Nothing is deployed. When you decide:
 
 ## 9. Rollback
 
-- **Per workspace (instant):** switch `INBOX_PLUS_ENABLED` off. The inbox is as before. Archived tickets stay archived and are still found under the Archived status filter in the classic filter panel only when the switch is on, so unarchive them first (select them in Archived, Move back to inbox) if you turn it off for good.
+- **Per workspace (instant):** switch `INBOX_PLUS_ENABLED` off. The inbox is as before, and any tickets that were archived show in the normal views again (archive only exists while the switch is on; tested).
 - **Whole release:** deploy the tag `inbox2-rollback-point` (`git checkout inbox2-rollback-point`, deploy, `pm2 restart resolvo`). No database migration was made, so nothing needs undoing; the new optional fields on tickets are ignored by the old code.

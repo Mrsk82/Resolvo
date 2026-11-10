@@ -61,6 +61,14 @@ const rpc = (tok, fn, ...a) => post('/api/call', { fn, args: a }, tok);
   try {
     const tok = (await post('/api/login', { email: 'admin@demo.local', password: 'demo1234' })).token;
     check('setup: demo admin signs in', !!tok);
+    // ---- the pilot switch: off for every plan until the owner overrides it for a workspace ----
+    const flagOf = async () => (await rpc(tok, 'getAllFeatureFlags')).flags.INBOX_PLUS_ENABLED;
+    const of = path.join(app, 'data', 'owner.json'), oj = JSON.parse(fs.readFileSync(of, 'utf8'));
+    const setPlus = (on) => { oj.brands[0].featureOverrides = { ...(oj.brands[0].featureOverrides || {}), INBOX_PLUS_ENABLED: on }; fs.writeFileSync(of, JSON.stringify(oj)); };
+    check('pilot: Inbox 2.0 is off by default, even on Enterprise', (await flagOf()) === false);
+    check('pilot: archiving is refused while it is off', (await rpc(tok, 'archiveTickets', ['A4'], true)).success === false);
+    setPlus(true);
+    check('pilot: the owner can switch it on for one workspace', (await flagOf()) === true);
     const list = async (f) => { const r = await rpc(tok, 'getTickets', { status: 'all', promo: 'all', limit: 100, ...(f || {}) }); return r; };
     const ids = (r) => r.tickets.map((t) => t.id).sort();
 
@@ -130,14 +138,13 @@ const rpc = (tok, fn, ...a) => post('/api/call', { fn, args: a }, tok);
     await rpc(tok, 'updateTicketPriority', 'A6', 'Critical');
     check('history: setting the same priority again adds nothing', ((await rpc(tok, 'getTicketById', 'A6')).ticket.timeline || []).filter((e) => e.event === 'priority_changed').length === 1);
 
-    // ---- the pilot switch: off for every plan, on only when the owner overrides it for a workspace ----
-    const flagOf = async () => (await rpc(tok, 'getAllFeatureFlags')).flags.INBOX_PLUS_ENABLED;
-    check('pilot: Inbox 2.0 is off by default, even on Enterprise', (await flagOf()) === false);
-    const of = path.join(app, 'data', 'owner.json'), oj = JSON.parse(fs.readFileSync(of, 'utf8'));
-    oj.brands[0].featureOverrides = { ...(oj.brands[0].featureOverrides || {}), INBOX_PLUS_ENABLED: true }; fs.writeFileSync(of, JSON.stringify(oj));
-    check('pilot: the owner can switch it on for one workspace', (await flagOf()) === true);
-    oj.brands[0].featureOverrides.INBOX_PLUS_ENABLED = false; fs.writeFileSync(of, JSON.stringify(oj));
-    check('pilot: and off again (rollback)', (await flagOf()) === false);
+    // ---- rollback: switching the pilot off brings archived tickets straight back ----
+    await rpc(tok, 'archiveTickets', ['A5'], true);
+    check('rollback: before switching off, the ticket is archived and hidden', !ids(await list()).includes('A5'));
+    setPlus(false);
+    const back = await list();
+    check('rollback: with the switch off, archived tickets show in the normal list again', ids(back).includes('A5') && back.counts.inbox.archived === 0, [ids(back), back.counts.inbox.archived]);
+    check('rollback: the switch reads off again', (await flagOf()) === false);
 
     check('server: no crash', !/TypeError|ReferenceError|UnhandledPromise|is not defined/.test(srvLog), srvLog.slice(-300));
   } catch (e) { check('test run finished without an exception', false, String((e && e.stack) || e)); }

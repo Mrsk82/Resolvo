@@ -2525,13 +2525,14 @@ app.post('/api/call',async(req,res)=>{
         return new Date(b.createdDate)-new Date(a.createdDate);
       });
       const nowMs=Date.now();
+      const _plusOn=_inboxPlusOn(slug),arch=t=>_plusOn&&_isArchived(t);
       const _slaMemo=new Map();const sla=t=>{let x=_slaMemo.get(t.id);if(!x){x=getTicketSLAInfo(db,t);_slaMemo.set(t.id,x);}return x;};
       const isSnoozed=t=>t.snoozedUntil&&new Date(t.snoozedUntil).getTime()>nowMs;
       // Snoozed tickets stay out of every normal view (including 'all')
       // until they wake up on their own — same idea as Gmail snooze. The
       // one exception is filters.status==='snoozed' itself, handled below.
       if(!filters||filters.status!=='snoozed')tickets=tickets.filter(t=>!isSnoozed(t));
-      if(!filters||filters.status!=='archived')tickets=tickets.filter(t=>!_isArchived(t));
+      if(!filters||filters.status!=='archived')tickets=tickets.filter(t=>!arch(t));
       if(filters){
         // My Queue filter — assigned to current user, not resolved/closed
         // Case-insensitive match to handle any email casing differences
@@ -2542,7 +2543,7 @@ app.post('/api/call',async(req,res)=>{
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status==='snoozed')tickets=tickets.filter(isSnoozed);
-        else if(filters.status==='archived')tickets=tickets.filter(_isArchived);
+        else if(filters.status==='archived')tickets=tickets.filter(arch);
         else if(filters.status==='waiting')tickets=tickets.filter(t=>!['resolved','closed'].includes(t.status)&&_awaitingCustomer(t));
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
         if(filters.promo==='exclude')tickets=tickets.filter(t=>!_ticketIsPromo(t));
@@ -2614,11 +2615,11 @@ app.post('/api/call',async(req,res)=>{
       const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
       // Focus mode: "waiting on customer" = open ticket where we spoke last (or status pending); "resolved today" uses the IST day
       const _promoIds=new Set((db.tickets||[]).filter(_ticketIsPromo).map(t=>t.id));
-      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&!_promoIds.has(t.id)&&!_isArchived(t)&&_awaitingCustomer(t);
+      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&!_promoIds.has(t.id)&&!arch(t)&&_awaitingCustomer(t);
       const istDay=nowIST().slice(0,10);
       const waitingN=(db.tickets||[]).filter(isWaiting).length;
       const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,archived:_isArchived(t),deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...sla(t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&!_isArchived(t)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=sla(t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length,waiting:openR.filter(t=>!isSnoozed(t)&&_awaitingCustomer(t)).length,high:openR.filter(t=>t.priority==='High').length,following:openR.filter(t=>(t.watchers||[]).some(w=>String(w).toLowerCase()===me)).length,archived:(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&_isArchived(t)).length,byStatus:real.reduce((o,t)=>{o[t.status]=(o[t.status]||0)+1;return o;},{})};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,archived:arch(t),deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...sla(t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&!arch(t)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=sla(t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length,waiting:openR.filter(t=>!isSnoozed(t)&&_awaitingCustomer(t)).length,high:openR.filter(t=>t.priority==='High').length,following:openR.filter(t=>(t.watchers||[]).some(w=>String(w).toLowerCase()===me)).length,archived:(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&arch(t)).length,byStatus:real.reduce((o,t)=>{o[t.status]=(o[t.status]||0)+1;return o;},{})};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -2636,6 +2637,7 @@ app.post('/api/call',async(req,res)=>{
     },
     // Tidy finished tickets away (and bring them back). Only resolved or closed tickets can be archived; a new customer message brings one back by itself.
     archiveTickets:(ids,archive)=>{
+      if(!_inboxPlusOn(slug))return{success:false,error:'Archive is not switched on for this workspace.'};
       if(!Array.isArray(ids)||!ids.length)return{success:false,error:'Choose at least one ticket.'};
       const db=rDB(),want=archive!==false,now=nowIST();let done=0,skipped=0;
       ids.slice(0,500).forEach(id=>{
@@ -7744,6 +7746,8 @@ function _isArchived(t){
   const lastIn=_lastIncomingMsg(t);
   return !(lastIn&&Date.parse(lastIn.timestamp)>Date.parse(t.archivedAt||0));
 }
+// Archive only exists while the Inbox 2.0 pilot is on for the workspace (read fresh, so switching it off brings archived tickets straight back).
+function _inboxPlusOn(slug){try{const b=(readOwner().brands||[]).find(x=>x.slug===slug);return !!b&&(b.featureOverrides||{}).INBOX_PLUS_ENABLED===true;}catch(e){return false;}}
 function _isTicketUnread(t,email){
   const lastIn=_lastIncomingMsg(t);
   if(!lastIn)return false;
