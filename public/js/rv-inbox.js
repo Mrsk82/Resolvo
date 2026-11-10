@@ -11,9 +11,10 @@
   var S = { sel: null, ticket: null, tickets: [], total: 0, counts: {}, facets: { assignees: [], teams: [], tags: [] }, statuses: [], users: null, cls: null,
             drafts: {}, mode: 'reply', limit: 25, filtersOpen: false, canned: null, loaded: false, reqId: 0,
             focus: null, fAll: [], fTab: 'needs', fCur: 0, fOpen: null, fResolved: null, fTotal: 0, fKeys: null };
-  var EXTRA = ['_ticketAssignee', '_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo', '_ticketSla', '_ticketActive', '_ticketPromo'];
+  var EXTRA = ['_ticketAssignee', '_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo', '_ticketSla', '_ticketActive', '_ticketPromo', '_ticketSentiment', '_ticketRead', '_ticketVip', '_ticketFollowing'];
   // the server also sends counts that leave out promotions and automated alerts; those are the numbers people work from
   function normCounts(c) { c = c || {}; return Object.assign({}, c, c.inbox || {}, { raw: c }); }
+  var DOCK_MIN = 1100;   // inbox width (px) from which the views list sits beside the ticket list instead of sliding over it
   var KEYS = ['_ticketFilter', '_ticketChannel', '_ticketPriority', '_ticketSort', '_ticketSearch'].concat(EXTRA);
 
   // ---------- filter state (kept on App so the classic helpers and the dashboard links keep working) ----------
@@ -23,11 +24,12 @@
   }
   function persist() { try { var o = {}; KEYS.forEach(function (k) { if (A()[k] !== undefined) o[k] = A()[k]; }); localStorage.setItem('tt_inbox_filters', JSON.stringify(o)); } catch (e) {} }
   function resetAll() { var a = A(); a._ticketFilter = 'all'; a._ticketChannel = 'all'; a._ticketPriority = 'all'; a._ticketSearch = ''; a._ticketSort = 'newest'; resetExtra(); }
-  function resetExtra() { var a = A(); a._ticketAssignee = 'all'; a._ticketTeam = ''; a._ticketTag = ''; a._ticketFrom = ''; a._ticketTo = ''; a._ticketSla = ''; a._ticketActive = false; a._ticketPromo = ''; }
+  function resetExtra() { var a = A(); a._ticketAssignee = 'all'; a._ticketTeam = ''; a._ticketTag = ''; a._ticketFrom = ''; a._ticketTo = ''; a._ticketSla = ''; a._ticketActive = false; a._ticketPromo = ''; a._ticketSentiment = ''; a._ticketRead = ''; a._ticketVip = false; a._ticketFollowing = false; }
   function query() {
     var a = A();
     return { status: a._ticketFilter || 'all', channel: a._ticketChannel || 'all', priority: a._ticketPriority || 'all', sort: a._ticketSort || 'newest', search: a._ticketSearch || '', limit: S.limit,
       assignedTo: a._ticketAssignee || 'all', team: a._ticketTeam || '', tag: a._ticketTag || '', dateFrom: a._ticketFrom || '', dateTo: a._ticketTo || '', sla: a._ticketSla || '', active: !!a._ticketActive,
+      sentiment: a._ticketSentiment || '', read: a._ticketRead || '', vip: !!a._ticketVip, following: !!a._ticketFollowing,
       promo: a._ticketPromo === 'only' ? 'only' : ((a._ticketPromo === 'mentions' || a._ticketChannel === 'listening' || (a._ticketSearch || '')) ? 'all' : 'exclude'),
       mentions: (a._ticketPromo === 'mentions' || a._ticketChannel === 'listening') ? 'only' : '' };
   }
@@ -38,10 +40,14 @@
     if (a._ticketPromo === 'mentions') return 'mentions';
     if (a._ticketSla === 'breached') return 'sla-breached';
     if (a._ticketSla === 'atrisk') return 'sla-risk';
-    if (a._ticketPriority === 'Critical' && a._ticketActive && f === 'all') return 'critical';
-    if ((a._ticketPriority || 'all') !== 'all' || a._ticketSla) return 'custom';
+    var extra = a._ticketSentiment || a._ticketRead || a._ticketVip;
+    if (a._ticketFollowing && !extra && f === 'all' && plain && (a._ticketPriority || 'all') === 'all') return 'following';
+    if (a._ticketPriority === 'Critical' && a._ticketActive && f === 'all' && !extra) return 'critical';
+    if (a._ticketPriority === 'High' && a._ticketActive && f === 'all' && !extra && plain && !a._ticketFollowing) return 'high';
+    if ((a._ticketPriority || 'all') !== 'all' || a._ticketSla || extra || a._ticketFollowing) return 'custom';
     if (f === 'mine' || f === 'unassigned' || f === 'snoozed') return f;
     if (f === 'all' && plain) return 'all';
+    if (f !== 'all' && plain && /^[A-Za-z0-9_-]+$/.test(f)) return 'status:' + f;   // Open, Pending, Waiting for customer, Resolved, Closed, Archived...
     return 'custom';
   }
   RVI.setView = function (v) {
@@ -52,6 +58,8 @@
     else if (v === 'sla-breached') a._ticketSla = 'breached';
     else if (v === 'promo') a._ticketPromo = 'only';
     else if (v === 'mentions') a._ticketPromo = 'mentions';
+    else if (v === 'following') a._ticketFollowing = true;
+    else if (v === 'high') { a._ticketPriority = 'High'; a._ticketActive = true; }
     else if (/^status:/.test(String(v))) a._ticketFilter = String(v).slice(7).replace(/[^A-Za-z0-9_-]/g, '');
     S.limit = 25; persist();
   };
@@ -80,16 +88,26 @@
     var v = function (key, label, n, hot) { return '<button type="button" class="rvi-view" data-act="view" data-view="' + key + '" aria-current="' + (cur === key) + '"><span>' + esc(label) + '</span>' + (n != null ? '<span class="rvi-view__n' + (hot && n > 0 ? ' rvi-view__n--hot' : '') + '">' + n + '</span>' : '') + '</button>'; };
     var saved = '';
     if (tsv && tsv.getAll) {
-      saved = '<h3>Saved views</h3>' + tsv.getAll().filter(function (x) { return ['all', 'mine', 'unassigned', 'critical'].indexOf(x.id) < 0; }).map(function (x) {
+      saved = '<h3>' + (plus() ? 'Custom views' : 'Saved views') + '</h3>' + tsv.getAll().filter(function (x) { return ['all', 'mine', 'unassigned', 'critical'].indexOf(x.id) < 0; }).map(function (x) {
         return '<div class="rvi-saved"><button type="button" class="rvi-view" data-act="saved" data-id="' + esc(x.id) + '" aria-current="' + (tsv._isActive && tsv._isActive(x)) + '"><span>' + esc(x.name) + '</span></button><button type="button" class="rvi-saved__x" data-act="saved-del" data-id="' + esc(x.id) + '" aria-label="Delete saved view ' + esc(x.name) + '">&times;</button></div>';
-      }).join('') + '<button type="button" class="rvi-view" data-act="save-view" style="color:var(--rv-link)"><span>+ Save current filters</span></button>';
+      }).join('') + '<button type="button" class="rvi-view" data-act="save-view" style="color:var(--rv-link)"><span>' + (plus() ? '+ Create new view' : '+ Save current filters') + '</span></button>';
     }
-    return '<h3>Views</h3>' + v('mine', 'My tickets', c.mine) + v('unassigned', 'Unassigned', c.unassigned, true) + v('all', 'All tickets', c.all) + v('critical', 'Critical', c.critical, true) +
+    if (!plus()) return '<h3>Views</h3>' + v('mine', 'My tickets', c.mine) + v('unassigned', 'Unassigned', c.unassigned, true) + v('all', 'All tickets', c.all) + v('critical', 'Critical', c.critical, true) +
       v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + (listenOn(c) ? v('mentions', 'Listening', c.mentions) : '') + saved +
       '<div class="rvi-queue"><div id="queueAgentList"><span class="rv-hint">Loading queue...</span></div></div>';
+    var bs = c.byStatus || {}, sv = function (id, label, n) { return v('status:' + id, label, n == null ? 0 : n); };
+    return '<div class="rvi-views__top"><span class="rvi-views__title">Inbox</span><button type="button" class="rv-iconbtn" data-act="views-collapse" aria-label="Hide this list" title="Hide this list">&laquo;</button></div>' +
+      '<h3>Workspace</h3>' + v('all', 'All inbox', c.all) + v('mine', 'My conversations', c.mine) + v('unassigned', 'Unassigned', c.unassigned, true) + v('following', 'Following', c.following) +
+      '<h3>Priority</h3>' + v('critical', 'Urgent', c.critical, true) + v('high', 'High priority', c.high) + v('sla-risk', 'SLA at risk', c.slaDue, true) + v('sla-breached', 'SLA breached', c.slaBreached, true) +
+      '<h3>Status</h3>' + sv('new', 'New', bs['new']) + sv('open', 'Open', bs.open) + sv('pending', 'Pending', bs.pending) + sv('waiting', 'Waiting for customer', c.waiting) + sv('resolved', 'Resolved', bs.resolved) + sv('closed', 'Closed', bs.closed) + sv('archived', 'Archived', c.archived) +
+      '<h3>Other</h3>' + v('snoozed', 'Snoozed', c.snoozed) + v('promo', 'Promotions & alerts', c.promo) + (listenOn(c) ? v('mentions', 'Listening', c.mentions) : '') +
+      (saved || '<h3>Custom views</h3><button type="button" class="rvi-view" data-act="save-view" style="color:var(--rv-link)"><span>+ Create new view</span></button>') +
+      '<div class="rvi-queue"><div id="queueAgentList"><span class="rv-hint">Loading queue...</span></div></div>';
   }
+  // Inbox 2.0 pilot: the owner switches it on for a workspace (INBOX_PLUS_ENABLED). Off = the inbox looks and works exactly as before.
+  function plus() { var f = (A().featureFlags || {}).INBOX_PLUS_ENABLED; return f === true || f === 'true'; }
   // The Listening view only appears when Topics is switched on for this workspace, or mentions already exist
-  function listenOn(c) { var f = (window.App && App.featureFlags) || {}, v = f.LISTENING_ENABLED; return v === true || v === 'true' || (c && c.mentions > 0); }
+  function listenOn(c) { var f = A().featureFlags || {}, v = f.LISTENING_ENABLED; return v === true || v === 'true' || (c && c.mentions > 0); }
   function pillsRow() {
     var c = S.counts || {}, cur = currentView();
     var items = [['mine', 'Mine', c.mine], ['unassigned', 'Unassigned', c.unassigned], ['all', 'All', c.all], ['critical', 'Critical', c.critical], ['sla-risk', 'At risk', c.slaDue], ['sla-breached', 'Breached', c.slaBreached], ['snoozed', 'Snoozed', c.snoozed], ['promo', 'Promos', c.promo]].concat(listenOn(c) ? [['mentions', 'Listening', c.mentions]] : []);
@@ -98,17 +116,20 @@
   }
   function filterPanel() {
     var a = A(), f = S.facets || {};
-    var stOpts = [{ v: 'all', l: 'All statuses' }].concat((S.statuses || []).map(function (s) { return { v: s.id, l: (s.label || s.id) + ' (' + ((S.counts || {})[s.id] || 0) + ')' }; }));
+    var stOpts = [{ v: 'all', l: 'All statuses' }].concat((S.statuses || []).map(function (s) { return { v: s.id, l: (s.label || s.id) + ' (' + (((S.counts || {}).byStatus || {})[s.id] || 0) + ')' }; }), plus() ? [{ v: 'waiting', l: 'Waiting for customer (' + ((S.counts || {}).waiting || 0) + ')' }, { v: 'archived', l: 'Archived (' + ((S.counts || {}).archived || 0) + ')' }] : []);
     var asg = [{ v: 'all', l: 'Anyone' }, { v: 'none', l: 'Unassigned' }].concat((f.assignees || []).map(function (u) { return { v: u.email, l: u.name + (u.count ? ' (' + u.count + ')' : '') }; }));
     var chOpts = [['all', 'All channels'], ['email', 'Email'], ['whatsapp', 'WhatsApp'], ['widget', 'Web widget'], ['sms', 'SMS'], ['call', 'Call'], ['manual', 'Manual']].concat(listenOn(S.counts || {}) ? [['listening', 'Listening']] : []).map(function (x) { return { v: x[0], l: x[1] }; });
     var prOpts = [['all', 'All priorities'], ['Critical', 'Critical'], ['High', 'High'], ['Medium', 'Medium'], ['Low', 'Low']].map(function (x) { return { v: x[0], l: x[1] }; });
-    var srt = [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['priority', 'Priority'], ['sla', 'SLA risk']].map(function (x) { return { v: x[0], l: x[1] }; });
+    var srt = (plus() ? [['newest', 'Newest first (unread on top)'], ['activity', 'Latest activity'], ['waiting', 'Waiting longest for us'], ['oldest', 'Oldest first'], ['priority', 'Priority'], ['sla', 'SLA deadline']] : [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['priority', 'Priority'], ['sla', 'SLA risk']]).map(function (x) { return { v: x[0], l: x[1] }; });
     var team = [{ v: '', l: 'Any team' }].concat((f.teams || []).map(function (x) { return { v: x.team, l: x.team + ' (' + x.count + ')' }; }));
     var tags = [{ v: '', l: 'Any tag' }].concat((f.tags || []).map(function (x) { return { v: x.tag, l: x.tag + ' (' + x.count + ')' }; }));
     return '<div class="rvi-filterpanel' + (S.filtersOpen ? ' is-open' : '') + '" id="rviFilters">' +
       selectHtml('f_status', 'Status', stOpts, a._ticketFilter && ['mine', 'unassigned', 'snoozed'].indexOf(a._ticketFilter) < 0 ? a._ticketFilter : 'all') +
       selectHtml('f_priority', 'Priority', prOpts, a._ticketPriority || 'all') + selectHtml('f_channel', 'Channel', chOpts, a._ticketChannel || 'all') + selectHtml('f_assignee', 'Assignee', asg, a._ticketAssignee || 'all') +
       selectHtml('f_team', 'Team', team, a._ticketTeam || '') + selectHtml('f_tag', 'Tag', tags, a._ticketTag || '') +
+      (plus() ?       selectHtml('f_sentiment', 'Customer mood', [{ v: '', l: 'Any mood' }, { v: 'negative', l: 'Negative' }, { v: 'neutral', l: 'Neutral' }, { v: 'positive', l: 'Positive' }], a._ticketSentiment || '') +
+      selectHtml('f_read', 'Read or unread', [{ v: '', l: 'Read and unread' }, { v: 'unread', l: 'Unread only' }, { v: 'read', l: 'Read only' }], a._ticketRead || '') +
+      selectHtml('f_vip', 'Customer', [{ v: '', l: 'Everyone' }, { v: '1', l: 'VIP customers only' }], a._ticketVip ? '1' : '') : '') +
       '<div class="rv-field"><label class="rv-label" for="f_from">Created from</label><input class="rv-input" type="date" id="f_from" data-filter="f_from" value="' + esc(a._ticketFrom || '') + '"></div>' +
       '<div class="rv-field"><label class="rv-label" for="f_to">Created to</label><input class="rv-input" type="date" id="f_to" data-filter="f_to" value="' + esc(a._ticketTo || '') + '"></div>' +
       selectHtml('f_sort', 'Sort by', srt, a._ticketSort || 'newest', true) +
@@ -118,7 +139,11 @@
     var a = A(), out = [];
     var add = function (label, clear) { out.push('<button type="button" class="rvi-chip" data-act="chip" data-clear="' + clear + '" aria-label="Remove filter ' + esc(label) + '">' + esc(label) + '<i>&times;</i></button>'); };
     var f = a._ticketFilter || 'all';
-    if (f !== 'all' && ['mine', 'unassigned', 'snoozed'].indexOf(f) < 0) add('Status: ' + statusLabel(f), 'status');
+    if (f !== 'all' && ['mine', 'unassigned', 'snoozed'].indexOf(f) < 0 && !/^status:/.test(currentView())) add('Status: ' + (f === 'waiting' ? 'Waiting for customer' : f === 'archived' ? 'Archived' : statusLabel(f)), 'status');
+    if (a._ticketSentiment) add('Mood: ' + a._ticketSentiment, 'sentiment');
+    if (a._ticketRead) add(a._ticketRead === 'unread' ? 'Unread only' : 'Read only', 'read');
+    if (a._ticketVip) add('VIP customers', 'vip');
+    if (a._ticketFollowing && currentView() !== 'following') add('Following', 'following');
     if ((a._ticketChannel || 'all') !== 'all') add('Channel: ' + channelName(a._ticketChannel), 'channel');
     if ((a._ticketPriority || 'all') !== 'all' && currentView() !== 'critical') add('Priority: ' + a._ticketPriority, 'priority');
     if ((a._ticketAssignee || 'all') !== 'all') { var u = ((S.facets || {}).assignees || []).filter(function (x) { return x.email === a._ticketAssignee; })[0]; add('Assignee: ' + (a._ticketAssignee === 'none' ? 'Unassigned' : (u ? u.name : a._ticketAssignee)), 'assignee'); }
@@ -140,7 +165,7 @@
     var us = ((S.facets || {}).assignees || []);
     return '<select class="rv-select rvi-assign" id="bulkAssignSel" aria-label="Assign selected tickets to" data-bulk="assign"><option value="">Assign to...</option><option value="__me">Me</option>' + us.map(function (u) { return '<option value="' + esc(u.email) + '">' + esc(u.name) + '</option>'; }).join('') + '</select>';
   }
-  function filterCount() { var a = A(), n = 0; var f = a._ticketFilter || 'all'; if (f !== 'all' && ['mine', 'unassigned', 'snoozed'].indexOf(f) < 0) n++; ['_ticketChannel', '_ticketPriority', '_ticketAssignee'].forEach(function (k) { if ((a[k] || 'all') !== 'all') n++; }); ['_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo'].forEach(function (k) { if (a[k]) n++; }); return n; }
+  function filterCount() { var a = A(), n = 0; var f = a._ticketFilter || 'all'; if (f !== 'all' && ['mine', 'unassigned', 'snoozed'].indexOf(f) < 0 && !/^status:/.test(currentView())) n++; ['_ticketChannel', '_ticketPriority', '_ticketAssignee'].forEach(function (k) { if ((a[k] || 'all') !== 'all') n++; }); ['_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo', '_ticketSentiment', '_ticketRead', '_ticketVip'].forEach(function (k) { if (a[k]) n++; }); return n; }
 
   function rowHtml(t) {
     var a = A(), sel = S.sel === t.id, unread = !!t.unread, who = (t.fromName || t.from || 'Unknown');
@@ -154,7 +179,7 @@
     var pri = (t.priority === 'Critical' || t.priority === 'High') ? w.RV.priority(t.priority) : '';
     var st = (t.status === 'open') ? '' : statusBadge(t.status);
     var owner = asg ? '<span class="rvi-row__owner">' + w.RV.avatar(asg, 'sm') + esc(String(asg).split(' ')[0]) + '</span>' : (done ? '' : '<span class="rvi-row__owner rvi-row__owner--none">Unassigned</span>');
-    var badges = slaChip(t) + pri + st + (vip ? w.RV.badge('VIP', 'warning') : '') + (t.deliveryFailed ? w.RV.badge('Reply not delivered', 'danger') : '') + (snoozed ? w.RV.badge('Snoozed', '') : '');
+    var badges = slaChip(t) + pri + st + (vip ? w.RV.badge('VIP', 'warning') : '') + (t.deliveryFailed ? w.RV.badge('Reply not delivered', 'danger') : '') + (plus() && t.sentimentLevel === 'negative' && !done ? w.RV.badge('Unhappy', 'danger') : '') + (snoozed ? w.RV.badge('Snoozed', '') : '');
     return '<div class="ticket-row rvi-row' + (unread ? ' is-unread' : '') + '" role="option" tabindex="0" data-act="open" data-ticket-id="' + esc(t.id) + '" aria-selected="' + sel + '">' +
       '<input type="checkbox" class="ticket-checkbox" data-ticket-id="' + esc(t.id) + '" data-act="check" aria-label="Select ticket ' + esc(t.id) + '"' + (a._selectedTickets && a._selectedTickets.has(t.id) ? ' checked' : '') + '>' +
       '<span class="rvi-row__av">' + w.RV.avatar(who, null) + (unread ? '<i class="rvi-row__dot" title="Unread"></i>' : '') + '</span>' +
@@ -188,7 +213,9 @@
       '<button type="button" class="rv-btn rv-btn--sm" data-act="filters" aria-expanded="' + S.filtersOpen + '" aria-controls="rviFilters">Filters' + (n ? ' (' + n + ')' : '') + '</button>' + menu + '</div>' +
       pillsRow() + filterPanel() + chips() + promoBar() +
       '<div id="ticketBulkBar" class="rvi-bulk"><span id="ticketSelectedCount" style="font-size:var(--rv-text-sm);font-weight:700">0 selected</span>' +
-      assignSelect() + w.RV.btn({ label: 'Mark resolved', size: 'sm', attrs: { 'data-act': 'bulk-resolved' } }) + w.RV.btn({ label: 'Close', size: 'sm', attrs: { 'data-act': 'bulk-closed' } }) + w.RV.btn({ label: 'Delete', size: 'sm', kind: 'danger', attrs: { 'data-act': 'bulk-delete' } }) + w.RV.btn({ label: 'Clear', size: 'sm', kind: 'ghost', attrs: { 'data-act': 'bulk-clear' } }) + '</div></div>';
+      assignSelect() + w.RV.btn({ label: 'Mark resolved', size: 'sm', attrs: { 'data-act': 'bulk-resolved' } }) + w.RV.btn({ label: 'Close', size: 'sm', attrs: { 'data-act': 'bulk-closed' } }) +
+      (plus() ? w.RV.btn({ label: 'Mark read', size: 'sm', attrs: { 'data-act': 'bulk-read' } }) + w.RV.btn({ label: 'Mark unread', size: 'sm', attrs: { 'data-act': 'bulk-unread' } }) +
+      (currentView() === 'status:archived' ? w.RV.btn({ label: 'Move back to inbox', size: 'sm', attrs: { 'data-act': 'bulk-unarchive' } }) : w.RV.btn({ label: 'Archive', size: 'sm', attrs: { 'data-act': 'bulk-archive' } })) : '') + w.RV.btn({ label: 'Delete', size: 'sm', kind: 'danger', attrs: { 'data-act': 'bulk-delete' } }) + w.RV.btn({ label: 'Clear', size: 'sm', kind: 'ghost', attrs: { 'data-act': 'bulk-clear' } }) + '</div></div>';
   }
 
   // ---------- render ----------
@@ -222,7 +249,8 @@
     else if (down) banner = w.RV.alert('danger', w.RV.icon('alert', 16) + '<span style="flex:1"><b>Inbox disconnected.</b> New emails may not be arriving. ' + esc(ps.lastErrorFriendly || ps.lastError || '') + '</span>' + w.RV.btn({ label: 'Fix', size: 'sm', kind: 'danger', onclick: "App.navigate('email-ticketing')" }));
 
     if (focus) return drawFocus(area, banner);
-    area.innerHTML = '<div class="rv rvi' + (banner ? ' rvi--banner' : '') + (S.sel ? ' is-reading' : '') + (S.custOpen ? ' rvi--cust-open' : '') + '" id="rvi">' + (banner ? '<div class="rvi-banner">' + banner + '</div>' : '') +
+    var hidden = false; try { hidden = localStorage.getItem('tt_inbox_views_hidden') === '1'; } catch (e) {}
+    area.innerHTML = '<div class="rv rvi' + (plus() ? ' rvi--plus' : '') + (hidden ? ' rvi--views-collapsed' : '') + (banner ? ' rvi--banner' : '') + (S.sel ? ' is-reading' : '') + (S.custOpen ? ' rvi--cust-open' : '') + '" id="rvi">' + (banner ? '<div class="rvi-banner">' + banner + '</div>' : '') +
       '<div class="rvi-grid"><aside class="rvi-views" id="rviViews" aria-label="Inbox views">' + viewsPanel() + '</aside>' +
       '<section class="rvi-list" aria-label="Ticket list"><div id="rviTools">' + toolsHtml() + '</div><div class="rvi-rows" id="rviRows">' + listRows() + '</div></section>' +
       '<section class="rvi-conv" id="rviConv" aria-label="Conversation">' + convEmpty() + '</section>' +
@@ -335,16 +363,50 @@
     return '<div class="rvi-dlvbox" role="alert"><span>' + esc(stuck ? 'This reply may not have gone out.' : (m.deliveryError || 'The email was not accepted.')) + ' The customer has not been told.</span><button type="button" class="rv-btn rv-btn--sm" data-act="retry-reply" data-ticket="' + esc(t.id) + '" data-msg="' + esc(m.id) + '">Retry sending</button></div>';
   }
   function newKey() { return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  // What the team and the system did on the ticket, shown between the messages in time order.
+  // (Delivered / not delivered is shown on the message itself, so those two events are not repeated here.)
+  var SYS = { status_changed: 1, assigned: 1, priority_changed: 1, transferred: 1, taken: 1, returned_to_queue: 1, escalated: 1, snoozed: 1, unsnoozed: 1, merged: 1, merged_away: 1, split: 1, linked_to_parent: 1, archived: 1, unarchived: 1, auto_reassigned: 1, distributed_from_queue: 1, automation_fired: 1, csat_received: 1 };
+  var SYS_LABEL = { taken: 'Took the ticket', returned_to_queue: 'Returned it to the queue', unsnoozed: 'Snooze ended', automation_fired: 'An automation ran', csat_received: 'Customer rated the support', archived: 'Archived', unarchived: 'Moved back to the inbox' };
+  S.openThreads = S.openThreads || {};
+  var MAX_EVENTS = 6;
+  function msgHtml(m, t) {
+    var inc = m.type === 'incoming', note = m.type === 'note', who = m.fromName || m.from || (inc ? 'Customer' : 'Agent');
+    // long emails (alerts, newsletters, quoted history) show the first part with a "Show full message" button
+    var raw = m.body && String(m.body).trim() ? String(m.body).trim().replace(/\n{3,}/g, '\n\n').slice(0, 6000) : '';
+    var long = raw.length > 700 || (raw.match(/\n/g) || []).length > 12;
+    return '<div class="rvi-msg ' + (inc ? '' : (note ? 'rvi-msg--note' : 'rvi-msg--out')) + '">' + w.RV.avatar(who, null) + '<div class="rvi-msg__body"><div class="rvi-msg__who"><b>' + esc(who) + '</b>' + (note ? ' &middot; <span style="color:var(--rv-warning);font-weight:700">Internal note</span>' : '') + (m.timestamp ? ' &middot; ' + esc(ago(m.timestamp)) : '') + deliveryTag(m) + '</div>' +
+      '<div class="rvi-bubble' + (long ? ' rvi-bubble--long is-clamped' : '') + '">' + (raw ? esc(raw) : '<span class="rv-hint">(No text content. Open the full page to see the original email.)</span>') + '</div>' +
+      (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + deliveryFail(m, t) + '</div></div>';
+  }
+  function sysHtml(e) {
+    var who = e.byName && e.by !== 'system' ? e.byName : '', text = e.detail || SYS_LABEL[e.event] || String(e.event || '').replace(/_/g, ' ');
+    return '<div class="rvi-sys" title="' + esc(e.at || '') + '"><span>' + (who ? '<b>' + esc(who) + '</b> &middot; ' : '') + esc(text) + (e.at ? ' &middot; ' + esc(ago(e.at)) : '') + '</span></div>';
+  }
   function threadHtml(t) {
-    return (t.thread || []).map(function (m) {
-      var inc = m.type === 'incoming', note = m.type === 'note', who = m.fromName || m.from || (inc ? 'Customer' : 'Agent');
-      // long emails (alerts, newsletters, quoted history) show the first part with a "Show full message" button
-      var raw = m.body && String(m.body).trim() ? String(m.body).trim().replace(/\n{3,}/g, '\n\n').slice(0, 6000) : '';
-      var long = raw.length > 700 || (raw.match(/\n/g) || []).length > 12;
-      return '<div class="rvi-msg ' + (inc ? '' : (note ? 'rvi-msg--note' : 'rvi-msg--out')) + '">' + w.RV.avatar(who, null) + '<div class="rvi-msg__body"><div class="rvi-msg__who"><b>' + esc(who) + '</b>' + (note ? ' &middot; <span style="color:var(--rv-warning);font-weight:700">Internal note</span>' : '') + (m.timestamp ? ' &middot; ' + esc(ago(m.timestamp)) : '') + deliveryTag(m) + '</div>' +
-        '<div class="rvi-bubble' + (long ? ' rvi-bubble--long is-clamped' : '') + '">' + (raw ? esc(raw) : '<span class="rv-hint">(No text content. Open the full page to see the original email.)</span>') + '</div>' +
-        (long ? '<button type="button" class="rvi-more-msg" data-act="expand" aria-expanded="false">Show full message</button>' : '') + deliveryFail(m, t) + '</div></div>';
-    }).join('') || '<div class="rv-hint" style="text-align:center">No messages yet.</div>';
+    var msgs = t.thread || [];
+    if (!msgs.length) return '<div class="rv-hint" style="text-align:center">No messages yet.</div>';
+    if (!plus()) return msgs.map(function (m) { return msgHtml(m, t); }).join('');   // pilot off: the plain thread, as before
+    var ms = msgs.map(function (m) { return Date.parse(m.timestamp) || 0; });
+    // each event goes just before the first message that came after it
+    var rows = msgs.map(function (m, i) { return { mi: i, html: null, m: m }; });
+    // only the latest few events: the full history is on the ticket's own page. A busy ticket must not bury its messages.
+    // (phones keep the plain message thread: their reply bar is pinned under it and a taller thread pushes it off screen)
+    var evs = isPhone() ? [] : (t.timeline || []).filter(function (e) { return SYS[e.event]; }).map(function (e) { return { e: e, at: Date.parse(e.at) || 0 }; }).sort(function (x, y) { return x.at - y.at; }).slice(-MAX_EVENTS);
+    var out = [], ei = 0;
+    msgs.forEach(function (m, i) {
+      while (ei < evs.length && evs[ei].at && ms[i] && evs[ei].at < ms[i]) { out.push({ mi: i, html: sysHtml(evs[ei].e) }); ei++; }
+      out.push({ mi: i, html: msgHtml(m, t) });
+    });
+    while (ei < evs.length) { out.push({ mi: msgs.length, html: sysHtml(evs[ei].e) }); ei++; }
+    // a long conversation shows the first message and the latest few; the middle opens with one click
+    var KEEP = 3, fold = msgs.length > KEEP + 3 && !S.openThreads[t.id], hidden = msgs.length - 1 - KEEP;
+    if (!fold) return out.map(function (r) { return r.html; }).join('');
+    var html = '', placed = false;
+    out.forEach(function (r) {
+      if (r.mi === 0 || r.mi >= msgs.length - KEEP) { html += r.html; if (r.mi === 0) return; }
+      else if (!placed) { placed = true; html += '<button type="button" class="rvi-fold" data-act="thread-more" aria-expanded="false">Show ' + hidden + ' earlier message' + (hidden === 1 ? '' : 's') + '</button>'; }
+    });
+    return html;
   }
   // ---------- Shopify orders ----------
   // The "Orders" section is shown when the store is connected (agents) or, for admins, as a nudge to connect it.
@@ -421,7 +483,7 @@
       '<header class="rvi-conv__head"><button type="button" class="rv-iconbtn rvi-back" data-act="back" aria-label="Back to the ticket list">&larr;</button>' + w.RV.avatar(who0, null) +
         '<div class="rvi-conv__title"><h2 title="' + esc(t.subject) + '">' + esc(t.subject || '(No subject)') + '</h2><div class="rv-hint"><b class="rvi-conv__who">' + esc(who0) + '</b>' + (t.from && t.from !== who0 ? ' &lt;' + esc(t.from) + '&gt;' : '') + ' &middot; ' + esc(channelName(t.channel || t.source)) + ' &middot; ' + esc(t.id) + ' &middot; opened ' + esc(ago(t.createdDate)) + '</div></div>' +
         '<div class="rv-cluster" style="flex-wrap:nowrap">' + '<button type="button" class="rv-btn rv-btn--sm rvi-custbtn" data-act="cust" aria-label="Show customer details">Customer</button>' +
-        w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].concat(snoozeItems(t), ['-', currentView() === 'promo' ? { label: 'This is a real customer: move to inbox', onclick: "document.querySelector('#rviMoveBack').click()" } : null, { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].filter(Boolean)) }) + '<button type="button" id="rviMoveBack" data-act="not-promo" hidden></button></div></header>' +
+        w.RV.menu({ label: 'Ticket actions', items: [{ label: 'Open full page', onclick: "App.navigate('ticket-detail',{id:'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "'})" }, { label: 'Snooze, escalate and more', onclick: "App._showTicketMoreMenu(this,'" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }, plus() ? { label: isFollowing(t) ? 'Stop following' : 'Follow this ticket', onclick: 'RVI.toggleFollow()' } : null, plus() && isDone(t.status) ? { label: t.archived ? 'Move back to the inbox' : 'Archive', onclick: 'RVI.archiveOne()' } : null].filter(Boolean).concat(snoozeItems(t), ['-', currentView() === 'promo' ? { label: 'This is a real customer: move to inbox', onclick: "document.querySelector('#rviMoveBack').click()" } : null, { label: 'Mark as spam and block sender', onclick: "App._markTicketSpam('" + String(t.id).replace(/[^A-Za-z0-9_-]/g, '') + "')" }].filter(Boolean)) }) + '<button type="button" id="rviMoveBack" data-act="not-promo" hidden></button></div></header>' +
       '<div class="rvi-conv__bar"><select class="rv-select" id="c_status" data-conv="status" aria-label="Status">' + stOpts + '</select>' +
         '<select class="rv-select" id="c_priority" data-conv="priority" aria-label="Priority">' + priOpts.map(function (p) { return '<option' + (p === t.priority ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' +
         '<select class="rv-select" id="c_assignee" data-conv="assignee" aria-label="Assignee">' + asgOpts + '</select>' + slaChip(t) + issueLink(t) +
@@ -442,6 +504,35 @@
   }
 
   // ---------- actions ----------
+  function isFollowing(t) { var me = lc((A().currentUser || {}).email); return !!t && (t.watchers || []).some(function (x) { return lc(x) === me; }); }
+  RVI.toggleFollow = async function () {
+    var t = S.ticket, a = A(); if (!t) return; var on = isFollowing(t);
+    var r = await a.callAsync(on ? 'unwatchTicket' : 'watchTicket', t.id);
+    if (!r || !r.success) { fail((r && r.error) || 'That did not work'); return; }
+    w.RV.toast(on ? 'You stopped following this ticket' : 'You are following this ticket. It is under Following.', 'success'); await reopen(t.id, true); relist();
+  };
+  RVI.archiveOne = async function () {
+    var t = S.ticket, a = A(); if (!t) return;
+    var r = await a.callAsync('archiveTickets', [t.id], !t.archived);
+    if (!r || !r.success || !r.updated) { fail((r && r.error) || 'Only resolved or closed tickets can be archived.'); return; }
+    w.RV.toast(t.archived ? 'Moved back to the inbox' : 'Archived. Find it under Archived.', 'success'); S.sel = null; RVI.refresh(); drawConvEmpty();
+  };
+  function drawConvEmpty() { var c = document.getElementById('rviConv'); if (c) c.innerHTML = convEmpty(); var r = document.getElementById('rvi'); if (r) r.classList.remove('is-reading'); }
+  // Archive tidies away FINISHED tickets (resolved or closed). It asks first, says how many were skipped, and never hides an open ticket.
+  function archiveSelected(archive) {
+    var a = A(), ids = Array.from(a._selectedTickets || []); if (!ids.length) return;
+    var byId = {}; (S.tickets || []).forEach(function (t) { byId[t.id] = t; });
+    var finished = archive ? ids.filter(function (id) { return !byId[id] || isDone(byId[id].status); }) : ids, skipped = ids.length - finished.length;
+    if (!finished.length) { fail('Only resolved or closed tickets can be archived. Resolve them first.'); return; }
+    var ov = w.RV.modal({ title: (archive ? 'Archive ' : 'Move back to the inbox: ') + finished.length + (finished.length === 1 ? ' ticket?' : ' tickets?'),
+      body: '<p style="margin:0">' + (archive ? 'They leave your normal views and counts, and stay searchable under Archived. If the customer writes again, the ticket comes back by itself.' : 'They return to your normal views.') + (skipped ? ' <b>' + skipped + ' open ticket' + (skipped === 1 ? ' is' : 's are') + ' left as it is</b>, because only resolved or closed tickets can be archived.' : '') + '</p>',
+      foot: w.RV.btn({ label: 'Cancel', onclick: "RV.closeModal(this.closest('.rv-overlay'))" }) + w.RV.btn({ label: archive ? 'Archive' : 'Move back', kind: 'primary', attrs: { id: 'rviArchOk' } }) });
+    ov.querySelector('#rviArchOk').addEventListener('click', async function () {
+      var r = await a.callAsync('archiveTickets', finished, archive); w.RV.closeModal(ov);
+      if (!r || !r.success) { fail((r && r.error) || 'Nothing was changed'); return; }
+      w.RV.toast((archive ? 'Archived ' : 'Moved back ') + r.updated + (r.updated === 1 ? ' ticket' : ' tickets'), 'success'); a._selectedTickets.clear(); RVI.refresh();
+    });
+  }
   async function bulkAssign(sel) {
     var a = A(), ids = a._selectedTickets ? Array.from(a._selectedTickets) : [], who = sel.value; if (!who || !ids.length) return;
     if (who === '__me') who = (a.currentUser || {}).email;
@@ -804,6 +895,11 @@
       if (!e.target.closest('.rvi-views, .rvi-cust, [data-act="views-panel"], [data-act="cust"], .rv-overlay, .rv-menu')) { root.classList.remove('rvi--views-open'); if (root.classList.contains('rvi--cust-open')) { root.classList.remove('rvi--cust-open'); S.custOpen = false; } }
       var el = e.target.closest('[data-act]'); if (!el || !root.contains(el)) return;
       var act = el.getAttribute('data-act'), a = A();
+      if (act === 'thread-more') {
+        if (!S.ticket) return; S.openThreads[S.ticket.id] = true;
+        var th = document.getElementById('rviThread'); if (th) { var keepTop = th.scrollHeight - th.scrollTop; th.innerHTML = threadHtml(S.ticket); th.scrollTop = th.scrollHeight - keepTop; }
+        return;
+      }
       if (act === 'retry-reply') {
         if (el.disabled) return; el.disabled = true; el.textContent = 'Sending...';
         var rr = await a.callAsync('retryReply', el.getAttribute('data-ticket'), el.getAttribute('data-msg'));
@@ -811,7 +907,14 @@
         if (rr.deliveryStatus === 'sent') w.RV.toast('Delivered', 'success'); else w.RV.toast('Still not delivered: ' + String(rr.warning || 'the email was not accepted').replace(/[.]+$/, '') + '.', 'error');
         await reopen(el.getAttribute('data-ticket'), true); relist(); return;
       }
-      if (act === 'views-panel') { root.classList.toggle('rvi--views-open'); root.classList.remove('rvi--cust-open'); S.custOpen = false; return; }
+      if (act === 'views-panel') {
+        if (plus() && root.clientWidth >= DOCK_MIN) { var hide = !root.classList.contains('rvi--views-collapsed'); root.classList.toggle('rvi--views-collapsed', hide); try { localStorage.setItem('tt_inbox_views_hidden', hide ? '1' : '0'); } catch (e) {} return; }
+        root.classList.toggle('rvi--views-open'); root.classList.remove('rvi--cust-open'); S.custOpen = false; return;
+      }
+      if (act === 'views-collapse') {
+        if (plus() && root.clientWidth >= DOCK_MIN) { root.classList.add('rvi--views-collapsed'); try { localStorage.setItem('tt_inbox_views_hidden', '1'); } catch (e) {} } else root.classList.remove('rvi--views-open');
+        return;
+      }
       if (act === 'view' || act === 'saved') root.classList.remove('rvi--views-open');
       if (act === 'check') { e.stopPropagation(); a._toggleTicketSelect(el.getAttribute('data-ticket-id'), el.checked); return; }
       if (act === 'checkall') { a._selectAllTickets(el.checked); return; }
@@ -822,13 +925,20 @@
       if (act === 'chip') {
         var k = el.getAttribute('data-clear');
         if (k === 'status') a._ticketFilter = 'all'; else if (k === 'channel') a._ticketChannel = 'all'; else if (k === 'priority') a._ticketPriority = 'all'; else if (k === 'assignee') a._ticketAssignee = 'all';
-        else if (k === 'team') a._ticketTeam = ''; else if (k === 'tag') a._ticketTag = ''; else if (k === 'dates') { a._ticketFrom = ''; a._ticketTo = ''; } else if (k === 'search') a._ticketSearch = '';
+        else if (k === 'team') a._ticketTeam = ''; else if (k === 'tag') a._ticketTag = ''; else if (k === 'sentiment') a._ticketSentiment = ''; else if (k === 'read') a._ticketRead = ''; else if (k === 'vip') a._ticketVip = false; else if (k === 'following') a._ticketFollowing = false; else if (k === 'dates') { a._ticketFrom = ''; a._ticketTo = ''; } else if (k === 'search') a._ticketSearch = '';
         persist(); a.renderTicketInbox(); return;
       }
       if (act === 'more') { S.limit += 25; RVI.refresh(); return; }
       if (act === 'saved') { w.TicketSavedViews.apply(el.getAttribute('data-id')); return; }
       if (act === 'saved-del') { w.TicketSavedViews.delete(el.getAttribute('data-id')); a.renderTicketInbox(); return; }
       if (act === 'save-view') { w.TicketSavedViews.promptSave(); return; }
+      if (act === 'bulk-read' || act === 'bulk-unread') {
+        var ids1 = Array.from(a._selectedTickets || []); if (!ids1.length) return;
+        var rd = await a.callAsync('markTicketsRead', ids1, act === 'bulk-read');
+        if (!rd || !rd.success) { fail((rd && rd.error) || 'Nothing was changed'); return; }
+        w.RV.toast('Marked ' + rd.updated + (rd.updated === 1 ? ' ticket' : ' tickets') + (act === 'bulk-read' ? ' as read' : ' as unread'), 'success'); a._selectedTickets.clear(); RVI.refresh(); return;
+      }
+      if (act === 'bulk-archive' || act === 'bulk-unarchive') { archiveSelected(act === 'bulk-archive'); return; }
       if (act === 'bulk-resolved') { a._bulkTicketAction('status', 'resolved'); return; }
       if (act === 'bulk-closed') { a._bulkTicketAction('status', 'closed'); return; }
       if (act === 'promo-close' || act === 'promo-block') {
@@ -898,6 +1008,7 @@
         if (f === 'f_status') { a._ticketFilter = v; a._ticketSla = ''; } else if (f === 'f_priority') { a._ticketPriority = v; a._ticketActive = false; } else if (f === 'f_channel') a._ticketChannel = v;
         else if (f === 'f_assignee') a._ticketAssignee = v; else if (f === 'f_team') a._ticketTeam = v; else if (f === 'f_tag') a._ticketTag = v;
         else if (f === 'f_from') a._ticketFrom = v; else if (f === 'f_to') a._ticketTo = v; else if (f === 'f_sort') a._ticketSort = v;
+        else if (f === 'f_sentiment') a._ticketSentiment = v; else if (f === 'f_read') a._ticketRead = v; else if (f === 'f_vip') a._ticketVip = v === '1';
         S.filtersOpen = true; change(); return;
       }
       if (c && S.ticket) { if (c === 'status') RVI.setStatus(S.ticket.id, el.value, el); else if (c === 'priority') setField('priority', S.ticket.id, el.value, el); else if (c === 'assignee') setField('assignee', S.ticket.id, el.value, el); }

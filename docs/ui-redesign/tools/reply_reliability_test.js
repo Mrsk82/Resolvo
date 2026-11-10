@@ -11,6 +11,13 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rv-rel-')), app = path.join(t
 const Dsql = require(path.join(ROOT, 'node_modules', 'better-sqlite3'));
 const dbFile = () => path.join(app, 'data', 'brands', 'demo', 'db.sqlite');
 
+// The throwaway copy gets a known admin password, so the test does not depend on whatever the local demo account is set to.
+function demoLogin(sq) {
+  const bc = require(path.join(ROOT, 'node_modules', 'bcryptjs')), row = sq.prepare("SELECT id,data FROM users WHERE json_extract(data,'$.email')='admin@demo.local'").get();
+  const u = JSON.parse(row.data); u.passwordHash = bc.hashSync('demo1234', 10); u.mustChangePassword = false; u.firstLogin = false; u.active = true;
+  sq.prepare('UPDATE users SET data=? WHERE id=?').run(JSON.stringify(u), row.id);
+}
+
 function build() {
   const skip = new Set(['node_modules', '.next', 'docs', 'tools', 'downloads', 'uploads', 'slides', 'data', '.git', 'node']);
   fs.cpSync(ROOT, app, { recursive: true, filter: (s) => { const rel = path.relative(ROOT, s); if (!rel) return true; const top = rel.split(path.sep)[0]; return !skip.has(top) && !/\.(pptx|pdf|bmp|zip|log|apk)$/i.test(s); } });
@@ -21,7 +28,7 @@ function build() {
   o.brands = o.brands.filter((b) => b.slug === 'demo'); o.prospects = [];
   fs.writeFileSync(path.join(app, 'data', 'owner.json'), JSON.stringify(o, null, 2));
   for (const f of ['credentials.key', 'vapid.json', 'app-secret.txt']) if (fs.existsSync(path.join(ROOT, 'data', f))) fs.copyFileSync(path.join(ROOT, 'data', f), path.join(app, 'data', f));
-  const sq = new Dsql(dbFile()), now = new Date().toISOString();
+  const sq = new Dsql(dbFile()), now = new Date().toISOString(); demoLogin(sq);
   const mk = (id, extra) => ({ id, subject: 'Order not received', status: 'new', priority: 'Medium', from: 'customer@example.test', fromName: 'Test Customer', createdDate: now, lastActivity: now, channel: 'email', tags: [], messageIds: ['<' + id + '@x>'], thread: [{ id: 'MSG-' + id, type: 'incoming', from: 'customer@example.test', fromName: 'Test Customer', body: 'Where is my order?', timestamp: now, messageId: '<' + id + '@x>' }], ...extra });
   const ins = sq.prepare('INSERT OR REPLACE INTO tickets(id,data) VALUES(?,?)');
   ins.run('TKT-REL0001', JSON.stringify(mk('TKT-REL0001'))); ins.run('TKT-REL0002', JSON.stringify(mk('TKT-REL0002', { isSample: true })));

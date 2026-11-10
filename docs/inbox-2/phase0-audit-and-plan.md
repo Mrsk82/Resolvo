@@ -1,6 +1,6 @@
 # Resolvo Inbox 2.0: Phase 0 audit and implementation plan
 
-Status: **audit only. No code has been changed.** Written 9 Nov 2026 against `main` (commit 8b8e709).
+Status: written 9 Nov 2026 against `main` (commit 8b8e709) as an audit only. **Corrections after building (10 Nov 2026):** finding 5 (no role checks) turned out to be a non-issue, because no read-only role exists; incoming duplicate ingestion is atomic (the ingest path is synchronous); list speed is fine (about 70 ms at 5,000 tickets, about 0.3 to 1.2 s at 25,000), so no database work was needed. See `release-notes.md` for what was built.
 
 ## 1. The most important finding
 

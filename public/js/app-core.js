@@ -8401,6 +8401,7 @@ const App = {
           '<a href="#" onclick="App.navigate(\'customer\',{id:\'' + c.contact.id + '\'});return false;" style="font-size:11px;color:var(--accent);text-decoration:none;">Open profile →</a>' +
         '</div>' +
         (c.contact.company ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">🏢 ' + self._esc(c.contact.company) + (c.contact.role ? ' · ' + self._esc(c.contact.role) : '') + '</div>' : '') +
+        (function() { var first = (c.tickets || []).map(function(t) { return Date.parse(t.createdDate); }).filter(function(x) { return x; }).sort(function(a, b) { return a - b; })[0]; return first ? '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">First ticket: ' + new Date(first).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) + '</div>' : ''; })() +
         '<div style="display:flex;gap:6px;margin-bottom:8px;">' +
           chip('Tickets', s.totalTickets || 0) +
           chip('Open', s.openTickets || 0, s.openTickets ? 'var(--medium,#F59E0B)' : null) +
@@ -19901,22 +19902,24 @@ var TicketSavedViews = {
     try { this._custom = JSON.parse(localStorage.getItem(this._key) || '[]'); } catch(e) { this._custom = []; }
   },
   getAll: function() { return this._defaults.concat(this._custom); },
+  // Everything the inbox filters can hold. A saved view remembers all of it (not just status, channel, priority and search).
+  _map: { ticketFilter: ['_ticketFilter', 'all'], ticketChannel: ['_ticketChannel', 'all'], ticketPriority: ['_ticketPriority', 'all'], ticketSearch: ['_ticketSearch', ''], ticketSort: ['_ticketSort', 'newest'],
+    ticketAssignee: ['_ticketAssignee', 'all'], ticketTeam: ['_ticketTeam', ''], ticketTag: ['_ticketTag', ''], ticketFrom: ['_ticketFrom', ''], ticketTo: ['_ticketTo', ''], ticketSla: ['_ticketSla', ''], ticketActive: ['_ticketActive', false],
+    ticketSentiment: ['_ticketSentiment', ''], ticketRead: ['_ticketRead', ''], ticketVip: ['_ticketVip', false], ticketFollowing: ['_ticketFollowing', false] },
   _current: function() {
-    return { ticketFilter: App._ticketFilter||'all', ticketChannel: App._ticketChannel||'all', ticketPriority: App._ticketPriority||'all', ticketSearch: App._ticketSearch||'' };
+    var out = {}, m = this._map;
+    Object.keys(m).forEach(function(k) { var v = App[m[k][0]]; out[k] = (v === undefined || v === null || v === '') ? m[k][1] : v; });
+    return out;
   },
   _isActive: function(v) {
-    var cur = this._current(), f = v.filters||{};
-    return (f.ticketFilter||'all') === cur.ticketFilter && (f.ticketChannel||'all') === cur.ticketChannel && (f.ticketPriority||'all') === cur.ticketPriority && (f.ticketSearch||'') === cur.ticketSearch;
+    var cur = this._current(), f = v.filters||{}, m = this._map;
+    return Object.keys(m).every(function(k) { var want = f[k] === undefined ? m[k][1] : f[k]; return String(want) === String(cur[k]); });
   },
   save: function(name) {
-    var f = this._current();
-    // Drop the no-op dimensions so a saved view only carries what the
-    // user actually had set, not every filter pinned to 'all'/''.
+    var f = this._current(), m = this._map;
+    // Drop the no-op dimensions so a saved view only carries what the user actually had set.
     var clean = {};
-    if (f.ticketFilter !== 'all') clean.ticketFilter = f.ticketFilter;
-    if (f.ticketChannel !== 'all') clean.ticketChannel = f.ticketChannel;
-    if (f.ticketPriority !== 'all') clean.ticketPriority = f.ticketPriority;
-    if (f.ticketSearch) clean.ticketSearch = f.ticketSearch;
+    Object.keys(m).forEach(function(k) { if (String(f[k]) !== String(m[k][1])) clean[k] = f[k]; });
     var v = { id: 'tv_' + Date.now(), name: name, icon: '⭐', filters: clean };
     this._custom.push(v);
     localStorage.setItem(this._key, JSON.stringify(this._custom));
@@ -19930,11 +19933,9 @@ var TicketSavedViews = {
   apply: function(id) {
     var view = this.getAll().find(function(v){ return v.id === id; });
     if (!view) return;
-    var f = view.filters||{};
-    App._ticketFilter = f.ticketFilter||'all';
-    App._ticketChannel = f.ticketChannel||'all';
-    App._ticketPriority = f.ticketPriority||'all';
-    App._ticketSearch = f.ticketSearch||'';
+    var f = view.filters||{}, m = this._map;
+    Object.keys(m).forEach(function(k) { App[m[k][0]] = f[k] === undefined ? m[k][1] : f[k]; });
+    App._ticketPromo = '';
     App.renderTicketInbox();
   },
   promptSave: function() {

@@ -314,7 +314,7 @@ const inviteTokens={}; // { token: { brandSlug, brandName, expiresAt, role } }
 // ── TIER FEATURE DEFAULTS ──────────────────────────────────────────────────
 // Owner assigns tier per brand → tier sets what features are ON by default
 // Owner can then override individual features per brand via Owner Portal
-const _base={LISTENING_ENABLED:false,KANBAN_ENABLED:false,SPRINTS_ENABLED:false,AI_ENABLED:false,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:false,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:false,CUSTOM_FIELDS_ENABLED:false,RELEASE_NOTES_ENABLED:false,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:false,DEPENDENCY_GRAPH_ENABLED:false,WATCHERS_ENABLED:true,REACTIONS_ENABLED:false,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:false,BULK_ACTIONS_ENABLED:false,ANNOUNCEMENT_BAR_ENABLED:false,ISSUE_TEMPLATES_ENABLED:false,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:false,WORKLOAD_ENABLED:false,SLA_REPORT_ENABLED:false,
+const _base={INBOX_PLUS_ENABLED:false,LISTENING_ENABLED:false,KANBAN_ENABLED:false,SPRINTS_ENABLED:false,AI_ENABLED:false,EMAIL_TRIAGE_ENABLED:false,PEER_REVIEW_ENABLED:false,ON_CALL_ENABLED:false,TIME_LOGGING_ENABLED:false,CUSTOM_FIELDS_ENABLED:false,RELEASE_NOTES_ENABLED:false,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:false,DEPENDENCY_GRAPH_ENABLED:false,WATCHERS_ENABLED:true,REACTIONS_ENABLED:false,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:false,BULK_ACTIONS_ENABLED:false,ANNOUNCEMENT_BAR_ENABLED:false,ISSUE_TEMPLATES_ENABLED:false,API_INTEGRATION_ENABLED:false,ANALYTICS_ENABLED:false,WORKLOAD_ENABLED:false,SLA_REPORT_ENABLED:false,
   // New features
   EMAIL_TICKETING_ENABLED:false,QUEUE_ENABLED:false,APPOINTMENT_BOOKING_ENABLED:false,KNOWLEDGE_BASE_ENABLED:false,ROADMAP_ENABLED:false,API_KEYS_ENABLED:false,TWO_FA_ENABLED:false,APPROVAL_WORKFLOWS_ENABLED:false,CUSTOMER_PORTAL_ENABLED:false,WIDGET_ENABLED:false,GDPR_TOOLS_ENABLED:false,SLA_POLICIES_ENABLED:false,COST_REPORT_ENABLED:false,AGENT_COACHING_ENABLED:false,IMPACT_SCORE_ENABLED:false};
 const _pro={...{LISTENING_ENABLED:true,KANBAN_ENABLED:true,SPRINTS_ENABLED:true,AI_ENABLED:true,PEER_REVIEW_ENABLED:true,ON_CALL_ENABLED:true,TIME_LOGGING_ENABLED:true,CUSTOM_FIELDS_ENABLED:true,RELEASE_NOTES_ENABLED:true,AUDIT_TRAIL_ENABLED:true,POSTMORTEM_ENABLED:true,DEPENDENCY_GRAPH_ENABLED:true,WATCHERS_ENABLED:true,REACTIONS_ENABLED:true,PINNED_ISSUES_ENABLED:true,FULL_TEXT_SEARCH_ENABLED:true,TAGS_ENABLED:true,BULK_ACTIONS_ENABLED:true,ANNOUNCEMENT_BAR_ENABLED:true,ISSUE_TEMPLATES_ENABLED:true,ANALYTICS_ENABLED:true,WORKLOAD_ENABLED:true,SLA_REPORT_ENABLED:true,
@@ -336,6 +336,7 @@ const FEATURE_META=[
   // Intelligence
   {key:'AI_ENABLED',label:'AI / Gemini',group:'Intelligence',tier:'Pro'},
   {key:'LISTENING_ENABLED',label:'Topics (public listening)',group:'Intelligence',tier:'Pro'},
+  {key:'INBOX_PLUS_ENABLED',label:'Inbox 2.0 (grouped views, new filters, archive, fuller timeline) - pilot, owner switches it on per workspace',group:'Support',tier:'Pro'},
   {key:'EMAIL_TRIAGE_ENABLED',label:'Email Triage (AI)',group:'Intelligence',tier:'Enterprise'},
   {key:'FULL_TEXT_SEARCH_ENABLED',label:'Full Text Search',group:'Intelligence',tier:'Free'},
   {key:'IMPACT_SCORE_ENABLED',label:'Issue Impact Score',group:'Intelligence',tier:'Pro'},
@@ -378,7 +379,7 @@ const FEATURE_META=[
 // Topics (public listening) costs money (search and X credits), so it is OFF for everyone until the owner sets TOPICS_ENABLED=1 in .env.
 // While it is off: no sidebar item, no checks, no cost, whatever the plan says. The code stays in place so it can be switched on later.
 const topicsSwitchedOn=()=>process.env.TOPICS_ENABLED==='1';
-function resolveFeatureFlags(brand,adf){const f={...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};if(!topicsSwitchedOn())f.LISTENING_ENABLED=false;return f;}
+function resolveFeatureFlags(brand,adf){const f={...(TIER_FEATURES[brand.tier]||TIER_FEATURES.Free),...(adf||{}),...(brand.featureOverrides||{})};if(!topicsSwitchedOn())f.LISTENING_ENABLED=false;f.INBOX_PLUS_ENABLED=(brand.featureOverrides||{}).INBOX_PLUS_ENABLED===true;return f;}
 
 // ── SELF-SERVICE PLAN CHANGE ────────────────────────────────────────────────
 // Real, paid tiers a brand admin can pick between (ascending). Trial is
@@ -2524,11 +2525,13 @@ app.post('/api/call',async(req,res)=>{
         return new Date(b.createdDate)-new Date(a.createdDate);
       });
       const nowMs=Date.now();
+      const _slaMemo=new Map();const sla=t=>{let x=_slaMemo.get(t.id);if(!x){x=getTicketSLAInfo(db,t);_slaMemo.set(t.id,x);}return x;};
       const isSnoozed=t=>t.snoozedUntil&&new Date(t.snoozedUntil).getTime()>nowMs;
       // Snoozed tickets stay out of every normal view (including 'all')
       // until they wake up on their own — same idea as Gmail snooze. The
       // one exception is filters.status==='snoozed' itself, handled below.
       if(!filters||filters.status!=='snoozed')tickets=tickets.filter(t=>!isSnoozed(t));
+      if(!filters||filters.status!=='archived')tickets=tickets.filter(t=>!_isArchived(t));
       if(filters){
         // My Queue filter — assigned to current user, not resolved/closed
         // Case-insensitive match to handle any email casing differences
@@ -2539,12 +2542,18 @@ app.post('/api/call',async(req,res)=>{
         // Unassigned filter — no agent, not resolved/closed
         else if(filters.status==='unassigned')tickets=tickets.filter(t=>!t.assignedTo&&!['resolved','closed'].includes(t.status));
         else if(filters.status==='snoozed')tickets=tickets.filter(isSnoozed);
+        else if(filters.status==='archived')tickets=tickets.filter(_isArchived);
+        else if(filters.status==='waiting')tickets=tickets.filter(t=>!['resolved','closed'].includes(t.status)&&_awaitingCustomer(t));
         else if(filters.status&&filters.status!=='all')tickets=tickets.filter(t=>t.status===filters.status);
         if(filters.promo==='exclude')tickets=tickets.filter(t=>!_ticketIsPromo(t));
         else if(filters.promo==='only')tickets=tickets.filter(t=>_ticketIsPromo(t)&&!_isMention(t));
         if(filters.mentions==='only')tickets=tickets.filter(_isMention);
         if(filters.channel&&filters.channel!=='all')tickets=tickets.filter(t=>(t.channel||t.source||'email')===filters.channel);
         if(filters.priority&&filters.priority!=='all')tickets=tickets.filter(t=>t.priority===filters.priority);
+        if(filters.sentiment&&['positive','neutral','negative'].includes(filters.sentiment))tickets=tickets.filter(t=>(t.sentimentLevel||'neutral')===filters.sentiment);
+        if(filters.read==='unread')tickets=tickets.filter(t=>_isTicketUnread(t,su.email));else if(filters.read==='read')tickets=tickets.filter(t=>!_isTicketUnread(t,su.email));
+        if(filters.vip)tickets=tickets.filter(t=>t.isVIP||(t.tags||[]).includes('VIP'));
+        if(filters.following){const me=String(su.email||'').toLowerCase();tickets=tickets.filter(t=>(t.watchers||[]).some(w=>String(w).toLowerCase()===me));}
         if(filters.active)tickets=tickets.filter(t=>!['resolved','closed'].includes(t.status));
         if(filters.assignedTo==='none')tickets=tickets.filter(t=>!t.assignedTo);
         else if(filters.assignedTo&&filters.assignedTo!=='all')tickets=tickets.filter(t=>(t.assignedTo||'').toLowerCase()===String(filters.assignedTo).toLowerCase());
@@ -2553,12 +2562,18 @@ app.post('/api/call',async(req,res)=>{
         if(filters.dateFrom&&/^\d{4}-\d{2}-\d{2}$/.test(filters.dateFrom)){const f=new Date(filters.dateFrom+'T00:00:00+05:30').getTime();tickets=tickets.filter(t=>new Date(t.createdDate).getTime()>=f);}
         if(filters.dateTo&&/^\d{4}-\d{2}-\d{2}$/.test(filters.dateTo)){const f=new Date(filters.dateTo+'T23:59:59.999+05:30').getTime();tickets=tickets.filter(t=>new Date(t.createdDate).getTime()<=f);}
         if(filters.sla==='breached'||filters.sla==='atrisk'){
-          tickets=tickets.filter(t=>{if(['resolved','closed'].includes(t.status))return false;const s=getTicketSLAInfo(db,t);return filters.sla==='breached'?!!s.slaBreached:(!s.slaBreached&&!!s.slaRisk);});
+          tickets=tickets.filter(t=>{if(['resolved','closed'].includes(t.status))return false;const s=sla(t);return filters.sla==='breached'?!!s.slaBreached:(!s.slaBreached&&!!s.slaRisk);});
         }
-        if(filters.search){const q=filters.search.toLowerCase();tickets=tickets.filter(t=>t.subject.toLowerCase().includes(q)||t.from.toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||(t.priority||'').toLowerCase().includes(q)||(t.sentimentLevel||'').toLowerCase().includes(q));}
+        if(filters.search){const q=String(filters.search).toLowerCase().slice(0,200);tickets=tickets.filter(t=>String(t.subject||'').toLowerCase().includes(q)||String(t.from||'').toLowerCase().includes(q)||(t.fromName||'').toLowerCase().includes(q)||String(t.id||'').toLowerCase().includes(q)||(t.priority||'').toLowerCase().includes(q)||(t.sentimentLevel||'').toLowerCase().includes(q)||(t.thread||[]).some(m=>String(m.body||'').toLowerCase().includes(q)));}
         // Sort — 'newest' (default) already applied above; re-sort for the other modes
         if(filters.sort&&filters.sort!=='newest'){
-          if(filters.sort==='oldest')tickets=tickets.slice().sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
+          if(filters.sort==='activity')tickets=tickets.slice().sort((a,b)=>new Date(b.lastActivity||b.createdDate)-new Date(a.lastActivity||a.createdDate));
+          else if(filters.sort==='waiting'){
+            // waiting longest for OUR answer first: open tickets where the customer spoke last, by the time of that message
+            const waitSince=t=>{if(['resolved','closed'].includes(t.status)||_awaitingCustomer(t))return Infinity;const m=_lastIncomingMsg(t);return m?Date.parse(m.timestamp)||Infinity:Infinity;};
+            tickets=tickets.slice().sort((a,b)=>waitSince(a)-waitSince(b)||new Date(b.createdDate)-new Date(a.createdDate));
+          }
+          else if(filters.sort==='oldest')tickets=tickets.slice().sort((a,b)=>new Date(a.createdDate)-new Date(b.createdDate));
           else if(filters.sort==='priority'){
             const rank={Critical:0,High:1,Medium:2,Low:3};
             tickets=tickets.slice().sort((a,b)=>(rank[a.priority]??4)-(rank[b.priority]??4)||new Date(b.createdDate)-new Date(a.createdDate));
@@ -2569,7 +2584,7 @@ app.post('/api/call',async(req,res)=>{
             tickets=tickets.slice().sort((a,b)=>{
               const ao=isOpen(a),bo=isOpen(b);
               if(ao!==bo)return ao?-1:1;
-              const sa=getTicketSLAInfo(db,a),sb=getTicketSLAInfo(db,b);
+              const sa=sla(a),sb=sla(b);
               if(sa.slaBreached!==sb.slaBreached)return sa.slaBreached?-1:1;
               return sa.slaHoursRemaining-sb.slaHoursRemaining;
             });
@@ -2586,7 +2601,7 @@ app.post('/api/call',async(req,res)=>{
       const terminalIds=allSt.filter(s=>s.isTerminal||s.triggersCsat).map(s=>s.id);
       const perStatus={};allSt.forEach(s=>{perStatus[s.id]=(db.tickets||[]).filter(t=>t.status===s.id).length;});
       const openTickets=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status));
-      let slaBreachedN=0,slaDueN=0;openTickets.forEach(t=>{const s=getTicketSLAInfo(db,t);if(s.slaBreached)slaBreachedN++;else if(s.slaRisk)slaDueN++;});
+      let slaBreachedN=0,slaDueN=0;openTickets.forEach(t=>{const s=sla(t);if(s.slaBreached)slaBreachedN++;else if(s.slaRisk)slaDueN++;});
       const slaAtRisk=slaBreachedN+slaDueN;
       const criticalN=openTickets.filter(t=>t.priority==='Critical').length;
       const _uByEmail={};(db.users||[]).forEach(u=>{_uByEmail[String(u.email||'').toLowerCase()]=u;});
@@ -2599,11 +2614,11 @@ app.post('/api/call',async(req,res)=>{
       const unreadCount=(db.tickets||[]).filter(t=>!terminalIds.includes(t.status)&&_isTicketUnread(t,su.email)).length;
       // Focus mode: "waiting on customer" = open ticket where we spoke last (or status pending); "resolved today" uses the IST day
       const _promoIds=new Set((db.tickets||[]).filter(_ticketIsPromo).map(t=>t.id));
-      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&!_promoIds.has(t.id)&&_awaitingCustomer(t);
+      const isWaiting=t=>!terminalIds.includes(t.status)&&!isSnoozed(t)&&!_promoIds.has(t.id)&&!_isArchived(t)&&_awaitingCustomer(t);
       const istDay=nowIST().slice(0,10);
       const waitingN=(db.tickets||[]).filter(isWaiting).length;
       const resolvedTodayN=(db.tickets||[]).filter(t=>terminalIds.includes(t.status)&&String(t.resolvedDate||'').slice(0,10)===istDay).length;
-      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...getTicketSLAInfo(db,t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=getTicketSLAInfo(db,t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
+      return{success:true,total,tickets:page.map(t=>({...t,thread:undefined,threadCount:(t.thread||[]).length,archived:_isArchived(t),deliveryFailed:(t.thread||[]).some(m=>m.type==='reply'&&m.deliveryStatus==='failed'),lastMessage:_lastIncomingMsg(t),unread:_isTicketUnread(t,su.email),awaitingCustomer:_awaitingCustomer(t),isPromo:_promoIds.has(t.id)&&!_isMention(t),...sla(t)})),counts:{inbox:(()=>{const me=(su.email||'').toLowerCase().trim(),real=(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&!_isArchived(t)),openR=real.filter(t=>!terminalIds.includes(t.status));let br=0,du=0;openR.forEach(t=>{const x=sla(t);if(x.slaBreached)br++;else if(x.slaRisk)du++;});return{all:real.length,mine:openR.filter(t=>(t.assignedTo||'').toLowerCase().trim()===me).length,unassigned:openR.filter(t=>!t.assignedTo).length,new:openR.filter(t=>t.status==='new').length,critical:openR.filter(t=>t.priority==='Critical').length,slaBreached:br,slaDue:du,open:openR.length,resolved:real.length-openR.length,snoozed:real.filter(isSnoozed).length,promo:(db.tickets||[]).filter(t=>_promoIds.has(t.id)&&!_isMention(t)&&!terminalIds.includes(t.status)).length,mentions:(db.tickets||[]).filter(t=>_isMention(t)&&!terminalIds.includes(t.status)).length,mentionsNew:(db.tickets||[]).filter(t=>_isMention(t)&&t.status==='new').length,waiting:openR.filter(t=>!isSnoozed(t)&&_awaitingCustomer(t)).length,high:openR.filter(t=>t.priority==='High').length,following:openR.filter(t=>(t.watchers||[]).some(w=>String(w).toLowerCase()===me)).length,archived:(db.tickets||[]).filter(t=>!_promoIds.has(t.id)&&_isArchived(t)).length,byStatus:real.reduce((o,t)=>{o[t.status]=(o[t.status]||0)+1;return o;},{})};})(),all:(db.tickets||[]).length,...perStatus,waiting:waitingN,resolvedToday:resolvedTodayN,mine:(db.tickets||[]).filter(t=>(t.assignedTo||'').toLowerCase().trim()===(su.email||'').toLowerCase().trim()&&!terminalIds.includes(t.status)).length,unassigned:(db.tickets||[]).filter(t=>!t.assignedTo&&!terminalIds.includes(t.status)).length,snoozed:(db.tickets||[]).filter(isSnoozed).length,slaAtRisk,slaBreached:slaBreachedN,slaDue:slaDueN,critical:criticalN,unread:unreadCount},facets};
     },
     getTicketById:(ticketId)=>{
       const db=rDB();const ticket=(db.tickets||[]).find(t=>t.id===ticketId);
@@ -2618,6 +2633,33 @@ app.post('/api/call',async(req,res)=>{
       db.tickets[idx].viewedBy=db.tickets[idx].viewedBy||{};
       db.tickets[idx].viewedBy[su.email]=nowIST();
       wDB(db);return{success:true};
+    },
+    // Tidy finished tickets away (and bring them back). Only resolved or closed tickets can be archived; a new customer message brings one back by itself.
+    archiveTickets:(ids,archive)=>{
+      if(!Array.isArray(ids)||!ids.length)return{success:false,error:'Choose at least one ticket.'};
+      const db=rDB(),want=archive!==false,now=nowIST();let done=0,skipped=0;
+      ids.slice(0,500).forEach(id=>{
+        const t=(db.tickets||[]).find(x=>x.id===id);if(!t){skipped++;return;}
+        if(want&&!['resolved','closed'].includes(t.status)){skipped++;return;}
+        t.archived=want;t.archivedAt=want?now:undefined;t.archivedBy=want?su.email:undefined;
+        t.timeline=t.timeline||[];t.timeline.push({event:want?'archived':'unarchived',by:su.email,byName:su.name||su.email,at:now,detail:want?'Archived':'Moved back to the inbox'});
+        done++;
+      });
+      if(done)wDB(db);
+      return{success:true,updated:done,skipped};
+    },
+    // Marks tickets read or unread for the person asking (what "unread" means is per person: see _isTicketUnread)
+    markTicketsRead:(ids,read)=>{
+      if(!Array.isArray(ids)||!ids.length)return{success:false,error:'Choose at least one ticket.'};
+      const db=rDB(),now=nowIST();let done=0;
+      ids.slice(0,500).forEach(id=>{
+        const t=(db.tickets||[]).find(x=>x.id===id);if(!t)return;
+        t.viewedBy=t.viewedBy||{};
+        if(read!==false)t.viewedBy[su.email]=now;else delete t.viewedBy[su.email];
+        done++;
+      });
+      if(done)wDB(db);
+      return{success:true,updated:done};
     },
     // Lazy-load a single message's original email HTML — kept out of the main
     // ticket blob (see ticket_assets) so getTicketById/getTickets stay fast
@@ -2773,14 +2815,20 @@ app.post('/api/call',async(req,res)=>{
     updateTicketPriority:(ticketId,priority)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      db.tickets[idx].priority=priority;db.tickets[idx].lastActivity=nowIST();wDB(db);
+      const prevPriority=db.tickets[idx].priority;
+      db.tickets[idx].priority=priority;db.tickets[idx].lastActivity=nowIST();
+      if(prevPriority!==priority){db.tickets[idx].timeline=db.tickets[idx].timeline||[];db.tickets[idx].timeline.push({event:'priority_changed',by:su.email,byName:su.name||su.email,at:nowIST(),detail:`Priority ${prevPriority||'none'} → ${priority}`});}
+      wDB(db);
       runAutomationRules(slug,ticketId,'priority_changed').catch(()=>{});
       return{success:true};
     },
     assignTicket:(ticketId,agentEmail)=>{
       const db=rDB();const idx=(db.tickets||[]).findIndex(t=>t.id===ticketId);
       if(idx===-1)return{success:false,error:'Ticket not found'};
-      db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=nowIST();wDB(db);
+      const prevOwner=db.tickets[idx].assignedTo;
+      db.tickets[idx].assignedTo=agentEmail;db.tickets[idx].lastActivity=nowIST();
+      if((prevOwner||'')!==(agentEmail||'')){const nm=e=>{const u=(db.users||[]).find(x=>String(x.email).toLowerCase()===String(e||'').toLowerCase());return u?(u.name||u.email):e;};db.tickets[idx].timeline=db.tickets[idx].timeline||[];db.tickets[idx].timeline.push({event:'assigned',by:su.email,byName:su.name||su.email,at:nowIST(),detail:agentEmail?`Assigned to ${nm(agentEmail)}${prevOwner?' (was '+nm(prevOwner)+')':''}`:`Unassigned (was ${nm(prevOwner)})`});}
+      wDB(db);
       sendSlackAlert(slug,'assigned',db.tickets[idx]).catch(()=>{});
       notifyTicketAssigned(slug,db,db.tickets[idx],agentEmail);
       if(agentEmail&&agentEmail!==su.email)pushToUser(slug,agentEmail,{title:'Ticket assigned to you',body:String(db.tickets[idx].subject||'').slice(0,110),url:'/?open='+encodeURIComponent(ticketId),tag:'assign-'+ticketId}).catch(()=>{});
@@ -7690,6 +7738,12 @@ function _ticketIsPromo(t){
 }
 // True when the team spoke last (internal notes ignored) or the ticket is parked as pending: the ball is with the customer
 function _awaitingCustomer(t){if(t.status==='pending')return true;const m=(t.thread||[]).filter(x=>x.type!=='note').slice(-1)[0];return !!m&&m.type!=='incoming';}
+// Archived = tidied away, finished tickets only. A new customer message brings it back to the inbox on its own, whatever channel it came by.
+function _isArchived(t){
+  if(!t||t.archived!==true)return false;
+  const lastIn=_lastIncomingMsg(t);
+  return !(lastIn&&Date.parse(lastIn.timestamp)>Date.parse(t.archivedAt||0));
+}
 function _isTicketUnread(t,email){
   const lastIn=_lastIncomingMsg(t);
   if(!lastIn)return false;

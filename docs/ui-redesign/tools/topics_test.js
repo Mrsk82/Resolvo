@@ -46,7 +46,7 @@ function build() {
   fs.cpSync(path.join(ROOT, 'data', 'brands', 'demo'), path.join(app, 'data', 'brands', 'demo'), { recursive: true });
   // the copy must not carry topics or mentions someone made while trying the app by hand
   const D = require(path.join(ROOT, 'node_modules', 'better-sqlite3')), sq = new D(path.join(app, 'data', 'brands', 'demo', 'db.sqlite'));
-  sq.prepare("DELETE FROM kv WHERE key IN ('topics','listeningSeen','listeningUsage')").run(); sq.prepare("DELETE FROM tickets WHERE json_extract(data,'$.channel')='listening'").run(); sq.close();
+  sq.prepare("DELETE FROM kv WHERE key IN ('topics','listeningSeen','listeningUsage')").run(); { const bc = require(path.join(ROOT, 'node_modules', 'bcryptjs')), r0 = sq.prepare("SELECT id,data FROM users WHERE json_extract(data,'$.email')='admin@demo.local'").get(), u0 = JSON.parse(r0.data); u0.passwordHash = bc.hashSync('demo1234', 10); u0.mustChangePassword = false; u0.firstLogin = false; sq.prepare('UPDATE users SET data=? WHERE id=?').run(JSON.stringify(u0), r0.id); } sq.prepare("DELETE FROM tickets WHERE json_extract(data,'$.channel')='listening'").run(); sq.close();
   const o = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'owner.json'), 'utf8'));
   o.brands = o.brands.filter((b) => b.slug === 'demo'); o.prospects = [];
   fs.writeFileSync(path.join(app, 'data', 'owner.json'), JSON.stringify(o, null, 2));

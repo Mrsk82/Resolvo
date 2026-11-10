@@ -25,8 +25,8 @@ def build():
     subprocess.run(["cmd", "/c", "mklink", "/J", os.path.join(app, "node_modules"), os.path.join(ROOT, "node_modules")], check=True, capture_output=True)
     os.makedirs(os.path.join(app, "data", "brands"))
     shutil.copytree(os.path.join(ROOT, "data", "brands", "demo"), os.path.join(app, "data", "brands", "demo"))
-    clean = "const D=require(process.argv[1]);const db=new D(process.argv[2]);db.prepare(\"DELETE FROM kv WHERE key IN ('topics','listeningSeen','listeningUsage')\").run();db.prepare(\"DELETE FROM tickets WHERE json_extract(data,'$.channel')='listening'\").run();db.close();"
-    subprocess.run(["node", "-e", clean, os.path.join(ROOT, "node_modules", "better-sqlite3"), os.path.join(app, "data", "brands", "demo", "db.sqlite")], check=True)
+    clean = "const D=require(process.argv[1]);const db=new D(process.argv[2]);db.prepare(\"DELETE FROM kv WHERE key IN ('topics','listeningSeen','listeningUsage')\").run();db.prepare(\"DELETE FROM tickets WHERE json_extract(data,'$.channel')='listening'\").run();{const bc=require(process.argv[3]);const r=db.prepare(\"SELECT id,data FROM users WHERE json_extract(data,'$.email')='admin@demo.local'\").get();const u=JSON.parse(r.data);u.passwordHash=bc.hashSync('demo1234',10);u.mustChangePassword=false;u.firstLogin=false;db.prepare('UPDATE users SET data=? WHERE id=?').run(JSON.stringify(u),r.id);}db.close();"
+    subprocess.run(["node", "-e", clean, os.path.join(ROOT, "node_modules", "better-sqlite3"), os.path.join(app, "data", "brands", "demo", "db.sqlite"), os.path.join(ROOT, "node_modules", "bcryptjs")], check=True)
     for f in ("credentials.key", "vapid.json", "app-secret.txt"):
         if os.path.exists(os.path.join(ROOT, "data", f)): shutil.copy(os.path.join(ROOT, "data", f), os.path.join(app, "data", f))
     o = json.load(open(os.path.join(ROOT, "data", "owner.json"), encoding="utf-8"))

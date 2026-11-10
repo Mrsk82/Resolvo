@@ -269,3 +269,22 @@
 .rvi-dlv--wait { color: var(--rv-text-muted, #6b7280); }
 .rvi-dlv--bad { color: var(--rv-danger, #b42318); }
 .rvi-dlvbox { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--rv-danger, #b42318); border-radius: 8px; background: var(--rv-danger-soft, #fdecea); color: var(--rv-danger, #b42318); font-size: 12.5px; }
+
+/* ---- views list: docked beside the ticket list on wide screens (and remembered), sliding over on narrower ones ---- */
+.rvi-views__top { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--rv-space-3); min-height: 32px; }
+.rvi-views__title { font-weight: var(--rv-weight-bold); color: var(--rv-text); }
+.rvi-views__top .rv-iconbtn { display: none; }
+.rvi-views .rvi-view__n { font-variant-numeric: tabular-nums; }
+@container rvi (min-width: 1100px) {
+  .rvi--plus .rvi-grid { grid-template-columns: 232px 372px minmax(0, 1fr); }
+  .rvi--plus .rvi-views { position: static; transform: none; width: auto; box-shadow: none; z-index: auto; }
+  .rvi--plus .rvi-views__top .rv-iconbtn { display: inline-flex; }
+  .rvi--plus.rvi--views-collapsed .rvi-grid { grid-template-columns: 360px minmax(0, 1fr); }
+  .rvi--plus.rvi--views-collapsed .rvi-views { display: none; }
+}
+
+/* ---- timeline: system events between messages, folded older messages ---- */
+.rvi-sys { display: flex; justify-content: center; margin: 6px 0; }
+.rvi-sys span { font-size: 11.5px; color: var(--rv-text-faint, #6b7280); background: var(--rv-surface-2, #f4f5f7); padding: 3px 10px; border-radius: 999px; max-width: 92%; overflow-wrap: anywhere; text-align: center; }
+.rvi-fold { display: block; margin: 8px auto; padding: 6px 14px; border: 1px dashed var(--rv-border); border-radius: 999px; background: transparent; color: var(--rv-link, #2563eb); font: inherit; font-size: 12.5px; cursor: pointer; }
+.rvi-fold:hover { background: var(--rv-surface-2, #f4f5f7); }
