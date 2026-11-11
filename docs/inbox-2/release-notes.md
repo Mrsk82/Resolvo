@@ -83,7 +83,7 @@ Run `node docs/ui-redesign/tools/run_against_copy.js <test files>` to run the ol
 
 ## 7. Known limitations
 
-- **Attachments are not supported** (not on incoming tickets, not on replies). This needs its own design (storage, size limits, safe viewing, sending). Recommended as a separate approved piece of work.
+- **Attachments are only partly supported.** Agents can add a photo or file to a reply with the Photo and File buttons (added in the phone work): the file is uploaded to the server and a link to it is put in the reply text. Still missing: real email attachments on outgoing mail, and storing and showing the files customers send us on incoming email. That needs its own design (storage, size limits, safe viewing). (An earlier version of this note wrongly said attachments were not supported anywhere.)
 - **AI features** of the brief (reply assistant tones, structured summary, mood with confidence, assignment recommendations, duplicate reasons, Copilot) were not started. Existing AI buttons are unchanged. Two existing AI calls still include internal notes in their prompt, and the platform's AI key is still used when a brand has none; both should be fixed before AI is extended.
 - Saved views live in the browser (per person, per device), as before.
 - "Newest first" keeps unread tickets on top (as before); there is no separate "unread first" sort.

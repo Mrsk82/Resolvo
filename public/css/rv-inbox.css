@@ -359,3 +359,10 @@ body.rv-plus .nav-section.nav-folded > .nav-item.active { display: flex !importa
 .rvi--plus .rvi-tools__head { flex-wrap: wrap; row-gap: 6px; }
 .rvi--plus #rviCount { white-space: nowrap; }
 @container rvi (min-width: 1100px) { .rvi--plus:not(.rvi--views-collapsed) .rvi-viewsbtn { display: none; } }
+
+/* ---- fixes found on the live screen ---- */
+/* the icon-only sidebar: no section labels (they were clipped), and no folding (the icons of a folded section must stay reachable) */
+body.rv-plus .sidebar.collapsed .nav-section > .nav-label { display: none !important; }
+body.rv-plus .sidebar.collapsed .nav-section.nav-folded > .nav-item { display: flex !important; }
+/* menus inside the reply box open UPWARD: the box sits at the bottom of the panel, and a menu opening downward was cut off (nothing seemed to happen) */
+.rvi-composer .rv-menu__panel, .rvf-composer .rv-menu__panel { top: auto; bottom: calc(100% + 6px); right: auto; left: 0; }

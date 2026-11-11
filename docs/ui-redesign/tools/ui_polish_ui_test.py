@@ -58,7 +58,9 @@ async def main():
             pg.on("pageerror", lambda e: errs.append(str(e)[:200]))
             await pg.goto(BASE + "/"); await pg.evaluate("t=>{localStorage.setItem('tt_session_token',t);localStorage.setItem('tt_theme','resolvo');localStorage.removeItem('tt_inbox_filters');localStorage.removeItem('tt_nav_fold');localStorage.removeItem('tt_inbox_views_hidden');localStorage.removeItem('onb_hidden_demo')}", tok)
             await pg.goto(BASE + "/"); await pg.wait_for_function("typeof App!=='undefined'&&App.currentUser", timeout=25000); await pg.wait_for_timeout(1500)
-            await pg.evaluate("App.navigate('ticket-inbox')"); await pg.wait_for_selector(".rvi-row, .rv-empty", timeout=20000); await pg.wait_for_timeout(800)
+            await pg.evaluate("App.navigate('ticket-inbox')")
+            if w >= 500: await pg.wait_for_selector(".rvi-row, .rv-empty", timeout=20000)
+            await pg.wait_for_timeout(800 if w >= 500 else 2500)
             return pg, errs
         vis = lambda pg, sel: pg.evaluate(f"(()=>{{const e=document.querySelector('{sel}');return !!e&&e.getBoundingClientRect().width>0&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden'}})()")
 
@@ -132,6 +134,41 @@ async def main():
         await pg.click(".rvi-setup >> text=Bring in your old tickets"); await pg.wait_for_selector("#rvxFile", state="attached", timeout=10000)
         check("empty panel: that opens the import screen", True)
         await pg.screenshot(path=os.path.join(SHOTS, "polish_3_empty.png"))
+        await pg.context.close()
+
+        # ================= glitches found on the live screen =================
+        set_flag(True)
+        con = sqlite3.connect(DB); now = datetime.datetime.now(datetime.timezone.utc)
+        for i in range(30):
+            t = {"id": f"G{i}", "subject": f"Login code number {i}", "status": "new", "priority": "Medium", "from": f"g{i}@example.test", "fromName": "BetaList", "createdDate": (now - datetime.timedelta(minutes=10 + i)).isoformat(), "lastActivity": (now - datetime.timedelta(minutes=10 + i)).isoformat(), "channel": "email", "tags": [], "messageIds": [],
+                 "thread": [{"id": f"MG{i}", "type": "incoming", "from": f"g{i}@example.test", "fromName": "BetaList", "body": "Enter this code to log in: 582-894", "timestamp": (now - datetime.timedelta(minutes=10 + i)).isoformat(), "messageId": f"<g{i}>"}]}
+            con.execute("INSERT OR REPLACE INTO tickets(id,data) VALUES(?,?)", (t["id"], json.dumps(t)))
+        con.commit(); con.close()
+        pg, errs = await page(1534, 700)
+        await pg.evaluate("RVI.open('G0')"); await pg.wait_for_selector(".rvi-conv__head", timeout=15000); await pg.wait_for_timeout(800)
+        await pg.click('.rvi-composer [aria-label="More reply tools"]'); await pg.wait_for_timeout(300)
+        geo = await pg.evaluate("""(()=>{const p=document.querySelector('.rvi-composer .rv-menu__panel'),c=document.getElementById('rviConv').getBoundingClientRect(),r=p.getBoundingClientRect();
+          const it=p.querySelector('.rv-menu__item').getBoundingClientRect(),hit=document.elementFromPoint(it.left+it.width/2,it.top+it.height/2);
+          return {shown:getComputedStyle(p).display!=='none',top:r.top,bottom:r.bottom,left:r.left,right:r.right,convTop:c.top,convBottom:c.bottom,convLeft:c.left,convRight:c.right,vh:innerHeight,hitInPanel:!!hit&&p.contains(hit)}})()""")
+        check("More: the menu is shown and sits fully inside the conversation panel (not cut off at the bottom)", geo["shown"] and geo["top"] >= geo["convTop"] and geo["bottom"] <= geo["convBottom"] and geo["left"] >= geo["convLeft"] and geo["right"] <= geo["convRight"] and geo["bottom"] <= geo["vh"], geo)
+        await pg.screenshot(path=os.path.join(SHOTS, "polish_4_more.png"))
+        check("More: the first item can really be clicked (nothing covers it)", geo["hitInPanel"], geo)
+        await pg.click('.rvi-composer .rv-menu__item >> text=Saved replies'); await pg.wait_for_timeout(900)
+        check("More: choosing Saved replies does something (opens the list or says there are none)", await pg.locator(".rv-overlay").count() == 1 or "No saved replies" in await pg.inner_text("body"))
+        await pg.evaluate("document.querySelectorAll('.rv-overlay').forEach(o=>RV.closeModal(o))")
+        await pg.evaluate("document.querySelector('.rvi-composer [aria-label=\"More reply tools\"]').click()"); await pg.keyboard.press("Escape"); await pg.wait_for_timeout(200)
+        check("More: Escape closes it", await pg.evaluate("getComputedStyle(document.querySelector('.rvi-composer .rv-menu__panel')).display") == "none")
+        # icon-only sidebar
+        await pg.evaluate("document.getElementById('sidebar').classList.add('collapsed')"); await pg.wait_for_timeout(300)
+        rail = await pg.evaluate("""(()=>{const labels=[...document.querySelectorAll('#sidebar .nav-label')].filter(l=>getComputedStyle(l).display!=='none').length;
+          const issues=[...document.querySelectorAll('.nav-section')].find(s=>s.querySelector(':scope > .nav-label')&&s.querySelector(':scope > .nav-label').textContent.trim().toLowerCase()==='issues');
+          const icons=[...issues.querySelectorAll('.nav-item')].filter(i=>getComputedStyle(i).display!=='none').length;
+          const sb=document.getElementById('sidebar').getBoundingClientRect();return {labels,icons,width:sb.width}})()""")
+        check("icon-only sidebar: no section labels are shown (they were clipped)", rail["labels"] == 0 and rail["width"] < 100, rail)
+        check("icon-only sidebar: the Issues icons are still there (folding does not hide them)", rail["icons"] >= 3, rail)
+        await pg.evaluate("document.getElementById('sidebar').classList.remove('collapsed')"); await pg.wait_for_timeout(300)
+        check("open sidebar again: labels come back and Issues is folded as before", await pg.evaluate("[...document.querySelectorAll('#sidebar .nav-label')].filter(l=>getComputedStyle(l).display!=='none').length") >= 5)
+        check("page: no script errors", not errs, errs)
         await pg.context.close()
 
         # ================= phone, pilot ON =================
