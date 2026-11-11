@@ -3613,6 +3613,7 @@ const App = {
       document.body.classList.toggle('rv-plus', _on);
       var _ai = document.getElementById('aiBar'); if (_ai) _ai.placeholder = _on ? 'Ask AI' : 'Ask AI: "show critical tickets"';
       if (_on) App._initNavFold();
+      var _md = document.getElementById('myDayNav'); if (_md) _md.style.display = _on ? '' : 'none';
       var _ln = document.getElementById('liveNav'); if (_ln) _ln.style.display = (_on && this.currentUser && ['Admin', 'Manager'].indexOf(this.currentUser.role) >= 0) ? '' : 'none';
     } catch (e) {}
     // Topics is switched off for everyone until the server says otherwise (it costs money), so its sidebar item stays hidden
@@ -3808,6 +3809,7 @@ const App = {
       'dashboard': '',
       'topics': 'Inbox / Topics',
       'live-team': 'Inbox / Live team',
+      'my-day': 'Inbox / My day',
       'create-issue': 'Issues / New Issue',
       'issue-list': 'Issues / All Issues',
       'my-issues': 'Issues / My Issues',
@@ -3855,6 +3857,7 @@ const App = {
       case 'insights': this.renderInsights(params && params.tab); break;
       case 'topics': this.renderTopics(); break;
       case 'live-team': this.renderLiveTeam(); break;
+      case 'my-day': this.renderMyDay(); break;
       case 'ai-hub': this.renderAIHub(); break;
       case 'revenue-dashboard': this.renderRevenueDashboard(); break;
       case 'customer-health': this.renderCustomerHealth(); break;
@@ -23204,6 +23207,7 @@ App._shellRenderProfile = function() {
 (function() {
   App.renderTopics = function() { return window.RVT ? RVT.render() : App.navigate('dashboard'); };
   App.renderLiveTeam = function() { return window.RVL ? RVL.render() : App.navigate('dashboard'); };
+  App.renderMyDay = function() { return window.RVL ? RVL.renderMyDay() : App.navigate('dashboard'); };
   App.renderInsights = function(tab) { return window.RVN ? RVN.render(tab) : App.renderReports(); };
   [['renderReports', 'reports'], ['renderCustomerHealth', 'customers'], ['renderAnalytics', 'overview'], ['renderWorkload', 'team']].forEach(function(p) {
     var orig = App[p[0]]; if (typeof orig !== 'function') return;

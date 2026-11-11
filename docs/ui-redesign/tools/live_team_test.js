@@ -31,7 +31,7 @@ function build() {
   const inc = (id, body, m) => ({ id: 'MI-' + id + '-' + m, type: 'incoming', from: id.toLowerCase() + '@example.test', fromName: 'Cust ' + id, body, timestamp: iso(m), messageId: '<' + id + m + '>' });
   const rep = (id, by, m) => ({ id: 'MR-' + id + '-' + m, type: 'reply', from: by, fromName: by, body: 'We are on it', timestamp: iso(m), sentAsEmail: true, deliveryStatus: 'sent' });
   const note = (id, by, m) => ({ id: 'MN-' + id + '-' + m, type: 'note', from: by, fromName: by, body: 'checking', timestamp: iso(m) });
-  const mk = (id, o) => ({ id, subject: 'Subject ' + id, status: 'open', priority: 'Medium', from: id.toLowerCase() + '@example.test', fromName: 'Cust ' + id, assignedTo: '', createdDate: iso(o.created), lastActivity: iso(o.last == null ? o.created : o.last), channel: 'email', tags: [], messageIds: [], thread: o.thread, ...(o.t || {}) });
+  const mk = (id, o) => ({ id, subject: 'Order ' + id + ' ' + id.toLowerCase().split('').reverse().join('') + 'x', status: 'open', priority: 'Medium', from: id.toLowerCase() + '@example.test', fromName: 'Cust ' + id, assignedTo: '', createdDate: iso(o.created), lastActivity: iso(o.last == null ? o.created : o.last), channel: 'email', tags: [], messageIds: [], thread: o.thread, ...(o.t || {}) });
   const T = [
     mk('S1', { created: 50, thread: [inc('S1', 'Where is my order?', 50)], t: { assignedTo: 'sam@demo.local' } }),
     mk('S2', { created: 5, thread: [inc('S2', 'This is unacceptable', 5)], t: { assignedTo: 'sam@demo.local', sentimentLevel: 'negative' } }),

@@ -2769,7 +2769,7 @@ app.post('/api/call',async(req,res)=>{
       return{success:true,removed,kept,import:entry};
     },
     // ── Live team ──
-    getLiveBoard:()=>{const g=_liveGate();if(g)return g;return{success:true,..._liveCompute(slug)};},
+    getLiveBoard:(team)=>{const g=_liveGate();if(g)return g;return{success:true,..._liveCompute(slug,false,team)};},
     getLiveHistory:()=>{const g=_liveGate();if(g)return g;return{success:true,..._liveHistory(rDB())};},
     getLiveBoardConfig:()=>{const g=_liveGate();if(g)return g;return{success:true,config:_liveConfig(rDB()),canEdit:su.role==='Admin'};},
     saveLiveBoardConfig:(c)=>{
@@ -2778,8 +2778,12 @@ app.post('/api/call',async(req,res)=>{
       if(bad(c.waitMin,1,240))return{success:false,error:'Minutes waiting must be between 1 and 240.'};
       if(bad(c.waitingCount,1,500))return{success:false,error:'Customers waiting must be between 1 and 500.'};
       if(bad(c.queueDepth,1,1000))return{success:false,error:'Tickets without an owner must be between 1 and 1000.'};
-      const v={alertsOn:!!c.alertsOn,waitMin:+c.waitMin,waitingCount:+c.waitingCount,queueDepth:+c.queueDepth,noneAvailable:!!c.noneAvailable,notifyPush:!!c.notifyPush,notifyEmail:!!c.notifyEmail};
-      _kvSet(slug,'liveBoardConfig',v);_liveCache.delete(slug);return{success:true,config:_liveConfig({liveBoardConfig:v})};
+      if(c.incidentMin!==undefined&&bad(c.incidentMin,3,100))return{success:false,error:'Tickets for an incident must be between 3 and 100.'};
+      if(c.frTargetMin!==undefined&&bad(c.frTargetMin,1,480))return{success:false,error:'First reply target must be between 1 and 480 minutes.'};
+      if(c.perAgentHour!==undefined&&bad(c.perAgentHour,1,30))return{success:false,error:'Tickets an agent handles an hour must be between 1 and 30.'};
+      const cur=_liveConfig(rDB());
+      const v={alertsOn:!!c.alertsOn,waitMin:+c.waitMin,waitingCount:+c.waitingCount,queueDepth:+c.queueDepth,noneAvailable:!!c.noneAvailable,notifyPush:!!c.notifyPush,notifyEmail:!!c.notifyEmail,incidentMin:c.incidentMin!==undefined?+c.incidentMin:cur.incidentMin,frTargetMin:c.frTargetMin!==undefined?+c.frTargetMin:cur.frTargetMin,perAgentHour:c.perAgentHour!==undefined?+c.perAgentHour:cur.perAgentHour};
+      _kvSet(slug,'liveBoardConfig',v);_liveCacheClear(slug);return{success:true,config:_liveConfig({liveBoardConfig:v})};
     },
     // Moves tickets to a person (the same as assigning one by one, so they are told in the usual ways)
     liveBoardAssign:(ids,email)=>{
@@ -2788,7 +2792,7 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB(),u=(db.users||[]).find(x=>x.active!==false&&String(x.email).toLowerCase()===String(email||'').toLowerCase());
       if(!u)return{success:false,error:'Choose a person on your team.'};
       let assigned=0,skipped=0;ids.forEach(id=>{const r=sH.assignTicket(String(id),u.email);if(r&&r.success)assigned++;else skipped++;});
-      _liveCache.delete(slug);return{success:true,assigned,skipped};
+      _liveCacheClear(slug);return{success:true,assigned,skipped};
     },
     // A short message to one person: it arrives as a phone alert (if they have switched those on) and in their bell
     nudgeAgent:(email,ticketId,message)=>{
@@ -2809,6 +2813,100 @@ app.post('/api/call',async(req,res)=>{
       const g=_liveGate();if(g)return g;
       const sent=await pushToUser(slug,su.email,{title:'Live team test',body:'If you can read this, alerts reach this device.',url:'/',tag:'live-test'});
       return{success:true,sent:sent||0};
+    },
+    // ── Live team 2 ──
+    getLiveIncidents:()=>{const g=_liveGate();if(g)return g;const i=_liveIncidents(slug,rDB());return{success:true,active:i.active,recent:i.recent,min:_liveConfig(rDB()).incidentMin};},
+    liveIncidentAction:(id,action)=>{
+      const g=_liveGate();if(g)return g;
+      const st=_kvGet(slug,'liveIncidents')||{},s=st[String(id)];if(!s)return{success:false,error:'That incident is no longer there.'};
+      if(action==='ack'){if(s.status!=='open')return{success:false,error:'It is already '+s.status+'.'};s.status='ack';s.ackBy=su.email;s.ackAt=new Date().toISOString();}
+      else if(action==='resolve'){if(s.status==='resolved')return{success:true};s.status='resolved';s.resolvedBy=su.email;s.resolvedAt=new Date().toISOString();}
+      else return{success:false,error:'Unknown action.'};
+      _kvSet(slug,'liveIncidents',st);_incCache.delete(slug);_liveCacheClear(slug);return{success:true,status:s.status};
+    },
+    // who would get a message, and what it would say, BEFORE anything is sent
+    liveIncidentPreview:(id)=>{
+      const g=_liveGate();if(g)return g;
+      const st=_kvGet(slug,'liveIncidents')||{},s=st[String(id)];if(!s)return{success:false,error:'That incident is no longer there.'};
+      const db=rDB(),sent=new Set();(s.updates||[]).forEach(u=>(u.sentIds||[]).forEach(x=>sent.add(x)));
+      const rec=[];let skipped=0;
+      (s.ids||[]).forEach(tid=>{const t=(db.tickets||[]).find(x=>x.id===tid);if(!t||t.imported||['resolved','closed'].includes(t.status)||!t.from||t.channel==='listening'||t.isSample){skipped++;return;}
+        if(sent.has(tid)){skipped++;return;}rec.push({id:t.id,name:t.fromName||t.from,from:t.from,channel:t.channel||'email',subject:String(t.subject||'').slice(0,80)});});
+      const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{};
+      return{success:true,title:s.title,total:(s.ids||[]).length,recipients:rec.length,skipped,sample:rec.slice(0,6),ids:rec.slice(0,100).map(x=>x.id),capped:rec.length>100,draft:_incDraft(s.title),agent:su.name||su.email,brand:brand.name||'Support',updatesSent:(s.updates||[]).length};
+    },
+    // sends the same update to up to 20 tickets per call (the screen calls this in steps); each message is a normal reply, so it shows Delivered or Not delivered
+    liveIncidentSend:async(id,message,ids,updateKey,confirm)=>{
+      const g=_liveGate();if(g)return g;
+      if(confirm!==true)return{success:false,error:'Please confirm before sending.'};
+      const text=String(message||'').trim();if(!text||text.length>2000)return{success:false,error:'Write the message (up to 2000 characters).'};
+      const key=String(updateKey||'').replace(/[^\w-]/g,'').slice(0,30);if(!key)return{success:false,error:'Missing update key.'};
+      if(!Array.isArray(ids)||!ids.length||ids.length>20)return{success:false,error:'Send to between 1 and 20 tickets at a time.'};
+      const st=_kvGet(slug,'liveIncidents')||{},s=st[String(id)];if(!s)return{success:false,error:'That incident is no longer there.'};
+      s.updates=s.updates||[];let u=s.updates.find(x=>x.key===key);
+      if(!u){if(s.updates.length>=10)return{success:false,error:'Ten updates have already been sent for this incident.'};u={key,at:new Date().toISOString(),by:su.email,byName:su.name||su.email,message:text.slice(0,200),sent:0,failed:0,sentIds:[]};s.updates.push(u);}
+      if(u.sent+u.failed+ids.length>100)return{success:false,error:'An update goes to at most 100 customers.'};
+      const brand=(readOwner().brands||[]).find(b=>b.slug===slug)||{},results=[],db0=rDB();
+      for(const tid of ids){
+        const t=(db0.tickets||[]).find(x=>x.id===tid);
+        if(!(s.ids||[]).includes(tid)||!t||t.imported||['resolved','closed'].includes(t.status)||t.channel==='listening'){results.push({id:tid,status:'skipped'});continue;}
+        const first=String(t.fromName||'').trim().split(/\s+/)[0],body=text.replace(/\{name\}/g,first&&!first.includes('@')?first:'there').replace(/\{agent\}/g,su.name||su.email).replace(/\{brand\}/g,brand.name||'Support').replace(/\{topic\}/g,String(s.title||'').toLowerCase());
+        try{
+          const r=await aH.replyToTicket(tid,body,false,'inc-'+String(id).replace(/[^\w-]/g,'')+'-'+key+'-'+tid);
+          if(r&&r.duplicate){results.push({id:tid,status:'skipped',reason:'already sent in this update'});continue;}
+          if(r&&r.success&&r.deliveryStatus!=='failed'){results.push({id:tid,status:'sent'});u.sent++;u.sentIds.push(tid);try{sH.addTicketTag(tid,'incident:'+id);}catch(e){}}
+          else{results.push({id:tid,status:'failed',reason:String((r&&(r.warning||r.error))||'not delivered').slice(0,120)});u.failed++;}
+        }catch(e){results.push({id:tid,status:'failed',reason:String(e.message).slice(0,120)});u.failed++;}
+      }
+      _kvSet(slug,'liveIncidents',st);_incCache.delete(slug);
+      return{success:true,results,sent:results.filter(x=>x.status==='sent').length,failed:results.filter(x=>x.status==='failed').length,skipped:results.filter(x=>x.status==='skipped').length};
+    },
+    getLiveSla:()=>{const g=_liveGate();if(g)return g;return{success:true,..._liveSla(rDB())};},
+    getLiveChannels:()=>{const g=_liveGate();if(g)return g;return{success:true,at:new Date().toISOString(),channels:_liveChannels(rDB(),slug)};},
+    getLiveFeed:(since)=>{const g=_liveGate();if(g)return g;const ms=Date.parse(since);return{success:true,..._liveFeed(rDB(),slug,isNaN(ms)?Date.now()-3*3600000:Math.max(ms,Date.now()-48*3600000))};},
+    getLiveForecast:()=>{const g=_liveGate();if(g)return g;return{success:true,..._liveForecast(rDB())};},
+    // every signed-in person, but only while the pilot is on
+    getMyDay:()=>{if(!_inboxPlusOn(slug))return{success:false,off:true,error:'My day is not switched on for this workspace.'};return _liveMyDay(rDB(),su.email,su.name||su.email);},
+    // spreads tickets nobody owns over the agents who are available, within each person's limit. Without apply it only shows the plan.
+    liveAutoBalance:(apply)=>{
+      const g=_liveGate();if(g)return g;
+      const db=rDB(),now=Date.now(),open=t=>!['resolved','closed'].includes(t.status);
+      const tix=(db.tickets||[]).filter(t=>!t.imported&&!_ticketIsPromo(t)&&!_isArchived(t)&&open(t)&&!String(t.assignedTo||'').trim()&&!(t.snoozedUntil&&Date.parse(t.snoozedUntil)>now)).sort((a,b)=>Date.parse(a.createdDate)-Date.parse(b.createdDate)).slice(0,100);
+      const load={};(db.tickets||[]).forEach(t=>{if(open(t)&&!t.imported&&t.assignedTo){const e=String(t.assignedTo).toLowerCase();load[e]=(load[e]||0)+1;}});
+      const staff=(db.users||[]).filter(u=>u.active!==false&&(u.availabilityStatus||'available')==='available');
+      let ag=staff.filter(u=>['Agent','CS'].includes(u.role));if(!ag.length)ag=staff.filter(u=>['Manager','Admin'].includes(u.role));
+      const plan={};ag.forEach(u=>{plan[u.email]={email:u.email,name:u.name||u.email,load:load[String(u.email).toLowerCase()]||0,max:u.maxTickets||10,tickets:[]};});
+      let left=0;
+      for(const t of tix){let best=null;Object.values(plan).forEach(p=>{const cur=p.load+p.tickets.length;if(cur>=p.max)return;if(!best||cur/p.max<(best.load+best.tickets.length)/best.max)best=p;});
+        if(best)best.tickets.push({id:t.id,subject:String(t.subject||'').slice(0,70)});else left++;}
+      const rows=Object.values(plan).filter(p=>p.tickets.length);
+      if(!apply)return{success:true,preview:true,total:tix.length,toAssign:tix.length-left,left,noAgents:!ag.length,plan:rows.map(p=>({email:p.email,name:p.name,load:p.load,max:p.max,count:p.tickets.length,tickets:p.tickets.slice(0,5)}))};
+      let assigned=0,failed=0;rows.forEach(p=>p.tickets.forEach(x=>{const r=sH.assignTicket(x.id,p.email);if(r&&r.success)assigned++;else failed++;}));
+      _liveCacheClear(slug);return{success:true,applied:true,assigned,failed,left};
+    },
+    // one person: their open tickets with timers, and their numbers for today
+    getLiveAgentDetail:(email)=>{
+      const g=_liveGate();if(g)return g;
+      const db=rDB(),u=(db.users||[]).find(x=>x.active!==false&&String(x.email).toLowerCase()===String(email||'').toLowerCase());if(!u)return{success:false,error:'Choose a person on your team.'};
+      const my=_liveMyDay(db,u.email,u.name||u.email),now=Date.now(),me=String(u.email).toLowerCase();
+      const others=(db.tickets||[]).filter(t=>!t.imported&&String(t.assignedTo||'').toLowerCase()===me&&!['resolved','closed'].includes(t.status)&&!_isArchived(t)&&_awaitingCustomer(t)).slice(0,30)
+        .map(t=>({id:t.id,subject:String(t.subject||'(No subject)').slice(0,100),from:t.fromName||t.from,priority:t.priority,status:t.status}));
+      return{success:true,email:u.email,name:u.name||u.email,role:u.role,status:u.availabilityStatus||'available',statusSince:u.statusUpdatedAt||null,open:my.open,waiting:my.waiting,answered:others,repliesToday:my.repliesToday,solvedToday:my.solvedToday,handledToday:my.handledToday,firstReplyAvgMin:my.firstReplyAvgMin,teamFirstReplyAvgMin:my.teamFirstReplyAvgMin,targetMin:my.targetMin};
+    },
+    // the link for the office wall: shows counts and first names only, and needs no sign-in, so keep it private. The token is shown once.
+    createWallboardLink:(label)=>{
+      const g=_liveGate();if(g)return g;if(su.role!=='Admin')return{success:false,error:'Only an Admin can make a wallboard link.'};
+      const links=_kvGet(slug,'wallboardLinks')||[];if(links.filter(l=>!l.revokedAt).length>=5)return{success:false,error:'You already have 5 active links. Remove one first.'};
+      const token=crypto.randomBytes(24).toString('hex'),id=generateId('WAL');
+      links.push({id,hash:crypto.createHash('sha256').update(token).digest('hex'),label:String(label||'Office screen').replace(/<[^>]*>/g,'').replace(/[<>]/g,'').trim().slice(0,40)||'Office screen',createdAt:new Date().toISOString(),createdBy:su.email,revokedAt:null,lastSeen:null});
+      _kvSet(slug,'wallboardLinks',links);_socialAudit(slug,su.email,'wallboard_link_created',{detail:'Created a wallboard link ('+id+')'});
+      return{success:true,id,url:BASE_URL.replace(/\/$/,'')+'/wall/'+slug+'/'+token};
+    },
+    getWallboardLinks:()=>{const g=_liveGate();if(g)return g;if(su.role!=='Admin')return{success:false,error:'Only an Admin can see the wallboard links.'};return{success:true,links:(_kvGet(slug,'wallboardLinks')||[]).map(l=>({id:l.id,label:l.label,createdAt:l.createdAt,createdBy:l.createdBy,revokedAt:l.revokedAt,lastSeen:l.lastSeen}))};},
+    revokeWallboardLink:(id)=>{
+      const g=_liveGate();if(g)return g;if(su.role!=='Admin')return{success:false,error:'Only an Admin can remove a wallboard link.'};
+      const links=_kvGet(slug,'wallboardLinks')||[],l=links.find(x=>x.id===id);if(!l)return{success:false,error:'Link not found.'};
+      l.revokedAt=new Date().toISOString();_kvSet(slug,'wallboardLinks',links);_socialAudit(slug,su.email,'wallboard_link_revoked',{detail:'Removed a wallboard link ('+id+')'});return{success:true};
     },
     // Only for tests: runs the alert check now
     runLiveAlertsNow:async()=>{if(process.env.NODE_ENV!=='test')return{success:false,error:'Not available.'};if(su.role!=='Admin')return{success:false,error:'Admin only'};await runLiveAlerts();return{success:true};},
@@ -7068,6 +7166,20 @@ app.get('/robots.txt',(req,res)=>{
 // ── ARCHITECTURE PAGE (owner only) ───────────────────────────────────────────────────────────────────────────────────────
 // The page at /architecture is an empty shell. The text lives in internal/architecture-content.html and is only handed to a signed-in
 // owner session (like the Owner Console), together with live facts read from this running server, so it cannot drift out of date.
+// Office wallboard: a read-only page opened with a private link (no sign-in). It never shows a ticket, subject, customer or address.
+app.get('/wall/:slug/:token',(req,res)=>{
+  res.setHeader('X-Robots-Tag','noindex, nofollow');res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
+  res.sendFile(path.join(__dirname,'public','wallboard.html'));
+});
+app.get('/api/wall/:slug/:token',(req,res)=>{
+  res.setHeader('Cache-Control','no-store');res.setHeader('X-Robots-Tag','noindex');
+  if(_wallLimited(req.ip||''))return res.status(429).json({success:false,error:'Too many requests.'});
+  const f=_wallFind(req.params.slug,req.params.token);if(!f)return res.status(404).json({success:false,error:'This link is not valid.'});
+  try{
+    const now=Date.now();if(!f.hit.lastSeen||now-Date.parse(f.hit.lastSeen)>60000){f.hit.lastSeen=new Date(now).toISOString();_kvSet(req.params.slug,'wallboardLinks',f.links);}
+    res.json({success:true,...(_liveWallData(req.params.slug,f.brand.name))});
+  }catch(e){console.error('[Wall]',e.message);res.status(500).json({success:false,error:'Could not load.'});}
+});
 app.get('/architecture',(req,res)=>{
   if(req.query.key!==undefined)return res.redirect(302,'/architecture'); // old bookmarks carried a key in the address: drop it
   res.setHeader('Cache-Control','no-store');
@@ -9413,22 +9525,230 @@ function _cleanImportMap(m){const o={};ImportLib.FIELDS.forEach(f=>{o[f]=(m&&typ
 // ── Live team (supervisors): who is waiting, who is busy, what needs a hand right now ──────────────────────────────────────
 // Everything is worked out from the tickets that already exist (nothing new is stored except the alert limits and the nudges).
 // Imported history, public mentions, promotions, archived and snoozed tickets are never counted. Admins and Managers only, and only while the Inbox 2.0 pilot is on.
-const LIVE_DEFAULTS={alertsOn:true,waitMin:10,waitingCount:10,queueDepth:20,noneAvailable:true,notifyPush:true,notifyEmail:false};
+const LIVE_DEFAULTS={alertsOn:true,waitMin:10,waitingCount:10,queueDepth:20,noneAvailable:true,notifyPush:true,notifyEmail:false,incidentMin:5,frTargetMin:30,perAgentHour:4};
 const LIVE_STAFF=['Admin','Manager','Agent','CS'];
 const _liveCache=new Map();
 function _liveConfig(db){
   const c=Object.assign({},LIVE_DEFAULTS,(db&&db.liveBoardConfig)||{}),n=(v,lo,hi,d)=>{v=parseInt(v,10);return isNaN(v)?d:Math.max(lo,Math.min(hi,v));};
-  return{alertsOn:c.alertsOn!==false,waitMin:n(c.waitMin,1,240,10),waitingCount:n(c.waitingCount,1,500,10),queueDepth:n(c.queueDepth,1,1000,20),noneAvailable:c.noneAvailable!==false,notifyPush:c.notifyPush!==false,notifyEmail:!!c.notifyEmail};
+  return{alertsOn:c.alertsOn!==false,waitMin:n(c.waitMin,1,240,10),waitingCount:n(c.waitingCount,1,500,10),queueDepth:n(c.queueDepth,1,1000,20),noneAvailable:c.noneAvailable!==false,notifyPush:c.notifyPush!==false,notifyEmail:!!c.notifyEmail,incidentMin:n(c.incidentMin,3,100,5),frTargetMin:n(c.frTargetMin,1,480,30),perAgentHour:n(c.perAgentHour,1,30,4)};
 }
-function _liveCompute(slug,force){
-  const c=_liveCache.get(slug);if(!force&&c&&Date.now()-c.at<(+process.env.LIVE_CACHE_MS||8000))return c.data;   // 8 s, so many supervisors share one calculation
-  const data=_liveBuild(readBrandDB(slug),slug);_liveCache.set(slug,{at:Date.now(),data});return data;
+function _liveCacheClear(slug){for(const k of Array.from(_liveCache.keys()))if(k===slug||k.startsWith(slug+'|'))_liveCache.delete(k);}
+function _liveCompute(slug,force,team){
+  team=String(team||'').slice(0,60);const key=slug+'|'+team,c=_liveCache.get(key);
+  if(!force&&c&&Date.now()-c.at<(+process.env.LIVE_CACHE_MS||8000))return c.data;   // 8 s, so many supervisors share one calculation
+  const db=readBrandDB(slug),data=_liveBuild(db,slug,team);
+  try{_liveExtras(db,slug,data);}catch(e){console.error('[Live] extras:',e.message);}
+  _liveCache.set(key,{at:Date.now(),data});return data;
 }
-function _liveBuild(db,slug){
+// what is added to the board: incidents, channel health (both raise alerts), and the trend lines
+function _liveExtras(db,slug,data){
+  const inc=_liveIncidents(slug,db),ch=_liveChannels(db,slug);
+  data.incidents=inc.active.map(i=>({id:i.id,title:i.title,count:i.count,sinceMin:i.sinceMin,severity:i.severity,status:i.status}));
+  data.channels=ch.map(c=>({channel:c.channel,label:c.label,state:c.state,quietMin:c.quietMin}));
+  data.trend=(_kvGet(slug,'liveSnapshots')||[]).slice(-36);
+  if(data.cfg.alertsOn){
+    inc.active.forEach(i=>{if(i.status!=='ack')data.alerts.push({key:'incident_'+i.id,level:'high',text:'Incident: '+i.title+' ('+i.count+' customers in '+i.sinceMin+' min)'});});
+    ch.forEach(c=>{if(c.state==='down'||c.state==='quiet')data.alerts.push({key:'channel_'+c.channel,level:c.state==='down'?'high':'warn',text:'No '+c.label.toLowerCase()+' for '+_fmtMin(c.quietMin)+' (about '+c.expected+' would normally have arrived)'});});
+  }
+}
+function _fmtMin(m){return m<60?m+' min':m<1440?Math.floor(m/60)+' h'+(m%60?' '+(m%60)+' min':''):Math.floor(m/1440)+' days';}
+
+// ── Incident radar: many customers writing about the same thing in a short time ───────────────────────────────────────────
+// Looks at tickets from the last 90 minutes, finds words and word pairs that suddenly appear in many tickets from different customers (and far more
+// than normal for this workspace), and groups the tickets. No outside service; the draft message is a template.
+const _TOK_STOP=new Set('the and for with this that have from your you our are was were not but can will has had its his her she him they them their there what when where which who whom how why about after before again than then into over under only also been being does did doing would could should just very more some any all one two get got out off too per via yet may might must shall such own same here these those while because both each few most other another ours mine myself yours dear sir madam'.split(' '));
+const _TOK_FILLER=new Set('please kindly hello thanks thank regards team help need want issue problem query request support email mail order number good morning evening afternoon sorry hope sent send received hey hii kind urgent asap customer service account using know like trying tried able unable cant dont wont didnt doesnt isnt wasnt'.split(' '));
+const _stem=w=>/(ches|shes|sses|xes|zes)$/.test(w)&&w.length>5?w.slice(0,-2):w.length>5&&/(ing|ed)$/.test(w)?w.replace(/(ing|ed)$/,''):(w.length>4&&/s$/.test(w)&&!/ss$/.test(w)?w.slice(0,-1):w);
+function _incTerms(t){
+  const first=(t.thread||[]).find(m=>m.type==='incoming'),text=String(t.subject||'')+' . '+String((first&&first.body)||'').slice(0,400);
+  const raw=text.toLowerCase().replace(/https?:\/\/\S+/g,' ').replace(/[^a-z0-9\s']/g,' ').split(/\s+/).filter(w=>w.length>=3&&!/^\d+$/.test(w)&&!/\d{3,}/.test(w));
+  const out=new Map();
+  for(let i=0;i<raw.length;i++){
+    const a=raw[i];
+    if(a.length>=4&&!_TOK_STOP.has(a)&&!_TOK_FILLER.has(a)){const k=_stem(a);if(!out.has(k))out.set(k,a);}   // single words need 4+ letters ("app" alone says nothing); pairs may use shorter ones
+    if(i+1<raw.length){const b=raw[i+1];if(!_TOK_STOP.has(a)&&!_TOK_STOP.has(b)&&!(_TOK_FILLER.has(a)&&_TOK_FILLER.has(b))){const k=_stem(a)+' '+_stem(b);if(!out.has(k))out.set(k,a+' '+b);}}
+  }
+  return out;
+}
+const _incBase=new Map(),_incCache=new Map();
+function _incBaseline(db,slug,now){
+  const c=_incBase.get(slug);if(c&&now-c.at<600000)return c.df;
+  const df=new Map(),from=now-7*86400000,to=now-3*3600000;
+  (db.tickets||[]).forEach(t=>{if(t.imported||_ticketIsPromo(t))return;const ms=Date.parse(t.createdDate);if(isNaN(ms)||ms<from||ms>=to)return;_incTerms(t).forEach((_,k)=>df.set(k,(df.get(k)||0)+1));});
+  _incBase.set(slug,{at:now,df});return df;
+}
+function _liveIncidentScan(db,slug,cfg){
+  const now=Date.now(),W=90*60000,df=_incBaseline(db,slug,now),windows=(7*86400000-3*3600000)/W;
+  const win=[];(db.tickets||[]).forEach(t=>{if(t.imported||_ticketIsPromo(t)||t.isSample)return;const ms=Date.parse(t.createdDate);if(!isNaN(ms)&&ms>=now-W&&ms<=now)win.push({t,ms,terms:_incTerms(t)});});
+  const by=new Map();
+  win.forEach((x,i)=>x.terms.forEach((disp,k)=>{let e=by.get(k);if(!e){e={k,disp,idx:new Set(),cust:new Set()};by.set(k,e);}e.idx.add(i);e.cust.add(String(x.t.from||'').toLowerCase());}));
+  const cands=Array.from(by.values()).filter(e=>e.idx.size>=cfg.incidentMin&&e.cust.size>=3&&e.idx.size>=3*Math.max((df.get(e.k)||0)/windows,0.34))
+    .sort((a,b)=>b.idx.size-a.idx.size||b.k.split(' ').length-a.k.split(' ').length);
+  const incs=[];
+  for(const e of cands){
+    let host=null;for(const I of incs){let n=0;e.idx.forEach(i=>{if(I.idx.has(i))n++;});if(n/e.idx.size>=0.6){host=I;break;}}
+    if(host){e.idx.forEach(i=>host.idx.add(i));if(host.terms.length<3&&!host.terms.some(x=>x.includes(e.disp)||e.disp.includes(x)))host.terms.push(e.disp);}
+    else incs.push({idx:new Set(e.idx),terms:[e.disp],key:e.k});
+  }
+  return incs.map(I=>{const items=Array.from(I.idx).map(i=>win[i]).sort((a,b)=>a.ms-b.ms),custs=new Set(items.map(x=>String(x.t.from||'').toLowerCase()));
+    const title=I.terms[0].charAt(0).toUpperCase()+I.terms[0].slice(1)+(I.terms[1]?' ('+I.terms[1]+')':'');
+    return{key:I.key,terms:I.terms,title,count:items.length,customers:custs.size,firstAt:items[0].ms,lastAt:items[items.length-1].ms,items};})
+    .filter(x=>x.count>=cfg.incidentMin&&x.customers>=3).sort((a,b)=>b.count-a.count);
+}
+function _liveIncidents(slug,db){
+  const hit=_incCache.get(slug);if(hit&&Date.now()-hit.at<(+process.env.LIVE_INC_MS||30000))return hit.data;
+  const cfg=_liveConfig(db),now=Date.now(),IST=5.5*3600000,st=_kvGet(slug,'liveIncidents')||{};let changed=false;
+  const found=_liveIncidentScan(db,slug,cfg),seen=new Set(),day=new Date(now+IST).toISOString().slice(0,10);
+  const active=[],recentStill=[];
+  found.forEach(f=>{
+    const id='INC-'+crypto.createHash('sha1').update(f.key+'|'+day).digest('hex').slice(0,8).toUpperCase();seen.add(id);
+    let s=st[id];if(!s){s=st[id]={status:'open',firstSeen:new Date(f.firstAt).toISOString(),notified:false,updates:[]};}
+    if(s.status==='resolved'&&now-Date.parse(s.resolvedAt)>60*60000){s.status='open';s.notified=false;s.reopened=(s.reopened||0)+1;}
+    if(s.status==='ended')s.status='open';
+    Object.assign(s,{lastSeen:new Date(now).toISOString(),title:f.title,terms:f.terms,count:f.count,customers:f.customers,ids:f.items.map(x=>x.t.id).slice(0,300)});changed=true;
+    const buckets=new Array(9).fill(0);f.items.forEach(x=>{buckets[Math.min(8,Math.floor((x.ms-(now-90*60000))/(10*60000)))]++;});
+    const view={id,title:f.title,terms:f.terms,count:f.count,customers:f.customers,firstAt:new Date(f.firstAt).toISOString(),lastAt:new Date(f.lastAt).toISOString(),sinceMin:Math.max(1,Math.round((now-f.firstAt)/60000)),trend:buckets,
+      severity:f.count>=3*cfg.incidentMin?'high':'medium',status:s.status,ackBy:s.ackBy||null,ackAt:s.ackAt||null,notified:!!s.notified,updates:(s.updates||[]).slice(-5),
+      tickets:f.items.slice(-12).reverse().map(x=>({id:x.t.id,subject:String(x.t.subject||'').slice(0,90),from:x.t.fromName||x.t.from,at:new Date(x.ms).toISOString()}))};
+    if(s.status==='resolved')recentStill.push(view);else active.push(view);
+  });
+  Object.keys(st).forEach(id=>{const s=st[id];if(seen.has(id))return;
+    if((s.status==='open'||s.status==='ack')&&now-Date.parse(s.lastSeen||0)>60*60000){s.status='ended';s.endedAt=new Date(now).toISOString();changed=true;}
+    if(now-Date.parse(s.lastSeen||s.firstSeen||0)>3*86400000){delete st[id];changed=true;}});
+  const recent=Object.keys(st).filter(id=>!active.some(a=>a.id===id)&&['resolved','ended'].includes(st[id].status)&&now-Date.parse(st[id].resolvedAt||st[id].endedAt||st[id].lastSeen||0)<24*3600000)
+    .map(id=>({id,title:st[id].title,count:st[id].count,status:st[id].status,firstAt:st[id].firstSeen,resolvedAt:st[id].resolvedAt||st[id].endedAt||null,resolvedBy:st[id].resolvedBy||null,updates:(st[id].updates||[]).length})).sort((a,b)=>String(b.resolvedAt).localeCompare(String(a.resolvedAt)));
+  if(changed)_kvSet(slug,'liveIncidents',st);
+  const data={active,recent,state:st};_incCache.set(slug,{at:now,data});return data;
+}
+// a template, not AI: the supervisor edits it before anything is sent
+function _incDraft(title){return 'Hi {name},\n\nWe are aware that some customers are having trouble with "'+String(title||'this').toLowerCase()+'". Our team is working on it and we will update you as soon as it is fixed. We are sorry for the inconvenience.\n\nRegards,\n{agent}, {brand}';}
+
+// ── Channel health: when did each way customers reach us last write, and is anything failing? ─────────────────────────────
+const _CH_LABEL={email:'Email',whatsapp:'WhatsApp',widget:'Web widget',sms:'SMS',instagram:'Instagram',facebook:'Facebook',telegram:'Telegram',web:'Website form',call:'Calls'};
+function _liveChannels(db,slug){
+  const now=Date.now(),IST=5.5*3600000,hr=3600000,by={};
+  const slot=ch=>by[ch]||(by[ch]={last:0,c1:0,c24:0,c7:0,hod:new Array(24).fill(0),failed:0});
+  (db.tickets||[]).forEach(t=>{
+    if(t.imported)return;const ch=String(t.channel||t.source||'email').toLowerCase();if(['listening','manual','sample','import'].includes(ch))return;
+    (t.thread||[]).forEach(m=>{
+      const ms=Date.parse(m.timestamp);if(isNaN(ms))return;
+      if(m.type==='incoming'){const b=slot(ch);if(ms>b.last)b.last=ms;if(ms>now-7*86400000){b.c7++;b.hod[new Date(ms+IST).getUTCHours()]++;}if(ms>now-24*hr)b.c24++;if(ms>now-hr)b.c1++;}
+      else if(m.type==='reply'&&m.deliveryStatus==='failed'&&ms>now-24*hr)slot(ch).failed++;
+    });});
+  const cfgE=db.emailTicketing||{},cfg={email:!!(cfgE.gmailOAuth||cfgE.gmailConnected||(cfgE.enabled&&cfgE.host&&cfgE.user)),whatsapp:!!((db.whatsappConfig||{}).number||(db.whatsappCloudConfig||{}).phoneNumberId),sms:!!(db.smsConfig||{}).number};
+  (db.socialAccounts||[]).forEach(a=>{if(a.platform)cfg[a.platform]=true;});
+  const names=new Set([...Object.keys(by),...Object.keys(cfg).filter(k=>cfg[k])]);
+  return Array.from(names).map(ch=>{
+    const b=by[ch]||{last:0,c1:0,c24:0,c7:0,hod:new Array(24).fill(0),failed:0},configured=!!cfg[ch]||ch==='widget'&&b.c7>0||ch==='web'&&b.c7>0;
+    const quiet=b.last?Math.round((now-b.last)/60000):null,issues=[];let expected=0;
+    if(b.last&&quiet>=30){for(let m=0;m<quiet;m+=10){const h=new Date(b.last+m*60000+IST).getUTCHours();expected+=b.hod[h]/7*(Math.min(10,quiet-m)/60);}}
+    expected=Math.round(expected*10)/10;
+    let state='ok';
+    if(!configured&&b.c7===0)state='not_connected';
+    else if(b.c7>=7&&quiet!=null&&expected>=6&&quiet>=120)state='down';
+    else if(b.c7>=7&&quiet!=null&&expected>=3&&quiet>=90)state='quiet';
+    if(ch==='email'){const f=(typeof _pollerFailures!=='undefined'&&_pollerFailures[slug])||{count:0};if(f.count>0){issues.push('Reading the inbox failed '+f.count+(f.count===1?' time':' times')+(f.lastError?': '+String(f.lastError).slice(0,80):''));if(state==='ok')state='warn';}}
+    if(b.failed>0){issues.push(b.failed+(b.failed===1?' reply was':' replies were')+' not delivered in the last 24 hours');if(state==='ok')state='warn';}
+    return{channel:ch,label:_CH_LABEL[ch]||(ch.charAt(0).toUpperCase()+ch.slice(1)),configured,lastAt:b.last?new Date(b.last).toISOString():null,quietMin:quiet,count1h:b.c1,count24h:b.c24,perHour:Math.round(b.c7/168*10)/10,expected,state,issues};
+  }).sort((a,b)=>b.count24h-a.count24h);
+}
+
+// ── SLA countdown: open tickets by time left before they breach (negative = already late) ────────────────────────────────
+function _liveSla(db){
+  const now=Date.now(),out=[];let breached=0,w30=0,w120=0;
+  (db.tickets||[]).forEach(t=>{
+    if(t.imported||_ticketIsPromo(t)||_isArchived(t)||['resolved','closed'].includes(t.status)||(t.snoozedUntil&&Date.parse(t.snoozedUntil)>now))return;
+    let i;try{i=getTicketSLAInfo(db,t);}catch(e){return;}if(!i||i.slaHoursRemaining==null||!i.slaDeadline)return;
+    const rem=Math.round(i.slaHoursRemaining*60);if(i.slaBreached)breached++;else if(rem<=30)w30++;else if(rem<=120)w120++;
+    out.push({id:t.id,subject:String(t.subject||'(No subject)').slice(0,100),from:t.fromName||t.from,assignedTo:t.assignedTo||'',priority:t.priority,deadline:new Date(i.slaDeadline).toISOString(),remainingMin:rem,breached:!!i.slaBreached,paused:!!t.slaPaused});
+  });
+  out.sort((a,b)=>a.remainingMin-b.remainingMin);
+  return{at:new Date().toISOString(),counts:{breached,within30:w30,within120:w120,total:out.length},tickets:out.slice(0,60)};
+}
+
+// ── Activity feed: what is happening across the team, newest first ──────────────────────────────────────────────────────
+function _liveFeed(db,slug,since){
+  const now=Date.now(),ev=[],push=(kind,ms,text,extra)=>{if(ms>since&&ms<=now+1000)ev.push({id:kind+'|'+((extra&&extra.ticketId)||'')+'|'+ms,at:new Date(ms).toISOString(),kind,text:String(text).slice(0,150),...(extra||{})});};
+  const who=e=>{const u=(db.users||[]).find(x=>String(x.email).toLowerCase()===String(e||'').toLowerCase());return u?(u.name||u.email):(e||'Someone');};
+  (db.tickets||[]).forEach(t=>{
+    if(t.imported||_ticketIsPromo(t))return;
+    if(Date.parse(t.lastActivity||t.createdDate)<since-60000&&Date.parse(t.createdDate)<since)return;
+    const subj=String(t.subject||'(No subject)').slice(0,60),tid=t.id;
+    push('new',Date.parse(t.createdDate),'New ticket from '+(t.fromName||t.from)+': '+subj,{ticketId:tid});
+    (t.thread||[]).forEach((m,i)=>{const ms=Date.parse(m.timestamp);if(isNaN(ms))return;
+      if(m.type==='reply')push('reply',ms,who(m.from)+' replied: '+subj,{ticketId:tid,by:who(m.from)});
+      else if(m.type==='incoming'&&i>0)push('customer',ms,(t.fromName||t.from)+' wrote back: '+subj,{ticketId:tid});});
+    (t.timeline||[]).forEach(e=>{const ms=Date.parse(e.at);if(isNaN(ms)||!['assigned','status_changed','priority_changed','escalated'].includes(e.event))return;
+      push(e.event==='assigned'?'assigned':e.event==='escalated'?'escalated':'status',ms,(e.byName||who(e.by))+': '+String(e.detail||e.event).slice(0,70)+' ('+subj+')',{ticketId:tid,by:e.byName||who(e.by)});});
+    if(!['resolved','closed'].includes(t.status)){try{const i=getTicketSLAInfo(db,t);if(i&&i.slaBreached&&i.slaDeadline)push('sla',+i.slaDeadline,'Past SLA: '+subj,{ticketId:tid});}catch(e){}}
+  });
+  (db.nudges||[]).forEach(n=>push('nudge',Date.parse(n.at),n.fromName+' nudged '+who(n.to)+': '+String(n.message).slice(0,70),{}));
+  const st=_kvGet(slug,'liveIncidents')||{};Object.keys(st).forEach(id=>{const s=st[id];push('incident',Date.parse(s.firstSeen),'Incident spotted: '+(s.title||id)+(s.count?' ('+s.count+' customers)':''),{});});
+  ev.sort((a,b)=>b.at.localeCompare(a.at));
+  return{now:new Date(now).toISOString(),events:ev.slice(0,80)};
+}
+
+// ── Staffing forecast: expected new tickets for the next 8 hours, from the same hour in previous weeks ─────────────────
+function _liveForecast(db){
+  const now=Date.now(),IST=5.5*3600000,hr=3600000,day=86400000,cfg=_liveConfig(db);
+  const real=(db.tickets||[]).filter(t=>!t.imported&&!_ticketIsPromo(t)),slots={};let first=now;
+  real.forEach(t=>{const ms=Date.parse(t.createdDate);if(isNaN(ms)||ms<now-28*day)return;if(ms<first)first=ms;const d=new Date(ms+IST),k=d.toISOString().slice(0,10)+'|'+d.getUTCHours();slots[k]=(slots[k]||0)+1;});
+  const key=ms=>{const d=new Date(ms+IST);return d.toISOString().slice(0,10)+'|'+d.getUTCHours();};
+  const avail=(db.users||[]).filter(u=>u.active!==false&&LIVE_STAFF.includes(u.role)&&(u.availabilityStatus||'available')==='available').length;
+  const enough=real.length>=10&&now-first>=3*day,hours=[];
+  if(enough)for(let i=1;i<=8;i++){
+    const target=now+i*hr,h=new Date(target+IST).getUTCHours(),same=[],all=[];
+    for(let w=1;w<=4;w++){const t=target-w*7*day;if(t>=first-hr)same.push(slots[key(t)]||0);}
+    for(let d=1;d<=14;d++){const t=target-d*day;if(t>=first-hr)all.push(slots[key(t)]||0);}
+    const use=same.length>=2?same:all,exp=use.length?use.reduce((a,b)=>a+b,0)/use.length:0;
+    hours.push({hour:h,label:('0'+h).slice(-2)+':00',expected:Math.round(exp*10)/10,low:use.length?Math.min.apply(null,use):0,high:use.length?Math.max.apply(null,use):0,agentsNeeded:Math.max(1,Math.ceil(exp/cfg.perAgentHour)),basis:same.length>=2?'same weekday':'recent days'});
+  }
+  let hint='Not enough history yet. Forecasts start once there are about 10 tickets over 3 days.';
+  if(enough){const short=hours.find(x=>x.agentsNeeded>avail);hint=short?'You will want '+(short.agentsNeeded-avail)+' more '+(short.agentsNeeded-avail===1?'agent':'agents')+' around '+short.label+' ('+short.expected+' new tickets expected; '+avail+' available now at '+cfg.perAgentHour+' tickets an hour each).':'Staffing looks fine for the next 8 hours with '+avail+' available.';}
+  return{enough,hours,available:avail,perAgentHour:cfg.perAgentHour,hint};
+}
+
+// ── My day (every agent): my waiting customers with timers, and my numbers against the team's ────────────────────────────
+function _liveMyDay(db,email,name){
+  const now=Date.now(),IST=5.5*3600000,me=String(email||'').toLowerCase(),cfg=_liveConfig(db),dayStart=Math.floor((now+IST)/86400000)*86400000-IST,tickets=db.tickets||[];
+  const mine=tickets.filter(t=>!t.imported&&String(t.assignedTo||'').toLowerCase()===me&&!['resolved','closed'].includes(t.status)&&!_isArchived(t));
+  const waiting=[];mine.forEach(t=>{if(_awaitingCustomer(t))return;const m=_lastIncomingMsg(t),ms=m?Date.parse(m.timestamp):NaN;if(isNaN(ms))return;let rem=null,dl=null;try{const i=getTicketSLAInfo(db,t);if(i&&i.slaDeadline){dl=new Date(i.slaDeadline).toISOString();rem=Math.round(i.slaHoursRemaining*60);}}catch(e){}
+    waiting.push({id:t.id,subject:String(t.subject||'(No subject)').slice(0,100),from:t.fromName||t.from,waitMin:Math.max(0,Math.round((now-ms)/60000)),since:new Date(ms).toISOString(),deadline:dl,remainingMin:rem,priority:t.priority});});
+  waiting.sort((a,b)=>b.waitMin-a.waitMin);
+  let replies=0,solved=0;const fr=[],teamFr=[],handled=new Set();
+  tickets.forEach(t=>{if(t.imported)return;
+    (t.thread||[]).forEach(m=>{if(m.type==='reply'&&String(m.from||'').toLowerCase()===me&&Date.parse(m.timestamp)>=dayStart){replies++;handled.add(t.id);}});
+    if(['resolved','closed'].includes(t.status)&&String(t.assignedTo||'').toLowerCase()===me&&Date.parse(t.resolvedDate||0)>=dayStart)solved++;
+    if(t.firstResponseAt&&Date.parse(t.firstResponseAt)>=dayStart&&t.firstResponseMinutes!=null){teamFr.push(t.firstResponseMinutes);if(String(t.assignedTo||'').toLowerCase()===me)fr.push(t.firstResponseMinutes);}});
+  const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
+  const unassigned=tickets.filter(t=>!t.imported&&!_ticketIsPromo(t)&&!_isArchived(t)&&!['resolved','closed'].includes(t.status)&&!String(t.assignedTo||'').trim()).length;
+  return{success:true,name,open:mine.length,waiting,repliesToday:replies,solvedToday:solved,handledToday:handled.size,firstReplyAvgMin:avg(fr),teamFirstReplyAvgMin:avg(teamFr),targetMin:cfg.frTargetMin,unassigned,at:new Date().toISOString()};
+}
+
+// ── what the office wall shows: counts and first names only, never a ticket, an address or a subject ─────────────────────
+function _liveWallData(slug,brandName){
+  const d=_liveCompute(slug,false,'');
+  return{brand:brandName||'',at:d.at,waitMin:d.cfg.waitMin,tiles:{waitingFirst:d.tiles.waitingFirst,waitingNow:d.tiles.waitingNow,longestMin:d.tiles.longest?d.tiles.longest.min:null,slaBreached:d.tiles.slaBreached,slaRisk:d.tiles.slaRisk,unassigned:d.tiles.unassigned,arrivals:d.tiles.arrivals,available:d.tiles.available},waitBuckets:d.waitBuckets,
+    agents:d.agents.map(a=>({name:String(a.name||'').split(' ')[0].slice(0,20),status:a.status,open:a.open,max:a.max,pct:a.pct,waiting:a.waiting,flags:[a.awayWithTickets?'away':'',a.overloaded?'full':'',a.quiet?'quiet':''].filter(Boolean)})),
+    alerts:d.alerts.map(a=>({level:a.level,text:a.text})),incidents:(d.incidents||[]).map(i=>({title:i.title,count:i.count,sinceMin:i.sinceMin})),channels:(d.channels||[]).map(c=>({label:c.label,state:c.state,quietMin:c.quietMin})),trend:(d.trend||[]).map(x=>({t:x.t,waiting:x.waiting,breached:x.breached}))};
+}
+const _wallRate=new Map();
+function _wallLimited(ip){const now=Date.now(),e=_wallRate.get(ip)||{n:0,at:now};if(now-e.at>60000){e.n=0;e.at=now;}e.n++;_wallRate.set(ip,e);if(_wallRate.size>5000)_wallRate.clear();return e.n>120;}
+function _wallSlugOk(slug){return /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(slug||''));}
+function _wallFind(slug,token){
+  if(!_wallSlugOk(slug)||!/^[a-f0-9]{48}$/.test(String(token||'')))return null;
+  const brand=(readOwner().brands||[]).find(b=>b.slug===slug&&b.status==='active');if(!brand||!_inboxPlusOn(slug))return null;
+  const h=crypto.createHash('sha256').update(token).digest(),links=_kvGet(slug,'wallboardLinks')||[];
+  const hit=links.find(l=>!l.revokedAt&&l.hash&&crypto.timingSafeEqual(Buffer.from(l.hash,'hex'),h));
+  return hit?{brand,links,hit}:null;
+}
+
+function _liveBuild(db,slug,team){
   const now=Date.now(),cfg=_liveConfig(db),memo=new Map(),sla=t=>{let x=memo.get(t.id);if(!x){try{x=getTicketSLAInfo(db,t);}catch(e){x={};}memo.set(t.id,x);}return x;};
   const tickets=db.tickets||[],isOpen=t=>!['resolved','closed'].includes(t.status);
+  const teamSet=team?new Set((db.users||[]).filter(u=>u.active!==false&&String(u.team||'')===team).map(u=>String(u.email).toLowerCase())):null;   // a team view keeps its own tickets and everything with no owner
   const real=tickets.filter(t=>!t.imported&&!_ticketIsPromo(t)&&!_isArchived(t)&&!(t.snoozedUntil&&Date.parse(t.snoozedUntil)>now));
-  const open=real.filter(isOpen),min=ms=>Math.max(0,Math.round(ms/60000));
+  const open=real.filter(isOpen).filter(t=>!teamSet||!String(t.assignedTo||'').trim()||teamSet.has(String(t.assignedTo).toLowerCase())),min=ms=>Math.max(0,Math.round(ms/60000));
   // a customer is waiting for US when they spoke last; the wait runs from that message
   const waitAt=t=>{if(_awaitingCustomer(t))return null;const m=_lastIncomingMsg(t),ms=m?Date.parse(m.timestamp):NaN;return isNaN(ms)?null:ms;};
   const needs=open.map(t=>({t,at:waitAt(t)})).filter(x=>x.at!=null);
@@ -9451,7 +9771,7 @@ function _liveBuild(db,slug){
   const agents=Object.keys(ag).map(e=>{const a=ag[e],u=a.u,status=u.availabilityStatus||'available',max=u.maxTickets||10,quiet=a.lastAt?min(now-a.lastAt):null;
     return{email:u.email,name:u.name||u.email,role:u.role,status,statusSince:u.statusUpdatedAt||null,open:a.open,max,pct:Math.min(150,Math.round(a.open/max*100)),waiting:a.waiting,oldest:a.oldest,lastActiveMin:quiet,viewing:viewing(e),
       awayWithTickets:status==='away'&&a.open>0,overloaded:a.open>=max,quiet:status==='available'&&a.waiting>0&&quiet!=null&&quiet>=30};})
-    .filter(x=>LIVE_STAFF.includes(x.role)||x.open>0).sort((a,b)=>b.waiting-a.waiting||b.open-a.open||String(a.name).localeCompare(String(b.name)));
+    .filter(x=>LIVE_STAFF.includes(x.role)||x.open>0).filter(x=>!teamSet||teamSet.has(String(x.email).toLowerCase())).sort((a,b)=>b.waiting-a.waiting||b.open-a.open||String(a.name).localeCompare(String(b.name)));
   const availN=agents.filter(a=>a.status==='available').length,unassigned=open.filter(t=>!String(t.assignedTo||'').trim()).length;
   // what needs a hand: past SLA, close to it, waiting too long, an unhappy or VIP customer waiting
   const hot=[];
@@ -9463,6 +9783,7 @@ function _liveBuild(db,slug){
     if(!why.length)return;if(!String(t.assignedTo||'').trim()){why.push('No owner');sc+=10;}
     hot.push({id:t.id,subject:String(t.subject||'(No subject)').slice(0,110),from:t.fromName||t.from,assignedTo:t.assignedTo||'',waitMin:w!=null?wm:null,reasons:why,priority:t.priority,score:sc});});
   hot.sort((a,b)=>b.score-a.score||(b.waitMin||0)-(a.waitMin||0));
+  const waitBuckets=[0,0,0,0];needs.forEach(x=>{const m=min(now-x.at);waitBuckets[m<5?0:m<15?1:m<60?2:3]++;});
   const alerts=[];
   if(cfg.alertsOn){
     const longWait=needs.filter(x=>min(now-x.at)>=cfg.waitMin).length;
@@ -9470,7 +9791,7 @@ function _liveBuild(db,slug){
     if(unassigned>=cfg.queueDepth)alerts.push({key:'queue',level:'warn',text:unassigned+' tickets have no owner (limit '+cfg.queueDepth+')'});
     if(cfg.noneAvailable&&needs.length>0&&availN===0)alerts.push({key:'none',level:'high',text:'Nobody is available and '+needs.length+(needs.length===1?' customer is':' customers are')+' waiting'});
   }
-  return{at:new Date().toISOString(),cfg,tiles:{waitingFirst,waitingNow:needs.length,longest,slaBreached:breached,slaRisk:risk,unassigned,arrivals:{last60,prev60},available:{n:availN,total:agents.filter(a=>LIVE_STAFF.includes(a.role)).length}},agents,hot:hot.slice(0,15),alerts};
+  return{at:new Date().toISOString(),cfg,team:team||'',teams:Array.from(new Set((db.users||[]).filter(u=>u.active!==false&&u.team).map(u=>String(u.team)))).sort(),waitBuckets,tiles:{waitingFirst,waitingNow:needs.length,longest,slaBreached:breached,slaRisk:risk,unassigned,arrivals:{last60,prev60},available:{n:availN,total:agents.filter(a=>LIVE_STAFF.includes(a.role)).length}},agents,hot:hot.slice(0,15),alerts};
 }
 // History: hourly for the last 24 hours and daily for the last 7 days (India time), from the tickets themselves
 function _liveHistory(db){
@@ -9492,9 +9813,12 @@ async function runLiveAlerts(){
   for(const brand of(readOwner().brands||[]).filter(b=>b.status==='active')){
     try{
       if(!_inboxPlusOn(brand.slug))continue;
-      const db=readBrandDB(brand.slug),d=_liveBuild(db,brand.slug),cfg=d.cfg;if(!cfg.alertsOn)continue;
-      _liveCache.set(brand.slug,{at:Date.now(),data:d});
-      const st=_kvGet(brand.slug,'liveAlertState')||{},now=Date.now();let changed=false;
+      const d=_liveCompute(brand.slug,true,''),cfg=d.cfg;
+      // the trend lines: one point every 10 minutes, kept for a day
+      const snaps=_kvGet(brand.slug,'liveSnapshots')||[],lastT=snaps.length?snaps[snaps.length-1].t:0;
+      if(Date.now()-lastT>9*60000){snaps.push({t:Date.now(),waiting:d.tiles.waitingNow,breached:d.tiles.slaBreached,unassigned:d.tiles.unassigned,avail:d.tiles.available.n});_kvSet(brand.slug,'liveSnapshots',snaps.slice(-144));}
+      if(!cfg.alertsOn)continue;
+      const db=readBrandDB(brand.slug),st=_kvGet(brand.slug,'liveAlertState')||{},now=Date.now();let changed=false;
       Object.keys(st).forEach(k=>{if(!d.alerts.some(a=>a.key===k)&&now-st[k]>30*60000){delete st[k];changed=true;}});
       for(const al of d.alerts){
         if(st[al.key]&&now-st[al.key]<30*60000)continue;
