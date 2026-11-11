@@ -227,6 +227,7 @@
     <tr data-cron="0 8 * * *"><td><code>08:00 daily</code></td><td>24-hour appointment reminders.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 9 * * *"><td><code>09:00 daily</code></td><td>Daily digest email for each active workspace.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 9 * * 1"><td><code>09:00 Monday</code></td><td>Growth digest to the owner (can be switched off in the Growth tab).</td><td class="cron-state"></td></tr>
+    <tr data-cron="*/2 * * * *"><td><code>every 2 min</code></td><td>Live team: checks each workspace that has Inbox 2.0 switched on against its alert limits (customers waiting too long, tickets with no owner, nobody available) and tells the Admins and Managers by phone alert and, if chosen, email. The same alert is repeated at most every 30 minutes.</td><td class="cron-state"></td></tr>
     <tr data-cron="*/30 * * * *"><td><code>every 30 min</code></td><td>Topics: checks each active topic that is due (Pro every 3 hours, Enterprise every hour) and turns new public mentions into tickets.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 10 * * *"><td><code>10:00 daily</code></td><td>Nurture emails for new sign-ups (day 1, 3, 7, 14) and the prospect drip.</td><td class="cron-state"></td></tr>
     <tr data-cron="0 11 * * *"><td><code>11:00 daily</code></td><td>Customer satisfaction (NPS) surveys, capped at 20 a day per workspace.</td><td class="cron-state"></td></tr>

@@ -3613,6 +3613,7 @@ const App = {
       document.body.classList.toggle('rv-plus', _on);
       var _ai = document.getElementById('aiBar'); if (_ai) _ai.placeholder = _on ? 'Ask AI' : 'Ask AI: "show critical tickets"';
       if (_on) App._initNavFold();
+      var _ln = document.getElementById('liveNav'); if (_ln) _ln.style.display = (_on && this.currentUser && ['Admin', 'Manager'].indexOf(this.currentUser.role) >= 0) ? '' : 'none';
     } catch (e) {}
     // Topics is switched off for everyone until the server says otherwise (it costs money), so its sidebar item stays hidden
     try { var _tn = document.getElementById('topicsNav'), _tv = this.featureFlags && this.featureFlags.LISTENING_ENABLED; if (_tn) _tn.style.display = (_tv === true || _tv === 'true') ? '' : 'none'; } catch (e) {}
@@ -3806,6 +3807,7 @@ const App = {
     const breadcrumbs = {
       'dashboard': '',
       'topics': 'Inbox / Topics',
+      'live-team': 'Inbox / Live team',
       'create-issue': 'Issues / New Issue',
       'issue-list': 'Issues / All Issues',
       'my-issues': 'Issues / My Issues',
@@ -3852,6 +3854,7 @@ const App = {
       case 'reports': this.renderReports(params && params.tab); break;
       case 'insights': this.renderInsights(params && params.tab); break;
       case 'topics': this.renderTopics(); break;
+      case 'live-team': this.renderLiveTeam(); break;
       case 'ai-hub': this.renderAIHub(); break;
       case 'revenue-dashboard': this.renderRevenueDashboard(); break;
       case 'customer-health': this.renderCustomerHealth(); break;
@@ -23200,6 +23203,7 @@ App._shellRenderProfile = function() {
 // ── Insights: one page; Reports and Customer health keep their pages and gain the same tab bar ──
 (function() {
   App.renderTopics = function() { return window.RVT ? RVT.render() : App.navigate('dashboard'); };
+  App.renderLiveTeam = function() { return window.RVL ? RVL.render() : App.navigate('dashboard'); };
   App.renderInsights = function(tab) { return window.RVN ? RVN.render(tab) : App.renderReports(); };
   [['renderReports', 'reports'], ['renderCustomerHealth', 'customers'], ['renderAnalytics', 'overview'], ['renderWorkload', 'team']].forEach(function(p) {
     var orig = App[p[0]]; if (typeof orig !== 'function') return;
