@@ -2915,6 +2915,23 @@ const App = {
     this.navigate('dashboard');
   },
 
+  // Sidebar sections fold under their label (remembered). "Issues" starts folded: a support team rarely needs it, and it is one click away.
+  _initNavFold: function() {
+    var key = 'tt_nav_fold', st = {}; try { st = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+    document.querySelectorAll('.nav-section').forEach(function(sec) {
+      var lab = sec.querySelector(':scope > .nav-label'); if (!lab) return;
+      var name = (lab.textContent || '').trim().toLowerCase(), has = sec.querySelector('.nav-item.active');
+      var folded = st[name] != null ? !!st[name] : (name === 'issues');
+      if (has) folded = false;
+      sec.classList.toggle('nav-folded', folded);
+      if (lab.dataset.fold) return; lab.dataset.fold = '1';
+      lab.setAttribute('role', 'button'); lab.setAttribute('tabindex', '0'); lab.setAttribute('aria-expanded', String(!folded)); lab.setAttribute('title', 'Show or hide this section');
+      var flip = function() { var f = sec.classList.toggle('nav-folded'); lab.setAttribute('aria-expanded', String(!f)); st[name] = f ? 1 : 0; try { localStorage.setItem(key, JSON.stringify(st)); } catch (e) {} };
+      lab.addEventListener('click', flip); lab.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
+      lab.setAttribute('aria-expanded', String(!folded));
+    });
+  },
+
   _ownerManageFeatures: async function(slug, brandName) {
     const token = localStorage.getItem('tt_session_token') || '';
     const r = await fetch('/api/owner/brands/' + slug + '/features', { headers: { 'x-session-token': token } }).then(r => r.json());
@@ -3590,6 +3607,13 @@ const App = {
   },
   
   setupUI() {
+    // New look (pilot): the owner switches it on per workspace. It adds one class that the styles hang off, tidies the top bar and lets the sidebar sections fold.
+    try {
+      var _pf = this.featureFlags && this.featureFlags.INBOX_PLUS_ENABLED, _on = _pf === true || _pf === 'true';
+      document.body.classList.toggle('rv-plus', _on);
+      var _ai = document.getElementById('aiBar'); if (_ai) _ai.placeholder = _on ? 'Ask AI' : 'Ask AI: "show critical tickets"';
+      if (_on) App._initNavFold();
+    } catch (e) {}
     // Topics is switched off for everyone until the server says otherwise (it costs money), so its sidebar item stays hidden
     try { var _tn = document.getElementById('topicsNav'), _tv = this.featureFlags && this.featureFlags.LISTENING_ENABLED; if (_tn) _tn.style.display = (_tv === true || _tv === 'true') ? '' : 'none'; } catch (e) {}
     // Init theme from saved preference

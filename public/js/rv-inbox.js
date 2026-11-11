@@ -167,6 +167,14 @@
   }
   function filterCount() { var a = A(), n = 0; var f = a._ticketFilter || 'all'; if (f !== 'all' && ['mine', 'unassigned', 'snoozed'].indexOf(f) < 0 && !/^status:/.test(currentView())) n++; ['_ticketChannel', '_ticketPriority', '_ticketAssignee'].forEach(function (k) { if ((a[k] || 'all') !== 'all') n++; }); ['_ticketTeam', '_ticketTag', '_ticketFrom', '_ticketTo', '_ticketSentiment', '_ticketRead', '_ticketVip'].forEach(function (k) { if (a[k]) n++; }); return n; }
 
+  // New look: an open ticket that is waiting for OUR answer shows how long ("Waiting 3 h"), in warning colours after a day; others show the time of the last activity.
+  function rowMeta(t, done) {
+    if (plus() && !done && !t.imported && !t.awaitingCustomer && t.lastMessage && t.lastMessage.timestamp) {
+      var ms = Date.now() - (Date.parse(t.lastMessage.timestamp) || Date.now());
+      return '<div class="rvi-wait' + (ms > 3 * 86400000 ? ' is-late2' : ms > 86400000 ? ' is-late' : '') + '" title="The customer wrote ' + esc(ago(t.lastMessage.timestamp)) + ' and is waiting for a reply">Waiting ' + esc(waitText(t.lastMessage.timestamp)) + '</div>';
+    }
+    return '<div>' + esc(ago(t.lastActivity || t.createdDate)) + '</div>';
+  }
   function rowHtml(t) {
     var a = A(), sel = S.sel === t.id, unread = !!t.unread, who = (t.fromName || t.from || 'Unknown');
     var prev = (t.lastMessage && t.lastMessage.body) ? String(t.lastMessage.body).replace(/\s+/g, ' ').trim().slice(0, 110) : '';
@@ -186,14 +194,15 @@
       '<div style="min-width:0"><div class="rvi-row__name"><b>' + esc(String(who).split('@')[0]) + '</b><span class="rvi-row__ch">' + esc(channelName(t.channel || t.source)) + '</span></div>' +
       '<div class="rvi-row__subj">' + esc(t.subject || '(No subject)') + '</div>' + (prev ? '<div class="rvi-row__prev">' + esc(prev) + '</div>' : '') +
       ((badges || owner) ? '<div class="rvi-row__tags">' + badges + owner + '</div>' : '') + '</div>' +
-      '<div class="rvi-row__meta"><div>' + esc(ago(t.lastActivity || t.createdDate)) + '</div></div></div>';
+      '<div class="rvi-row__meta">' + rowMeta(t, done) + '</div></div>';
   }
   function listRows() {
     if (!S.tickets.length) {
       var filtered = filterCount() > 0 || currentView() !== 'all';
       return w.RV.empty({ icon: 'inbox', title: filtered ? 'No tickets match these filters' : 'No tickets yet',
         text: filtered ? 'Try a different view or clear the filters.' : 'New customer messages will appear here. You can also load sample tickets or create one.',
-        actions: filtered ? w.RV.btn({ label: 'Clear filters', attrs: { 'data-act': 'clear' } }) : w.RV.btn({ label: 'Create a ticket', kind: 'primary', onclick: 'App._showCreateManualTicket()' }) });
+        actions: filtered ? w.RV.btn({ label: 'Clear filters', attrs: { 'data-act': 'clear' } }) : w.RV.btn({ label: 'Create a ticket', kind: 'primary', onclick: 'App._showCreateManualTicket()' }) +
+          ((A().currentUser || {}).role === 'Admin' ? w.RV.btn({ label: 'Import from another help desk', onclick: 'RVImport.open()' }) : '') });
     }
     return '<div role="listbox" aria-label="Tickets" id="ticketListRows">' + S.tickets.map(rowHtml).join('') + '</div>' +
       (S.total > S.tickets.length ? '<div class="rvi-more">' + w.RV.btn({ label: 'Load more (' + (S.total - S.tickets.length) + ' left)', size: 'sm', attrs: { 'data-act': 'more' } }) + '</div>' : '');
@@ -205,11 +214,12 @@
       c.new > 0 ? { label: 'Close all ' + c.new + ' new tickets', icon: 'check', onclick: "App._closeAllByStatus('new'," + c.new + ')' } : null,
       '-', (a.currentUser && a.currentUser.role === 'Admin') ? { label: 'Import tickets from another help desk', onclick: 'RVImport.open()' } : null, { label: 'Email and spam settings', onclick: "App.navigate('email-ticketing')" }, { label: 'WhatsApp settings', onclick: "App.navigate('whatsapp-settings')" }, { label: 'Queue settings', onclick: "App.navigate('settings',{tab:'queue-config'})" },
       '-', { label: 'Use the classic inbox layout', onclick: 'RVI.useClassic(true)' }].filter(Boolean) });
-    return '<div class="rvi-tools"><div class="rvi-tools__head"><span class="rvi-tools__title">Tickets</span><span class="rv-hint" id="rviCount" aria-live="polite">' + S.tickets.length + ' of ' + S.total + '</span><span style="flex:1"></span>' +
+    return '<div class="rvi-tools"><div class="rvi-tools__head"><span class="rvi-tools__title">Tickets</span><span class="rv-hint" id="rviCount" aria-live="polite">' + S.tickets.length + ' of ' + S.total + '</span>' +
+      (S.emailOff ? '<button type="button" class="rvi-emailchip" onclick="App.navigate(\'email-ticketing\')" title="Customer emails will not arrive until email is connected">&#9888; Connect email</button>' : '') + '<span style="flex:1"></span>' +
       '<button type="button" class="rv-btn rv-btn--sm rvi-viewsbtn" data-act="views-panel" title="Saved views and queue tools">Views</button>' +
       '<button type="button" class="rv-btn rv-btn--sm" data-act="focus-on" title="One calm queue, one ticket at a time">Focus mode</button></div>' +
       '<div class="rvi-tools__row"><input type="checkbox" id="selectAllTickets" data-act="checkall" aria-label="Select all tickets" style="accent-color:var(--rv-accent)">' +
-      '<div style="flex:1;min-width:0">' + w.RV.search({ id: 'ticketSearch', placeholder: 'Search tickets', label: 'Search tickets', value: a._ticketSearch || '' }) + '</div>' +
+      '<div style="flex:1;min-width:0">' + w.RV.search({ id: 'ticketSearch', placeholder: plus() ? 'Search' : 'Search tickets', label: 'Search tickets', value: a._ticketSearch || '' }) + '</div>' +
       '<button type="button" class="rv-btn rv-btn--sm" data-act="filters" aria-expanded="' + S.filtersOpen + '" aria-controls="rviFilters">Filters' + (n ? ' (' + n + ')' : '') + '</button>' + menu + '</div>' +
       pillsRow() + filterPanel() + chips() + promoBar() +
       '<div id="ticketBulkBar" class="rvi-bulk"><span id="ticketSelectedCount" style="font-size:var(--rv-text-sm);font-weight:700">0 selected</span>' +
@@ -245,7 +255,9 @@
     var cfg = (res[1] && res[1].success && res[1].config) ? res[1].config : {}; var enabled = cfg.enabled === true, hasCred = !!(cfg.host && cfg.user && cfg.pass); var gmail = !!(cfg.gmailOAuth || cfg.gmailConnected);
     var ps = res[3] && res[3].success ? res[3].status : null, down = ps && !ps.healthy && ps.failureCount >= 3 && !gmail;
     var banner = '';
-    if (!enabled && !gmail) banner = w.RV.alert('warning', w.RV.icon('alert', 16) + '<span style="flex:1">' + (hasCred ? '<b>Email ticketing is switched off.</b> No new emails will be fetched.' : '<b>Email is not connected yet.</b> Connect Gmail or IMAP so customer emails arrive as tickets.') + '</span>' + w.RV.btn({ label: hasCred ? 'Switch on' : 'Connect email', size: 'sm', kind: 'primary', onclick: "App.navigate('email-ticketing')" }));
+    S.emailOff = false;
+    if (!enabled && !gmail && plus()) S.emailOff = true;
+    else if (!enabled && !gmail) banner = w.RV.alert('warning', w.RV.icon('alert', 16) + '<span style="flex:1">' + (hasCred ? '<b>Email ticketing is switched off.</b> No new emails will be fetched.' : '<b>Email is not connected yet.</b> Connect Gmail or IMAP so customer emails arrive as tickets.') + '</span>' + w.RV.btn({ label: hasCred ? 'Switch on' : 'Connect email', size: 'sm', kind: 'primary', onclick: "App.navigate('email-ticketing')" }));
     else if (down) banner = w.RV.alert('danger', w.RV.icon('alert', 16) + '<span style="flex:1"><b>Inbox disconnected.</b> New emails may not be arriving. ' + esc(ps.lastErrorFriendly || ps.lastError || '') + '</span>' + w.RV.btn({ label: 'Fix', size: 'sm', kind: 'danger', onclick: "App.navigate('email-ticketing')" }));
 
     if (focus) return drawFocus(area, banner);
@@ -260,7 +272,37 @@
     if (a._loadQueueDashboard) a._loadQueueDashboard();
     if (S.sel) RVI.open(S.sel, true);
   };
-  function convEmpty() { return '<div class="rvi-conv__empty">' + w.RV.empty({ icon: 'mail', title: 'Select a ticket', text: 'Pick a conversation from the list to read it, reply and manage it here.' }) + '</div>'; }
+  function convEmpty() {
+    if (!plus()) return '<div class="rvi-conv__empty">' + w.RV.empty({ icon: 'mail', title: 'Select a ticket', text: 'Pick a conversation from the list to read it, reply and manage it here.' }) + '</div>';
+    setTimeout(loadSetup, 0);
+    return '<div class="rvi-conv__empty rvi-today"><div class="rvi-today__in">' + queueCard() + '<div id="rviSetup"></div></div></div>';
+  }
+  // The empty right-hand panel shows what needs doing now: replies owed, the longest wait, and anything about to breach.
+  function waitText(ts) {
+    var ms = Date.now() - (Date.parse(ts) || Date.now()), m = Math.round(ms / 60000);
+    return m < 60 ? Math.max(1, m) + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days';
+  }
+  function queueCard() {
+    var c = S.counts || {}, o = c.oldest, n = c.needsReply || 0, br = c.slaBreached || 0, risk = c.slaDue || 0, un = c.unassigned || 0;
+    var stat = function (v, l, hot, view) { return '<button type="button" class="rvi-today__stat' + (hot && v > 0 ? ' is-hot' : '') + '" data-act="view" data-view="' + view + '"><b>' + v + '</b><span>' + l + '</span></button>'; };
+    var body = n === 0 && !o ? '<p class="rvi-today__done">You are all caught up. No customer is waiting for a reply.</p>'
+      : (o ? '<div class="rvi-today__oldest"><span class="rvi-today__lbl">Waiting longest</span><b>' + esc(o.subject || '(No subject)') + '</b><span class="rv-hint">' + esc(o.from || '') + ' &middot; waiting ' + esc(waitText(o.at)) + '</span>' +
+        '<button type="button" class="rv-btn rv-btn--primary rv-btn--sm" data-act="open" data-ticket-id="' + esc(o.id) + '">Open it</button></div>' : '');
+    return '<h2 class="rvi-today__h">Today\'s queue</h2><div class="rvi-today__stats">' + stat(n, 'need a reply', false, 'all') + stat(un, 'no owner', true, 'unassigned') + stat(br, 'past SLA', true, 'sla-breached') + stat(risk, 'close to SLA', true, 'sla-risk') + '</div>' + body;
+  }
+  // First-run checklist (the same steps as the dashboard card), shown only to admins while setup is unfinished
+  async function loadSetup() {
+    var box = document.getElementById('rviSetup'); if (!box || !plus()) return;
+    var a = A(), cu = a.currentUser || {}; if (cu.role !== 'Admin') return;
+    var od = a._onboardingData;
+    try { if (!od) { var rr = await fetch('/api/onboarding-status', { headers: { 'x-session-token': localStorage.getItem('tt_session_token') || '' } }).then(function (x) { return x.json(); }); if (rr && rr.success) { od = rr; a._onboardingData = rr; } } } catch (e) {}
+    box = document.getElementById('rviSetup'); if (!box || !od || od.percent >= 100) return;
+    var actOf = function (s) { return s.id === 'try_sample' ? 'App._sampleTickets(true)' : s.id === 'first_reply' ? "App.navigate('ticket-inbox')" : s.id === 'first_ticket' ? 'App._showCreateManualTicket()' : s.id === 'setup_queue' ? "App.navigate('settings',{tab:'queue-config'})" : s.id === 'canned' ? "App.navigate('settings',{tab:'canned'})" : s.id === 'connect_email' ? "App.navigate('email-ticketing')" : s.id === 'invite_user' ? "App.navigate('settings',{tab:'team'})" : "App.navigate('" + String(s.link || '').replace('#', '') + "')"; };
+    var steps = (od.steps || []).filter(function (s) { return !s.done; }).slice(0, 4);
+    var extra = (S.counts && S.counts.all === 0) ? '<button type="button" class="rvi-setup__row" onclick="RVImport.open()"><span class="rvi-setup__n">+</span><span><b>Bring in your old tickets</b><small>Import a CSV from Zendesk, Freshdesk or Help Scout. Nothing is sent to customers.</small></span><i>&rarr;</i></button>' : '';
+    box.innerHTML = '<div class="rvi-setup"><div class="rvi-setup__head"><h3>Get set up</h3><span class="rv-hint">' + od.completed + ' of ' + od.total + ' done</span></div>' + w.RV.progress(od.percent) +
+      steps.map(function (s, i) { return '<button type="button" class="rvi-setup__row" onclick="' + actOf(s).replace(/"/g, '&quot;') + '"><span class="rvi-setup__n">' + (i + 1) + '</span><span><b>' + esc(s.label || s.title || s.id) + '</b>' + (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '</span><i>&rarr;</i></button>'; }).join('') + extra + '</div>';
+  }
 
   // refresh only the list and counts (keeps the open conversation and any draft untouched)
   RVI.refresh = async function () {
@@ -439,6 +481,15 @@
     return '<div class="rvi-mention"><div><b>Public mention</b> found on ' + esc(plat) + (l.author ? ' by ' + esc(l.author) : '') + (t.topicName ? ' for the topic <b>' + esc(t.topicName) + '</b>' : '') + '. Resolvo cannot reply for you: open the post to answer there, and use notes here to share what you did.</div>' +
       (url ? '<a class="rv-btn rv-btn--sm" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Open the post</a>' : '') + '</div>';
   }
+  // Saved replies and the AI suggestion. New look: the two buttons stay in the page (hidden, so every existing behaviour still works) and one "More" button opens them;
+  // Send then stands alone. Old look: the two buttons as before.
+  function replyTools(t, isNote) {
+    var ai = isNote ? '' : w.RV.btn({ label: 'AI suggestion', icon: 'sparkle', size: 'sm', attrs: { 'data-act': 'ai', id: 'aiSuggestTrigger_' + t.id } }), sr = w.RV.btn({ label: 'Saved replies', size: 'sm', attrs: { 'data-act': 'canned' } });
+    if (!plus()) return ai + sr;
+    var click = function (sel) { return "var b=document.querySelector('.rvi-hidden-tools " + sel + "');if(b)b.click()"; };
+    return '<span class="rvi-hidden-tools" hidden>' + ai + sr + '</span>' + w.RV.menu({ trigger: '<button type="button" class="rv-btn rv-btn--sm" aria-label="More reply tools"><span>More</span>' + '<span aria-hidden="true">&#9662;</span>' + '</button>',
+      items: [{ label: 'Saved replies', onclick: click('[data-act=canned]') }].concat(isNote ? [] : [{ label: 'AI suggestion', onclick: click('[data-act=ai]') }]) });
+  }
   function composerBar(done) {
     return '<div class="rvp-bar"><button type="button" class="rvp-bar__input" data-act="compose-open" aria-label="Write a reply">' + w.RV.icon('mail', 16) + '<span>Write a reply&hellip;</span></button>' +
       (done ? '' : '<button type="button" class="rvp-bar__ok" data-act="' + (S.focus ? 'resolve-quick' : 'resolve') + '" aria-label="Resolve this ticket">' + w.RV.icon('check', 18) + '<span>Resolve</span></button>') + '</div>';
@@ -494,8 +545,7 @@
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
         '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' + (isNote ? '' : '<div class="rvp-chips" id="rvpChips" role="group" aria-label="Saved replies" hidden></div>') +
         '<textarea class="rv-textarea" id="replyText" aria-label="' + (isNote ? 'Internal note' : 'Reply') + '" placeholder="' + (isNote ? 'Write a note for your team...' : 'Write a reply... (type / for saved replies)') + '">' + esc(draft) + '</textarea>' +
-        '<div class="rv-cluster">' + (isNote ? '' : w.RV.btn({ label: 'AI suggestion', icon: 'sparkle', size: 'sm', attrs: { 'data-act': 'ai', id: 'aiSuggestTrigger_' + t.id } })) +
-          w.RV.btn({ label: 'Saved replies', size: 'sm', attrs: { 'data-act': 'canned' } }) + '<span style="flex:1"></span><span class="rvi-kbdhint"><kbd class="rvi-kbd">Ctrl</kbd> <kbd class="rvi-kbd">Enter</kbd></span>' +
+        '<div class="rv-cluster">' + replyTools(t, isNote) + '<span style="flex:1"></span><span class="rvi-kbdhint"><kbd class="rvi-kbd">Ctrl</kbd> <kbd class="rvi-kbd">Enter</kbd></span>' +
           w.RV.btn({ label: isNote ? 'Add note' : 'Send reply', kind: 'primary', attrs: { 'data-act': 'send', id: 'rviSend' } }) + '</div></div>';
     if (!keepScroll) { var th = document.getElementById('rviThread'); if (th) th.scrollTop = th.scrollHeight; }
     if (isPhone() && !collapsed && !isNote) fillChips();
@@ -753,7 +803,7 @@
         '<span class="rv-hint rvi-composer__to">' + (isNote ? 'Only your team sees this' : 'To ' + esc(t.from || 'the customer')) + '</span></div>' +
         '<div id="aiSuggestBox_' + esc(t.id) + '"></div>' + (isNote ? '' : '<div class="rvp-chips" id="rvpChips" role="group" aria-label="Saved replies" hidden></div>') +
         '<textarea class="rv-textarea" id="replyText" aria-label="' + (isNote ? 'Internal note' : 'Reply') + '" placeholder="' + (isNote ? 'Write a note for your team... (R)' : 'Write a reply... (R)') + '">' + esc(draft) + '</textarea>' +
-        '<div class="rv-cluster">' + (isNote ? '' : w.RV.btn({ label: 'AI suggestion', icon: 'sparkle', size: 'sm', attrs: { 'data-act': 'ai', id: 'aiSuggestTrigger_' + t.id } })) + w.RV.btn({ label: 'Saved replies', size: 'sm', attrs: { 'data-act': 'canned' } }) +
+        '<div class="rv-cluster">' + replyTools(t, isNote) +
           '<span style="flex:1"></span>' + w.RV.btn({ label: isNote ? 'Add note' : 'Send', attrs: { 'data-act': 'send', id: 'rviSend' } }) +
           (isNote ? '' : w.RV.btn({ label: done ? 'Send, then next' : 'Send & resolve, then next', kind: 'primary', attrs: { 'data-act': 'send-resolve', id: 'rvfSendNext' } })) + '</div>' +
         '<div class="rvi-kbdhint rvf-hintline" aria-hidden="true"><kbd class="rvi-kbd">R</kbd> reply &middot; <kbd class="rvi-kbd">E</kbd> resolve &middot; <kbd class="rvi-kbd">J</kbd> <kbd class="rvi-kbd">K</kbd> next / previous &middot; <kbd class="rvi-kbd">Esc</kbd> queue</div></div>';
