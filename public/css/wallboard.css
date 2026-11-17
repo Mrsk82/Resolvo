@@ -14,7 +14,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 @media (prefers-reduced-motion: reduce) { .wb-alert.is-high { animation: none; } }
 .wb-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.2vw, 18px); }
 .wb-tile { background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: clamp(10px, 1.6vw, 24px); min-width: 0; }
-.wb-tile b { display: block; white-space: nowrap; font-size: clamp(2.2rem, 4.8vw, 5.5rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.wb-tile b { display: block; white-space: nowrap; font-size: clamp(1.9rem, 3.2vw, 4.2rem); line-height: 1; font-variant-numeric: tabular-nums; }
 .wb-tile span { display: block; margin-top: 6px; color: var(--muted); font-size: clamp(.8rem, 1.3vw, 1.4rem); text-transform: uppercase; letter-spacing: .06em; }
 .wb-tile.is-warn { border-color: var(--warn); } .wb-tile.is-warn b { color: var(--warn); }
 .wb-tile.is-bad { border-color: var(--bad); } .wb-tile.is-bad b { color: var(--bad); }

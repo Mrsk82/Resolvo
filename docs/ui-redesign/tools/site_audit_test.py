@@ -36,6 +36,12 @@ def build():
     os.makedirs(os.path.join(app, "data", "brands")); shutil.copytree(os.path.join(ROOT, "data", "brands", "demo"), os.path.join(app, "data", "brands", "demo"))
     o = json.load(open(os.path.join(ROOT, "data", "owner.json"), encoding="utf-8")); o["brands"] = [b for b in o["brands"] if b["slug"] == "demo"]; o["prospects"] = []; o.pop("siteSettings", None)
     h = subprocess.run(["node", "-e", "console.log(require(process.argv[1]).hashSync('Owner-test-1',10))", os.path.join(ROOT, "node_modules", "bcryptjs")], capture_output=True, text=True).stdout.strip(); o["passwordHash"] = h
+    import sqlite3; hd = subprocess.run(["node", "-e", "console.log(require(process.argv[1]).hashSync('demo1234',10))", os.path.join(ROOT, "node_modules", "bcryptjs")], capture_output=True, text=True).stdout.strip()   # the copy gets a known admin password (the real one is not touched)
+    con = sqlite3.connect(os.path.join(app, "data", "brands", "demo", "db.sqlite"))
+    for rid, rd in con.execute("SELECT id,data FROM users").fetchall():
+        u = json.loads(rd)
+        if u.get("email") == "admin@demo.local": u["passwordHash"] = hd; u["mustChangePassword"] = False; u["firstLogin"] = False; con.execute("UPDATE users SET data=? WHERE id=?", (json.dumps(u), rid))
+    con.commit(); con.close()
     json.dump(o, open(os.path.join(app, "data", "owner.json"), "w", encoding="utf-8")); return o["email"]
 owner_email = build()
 srv = subprocess.Popen(["node", "server.js"], cwd=app, env=dict(os.environ, PORT=str(PORT), EMAIL_ENABLED="", BACKUP_DIR=os.path.join(tmp, "bk")), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -120,7 +126,7 @@ async def main():
     sec = page_html(LIVE + "/security")
     check("security: says plainly what is not certified yet", "not</b> completed a SOC 2 or ISO 27001" in sec)
     check("security: lists nightly backups, the recycle bin and the audit trail", all(k in sec for k in ("Every night", "30-day recycle bin", "audit trail")))
-    chg = page_html(LIVE + "/changelog"); check("changelog: six dated entries, newest first", len(re.findall(r'<div class="entry"', chg)) == 6 and chg.index("8 November 2026") < chg.index("27 October 2026"))
+    chg = page_html(LIVE + "/changelog"); check("changelog: ten dated entries, newest first", len(re.findall(r'<div class="entry"', chg)) == 10 and chg.index("12 November 2026") < chg.index("8 November 2026") < chg.index("27 October 2026"))
     integ = page_html(LIVE + "/integrations"); check("integrations: shows the widget line and the ticket API call", "widget.js" in integ and "/api/tickets/public/create" in integ and "x-api-token" in integ)
     cust = page_html(LIVE + "/customers"); check("customers: no invented logos or quotes", "written OK" in cust and not re.search(r'<blockquote|testimonial-card|&ldquo;.{20,}&rdquo; —', cust))
     for src, dst in (("/docs", "/learn"), ("/help", "/learn"), ("/gdpr", "/security#data-rights")):

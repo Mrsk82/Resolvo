@@ -79,14 +79,16 @@ features = [
    ("WhatsApp Business", "Reply to WhatsApp customers from the same inbox, through the official WhatsApp Business API (Twilio or Meta Cloud API)."),
    ("Website chat widget", "Add one line to your site and visitors can write to you. Their messages arrive as tickets.", "Enterprise"),
    ("Instagram, Facebook and Telegram", "Messages and comments from these channels can arrive in the same inbox. Meta channels need your Meta business verification and app review."),
-   ("Customer self-service portal", "Customers log in to see their tickets and answers without emailing you.", "Enterprise")]),
+   ("Customer self-service portal", "Customers log in to see their tickets and answers without emailing you.", "Enterprise"),
+   ("Import from another help desk", "Bring your history from Zendesk, Freshdesk, Help Scout or any CSV file. You check how the columns match and see a preview before anything is added. Old tickets keep their status and dates, and stay silent: no alerts, no SLA clocks and no emails to old customers.")]),
  ("answer", "Answer faster, with less typing", "Everything that saves a minute on a reply, when you write a hundred a day.", [
    ("AI reply drafts", "Open a ticket and get a draft in your brand's tone. Your agent edits and sends. Nothing is ever sent without a person clicking send.", "Pro"),
    ("Saved replies and replies for the moment", "Order status, refund, delay, follow-up and thanks. Pick one and the customer's name, order number and your name are filled in."),
    ("Smart queue assignment", "New tickets go to the right person, so agents stop stepping on each other.", "Pro"),
    ("Internal notes, snooze and bulk actions", "Leave notes only your team sees, snooze a ticket until it matters again, and act on many tickets at once."),
    ("Automatic acknowledgements", "Customers get an instant \"we have your message\" email. It is marked as an automatic reply so it never starts an email loop."),
-   ("Knowledge base", "Write help articles once and reuse them in replies and for your customers.", "Pro")]),
+   ("Knowledge base", "Write help articles once and reuse them in replies and for your customers.", "Pro"),
+   ("Replies that are never lost", "An emailed reply shows as sent only when the email provider has accepted it. If it fails, the reply stays on the ticket as Not delivered, with the reason and a Retry button. Pressing send twice never sends two emails.")]),
  ("promises", "Keep your promises", "Know which customer is about to wait too long, before they ask.", [
    ("SLA clocks and alerts", "Every ticket has a target time. Overdue and Due soon tickets are counted on your Today cards and can buzz your phone."),
    ("Escalation rules", "When a ticket sits too long or is marked critical, the right people hear about it."),
@@ -100,7 +102,16 @@ features = [
  ("insights", "See how the team is doing", "Plain answers instead of a wall of charts.", [
    ("Insights", "An overview, plain-language questions (\"who is slowest this week?\") and a team scorecard.", "Pro"),
    ("SLA, workload and response-time reports", "Where tickets wait, who is overloaded and how fast you answer first.", "Pro"),
-   ("Multiple brands, one dashboard", "Give each brand its own inbox, portal and SLA policy and watch all of them from one place.")]),
+   ("Multiple brands, one dashboard", "Give each brand its own inbox, portal and SLA policy and watch all of them from one place."),
+   ("Command center and trends", "Your dashboard shows what is happening now (refreshed every 30 seconds) and how it is changing: busiest hours, tickets created and resolved each day, customer mood, and a word cloud of what customers write about, with rising and fading words.")]),
+ ("live", "See your whole team, live", "For the person who runs the team. These screens are in early access: we switch them on for a workspace on request, starting with design partners.", [
+   ("Live team board", "Who is waiting, for how long, who is busy, away or quiet, and which tickets need a hand. Give a ticket to someone in one click, or nudge a person. Auto-balance shows a plan first, then hands out the tickets nobody owns.", "Early access"),
+   ("Incident radar", "When many customers write about the same problem, they are grouped into one card. You can write one update to all of them, after you have read it and confirmed. Nothing is sent unless you choose to.", "Early access"),
+   ("SLA countdown and channel health", "Every ticket with a response target, with a timer that counts down. See when WhatsApp or email goes quieter than usual, which can mean a connection has broken.", "Early access"),
+   ("Staffing forecast", "Expected new tickets for the next 8 hours from your own history, and how many agents that needs. It says so when there is not enough history yet.", "Early access"),
+   ("Wallboard for a TV", "A big-number page for an office screen. It shows counts and first names only, never customers or ticket text, and the private link can be removed at any time.", "Early access"),
+   ("My day for every agent", "My customers waiting, replies and tickets solved today, and a countdown to each response target.", "Early access"),
+   ("A tidier inbox", "Views for waiting-longest, unassigned and SLA breached, search inside messages, an archive for finished tickets, and a quieter top bar.", "Early access")]),
  ("phone", "Built for the phone", "Most support happens away from a desk. The Android app and the website work the same way.", [
    ("Swipe to take, resolve or snooze", "Swipe a ticket right to take it and all the way to resolve it, with an Undo."),
    ("Write with no signal", "Replies and new tickets written offline are saved and sent by themselves when you are back online. Unsent drafts are kept."),
@@ -181,6 +192,24 @@ P_CUSTOMERS = page("customers", "Customers and design partners | Resolvo", "Reso
 
 # ---------------------------------------------------------------- changelog
 LOG = [
+ ("2026-11-12", "12 November 2026", "Live team: see your whole team at once (early access)", [
+   "A <b>Live team</b> board for Admins and Managers: customers waiting, the longest wait, who is busy, away or quiet, and the tickets that need a hand. Give a ticket to someone, nudge a person, or let <b>Auto-balance</b> show a plan and then hand out unowned tickets.",
+   "<b>Incident radar</b> groups many customers writing about the same problem into one card, and lets you send one reviewed update to them (up to 100, with a confirm step).",
+   "<b>SLA countdown</b>, <b>channel health</b> (a quiet WhatsApp or email is flagged), an <b>activity</b> feed and a <b>staffing forecast</b> for the next 8 hours.",
+   "A <b>wallboard</b> link for an office TV (counts and first names only, removable any time), a <b>team filter</b>, sound and desktop alerts, and <b>My day</b> for every agent.",
+   "Early access: we switch it on for a workspace on request. <a href=\"/partners#apply\">Ask for it</a>."]),
+ ("2026-11-11", "11 November 2026", "Import from another help desk, and a tidier look", [
+   "<b>Import your history</b> from Zendesk, Freshdesk, Help Scout or any CSV file. Check the column match, see a preview, then import. Old tickets keep their status and dates and stay silent: no alerts, no SLA clocks, no emails to old customers.",
+   "<b>New look</b> (early access): a tidier top bar, a sidebar that folds to icons, today's queue, waiting times and a setup checklist.",
+   "Fixes: the More menu was cut off at some window sizes, and the icon-only sidebar showed clipped labels."]),
+ ("2026-11-10", "10 November 2026", "A more complete inbox (early access)", [
+   "<b>Views</b> for waiting longest, unassigned, SLA at risk and SLA breached, with real counts. <b>Search</b> now reads the text of messages. Filters for customer mood, unread and VIP.",
+   "<b>Archive</b> for finished tickets: they leave your counts, stay searchable, and come back by themselves when the customer writes again.",
+   "A clearer <b>timeline</b> with assignment and priority changes, and long conversations folded to the first and latest messages.",
+   "Early access: we switch it on for a workspace on request."]),
+ ("2026-11-09", "9 November 2026", "Replies that are never lost, and trends on your dashboard", [
+   "An emailed reply now shows as <b>sent only when the email provider accepted it</b>. If it fails, it stays on the ticket as Not delivered with the reason and a <b>Retry</b> button. Pressing send twice no longer sends two emails, and a failed email is never counted as your first response.",
+   "<b>Dashboard command center</b> (refreshed every 30 seconds) and <b>trends</b>: busiest hours, tickets created and resolved per day, customer mood and a word cloud with rising and fading words."]),
  ("2026-11-08", "8 November 2026", "Phone: write offline, dictate, photos, lock, widget", [
    "<b>Write with no signal.</b> Replies and new tickets written offline are saved and sent by themselves when you are back. Unsent drafts are kept for each ticket.",
    "<b>Dictate</b> a reply in English, Hindi and other Indian languages. <b>Photos and files</b> can be added from the camera, shrunk first so they send fast.",
@@ -212,7 +241,7 @@ LOG = [
 ]
 ent = "".join(f'<div class="entry" id="v{d}"><time datetime="{d}">{E(label)}</time><h3>{E(t)}</h3><ul>' + "".join(f"<li>{i}</li>" for i in items) + "</ul></div>" for d, label, t, items in LOG)
 body = f'<section class="block"><div class="log">{ent}</div><p class="note">Want something added? <a href="mailto:contact@resolvogroup.com">Tell us</a>. This list is written in plain words and only includes what is live.</p></section>'
-P_CHANGELOG = page("changelog", "What's new in Resolvo: product updates | Resolvo", "Every Resolvo update with its date, in plain words: phone app, offline replies, dictation, backups, Shopify orders, the new inbox and more.",
+P_CHANGELOG = page("changelog", "What's new in Resolvo: product updates | Resolvo", "Every Resolvo update with its date, in plain words: Live team board, importing from other help desks, reliable email replies, phone app, backups and more.",
     "What's new", "What we shipped, week by week.", "Resolvo improves every week. Here is every change that is live, newest first.", body, cta=False)
 
 # ---------------------------------------------------------------- free tools and the Shopify page
