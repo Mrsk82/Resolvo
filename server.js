@@ -2781,8 +2781,9 @@ app.post('/api/call',async(req,res)=>{
       if(c.incidentMin!==undefined&&bad(c.incidentMin,3,100))return{success:false,error:'Tickets for an incident must be between 3 and 100.'};
       if(c.frTargetMin!==undefined&&bad(c.frTargetMin,1,480))return{success:false,error:'First reply target must be between 1 and 480 minutes.'};
       if(c.perAgentHour!==undefined&&bad(c.perAgentHour,1,30))return{success:false,error:'Tickets an agent handles an hour must be between 1 and 30.'};
+      if(c.breakMin!==undefined&&bad(c.breakMin,5,240))return{success:false,error:'A long break must be between 5 and 240 minutes.'};
       const cur=_liveConfig(rDB());
-      const v={alertsOn:!!c.alertsOn,waitMin:+c.waitMin,waitingCount:+c.waitingCount,queueDepth:+c.queueDepth,noneAvailable:!!c.noneAvailable,notifyPush:!!c.notifyPush,notifyEmail:!!c.notifyEmail,incidentMin:c.incidentMin!==undefined?+c.incidentMin:cur.incidentMin,frTargetMin:c.frTargetMin!==undefined?+c.frTargetMin:cur.frTargetMin,perAgentHour:c.perAgentHour!==undefined?+c.perAgentHour:cur.perAgentHour};
+      const v={alertsOn:!!c.alertsOn,waitMin:+c.waitMin,waitingCount:+c.waitingCount,queueDepth:+c.queueDepth,noneAvailable:!!c.noneAvailable,notifyPush:!!c.notifyPush,notifyEmail:!!c.notifyEmail,incidentMin:c.incidentMin!==undefined?+c.incidentMin:cur.incidentMin,frTargetMin:c.frTargetMin!==undefined?+c.frTargetMin:cur.frTargetMin,perAgentHour:c.perAgentHour!==undefined?+c.perAgentHour:cur.perAgentHour,breakMin:c.breakMin!==undefined?+c.breakMin:cur.breakMin};
       _kvSet(slug,'liveBoardConfig',v);_liveCacheClear(slug);return{success:true,config:_liveConfig({liveBoardConfig:v})};
     },
     // Moves tickets to a person (the same as assigning one by one, so they are told in the usual ways)
@@ -4715,7 +4716,9 @@ app.post('/api/call',async(req,res)=>{
       const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===agentEmail);
       if(idx===-1)return{success:false,error:'Agent not found'};
       const prev=db.users[idx].availabilityStatus||'available';
+      const hadBreak=prev==='away'&&db.users[idx].awayReason==='break';
       db.users[idx].availabilityStatus=status;
+      db.users[idx].awayReason='';
       db.users[idx].statusUpdatedAt=nowIST();
       db.users[idx].statusSetByAdmin=true;
       // Auto-redistribute if setting to Away
@@ -4742,7 +4745,9 @@ app.post('/api/call',async(req,res)=>{
           }
         });
       }
-      wDB(db);return{success:true,status,redistributed};
+      wDB(db);
+      if(hadBreak){try{_breakLogClose(slug,agentEmail);_liveCacheClear(slug);}catch(e){}}   // after the save: the save rewrites the whole workspace record
+      return{success:true,status,redistributed};
     },
     // Admin moves ALL tickets from an agent back to unassigned queue
     drainAgentQueue:(agentEmail)=>{
@@ -4912,14 +4917,17 @@ app.post('/api/call',async(req,res)=>{
     // ── FEATURE 4: AGENT AVAILABILITY STATUS ───────────────────────────────
     // DB CHANGE: adds user.availabilityStatus — backward safe
     setAgentStatus:(status)=>{
+      const isBreak=status==='break';if(isBreak)status='away';   // a break is Away with a reason: nothing new is assigned, but the person keeps their tickets
+      if(!['available','busy','away'].includes(status))return{success:false,error:'Unknown status'};
       const db=rDB();const idx=(db.users||[]).findIndex(u=>u.email===su.email);
       if(idx===-1)return{success:false,error:'Not found'};
-      const prevStatus=db.users[idx].availabilityStatus||'available';
+      const prevStatus=db.users[idx].availabilityStatus||'available',wasBreak=prevStatus==='away'&&db.users[idx].awayReason==='break';
       db.users[idx].availabilityStatus=status;
-      db.users[idx].statusUpdatedAt=nowIST();
-      // Feature 9: Auto-reassign when going Away
+      db.users[idx].awayReason=isBreak?'break':'';
+      if(!(isBreak&&wasBreak))db.users[idx].statusUpdatedAt=nowIST();
+      // Feature 9: Auto-reassign when going Away (not for a break; also when a break turns into Away)
       let reassigned=0;
-      if(status==='away'&&prevStatus!=='away'&&(db.queueConfig||{}).enabled){
+      if(status==='away'&&!isBreak&&(prevStatus!=='away'||wasBreak)&&(db.queueConfig||{}).enabled){
         const openTickets=(db.tickets||[]).filter(t=>t.assignedTo===su.email&&!['resolved','closed'].includes(t.status));
         openTickets.forEach(t=>{
           const newAgent=autoAssignAgent(db,t);
@@ -4935,13 +4943,16 @@ app.post('/api/call',async(req,res)=>{
           }
         });
       }
-      wDB(db);return{success:true,status,reassigned};
+      wDB(db);
+      try{if(isBreak&&!wasBreak)_breakLogOpen(slug,su.email);else if(!isBreak&&wasBreak)_breakLogClose(slug,su.email);_liveCacheClear(slug);}catch(e){}
+      return{success:true,status:isBreak?'break':status,reassigned};
     },
+    getMyStatus:()=>{const u=(rDB().users||[]).find(x=>x.email===su.email)||{},st=u.availabilityStatus||'available';return{success:true,status:st==='away'&&u.awayReason==='break'?'break':st,since:u.statusUpdatedAt||null};},
     getAgentStatuses:()=>{
       const db=rDB();
       return{success:true,agents:(db.users||[]).filter(u=>u.active).map(u=>({
         email:u.email,name:u.name||u.email,role:u.role,team:u.team||'',
-        status:u.availabilityStatus||'available',
+        status:u.availabilityStatus||'available',reason:u.awayReason||'',
         statusUpdatedAt:u.statusUpdatedAt||null,
         openTickets:(db.tickets||[]).filter(t=>t.assignedTo===u.email&&!['resolved','closed'].includes(t.status)).length,
         maxTickets:u.maxTickets||10
@@ -9525,12 +9536,12 @@ function _cleanImportMap(m){const o={};ImportLib.FIELDS.forEach(f=>{o[f]=(m&&typ
 // ── Live team (supervisors): who is waiting, who is busy, what needs a hand right now ──────────────────────────────────────
 // Everything is worked out from the tickets that already exist (nothing new is stored except the alert limits and the nudges).
 // Imported history, public mentions, promotions, archived and snoozed tickets are never counted. Admins and Managers only, and only while the Inbox 2.0 pilot is on.
-const LIVE_DEFAULTS={alertsOn:true,waitMin:10,waitingCount:10,queueDepth:20,noneAvailable:true,notifyPush:true,notifyEmail:false,incidentMin:5,frTargetMin:30,perAgentHour:4};
+const LIVE_DEFAULTS={alertsOn:true,waitMin:10,waitingCount:10,queueDepth:20,noneAvailable:true,notifyPush:true,notifyEmail:false,incidentMin:5,frTargetMin:30,perAgentHour:4,breakMin:30};
 const LIVE_STAFF=['Admin','Manager','Agent','CS'];
 const _liveCache=new Map();
 function _liveConfig(db){
   const c=Object.assign({},LIVE_DEFAULTS,(db&&db.liveBoardConfig)||{}),n=(v,lo,hi,d)=>{v=parseInt(v,10);return isNaN(v)?d:Math.max(lo,Math.min(hi,v));};
-  return{alertsOn:c.alertsOn!==false,waitMin:n(c.waitMin,1,240,10),waitingCount:n(c.waitingCount,1,500,10),queueDepth:n(c.queueDepth,1,1000,20),noneAvailable:c.noneAvailable!==false,notifyPush:c.notifyPush!==false,notifyEmail:!!c.notifyEmail,incidentMin:n(c.incidentMin,3,100,5),frTargetMin:n(c.frTargetMin,1,480,30),perAgentHour:n(c.perAgentHour,1,30,4)};
+  return{alertsOn:c.alertsOn!==false,waitMin:n(c.waitMin,1,240,10),waitingCount:n(c.waitingCount,1,500,10),queueDepth:n(c.queueDepth,1,1000,20),noneAvailable:c.noneAvailable!==false,notifyPush:c.notifyPush!==false,notifyEmail:!!c.notifyEmail,incidentMin:n(c.incidentMin,3,100,5),frTargetMin:n(c.frTargetMin,1,480,30),perAgentHour:n(c.perAgentHour,1,30,4),breakMin:n(c.breakMin,5,240,30)};
 }
 function _liveCacheClear(slug){for(const k of Array.from(_liveCache.keys()))if(k===slug||k.startsWith(slug+'|'))_liveCache.delete(k);}
 function _liveCompute(slug,force,team){
@@ -9717,7 +9728,7 @@ function _liveMyDay(db,email,name){
   waiting.sort((a,b)=>b.waitMin-a.waitMin);
   let replies=0,solved=0;const fr=[],teamFr=[],handled=new Set();
   tickets.forEach(t=>{if(t.imported)return;
-    (t.thread||[]).forEach(m=>{if(m.type==='reply'&&String(m.from||'').toLowerCase()===me&&Date.parse(m.timestamp)>=dayStart){replies++;handled.add(t.id);}});
+    (t.thread||[]).forEach(m=>{if(m.type==='reply'&&m.deliveryStatus!=='failed'&&String(m.from||'').toLowerCase()===me&&Date.parse(m.timestamp)>=dayStart){replies++;handled.add(t.id);}});
     if(['resolved','closed'].includes(t.status)&&String(t.assignedTo||'').toLowerCase()===me&&Date.parse(t.resolvedDate||0)>=dayStart)solved++;
     if(t.firstResponseAt&&Date.parse(t.firstResponseAt)>=dayStart&&t.firstResponseMinutes!=null){teamFr.push(t.firstResponseMinutes);if(String(t.assignedTo||'').toLowerCase()===me)fr.push(t.firstResponseMinutes);}});
   const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
@@ -9729,8 +9740,8 @@ function _liveMyDay(db,email,name){
 function _liveWallData(slug,brandName){
   const d=_liveCompute(slug,false,'');
   return{brand:brandName||'',at:d.at,waitMin:d.cfg.waitMin,tiles:{waitingFirst:d.tiles.waitingFirst,waitingNow:d.tiles.waitingNow,longestMin:d.tiles.longest?d.tiles.longest.min:null,slaBreached:d.tiles.slaBreached,slaRisk:d.tiles.slaRisk,unassigned:d.tiles.unassigned,arrivals:d.tiles.arrivals,available:d.tiles.available},waitBuckets:d.waitBuckets,
-    agents:d.agents.map(a=>({name:String(a.name||'').split(' ')[0].slice(0,20),status:a.status,open:a.open,max:a.max,pct:a.pct,waiting:a.waiting,flags:[a.awayWithTickets?'away':'',a.overloaded?'full':'',a.quiet?'quiet':''].filter(Boolean)})),
-    alerts:d.alerts.map(a=>({level:a.level,text:a.text})),incidents:(d.incidents||[]).map(i=>({title:i.title,count:i.count,sinceMin:i.sinceMin})),channels:(d.channels||[]).map(c=>({label:c.label,state:c.state,quietMin:c.quietMin})),trend:(d.trend||[]).map(x=>({t:x.t,waiting:x.waiting,breached:x.breached}))};
+    agents:d.agents.map(a=>({name:String(a.name||'').split(' ')[0].slice(0,20),status:a.onBreak?'break':a.status,open:a.open,max:a.max,pct:a.pct,waiting:a.waiting,flags:[a.awayWithTickets?'away':'',a.overloaded?'full':'',a.quiet?'quiet':''].filter(Boolean)})),
+    alerts:d.alerts.map(a=>({level:a.level,text:a.text})),queue:{state:(d.queue||{}).state||'off',next:d.queue&&d.queue.next?String(d.queue.next.name||'').split(' ')[0].slice(0,20):null},incidents:(d.incidents||[]).map(i=>({title:i.title,count:i.count,sinceMin:i.sinceMin})),channels:(d.channels||[]).map(c=>({label:c.label,state:c.state,quietMin:c.quietMin})),trend:(d.trend||[]).map(x=>({t:x.t,waiting:x.waiting,breached:x.breached}))};
 }
 const _wallRate=new Map();
 function _wallLimited(ip){const now=Date.now(),e=_wallRate.get(ip)||{n:0,at:now};if(now-e.at>60000){e.n=0;e.at=now;}e.n++;_wallRate.set(ip,e);if(_wallRate.size>5000)_wallRate.clear();return e.n>120;}
@@ -9741,6 +9752,31 @@ function _wallFind(slug,token){
   const h=crypto.createHash('sha256').update(token).digest(),links=_kvGet(slug,'wallboardLinks')||[];
   const hit=links.find(l=>!l.revokedAt&&l.hash&&crypto.timingSafeEqual(Buffer.from(l.hash,'hex'),h));
   return hit?{brand,links,hit}:null;
+}
+
+// ---- breaks (a short log, kept 4 days) and "who gets the next ticket" ----
+function _breakLogGet(slug){const a=_kvGet(slug,'agentBreakLog');return Array.isArray(a)?a:[];}
+function _breakLogOpen(slug,email){email=String(email).toLowerCase();const log=_breakLogGet(slug),now=Date.now();if(log.some(x=>x.e===email&&x.t==null))return;log.push({e:email,s:now,t:null});_kvSet(slug,'agentBreakLog',log.filter(x=>x.s>now-4*86400000).slice(-2000));}
+function _breakLogClose(slug,email){email=String(email).toLowerCase();const log=_breakLogGet(slug),now=Date.now();let ch=false;log.forEach(x=>{if(x.e===email&&x.t==null){x.t=now;ch=true;}});if(ch)_kvSet(slug,'agentBreakLog',log);}
+function _breaksToday(log,email,now){const IST=5.5*3600000,day=86400000,start=Math.floor((now+IST)/day)*day-IST;let n=0,ms=0;log.forEach(x=>{if(x.e!==email)return;const e=x.t==null?now:x.t;if(e<=start)return;n++;ms+=e-Math.max(x.s,start);});return{count:n,min:Math.round(ms/60000)};}
+// Who the next ticket goes to when no special rule applies: the same choice autoAssignAgent makes by default (round robin or least busy among people in the queue who are not away and not at their limit), worked out without changing anything.
+function _peekQueue(db){
+  const cfg=db.queueConfig||{},users=db.users||[];
+  const rules=(cfg.routingRules||[]).filter(r=>r.enabled).length+(cfg.timeRules||[]).filter(r=>r.enabled).length+(cfg.priorityRouting?1:0);
+  const base={rules,mode:cfg.mode==='leastbusy'?'leastbusy':'roundrobin'};
+  if(!cfg.enabled)return{...base,state:'off'};
+  if(cfg.frozen)return{...base,state:'frozen'};
+  const openN={};(db.tickets||[]).forEach(t=>{if(t.assignedTo&&!['resolved','closed'].includes(t.status))openN[t.assignedTo]=(openN[t.assignedTo]||0)+1;});
+  const ok=[],skipped=[];
+  (cfg.agents||[]).filter(a=>a.inQueue).forEach(a=>{const u=users.find(x=>x.email===a.email);if(!u||!u.active)return;
+    const n=openN[a.email]||0,max=u.maxTickets||10,st=u.availabilityStatus||'available',nm=u.name||u.email;
+    if(st==='away')skipped.push({email:u.email,name:nm,why:u.awayReason==='break'?'break':'away',since:u.statusUpdatedAt||null});
+    else if(n>=max)skipped.push({email:u.email,name:nm,why:'full',open:n,max});
+    else ok.push({email:u.email,name:nm,open:n,max});});
+  let order=ok;
+  if(base.mode==='leastbusy')order=ok.slice().sort((a,b)=>a.open-b.open);
+  else if(ok.length){const i=(cfg.lastIndex||0)%ok.length;order=ok.slice(i).concat(ok.slice(0,i));}
+  return{...base,state:order.length?'on':'nobody',next:order[0]||null,then:order.slice(1,5),skipped};
 }
 
 function _liveBuild(db,slug,team){
@@ -9768,9 +9804,13 @@ function _liveBuild(db,slug,team){
     (t.thread||[]).forEach(m=>{if(m.type!=='reply'&&m.type!=='note')return;const a=ag[String(m.from||'').toLowerCase()];const ms=Date.parse(m.timestamp);if(a&&!isNaN(ms)&&ms>a.lastAt)a.lastAt=ms;});
     (t.timeline||[]).forEach(e=>{const a=ag[String(e.by||'').toLowerCase()];const ms=Date.parse(e.at);if(a&&!isNaN(ms)&&ms>a.lastAt)a.lastAt=ms;});});
   const view=(viewingStates[slug]||{}),viewing=e=>{for(const tid of Object.keys(view)){const v=view[tid]&&view[tid][e];if(v&&now-v.at<=VIEW_TTL_MS){const t=tickets.find(x=>x.id===tid);return{id:tid,subject:t?String(t.subject||'').slice(0,60):''};}}return null;};
-  const agents=Object.keys(ag).map(e=>{const a=ag[e],u=a.u,status=u.availabilityStatus||'available',max=u.maxTickets||10,quiet=a.lastAt?min(now-a.lastAt):null;
-    return{email:u.email,name:u.name||u.email,role:u.role,status,statusSince:u.statusUpdatedAt||null,open:a.open,max,pct:Math.min(150,Math.round(a.open/max*100)),waiting:a.waiting,oldest:a.oldest,lastActiveMin:quiet,viewing:viewing(e),
-      awayWithTickets:status==='away'&&a.open>0,overloaded:a.open>=max,quiet:status==='available'&&a.waiting>0&&quiet!=null&&quiet>=30};})
+  const bLog=_breakLogGet(slug);
+  const agents=Object.keys(ag).map(e=>{const a=ag[e],u=a.u,status=u.availabilityStatus||'available',max=u.maxTickets||10,quiet=a.lastAt?min(now-a.lastAt):null,vw=viewing(e);
+    const onBreak=status==='away'&&u.awayReason==='break',sm=Date.parse(u.statusUpdatedAt||''),sinceMin=isNaN(sm)?null:min(now-sm);
+    return{email:u.email,name:u.name||u.email,role:u.role,status,statusSince:u.statusUpdatedAt||null,open:a.open,max,pct:Math.min(150,Math.round(a.open/max*100)),waiting:a.waiting,oldest:a.oldest,lastActiveMin:quiet,viewing:vw,
+      onBreak,statusSinceMin:sinceMin,longBreak:onBreak&&sinceMin!=null&&sinceMin>=cfg.breakMin,breaksToday:_breaksToday(bLog,String(u.email).toLowerCase(),now),
+      activity:onBreak?'break':status==='away'?'away':(vw||(quiet!=null&&quiet<=5))?'active':'idle',
+      awayWithTickets:status==='away'&&!onBreak&&a.open>0,overloaded:a.open>=max,quiet:status==='available'&&a.waiting>0&&quiet!=null&&quiet>=30};})
     .filter(x=>LIVE_STAFF.includes(x.role)||x.open>0).filter(x=>!teamSet||teamSet.has(String(x.email).toLowerCase())).sort((a,b)=>b.waiting-a.waiting||b.open-a.open||String(a.name).localeCompare(String(b.name)));
   const availN=agents.filter(a=>a.status==='available').length,unassigned=open.filter(t=>!String(t.assignedTo||'').trim()).length;
   // what needs a hand: past SLA, close to it, waiting too long, an unhappy or VIP customer waiting
@@ -9791,7 +9831,7 @@ function _liveBuild(db,slug,team){
     if(unassigned>=cfg.queueDepth)alerts.push({key:'queue',level:'warn',text:unassigned+' tickets have no owner (limit '+cfg.queueDepth+')'});
     if(cfg.noneAvailable&&needs.length>0&&availN===0)alerts.push({key:'none',level:'high',text:'Nobody is available and '+needs.length+(needs.length===1?' customer is':' customers are')+' waiting'});
   }
-  return{at:new Date().toISOString(),cfg,team:team||'',teams:Array.from(new Set((db.users||[]).filter(u=>u.active!==false&&u.team).map(u=>String(u.team)))).sort(),waitBuckets,tiles:{waitingFirst,waitingNow:needs.length,longest,slaBreached:breached,slaRisk:risk,unassigned,arrivals:{last60,prev60},available:{n:availN,total:agents.filter(a=>LIVE_STAFF.includes(a.role)).length}},agents,hot:hot.slice(0,15),alerts};
+  return{at:new Date().toISOString(),cfg,team:team||'',teams:Array.from(new Set((db.users||[]).filter(u=>u.active!==false&&u.team).map(u=>String(u.team)))).sort(),waitBuckets,tiles:{waitingFirst,waitingNow:needs.length,longest,slaBreached:breached,slaRisk:risk,unassigned,arrivals:{last60,prev60},available:{n:availN,total:agents.filter(a=>LIVE_STAFF.includes(a.role)).length}},agents,hot:hot.slice(0,15),alerts,queue:_peekQueue(db)};
 }
 // History: hourly for the last 24 hours and daily for the last 7 days (India time), from the tickets themselves
 function _liveHistory(db){

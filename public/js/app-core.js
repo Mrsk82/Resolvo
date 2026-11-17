@@ -3614,6 +3614,7 @@ const App = {
       var _ai = document.getElementById('aiBar'); if (_ai) _ai.placeholder = _on ? 'Ask AI' : 'Ask AI: "show critical tickets"';
       if (_on) App._initNavFold();
       var _md = document.getElementById('myDayNav'); if (_md) _md.style.display = _on ? '' : 'none';
+      if (App._loadMyStatus && !App._statusLoaded) { App._statusLoaded = true; App._loadMyStatus(); }
       var _ln = document.getElementById('liveNav'); if (_ln) _ln.style.display = (_on && this.currentUser && ['Admin', 'Manager'].indexOf(this.currentUser.role) >= 0) ? '' : 'none';
     } catch (e) {}
     // Topics is switched off for everyone until the server says otherwise (it costs money), so its sidebar item stays hidden
@@ -12956,19 +12957,36 @@ const App = {
   _setAgentStatus: async function(status) {
     var r = await App.callAsync('setAgentStatus', status);
     if(r&&r.success){
-      App.showToast({available:'🟢 You are Available',busy:'🟡 You are Busy',away:'🔴 You are Away'}[status]||'Status updated','success');
+      App.showToast({available:'🟢 You are Available',busy:'🟡 You are Busy',away:'🔴 You are Away','break':'☕ You are on a break. New tickets will not be assigned to you.'}[status]||'Status updated','success');
       App._agentStatus = status;
+      App._breakSince = status==='break' ? Date.now() : null;
       App._updateStatusBadge(status);
     }
   },
+  // what the top-bar status shows when the page opens (it used to always say Available)
+  _loadMyStatus: async function() {
+    try {
+      var r = await App.callAsync('getMyStatus');
+      if(!r||!r.success) return;
+      App._agentStatus = r.status;
+      var ms = r.since ? Date.parse(r.since) : NaN;
+      App._breakSince = r.status==='break' ? (isNaN(ms) ? Date.now() : ms) : null;
+      App._updateStatusBadge(r.status);
+    } catch(e) {}
+  },
   _updateStatusBadge: function(status) {
     var badges = document.querySelectorAll('.agent-status-badge');
-    var colors = {available:'#10B981',busy:'#F59E0B',away:'#EF4444'};
-    var labels = {available:'Available',busy:'Busy',away:'Away'};
+    var colors = {available:'#10B981',busy:'#F59E0B',away:'#EF4444','break':'#8B5CF6'};
+    var labels = {available:'Available',busy:'Busy',away:'Away','break':'On break'};
+    var text = labels[status]||'Available';
+    if(status==='break' && App._breakSince) { var m = Math.max(0, Math.round((Date.now()-App._breakSince)/60000)); text += ' ' + (m < 60 ? m + ' min' : Math.floor(m/60) + ' h ' + (m%60) + ' min'); }
     badges.forEach(function(b){
-      b.style.background = colors[status]||'#10B981';
-      b.textContent = labels[status]||'Available';
+      b.style.background = 'none';
+      b.textContent = text;
     });
+    var dot = document.getElementById('agentStatusDot'); if(dot) dot.style.background = colors[status]||'#10B981';
+    if(App._breakTimer) { clearInterval(App._breakTimer); App._breakTimer = null; }
+    if(status==='break') App._breakTimer = setInterval(function(){ if(App._agentStatus==='break') App._updateStatusBadge('break'); }, 30000);
   },
 
   // ── CUSTOMER HISTORY PANEL ───────────────────────────────────────────────────

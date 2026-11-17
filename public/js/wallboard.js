@@ -5,7 +5,7 @@
   var root = document.getElementById('wb'), last = null, failures = 0;
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var mins = function (m) { return m == null ? 'none' : m < 60 ? m + ' min' : m < 1440 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : Math.floor(m / 1440) + ' days'; };
-  var COL = { available: 'var(--ok)', busy: 'var(--warn)', away: 'var(--bad)' };
+  var COL = { available: 'var(--ok)', busy: 'var(--warn)', away: 'var(--bad)', 'break': 'var(--violet)' };
 
   function tile(v, label, kind) { return '<div class="wb-tile' + (kind ? ' is-' + kind : '') + '"><b>' + v + '</b><span>' + esc(label) + '</span></div>'; }
   function spark(trend) {
@@ -18,13 +18,13 @@
     var t = d.tiles, a = d.arrivals || t.arrivals, diff = t.arrivals.last60 - t.arrivals.prev60;
     var alerts = (d.alerts || []).map(function (x) { return '<div class="wb-alert is-' + esc(x.level) + '" role="alert">' + esc(x.text) + '</div>'; }).join('');
     var agents = (d.agents || []).map(function (g) {
-      var flag = g.flags.indexOf('away') >= 0 ? 'away with tickets' : g.flags.indexOf('quiet') >= 0 ? 'quiet' : g.flags.indexOf('full') >= 0 ? 'full' : '';
+      var flag = g.status === 'break' ? 'on a break' : g.flags.indexOf('away') >= 0 ? 'away with tickets' : g.flags.indexOf('quiet') >= 0 ? 'quiet' : g.flags.indexOf('full') >= 0 ? 'full' : '';
       return '<div class="wb-agent"><b><span>' + esc(g.name) + '</span><i class="wb-dot" style="background:' + (COL[g.status] || COL.available) + '" title="' + esc(g.status) + '"></i></b><div class="wb-bar' + (g.pct >= 100 ? ' is-full' : g.pct >= 70 ? ' is-high' : '') + '"><i style="width:' + Math.min(100, g.pct) + '%"></i></div><small>' + g.open + ' of ' + g.max + ' open &middot; ' + g.waiting + ' waiting</small>' + (flag ? '<span class="wb-flag">' + esc(flag) + '</span>' : '') + '</div>';
     }).join('');
     var inc = (d.incidents || []).map(function (i) { return '<div class="wb-inc"><span class="wb-bad">' + esc(i.title) + '</span><span>' + i.count + ' in ' + i.sinceMin + ' min</span></div>'; }).join('') || '<div class="wb-inc"><span class="wb-ok">No incident</span><span></span></div>';
     var ch = (d.channels || []).map(function (c) { var cls = c.state === 'ok' ? 'wb-ok' : c.state === 'warn' || c.state === 'quiet' ? 'wb-warn' : c.state === 'down' ? 'wb-bad' : ''; return '<div class="wb-ch"><span>' + esc(c.label) + '</span><span class="' + cls + '">' + (c.state === 'ok' ? 'OK' : c.state === 'quiet' ? 'quiet ' + mins(c.quietMin) : c.state === 'down' ? 'no messages ' + mins(c.quietMin) : c.state === 'warn' ? 'check' : esc(c.state.replace('_', ' '))) + '</span></div>'; }).join('');
     var wbk = d.waitBuckets || [0, 0, 0, 0];
-    root.innerHTML = '<div class="wb-head"><h1>' + esc(d.brand || 'Live team') + '</h1><span id="wbAt"></span></div>' + (alerts ? '<div class="wb-alerts">' + alerts + '</div>' : '') +
+    root.innerHTML = '<div class="wb-head"><h1>' + esc(d.brand || 'Live team') + '</h1>' + (d.queue && d.queue.next ? '<span class="wb-next">Next ticket: <b>' + esc(d.queue.next) + '</b></span>' : '') + '<span id="wbAt"></span></div>' + (alerts ? '<div class="wb-alerts">' + alerts + '</div>' : '') +
       '<div class="wb-tiles">' + tile(t.waitingNow, 'waiting for a reply', t.waitingNow > 0 ? 'warn' : 'ok') + tile(t.longestMin == null ? '&ndash;' : mins(t.longestMin), 'longest wait', t.longestMin != null && t.longestMin >= (d.waitMin || 10) ? 'bad' : '') + tile(t.slaBreached, 'past SLA', t.slaBreached > 0 ? 'bad' : t.slaRisk > 0 ? 'warn' : 'ok') +
       tile(t.unassigned, 'no owner', t.unassigned > 0 ? 'warn' : 'ok') + tile(t.arrivals.last60, 'new this hour' + (diff ? ' (' + (diff > 0 ? '+' : '') + diff + ')' : '')) + tile(t.available.n + '/' + t.available.total, 'available', t.available.n === 0 && t.waitingNow > 0 ? 'bad' : '') + '</div>' +
       '<div class="wb-row"><section class="wb-panel"><h2>Team</h2><div class="wb-agents">' + (agents || '<div class="wb-msg">No agents yet</div>') + '</div></section>' +

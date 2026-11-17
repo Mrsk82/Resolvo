@@ -28,10 +28,10 @@
   <link rel="stylesheet" href="/css/rv-components.css?v=5">
   <script src="/js/rv-ui.js?v=2"></script>
   <link rel="stylesheet" href="/css/rv-inbox.css?v=24">
-  <link rel="stylesheet" href="/css/rv-live.css?v=4">
+  <link rel="stylesheet" href="/css/rv-live.css?v=5">
   <script src="/js/rv-inbox.js?v=32"></script>
   <script src="/js/rv-import.js?v=1"></script>
-  <script src="/js/rv-live.js?v=4"></script>
+  <script src="/js/rv-live.js?v=5"></script>
   <link rel="stylesheet" href="/css/rv-settings.css?v=1">
   <script src="/js/rv-settings.js?v=1"></script>
   <link rel="stylesheet" href="/css/rv-insights.css?v=1">
@@ -359,6 +359,7 @@
               <div id="agentStatusMenu" style="display:none;position:absolute;top:110%;right:0;background:var(--bg-surface);border:1px solid var(--border);border-radius:9px;padding:6px;z-index:200;flex-direction:column;gap:3px;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.3);">
                 <button onclick="App._setAgentStatus('available');document.getElementById('agentStatusMenu').style.display='none';document.getElementById('agentStatusDot').style.background='#10B981'" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#10B981;"></span>🟢 Available</button>
                 <button onclick="App._setAgentStatus('busy');document.getElementById('agentStatusMenu').style.display='none';document.getElementById('agentStatusDot').style.background='#F59E0B'" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#F59E0B;"></span>🟡 Busy</button>
+                <button onclick="App._setAgentStatus('break');document.getElementById('agentStatusMenu').style.display='none'" title="No new tickets while you are on a break. Your open tickets stay with you." style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#8B5CF6;"></span>☕ On a break</button>
                 <button onclick="App._setAgentStatus('away');document.getElementById('agentStatusMenu').style.display='none';document.getElementById('agentStatusDot').style.background='#EF4444'" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:none;background:none;cursor:pointer;font-size:12px;color:var(--text-primary);width:100%;text-align:left;" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='none'"><span style="width:8px;height:8px;border-radius:50%;background:#EF4444;"></span>🔴 Away</button>
               </div>
             </div>

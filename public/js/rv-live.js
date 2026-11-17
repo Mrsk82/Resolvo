@@ -8,7 +8,10 @@
   var esc = function (s) { return w.RV.esc(s); };
   var S = { tab: 'board', data: null, hist: null, paused: false, timer: null, tick: null, at: 0, loading: false, histAt: 0, team: '', inc: null, sla: null, ch: null, feed: { events: [], since: null, ids: {} }, fc: null, fcAt: 0, seen: null, audio: null };
   var TABS = [['board', 'Board'], ['incidents', 'Incidents'], ['sla', 'SLA countdown'], ['channels', 'Channels'], ['feed', 'Activity'], ['forecast', 'Forecast']];
-  var ST = { available: ['Available', 'var(--rv-success, #0a7d4b)'], busy: ['Busy', 'var(--rv-warning, #b7791f)'], away: ['Away', 'var(--rv-danger, #b42318)'] };
+  var ST = { available: ['Available', 'var(--rv-success, #0a7d4b)'], busy: ['Busy', 'var(--rv-warning, #b7791f)'], away: ['Away', 'var(--rv-danger, #b42318)'], 'break': ['On break', 'var(--rv-violet, #7c3aed)'] };
+  function stOf(a) { return a.onBreak ? 'break' : a.status; }
+  function sinceMs(iso, fallbackMin) { var m = Date.parse(iso || ''); return isNaN(m) ? (fallbackMin != null ? Date.now() - fallbackMin * 60000 : null) : m; }
+  function liveMin(ms) { return ms == null ? '' : ' <b class="rvl-cd" data-since="' + ms + '">' + mins(Math.max(0, Math.round((Date.now() - ms) / 60000))) + '</b>'; }
 
   function ago(ms) { var s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 5 ? 'just now' : s < 90 ? s + ' s ago' : s < 5400 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
   function mins(m) { return m == null ? '' : m < 60 ? m + ' min' : m < 1440 ? Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '') : Math.floor(m / 1440) + ' days'; }
@@ -50,7 +53,7 @@
     document.querySelectorAll('.rvl-tab').forEach(function (b) { var on = b.getAttribute('data-tab') === t; b.setAttribute('aria-selected', String(on)); b.classList.toggle('is-on', on); });
     var body = document.getElementById('rvlBody'); if (!body) return;
     if (t === 'board') {
-      body.innerHTML = '<div class="rvl-toolbar" id="rvlToolbar"></div><div class="rvl-tiles" id="rvlTiles"></div><div id="rvlBuckets"></div>' +
+      body.innerHTML = '<div class="rvl-toolbar" id="rvlToolbar"></div><div class="rvl-pulse" id="rvlPulse"></div><div class="rvl-tiles" id="rvlTiles"></div><div id="rvlBuckets"></div>' +
         '<section><h2 class="rvl-h">Your team</h2><div class="rvl-agents" id="rvlAgents"></div></section><section><h2 class="rvl-h">Needs a hand</h2><div id="rvlHot"></div></section>' +
         '<section><h2 class="rvl-h">Last 24 hours and 7 days</h2><div id="rvlHist"><div class="rv-hint">Loading history...</div></div></section>';
       if (S.data) draw(); if (S.hist) drawHist(); else loadHist();
@@ -135,27 +138,59 @@
       tile('available', t.available.n + ' of ' + t.available.total, 'agents who can take tickets', t.available.n === 0 && t.waitingNow > 0 ? 'bad' : '', '', 'avail');
     var wb = d.waitBuckets || [0, 0, 0, 0], tot = Math.max(1, wb[0] + wb[1] + wb[2] + wb[3]), lab = ['0 to 5 min', '5 to 15 min', '15 to 60 min', 'over 60 min'], col = ['var(--rv-success, #0a7d4b)', 'var(--rv-accent, #10B981)', 'var(--rv-warning, #b7791f)', 'var(--rv-danger, #b42318)'];
     document.getElementById('rvlBuckets').innerHTML = '<div class="rvl-buckets" role="img" aria-label="How long customers have waited: ' + lab.map(function (l, i) { return wb[i] + ' ' + l; }).join(', ') + '"><div class="rvl-buckets__bar">' + wb.map(function (n, i) { return n ? '<i style="width:' + (n / tot * 100) + '%;background:' + col[i] + '"></i>' : ''; }).join('') + '</div><div class="rvl-buckets__key">' + wb.map(function (n, i) { return '<span><i style="background:' + col[i] + '"></i>' + lab[i] + ': <b>' + n + '</b></span>'; }).join('') + '</div></div>';
+    var pu = document.getElementById('rvlPulse'); if (pu) pu.innerHTML = roster(d) + nextUp(d);
     document.getElementById('rvlAgents').innerHTML = d.agents.length ? d.agents.map(agentCard).join('') : '<div class="rv-hint">No agents yet. Invite your team in Settings.</div>';
     document.getElementById('rvlHot').innerHTML = hotList(d);
   }
+  // who is doing what right now: active (acted in the last 5 minutes or has a ticket open on screen), idle, on a break, away
+  function roster(d) {
+    var G = { active: [], idle: [], 'break': [], away: [] };
+    d.agents.forEach(function (a) { (G[a.activity] || G.idle).push(a); });
+    var chip = function (a, extra) { return '<span class="rvl-chip rvl-chip--' + a.activity + (a.longBreak ? ' is-long' : '') + '" data-agent-chip="' + esc(a.email) + '">' + esc((a.name || '').split(' ')[0]) + (extra || '') + '</span>'; };
+    var idleTxt = function (a) { return a.lastActiveMin == null ? ' <small>no activity in 2 days</small>' : ' <small>' + mins(a.lastActiveMin) + '</small>'; };
+    var col = function (key, title, hint, list, fn) { return '<div class="rvl-roster__col" data-group="' + key + '"><h3><span class="rvl-dot rvl-dot--' + key + '"></span>' + title + ' <b>' + list.length + '</b></h3>' + (list.length ? '<div class="rvl-chips">' + list.map(function (a) { return chip(a, fn ? fn(a) : ''); }).join('') + '</div>' : '<p class="rv-hint">' + hint + '</p>') + '</div>'; };
+    return '<section class="rvl-card rvl-roster" aria-label="Who is active"><h2 class="rvl-h">Who is active</h2><div class="rvl-roster__cols">' +
+      col('active', 'Active now', 'Nobody has done anything in the last 5 minutes.', G.active) +
+      col('idle', 'Idle', 'Nobody is idle.', G.idle, idleTxt) +
+      col('break', 'On a break', 'Nobody is on a break.', G['break'], function (a) { return liveMin(sinceMs(a.statusSince, a.statusSinceMin)) + (a.longBreak ? ' <em>long</em>' : ''); }) +
+      col('away', 'Away', 'Nobody is away.', G.away, function (a) { return a.statusSinceMin != null ? ' <small>' + mins(a.statusSinceMin) + '</small>' : ''; }) +
+      '</div><p class="rv-hint">Active means a reply, note or change in the last 5 minutes, or a ticket open on screen. Someone who has Resolvo open but is not working on a ticket shows as idle.</p></section>';
+  }
+  // who the next new ticket goes to, worked out from the real auto-assign settings (nothing is changed by looking)
+  function nextUp(d) {
+    var q = d.queue || { state: 'off' }, body;
+    var skip = function (s) { var why = s.why === 'break' ? 'on a break' + liveMin(sinceMs(s.since)) : s.why === 'away' ? 'away' : 'at their limit (' + s.open + ' of ' + s.max + ')'; return '<li><b>' + esc((s.name || '').split(' ')[0]) + '</b> ' + why + '</li>'; };
+    if (q.state === 'off') body = '<p class="rvl-next__none">Auto-assign is off.</p><p class="rv-hint">New tickets stay with no owner until someone takes them. Turn it on in Settings, Queue.</p>';
+    else if (q.state === 'frozen') body = '<p class="rvl-next__none">The queue is frozen.</p><p class="rv-hint">New tickets are not being handed out.</p>';
+    else if (q.state === 'nobody') body = '<p class="rvl-next__none">Nobody can take a new ticket right now.</p><p class="rv-hint">They are all away, on a break or at their limit, so new tickets stay with no owner.</p>';
+    else body = '<p class="rvl-next__who"><b>' + esc(q.next.name) + '</b><span class="rv-hint"> ' + q.next.open + ' of ' + q.next.max + ' open</span></p>' +
+      (q.then.length ? '<p class="rv-hint">Then: ' + q.then.map(function (x) { return esc((x.name || '').split(' ')[0]); }).join(', ') + '</p>' : '') +
+      '<p class="rv-hint">' + (q.mode === 'leastbusy' ? 'The person with the fewest open tickets.' : 'People who can take one, in turn.') + '</p>';
+    return '<section class="rvl-card rvl-next" aria-label="Next ticket"><h2 class="rvl-h">Next ticket goes to</h2>' + body +
+      (q.skipped && q.skipped.length ? '<h3 class="rvl-sub">Not getting tickets now</h3><ul class="rvl-skip">' + q.skipped.map(skip).join('') + '</ul>' : '') +
+      (q.rules ? '<p class="rv-hint">' + q.rules + ' routing rule' + (q.rules === 1 ? '' : 's') + ' (keyword, time or priority) can send a particular ticket to someone else.</p>' : '') + '</section>';
+  }
   function agentCard(a) {
-    var st = ST[a.status] || ST.available, flags = [];
+    var st = ST[stOf(a)] || ST.available, flags = [];
+    if (a.longBreak) flags.push('<span class="rv-badge rv-badge--warning">Long break</span>');
     if (a.awayWithTickets) flags.push('<span class="rv-badge rv-badge--danger">Away with ' + a.open + ' open</span>');
     if (a.overloaded) flags.push('<span class="rv-badge rv-badge--warning">At their limit</span>');
     if (a.quiet) flags.push('<span class="rv-badge rv-badge--warning">Quiet for ' + mins(a.lastActiveMin) + '</span>');
     var bar = '<div class="rvl-bar' + (a.pct >= 100 ? ' is-full' : a.pct >= 70 ? ' is-high' : '') + '" role="progressbar" aria-valuenow="' + Math.min(100, a.pct) + '" aria-valuemin="0" aria-valuemax="100" aria-label="' + esc(a.name) + ' workload"><span style="width:' + Math.min(100, a.pct) + '%"></span></div>';
     return '<article class="rvl-agent" data-agent="' + esc(a.email) + '"><header>' + w.RV.avatar(a.name, null) + '<div class="rvl-agent__who"><b>' + esc(a.name) + '</b><span class="rv-hint">' + esc(a.role) + '</span></div>' +
-      '<span class="rvl-status" style="color:' + st[1] + '"><i style="background:' + st[1] + '"></i>' + st[0] + '</span></header>' + bar +
+      '<span class="rvl-status" style="color:' + st[1] + '"><i style="background:' + st[1] + '"></i>' + st[0] + (a.onBreak ? liveMin(sinceMs(a.statusSince, a.statusSinceMin)) : '') + '</span></header>' + bar +
       '<dl><div><dt>Open</dt><dd>' + a.open + ' of ' + a.max + '</dd></div><div><dt>Waiting on them</dt><dd>' + a.waiting + '</dd></div>' +
       '<div><dt>Longest wait</dt><dd>' + (a.oldest ? '<button type="button" class="rvl-link" data-open="' + esc(a.oldest.id) + '" title="' + esc(a.oldest.subject) + '">' + mins(a.oldest.min) + '</button>' : '&ndash;') + '</dd></div>' +
-      '<div><dt>Last active</dt><dd>' + (a.lastActiveMin == null ? 'no activity in 2 days' : a.lastActiveMin < 2 ? 'just now' : mins(a.lastActiveMin) + ' ago') + '</dd></div></dl>' +
+      '<div><dt>Last active</dt><dd>' + (a.lastActiveMin == null ? 'no activity in 2 days' : a.lastActiveMin < 2 ? 'just now' : mins(a.lastActiveMin) + ' ago') + '</dd></div>' +
+      '<div><dt>Right now</dt><dd class="rvl-act rvl-act--' + a.activity + '">' + ({ active: 'Active', idle: 'Idle', 'break': 'On a break', away: 'Away' }[a.activity] || '') + '</dd></div>' +
+      '<div><dt>Breaks today</dt><dd>' + (a.breaksToday && a.breaksToday.count ? a.breaksToday.count + ' &middot; ' + mins(a.breaksToday.min || 0) : 'none') + '</dd></div></dl>' +
       (a.viewing ? '<div class="rvl-view">Looking at: <button type="button" class="rvl-link" data-open="' + esc(a.viewing.id) + '">' + esc(a.viewing.subject || a.viewing.id) + '</button></div>' : '') +
       (flags.length ? '<div class="rvl-flags">' + flags.join('') + '</div>' : '') +
       '<footer><button type="button" class="rv-btn rv-btn--sm" data-detail="' + esc(a.email) + '">Details</button><button type="button" class="rv-btn rv-btn--sm" data-tickets="' + esc(a.email) + '">Their tickets</button><button type="button" class="rv-btn rv-btn--sm" data-nudge="' + esc(a.email) + '" data-name="' + esc(a.name) + '">Nudge</button></footer></article>';
   }
   function hotList(d) {
     if (!d.hot.length) return '<div class="rvl-calm">Nothing needs a hand right now.</div>';
-    var opts = d.agents.map(function (a) { return '<option value="' + esc(a.email) + '">' + esc(a.name) + (a.status !== 'available' ? ' (' + (ST[a.status] || ST.available)[0].toLowerCase() + ')' : '') + '</option>'; }).join('');
+    var opts = d.agents.map(function (a) { return '<option value="' + esc(a.email) + '">' + esc(a.name) + (stOf(a) !== 'available' ? ' (' + (ST[stOf(a)] || ST.available)[0].toLowerCase() + ')' : '') + '</option>'; }).join('');
     return '<div class="rvl-tablewrap"><table class="rvl-table"><thead><tr><th>Why</th><th>Ticket</th><th>Waiting</th><th>Owner</th><th>Give to</th></tr></thead><tbody>' + d.hot.map(function (h) {
       var own = h.assignedTo ? ((d.agents.filter(function (a) { return a.email.toLowerCase() === h.assignedTo.toLowerCase(); })[0] || {}).name || h.assignedTo) : '<span class="rv-badge rv-badge--danger">No owner</span>';
       return '<tr><td>' + h.reasons.filter(function (r) { return r !== 'No owner'; }).map(function (r) { return '<span class="rv-badge rv-badge--' + (/Past/.test(r) ? 'danger' : /Unhappy|Close|Waiting/.test(r) ? 'warning' : 'accent') + '">' + esc(r) + '</span>'; }).join(' ') + '</td>' +
@@ -343,14 +378,14 @@
         num('rvlWait', 'A customer has waited more than (minutes)', c.waitMin, 'Used by the next limit and the "Needs a hand" list.') + num('rvlCount', 'Alert when this many customers are waiting that long', c.waitingCount, 'For example 10.') +
         num('rvlQueue', 'Alert when this many tickets have no owner', c.queueDepth, 'For example 20.') + chk('rvlNone', 'Alert when nobody is available and customers are waiting', c.noneAvailable) +
         num('rvlInc', 'An incident is this many customers writing about the same thing', c.incidentMin, 'Between 3 and 100. Lower finds smaller problems sooner but may flag coincidences.') +
-        num('rvlFr', 'First reply target (minutes)', c.frTargetMin, 'Shown on My day and in agent details.') + num('rvlPer', 'Tickets one agent handles in an hour', c.perAgentHour, 'Used by the staffing forecast.') +
+        num('rvlFr', 'First reply target (minutes)', c.frTargetMin, 'Shown on My day and in agent details.') + num('rvlBreak', 'A break counts as long after (minutes)', c.breakMin, 'Between 5 and 240. A longer break is flagged on the board.') + num('rvlPer', 'Tickets one agent handles in an hour', c.perAgentHour, 'Used by the staffing forecast.') +
         '<h3 class="rvl-h" style="margin-top:14px">How to alert</h3>' + chk('rvlPush', 'Phone and browser alert', c.notifyPush) + chk('rvlMail', 'Email', c.notifyEmail) +
         '<div style="margin-top:10px"><button type="button" class="rv-btn rv-btn--sm" id="rvlTest">Send myself a test alert</button> <span class="rv-hint" id="rvlTestMsg"></span></div>',
       foot: w.RV.btn({ label: 'Cancel', onclick: "RV.closeModal(this.closest('.rv-overlay'))" }) + w.RV.btn({ label: 'Save', kind: 'primary', attrs: { id: 'rvlSave' } }) });
     ov.querySelector('#rvlTest').addEventListener('click', async function () { var t = await A().callAsync('testLiveAlert'); ov.querySelector('#rvlTestMsg').textContent = !t || !t.success ? 'Could not send.' : t.sent ? 'Sent to ' + t.sent + ' device' + (t.sent === 1 ? '' : 's') + '.' : 'No device is set up for alerts yet. Turn alerts on from your phone or browser first.'; });
     ov.querySelector('#rvlSave').addEventListener('click', async function () {
       var g = function (id) { return ov.querySelector('#' + id); };
-      var res = await A().callAsync('saveLiveBoardConfig', { alertsOn: g('rvlOn').checked, waitMin: g('rvlWait').value, waitingCount: g('rvlCount').value, queueDepth: g('rvlQueue').value, noneAvailable: g('rvlNone').checked, notifyPush: g('rvlPush').checked, notifyEmail: g('rvlMail').checked, incidentMin: g('rvlInc').value, frTargetMin: g('rvlFr').value, perAgentHour: g('rvlPer').value });
+      var res = await A().callAsync('saveLiveBoardConfig', { alertsOn: g('rvlOn').checked, waitMin: g('rvlWait').value, waitingCount: g('rvlCount').value, queueDepth: g('rvlQueue').value, noneAvailable: g('rvlNone').checked, notifyPush: g('rvlPush').checked, notifyEmail: g('rvlMail').checked, incidentMin: g('rvlInc').value, frTargetMin: g('rvlFr').value, breakMin: g('rvlBreak').value, perAgentHour: g('rvlPer').value });
       if (!res || !res.success) { w.RV.toast((res && res.error) || 'Not saved.', 'error'); return; }
       w.RV.closeModal(ov); w.RV.toast('Alert limits saved', 'success'); load();
     });
