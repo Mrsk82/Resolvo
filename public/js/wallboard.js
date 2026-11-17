@@ -18,7 +18,7 @@
     var t = d.tiles, a = d.arrivals || t.arrivals, diff = t.arrivals.last60 - t.arrivals.prev60;
     var alerts = (d.alerts || []).map(function (x) { return '<div class="wb-alert is-' + esc(x.level) + '" role="alert">' + esc(x.text) + '</div>'; }).join('');
     var agents = (d.agents || []).map(function (g) {
-      var flag = g.status === 'break' ? 'on a break' : g.flags.indexOf('away') >= 0 ? 'away with tickets' : g.flags.indexOf('quiet') >= 0 ? 'quiet' : g.flags.indexOf('full') >= 0 ? 'full' : '';
+      var flag = g.status === 'break' ? 'on a break' : g.flags.indexOf('away') >= 0 ? 'inactive with tickets' : g.flags.indexOf('quiet') >= 0 ? 'quiet' : g.flags.indexOf('full') >= 0 ? 'full' : '';
       return '<div class="wb-agent"><b><span>' + esc(g.name) + '</span><i class="wb-dot" style="background:' + (COL[g.status] || COL.available) + '" title="' + esc(g.status) + '"></i></b><div class="wb-bar' + (g.pct >= 100 ? ' is-full' : g.pct >= 70 ? ' is-high' : '') + '"><i style="width:' + Math.min(100, g.pct) + '%"></i></div><small>' + g.open + ' of ' + g.max + ' open &middot; ' + g.waiting + ' waiting</small>' + (flag ? '<span class="wb-flag">' + esc(flag) + '</span>' : '') + '</div>';
     }).join('');
     var inc = (d.incidents || []).map(function (i) { return '<div class="wb-inc"><span class="wb-bad">' + esc(i.title) + '</span><span>' + i.count + ' in ' + i.sinceMin + ' min</span></div>'; }).join('') || '<div class="wb-inc"><span class="wb-ok">No incident</span><span></span></div>';

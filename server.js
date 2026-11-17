@@ -859,7 +859,7 @@ app.post('/api/login',(req,res)=>{
   return res.json({success:false,error:'Account not found. Check your email or contact your administrator.'});
 });
 
-app.post('/api/logout',(req,res)=>{const t=req.headers['x-session-token'];if(t)delete sessions[t];res.json({success:true});});
+app.post('/api/logout',(req,res)=>{const t=req.headers['x-session-token'];if(t){const ss=sessions[t];if(ss&&!ss.isOwner)_presenceDrop(ss.brandSlug,ss.email);delete sessions[t];}res.json({success:true});});
 
 // ── Forgot password ────────────────────────────────────────────────────────────
 const _forgotHits=new Map();
@@ -4947,7 +4947,8 @@ app.post('/api/call',async(req,res)=>{
       try{if(isBreak&&!wasBreak)_breakLogOpen(slug,su.email);else if(!isBreak&&wasBreak)_breakLogClose(slug,su.email);_liveCacheClear(slug);}catch(e){}
       return{success:true,status:isBreak?'break':status,reassigned};
     },
-    getMyStatus:()=>{const u=(rDB().users||[]).find(x=>x.email===su.email)||{},st=u.availabilityStatus||'available';return{success:true,status:st==='away'&&u.awayReason==='break'?'break':st,since:u.statusUpdatedAt||null};},
+    pingPresence:()=>{_presenceMark(slug,su.email);return{success:true};},
+    getMyStatus:()=>{_presenceMark(slug,su.email);const u=(rDB().users||[]).find(x=>x.email===su.email)||{},st=u.availabilityStatus||'available';return{success:true,status:st==='away'&&u.awayReason==='break'?'break':st,since:u.statusUpdatedAt||null};},
     getAgentStatuses:()=>{
       const db=rDB();
       return{success:true,agents:(db.users||[]).filter(u=>u.active).map(u=>({
@@ -7970,6 +7971,11 @@ const typingStates = {}; // { brandSlug: { ticketId: { email, name, at } } }
 // else is viewing this ticket" indicator — the frontend heartbeats every
 // ~8s while the ticket detail page is open, and a viewer with no heartbeat
 // in VIEW_TTL_MS is treated as having left, no unload hook required.
+// who has Resolvo open right now: the page pings about once a minute while it is visible. Memory only (a restart means everyone shows as not seen for up to a minute).
+const _presence = {}; // { brandSlug: { emailLowercase: lastSeenMs } }
+function _presenceMark(slug,email){if(!slug||!email)return;(_presence[slug]=_presence[slug]||{})[String(email).toLowerCase()]=Date.now();}
+function _presenceDrop(slug,email){if(slug&&email&&_presence[slug])delete _presence[slug][String(email).toLowerCase()];}
+function _presenceSeenMin(slug,email,now){const t=(_presence[slug]||{})[String(email).toLowerCase()];return t?Math.max(0,Math.floor(((now||Date.now())-t)/60000)):null;}
 const viewingStates = {}; // { brandSlug: { ticketId: { email, name, at } } }
 const VIEW_TTL_MS = 15000;
 
@@ -9760,7 +9766,7 @@ function _breakLogOpen(slug,email){email=String(email).toLowerCase();const log=_
 function _breakLogClose(slug,email){email=String(email).toLowerCase();const log=_breakLogGet(slug),now=Date.now();let ch=false;log.forEach(x=>{if(x.e===email&&x.t==null){x.t=now;ch=true;}});if(ch)_kvSet(slug,'agentBreakLog',log);}
 function _breaksToday(log,email,now){const IST=5.5*3600000,day=86400000,start=Math.floor((now+IST)/day)*day-IST;let n=0,ms=0;log.forEach(x=>{if(x.e!==email)return;const e=x.t==null?now:x.t;if(e<=start)return;n++;ms+=e-Math.max(x.s,start);});return{count:n,min:Math.round(ms/60000)};}
 // Who the next ticket goes to when no special rule applies: the same choice autoAssignAgent makes by default (round robin or least busy among people in the queue who are not away and not at their limit), worked out without changing anything.
-function _peekQueue(db){
+function _peekQueue(db,slug){
   const cfg=db.queueConfig||{},users=db.users||[];
   const rules=(cfg.routingRules||[]).filter(r=>r.enabled).length+(cfg.timeRules||[]).filter(r=>r.enabled).length+(cfg.priorityRouting?1:0);
   const base={rules,mode:cfg.mode==='leastbusy'?'leastbusy':'roundrobin'};
@@ -9772,7 +9778,7 @@ function _peekQueue(db){
     const n=openN[a.email]||0,max=u.maxTickets||10,st=u.availabilityStatus||'available',nm=u.name||u.email;
     if(st==='away')skipped.push({email:u.email,name:nm,why:u.awayReason==='break'?'break':'away',since:u.statusUpdatedAt||null});
     else if(n>=max)skipped.push({email:u.email,name:nm,why:'full',open:n,max});
-    else ok.push({email:u.email,name:nm,open:n,max});});
+    else ok.push({email:u.email,name:nm,open:n,max,seenMin:_presenceSeenMin(slug,u.email)});});
   let order=ok;
   if(base.mode==='leastbusy')order=ok.slice().sort((a,b)=>a.open-b.open);
   else if(ok.length){const i=(cfg.lastIndex||0)%ok.length;order=ok.slice(i).concat(ok.slice(0,i));}
@@ -9808,8 +9814,8 @@ function _liveBuild(db,slug,team){
   const agents=Object.keys(ag).map(e=>{const a=ag[e],u=a.u,status=u.availabilityStatus||'available',max=u.maxTickets||10,quiet=a.lastAt?min(now-a.lastAt):null,vw=viewing(e);
     const onBreak=status==='away'&&u.awayReason==='break',sm=Date.parse(u.statusUpdatedAt||''),sinceMin=isNaN(sm)?null:min(now-sm);
     return{email:u.email,name:u.name||u.email,role:u.role,status,statusSince:u.statusUpdatedAt||null,open:a.open,max,pct:Math.min(150,Math.round(a.open/max*100)),waiting:a.waiting,oldest:a.oldest,lastActiveMin:quiet,viewing:vw,
-      onBreak,statusSinceMin:sinceMin,longBreak:onBreak&&sinceMin!=null&&sinceMin>=cfg.breakMin,breaksToday:_breaksToday(bLog,String(u.email).toLowerCase(),now),
-      activity:onBreak?'break':status==='away'?'away':(vw||(quiet!=null&&quiet<=5))?'active':'idle',
+      onBreak,seenMin:_presenceSeenMin(slug,u.email,now),statusSinceMin:sinceMin,longBreak:onBreak&&sinceMin!=null&&sinceMin>=cfg.breakMin,breaksToday:_breaksToday(bLog,String(u.email).toLowerCase(),now),
+      activity:onBreak?'break':status==='away'?'away':(vw||(quiet!=null&&quiet<=5))?'active':(()=>{const sn=_presenceSeenMin(slug,u.email,now);return sn!=null&&sn<=10?'idle':'offline';})(),
       awayWithTickets:status==='away'&&!onBreak&&a.open>0,overloaded:a.open>=max,quiet:status==='available'&&a.waiting>0&&quiet!=null&&quiet>=30};})
     .filter(x=>LIVE_STAFF.includes(x.role)||x.open>0).filter(x=>!teamSet||teamSet.has(String(x.email).toLowerCase())).sort((a,b)=>b.waiting-a.waiting||b.open-a.open||String(a.name).localeCompare(String(b.name)));
   const availN=agents.filter(a=>a.status==='available').length,unassigned=open.filter(t=>!String(t.assignedTo||'').trim()).length;
@@ -9831,7 +9837,7 @@ function _liveBuild(db,slug,team){
     if(unassigned>=cfg.queueDepth)alerts.push({key:'queue',level:'warn',text:unassigned+' tickets have no owner (limit '+cfg.queueDepth+')'});
     if(cfg.noneAvailable&&needs.length>0&&availN===0)alerts.push({key:'none',level:'high',text:'Nobody is available and '+needs.length+(needs.length===1?' customer is':' customers are')+' waiting'});
   }
-  return{at:new Date().toISOString(),cfg,team:team||'',teams:Array.from(new Set((db.users||[]).filter(u=>u.active!==false&&u.team).map(u=>String(u.team)))).sort(),waitBuckets,tiles:{waitingFirst,waitingNow:needs.length,longest,slaBreached:breached,slaRisk:risk,unassigned,arrivals:{last60,prev60},available:{n:availN,total:agents.filter(a=>LIVE_STAFF.includes(a.role)).length}},agents,hot:hot.slice(0,15),alerts,queue:_peekQueue(db)};
+  return{at:new Date().toISOString(),cfg,team:team||'',teams:Array.from(new Set((db.users||[]).filter(u=>u.active!==false&&u.team).map(u=>String(u.team)))).sort(),waitBuckets,tiles:{waitingFirst,waitingNow:needs.length,longest,slaBreached:breached,slaRisk:risk,unassigned,arrivals:{last60,prev60},available:{n:availN,total:agents.filter(a=>LIVE_STAFF.includes(a.role)).length}},agents,hot:hot.slice(0,15),alerts,queue:_peekQueue(db,slug)};
 }
 // History: hourly for the last 24 hours and daily for the last 7 days (India time), from the tickets themselves
 function _liveHistory(db){

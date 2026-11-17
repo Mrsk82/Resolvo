@@ -3614,7 +3614,7 @@ const App = {
       var _ai = document.getElementById('aiBar'); if (_ai) _ai.placeholder = _on ? 'Ask AI' : 'Ask AI: "show critical tickets"';
       if (_on) App._initNavFold();
       var _md = document.getElementById('myDayNav'); if (_md) _md.style.display = _on ? '' : 'none';
-      if (App._loadMyStatus && !App._statusLoaded) { App._statusLoaded = true; App._loadMyStatus(); }
+      if (App._loadMyStatus && !App._statusLoaded) { App._statusLoaded = true; App._loadMyStatus(); if (App._startPresence) App._startPresence(); }
       var _ln = document.getElementById('liveNav'); if (_ln) _ln.style.display = (_on && this.currentUser && ['Admin', 'Manager'].indexOf(this.currentUser.role) >= 0) ? '' : 'none';
     } catch (e) {}
     // Topics is switched off for everyone until the server says otherwise (it costs money), so its sidebar item stays hidden
@@ -12957,13 +12957,20 @@ const App = {
   _setAgentStatus: async function(status) {
     var r = await App.callAsync('setAgentStatus', status);
     if(r&&r.success){
-      App.showToast({available:'🟢 You are Available',busy:'🟡 You are Busy',away:'🔴 You are Away','break':'☕ You are on a break. New tickets will not be assigned to you.'}[status]||'Status updated','success');
+      App.showToast({available:'🟢 You are Active. You get new tickets.',busy:'🟡 You are Busy. You still get new tickets.',away:'🔴 You are Inactive. You get no new tickets.','break':'☕ You are on a break. New tickets will not be assigned to you.'}[status]||'Status updated','success');
       App._agentStatus = status;
       App._breakSince = status==='break' ? Date.now() : null;
       App._updateStatusBadge(status);
     }
   },
   // what the top-bar status shows when the page opens (it used to always say Available)
+  // tells the server this page is open (about once a minute while it is visible), so the team board can tell who is really here
+  _startPresence: function() {
+    if (App._presenceOn) return; App._presenceOn = true;
+    var ping = function() { if (document.hidden || !App.currentUser) return; try { var r = App.callAsync('pingPresence'); if (r && r.catch) r.catch(function(){}); } catch(e) {} };
+    ping(); setInterval(ping, 60000);
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) ping(); });
+  },
   _loadMyStatus: async function() {
     try {
       var r = await App.callAsync('getMyStatus');
@@ -12977,7 +12984,7 @@ const App = {
   _updateStatusBadge: function(status) {
     var badges = document.querySelectorAll('.agent-status-badge');
     var colors = {available:'#10B981',busy:'#F59E0B',away:'#EF4444','break':'#8B5CF6'};
-    var labels = {available:'Available',busy:'Busy',away:'Away','break':'On break'};
+    var labels = {available:'Active',busy:'Busy',away:'Inactive','break':'On break'};
     var text = labels[status]||'Available';
     if(status==='break' && App._breakSince) { var m = Math.max(0, Math.round((Date.now()-App._breakSince)/60000)); text += ' ' + (m < 60 ? m + ' min' : Math.floor(m/60) + ' h ' + (m%60) + ' min'); }
     badges.forEach(function(b){
@@ -12985,6 +12992,7 @@ const App = {
       b.textContent = text;
     });
     var dot = document.getElementById('agentStatusDot'); if(dot) dot.style.background = colors[status]||'#10B981';
+    try { App._shellRenderProfile(); } catch(e) {}
     if(App._breakTimer) { clearInterval(App._breakTimer); App._breakTimer = null; }
     if(status==='break') App._breakTimer = setInterval(function(){ if(App._agentStatus==='break') App._updateStatusBadge('break'); }, 30000);
   },
@@ -23083,9 +23091,14 @@ App._shellRenderProfile = function() {
   var name = cu.name || cu.email || 'Account';
   av.textContent = String(name).trim().charAt(0).toUpperCase() || 'A';
   var dark = Themes && Themes.current === 'resolvo-dark';
+  var cur = App._agentStatus || 'available';
+  av.setAttribute('data-status', cur);
+  var SU = [['available', 'Active', '#10B981', 'You get new tickets'], ['busy', 'Busy', '#F59E0B', 'You still get new tickets'], ['break', 'On a break', '#8B5CF6', 'No new tickets. You keep your open ones'], ['away', 'Inactive', '#EF4444', 'No new tickets']];
+  var statusBlock = '<div class="rv-status" role="group" aria-label="Your status"><div class="rv-status__label">Your status' + (cur === 'break' && App._breakSince ? ' <span>on a break for ' + Math.max(0, Math.round((Date.now() - App._breakSince) / 60000)) + ' min</span>' : '') + '</div>' +
+    SU.map(function(x) { var on = x[0] === cur; return '<button type="button" role="menuitemradio" aria-checked="' + on + '" class="rv-menu__item rv-status__item' + (on ? ' is-on' : '') + '" data-status="' + x[0] + '" onclick="App._setAgentStatus(\'' + x[0] + '\')"><i style="background:' + x[2] + '"></i><span>' + x[1] + '<small>' + x[3] + '</small></span><b aria-hidden="true">' + (on ? '&#10003;' : '') + '</b></button>'; }).join('') + '</div>';
   menu.innerHTML =
     '<div style="padding:8px 12px 10px;border-bottom:1px solid var(--rv-border);margin-bottom:4px"><div style="font-weight:700;font-size:14px;color:var(--rv-text)">' + RV.esc(name) + '</div>' +
-    '<div style="font-size:12px;color:var(--rv-text-muted)">' + RV.esc(cu.email || '') + (cu.role ? ' · ' + RV.esc(cu.role) : '') + '</div></div>' +
+    '<div style="font-size:12px;color:var(--rv-text-muted)">' + RV.esc(cu.email || '') + (cu.role ? ' · ' + RV.esc(cu.role) : '') + '</div></div>' + statusBlock + '<div class="rv-menu__sep"></div>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="Themes.apply(Themes.current===\'resolvo-dark\'?\'resolvo\':\'resolvo-dark\',true);App._shellRenderProfile()">' + (dark ? 'Switch to light mode' : 'Switch to dark mode') + '</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="App._showWhatsNew()">What\'s new</button>' +
     '<button type="button" role="menuitem" class="rv-menu__item" onclick="Keyboard && Keyboard._toggleKbdHelp()">Keyboard shortcuts</button>' +

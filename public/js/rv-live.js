@@ -8,7 +8,7 @@
   var esc = function (s) { return w.RV.esc(s); };
   var S = { tab: 'board', data: null, hist: null, paused: false, timer: null, tick: null, at: 0, loading: false, histAt: 0, team: '', inc: null, sla: null, ch: null, feed: { events: [], since: null, ids: {} }, fc: null, fcAt: 0, seen: null, audio: null };
   var TABS = [['board', 'Board'], ['incidents', 'Incidents'], ['sla', 'SLA countdown'], ['channels', 'Channels'], ['feed', 'Activity'], ['forecast', 'Forecast']];
-  var ST = { available: ['Available', 'var(--rv-success, #0a7d4b)'], busy: ['Busy', 'var(--rv-warning, #b7791f)'], away: ['Away', 'var(--rv-danger, #b42318)'], 'break': ['On break', 'var(--rv-violet, #7c3aed)'] };
+  var ST = { available: ['Active', 'var(--rv-success, #0a7d4b)'], busy: ['Busy', 'var(--rv-warning, #b7791f)'], away: ['Inactive', 'var(--rv-danger, #b42318)'], 'break': ['On break', 'var(--rv-violet, #7c3aed)'] };
   function stOf(a) { return a.onBreak ? 'break' : a.status; }
   function sinceMs(iso, fallbackMin) { var m = Date.parse(iso || ''); return isNaN(m) ? (fallbackMin != null ? Date.now() - fallbackMin * 60000 : null) : m; }
   function liveMin(ms) { return ms == null ? '' : ' <b class="rvl-cd" data-since="' + ms + '">' + mins(Math.max(0, Math.round((Date.now() - ms) / 60000))) + '</b>'; }
@@ -144,7 +144,7 @@
   }
   // who is doing what right now: active (acted in the last 5 minutes or has a ticket open on screen), idle, on a break, away
   function roster(d) {
-    var G = { active: [], idle: [], 'break': [], away: [] };
+    var G = { active: [], idle: [], 'break': [], away: [], offline: [] };
     d.agents.forEach(function (a) { (G[a.activity] || G.idle).push(a); });
     var chip = function (a, extra) { return '<span class="rvl-chip rvl-chip--' + a.activity + (a.longBreak ? ' is-long' : '') + '" data-agent-chip="' + esc(a.email) + '">' + esc((a.name || '').split(' ')[0]) + (extra || '') + '</span>'; };
     var idleTxt = function (a) { return a.lastActiveMin == null ? ' <small>no activity in 2 days</small>' : ' <small>' + mins(a.lastActiveMin) + '</small>'; };
@@ -153,17 +153,25 @@
       col('active', 'Active now', 'Nobody has done anything in the last 5 minutes.', G.active) +
       col('idle', 'Idle', 'Nobody is idle.', G.idle, idleTxt) +
       col('break', 'On a break', 'Nobody is on a break.', G['break'], function (a) { return liveMin(sinceMs(a.statusSince, a.statusSinceMin)) + (a.longBreak ? ' <em>long</em>' : ''); }) +
-      col('away', 'Away', 'Nobody is away.', G.away, function (a) { return a.statusSinceMin != null ? ' <small>' + mins(a.statusSinceMin) + '</small>' : ''; }) +
-      '</div><p class="rv-hint">Active means a reply, note or change in the last 5 minutes, or a ticket open on screen. Someone who has Resolvo open but is not working on a ticket shows as idle.</p></section>';
+      col('away', 'Inactive', 'Nobody is inactive.', G.away, function (a) { return a.statusSinceMin != null ? ' <small>' + mins(a.statusSinceMin) + '</small>' : ''; }) +
+      col('offline', 'Offline', 'Everyone marked Active has Resolvo open.', G.offline, function (a) { return a.seenMin != null ? ' <small>seen ' + mins(a.seenMin) + ' ago</small>' : ''; }) +
+      '</div><p class="rv-hint">Active now: a reply, note or change in the last 5 minutes, or a ticket open on screen. Idle: Resolvo is open but no ticket work. Offline: marked Active but Resolvo has not been open for 10 minutes. They still get new tickets until they set themselves Inactive or on a break.</p></section>';
   }
   // who the next new ticket goes to, worked out from the real auto-assign settings (nothing is changed by looking)
+  function offlineNote(q) {
+    var gone = [q.next].concat(q.then || []).filter(function (x) { return x && (x.seenMin == null || x.seenMin > 10); });
+    if (!gone.length || !q.next) return '';
+    var first = function (x) { return esc((x.name || '').split(' ')[0]); };
+    return '<p class="rvl-warn" role="note">' + (gone[0] === q.next ? first(q.next) + ' has not had Resolvo open for ' + (q.next.seenMin == null ? 'a while' : mins(q.next.seenMin)) + ' but is marked Active, so the ticket will still go to them.' : gone.map(first).join(', ') + ' ' + (gone.length === 1 ? 'is' : 'are') + ' marked Active but not online.') + '</p>';
+  }
   function nextUp(d) {
     var q = d.queue || { state: 'off' }, body;
-    var skip = function (s) { var why = s.why === 'break' ? 'on a break' + liveMin(sinceMs(s.since)) : s.why === 'away' ? 'away' : 'at their limit (' + s.open + ' of ' + s.max + ')'; return '<li><b>' + esc((s.name || '').split(' ')[0]) + '</b> ' + why + '</li>'; };
+    var skip = function (s) { var why = s.why === 'break' ? 'on a break' + liveMin(sinceMs(s.since)) : s.why === 'away' ? 'inactive' : 'at their limit (' + s.open + ' of ' + s.max + ')'; return '<li><b>' + esc((s.name || '').split(' ')[0]) + '</b> ' + why + '</li>'; };
     if (q.state === 'off') body = '<p class="rvl-next__none">Auto-assign is off.</p><p class="rv-hint">New tickets stay with no owner until someone takes them. Turn it on in Settings, Queue.</p>';
     else if (q.state === 'frozen') body = '<p class="rvl-next__none">The queue is frozen.</p><p class="rv-hint">New tickets are not being handed out.</p>';
-    else if (q.state === 'nobody') body = '<p class="rvl-next__none">Nobody can take a new ticket right now.</p><p class="rv-hint">They are all away, on a break or at their limit, so new tickets stay with no owner.</p>';
+    else if (q.state === 'nobody') body = '<p class="rvl-next__none">Nobody can take a new ticket right now.</p><p class="rv-hint">They are all inactive, on a break or at their limit, so new tickets stay with no owner.</p>';
     else body = '<p class="rvl-next__who"><b>' + esc(q.next.name) + '</b><span class="rv-hint"> ' + q.next.open + ' of ' + q.next.max + ' open</span></p>' +
+      offlineNote(q) +
       (q.then.length ? '<p class="rv-hint">Then: ' + q.then.map(function (x) { return esc((x.name || '').split(' ')[0]); }).join(', ') + '</p>' : '') +
       '<p class="rv-hint">' + (q.mode === 'leastbusy' ? 'The person with the fewest open tickets.' : 'People who can take one, in turn.') + '</p>';
     return '<section class="rvl-card rvl-next" aria-label="Next ticket"><h2 class="rvl-h">Next ticket goes to</h2>' + body +
@@ -173,7 +181,7 @@
   function agentCard(a) {
     var st = ST[stOf(a)] || ST.available, flags = [];
     if (a.longBreak) flags.push('<span class="rv-badge rv-badge--warning">Long break</span>');
-    if (a.awayWithTickets) flags.push('<span class="rv-badge rv-badge--danger">Away with ' + a.open + ' open</span>');
+    if (a.awayWithTickets) flags.push('<span class="rv-badge rv-badge--danger">Inactive with ' + a.open + ' open</span>');
     if (a.overloaded) flags.push('<span class="rv-badge rv-badge--warning">At their limit</span>');
     if (a.quiet) flags.push('<span class="rv-badge rv-badge--warning">Quiet for ' + mins(a.lastActiveMin) + '</span>');
     var bar = '<div class="rvl-bar' + (a.pct >= 100 ? ' is-full' : a.pct >= 70 ? ' is-high' : '') + '" role="progressbar" aria-valuenow="' + Math.min(100, a.pct) + '" aria-valuemin="0" aria-valuemax="100" aria-label="' + esc(a.name) + ' workload"><span style="width:' + Math.min(100, a.pct) + '%"></span></div>';
@@ -182,7 +190,7 @@
       '<dl><div><dt>Open</dt><dd>' + a.open + ' of ' + a.max + '</dd></div><div><dt>Waiting on them</dt><dd>' + a.waiting + '</dd></div>' +
       '<div><dt>Longest wait</dt><dd>' + (a.oldest ? '<button type="button" class="rvl-link" data-open="' + esc(a.oldest.id) + '" title="' + esc(a.oldest.subject) + '">' + mins(a.oldest.min) + '</button>' : '&ndash;') + '</dd></div>' +
       '<div><dt>Last active</dt><dd>' + (a.lastActiveMin == null ? 'no activity in 2 days' : a.lastActiveMin < 2 ? 'just now' : mins(a.lastActiveMin) + ' ago') + '</dd></div>' +
-      '<div><dt>Right now</dt><dd class="rvl-act rvl-act--' + a.activity + '">' + ({ active: 'Active', idle: 'Idle', 'break': 'On a break', away: 'Away' }[a.activity] || '') + '</dd></div>' +
+      '<div><dt>Right now</dt><dd class="rvl-act rvl-act--' + a.activity + '">' + ({ active: 'Working', idle: 'Idle', 'break': 'On a break', away: 'Inactive', offline: 'Offline' }[a.activity] || '') + '</dd></div>' +
       '<div><dt>Breaks today</dt><dd>' + (a.breaksToday && a.breaksToday.count ? a.breaksToday.count + ' &middot; ' + mins(a.breaksToday.min || 0) : 'none') + '</dd></div></dl>' +
       (a.viewing ? '<div class="rvl-view">Looking at: <button type="button" class="rvl-link" data-open="' + esc(a.viewing.id) + '">' + esc(a.viewing.subject || a.viewing.id) + '</button></div>' : '') +
       (flags.length ? '<div class="rvl-flags">' + flags.join('') + '</div>' : '') +

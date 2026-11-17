@@ -37,7 +37,7 @@ const sqlite = (f) => { const d = new Dsql(dbFile()); try { return f(d); } final
   build(); await start();
   try {
     const login = async (e) => (await post('/api/login', { email: e, password: 'demo1234' })).token;
-    const admin = await login('admin@demo.local'), sam = await login('sam@demo.local'), ravi = await login('ravi@demo.local'), tina = await login('tina@demo.local'), mira = await login('mira@demo.local');
+    const admin = await login('admin@demo.local'), sam = await login('sam@demo.local'), ravi = await login('ravi@demo.local'), mira = await login('mira@demo.local'); let tina = await login('tina@demo.local');
     const board = async (tok) => rpc(tok || admin, 'getLiveBoard'); const card = (b, e) => b.agents.find((a) => a.email === e);
     const queue = (over) => rpc(admin, 'saveQueueConfig', { enabled: true, mode: 'roundrobin', frozen: false, agents: ['sam@demo.local', 'ravi@demo.local', 'tina@demo.local', 'mira@demo.local'].map((e) => ({ email: e, inQueue: true })), routingRules: [], timeRules: [], ...(over || {}) });
     const nextTicket = async (n) => { const r = await rpc(admin, 'createManualTicket', { subject: 'Probe ' + n + ' ' + Math.random().toString(36).slice(2, 7), customerEmail: 'probe' + n + '@example.test', customerName: 'Probe', description: 'Hello', priority: 'Low' }); return r.success ? (await rpc(admin, 'getTicketById', r.ticketId || r.id)).ticket.assignedTo : null; };
@@ -45,8 +45,15 @@ const sqlite = (f) => { const d = new Dsql(dbFile()); try { return f(d); } final
 
     // ---- a break ----
     let b = await board();
-    check('activity: every card says active, idle, break or away', b.agents.every((a) => ['active', 'idle', 'break', 'away'].includes(a.activity)) && card(b, 'ravi@demo.local').activity === 'away', b.agents.map((a) => [a.email, a.activity]));
-    check('activity: Sam (acted 3 minutes ago) is active, Tina (no activity for days) is idle', card(b, 'sam@demo.local').activity === 'active' && card(b, 'tina@demo.local').activity === 'idle', [card(b, 'sam@demo.local').activity, card(b, 'tina@demo.local').activity]);
+    check('activity: every card says active, idle, break or away', b.agents.every((a) => ['active', 'idle', 'break', 'away', 'offline'].includes(a.activity)) && card(b, 'ravi@demo.local').activity === 'away', b.agents.map((a) => [a.email, a.activity]));
+    check('activity: Sam (acted 3 minutes ago) is active; Tina (no activity, and Resolvo not open) is offline although marked Active', card(b, 'sam@demo.local').activity === 'active' && card(b, 'tina@demo.local').activity === 'offline' && card(b, 'tina@demo.local').seenMin === null, [card(b, 'sam@demo.local').activity, card(b, 'tina@demo.local').activity]);
+    check('presence: an agent can tell the server the page is open', (await rpc(tina, 'pingPresence')).success);
+    b = await board();
+    check('presence: Tina is now idle (open but no ticket work) and was seen 0 minutes ago', card(b, 'tina@demo.local').activity === 'idle' && card(b, 'tina@demo.local').seenMin === 0, [card(b, 'tina@demo.local').activity, card(b, 'tina@demo.local').seenMin]);
+    check('presence: signing out makes her offline straight away', (await post('/api/logout', {}, tina)).success && card(await board(), 'tina@demo.local').activity === 'offline');
+    tina = await login('tina@demo.local');
+    check('presence: signing in again (status check on load) makes her idle again', (await rpc(tina, 'getMyStatus')).success && card(await board(), 'tina@demo.local').activity === 'idle');
+    check('presence: a person who is not signed in cannot send a ping', !(await rpc('bad-token', 'pingPresence')).success);
     const samOpen = card(b, 'sam@demo.local').open;
     let r = await rpc(sam, 'setAgentStatus', 'break');
     check('break: an agent can start a break', r.success && r.status === 'break', r);
